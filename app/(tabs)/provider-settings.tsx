@@ -168,19 +168,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
-  header: {
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-  },
   providersList: {
     gap: 12,
   },
