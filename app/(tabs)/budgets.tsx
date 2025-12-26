@@ -9,7 +9,7 @@ import {
   FileText,
   BarChart3
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { BarChart } from '@/components/Charts';
 import { getBudgetTemplatesForBusinessType } from '@/constants/budget-templates';
 import {
@@ -21,7 +21,9 @@ import {
   TextInput,
   Alert as RNAlert,
   Modal,
+  Animated,
 } from 'react-native';
+import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Budget } from '@/types/business';
@@ -29,7 +31,25 @@ import type { Budget } from '@/types/business';
 export default function BudgetsScreen() {
   const { business, transactions, budgets, addBudget, updateBudget, deleteBudget } = useBusiness();
   const { theme } = useTheme();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: false,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'quarterly' | 'yearly'>('monthly');
@@ -184,36 +204,45 @@ export default function BudgetsScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
-      <Stack.Screen options={{ title: 'Budgets', headerShown: false }} />
-      
-      <View style={[styles.header, { backgroundColor: theme.background.card }]}>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Budgets</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={[styles.templateButton, { backgroundColor: theme.background.secondary }]}
-            onPress={() => setShowTemplateModal(true)}
-          >
-            <FileText size={18} color={theme.accent.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: theme.accent.primary }]}
-            onPress={() => {
-              const today = new Date();
-              const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-              const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-              setStartDate(monthStart.toISOString().split('T')[0]);
-              setEndDate(monthEnd.toISOString().split('T')[0]);
-              setCategories([{ category: '', budgeted: '' }]);
-              setShowModal(true);
-            }}
-          >
-            <Plus size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      </View>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+        <PageHeader
+          title="Budgets"
+          subtitle="Plan and track your spending"
+          icon={Target}
+          iconGradient={['#F59E0B', '#D97706']}
+          rightAction={
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                style={styles.headerActionButton}
+                onPress={() => setShowTemplateModal(true)}
+              >
+                <FileText size={18} color="#FFF" strokeWidth={2.5} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.headerAddButton}
+                onPress={() => {
+                  const today = new Date();
+                  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                  setStartDate(monthStart.toISOString().split('T')[0]);
+                  setEndDate(monthEnd.toISOString().split('T')[0]);
+                  setCategories([{ category: '', budgeted: '' }]);
+                  setShowModal(true);
+                }}
+              >
+                <Plus size={20} color="#FFF" strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
+          }
+        />
 
-      <ScrollView style={styles.scrollView}>
+        <Animated.View style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}>
+          <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
         {budgets.length === 0 ? (
           <View style={styles.emptyState}>
             <Target size={48} color={theme.text.tertiary} />
@@ -330,9 +359,10 @@ export default function BudgetsScreen() {
             );
           })
         )}
-      </ScrollView>
+          </ScrollView>
+        </Animated.View>
 
-      {/* Budget Templates Modal */}
+        {/* Budget Templates Modal */}
       <Modal visible={showTemplateModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
@@ -601,7 +631,8 @@ export default function BudgetsScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+      </View>
+    </>
   );
 }
 
@@ -609,36 +640,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    paddingTop: 60,
-    paddingBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  templateButton: {
+  headerAddButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  addButton: {
+  headerActionButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   scrollView: {
     flex: 1,
