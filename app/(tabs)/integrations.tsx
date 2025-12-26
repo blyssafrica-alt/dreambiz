@@ -8,9 +8,10 @@ import {
   CheckCircle,
   XCircle,
   Settings,
-  ExternalLink
+  ExternalLink,
+  Plug
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,7 +20,9 @@ import {
   TouchableOpacity,
   Alert as RNAlert,
   Linking,
+  Animated,
 } from 'react-native';
+import PageHeader from '@/components/PageHeader';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface Integration {
@@ -201,17 +204,21 @@ export default function IntegrationsScreen() {
   const isConnected = (id: string) => connectedIntegrations.includes(id);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
-      <Stack.Screen options={{ title: 'Integrations', headerShown: false }} />
-      
-      <View style={[styles.header, { backgroundColor: theme.background.card }]}>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Integrations</Text>
-        <Text style={[styles.headerSubtitle, { color: theme.text.tertiary }]}>
-          Connect external services to enhance your business management
-        </Text>
-      </View>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+        <PageHeader
+          title="Integrations"
+          subtitle="Connect your favorite tools and services"
+          icon={Plug}
+          iconGradient={['#8B5CF6', '#7C3AED']}
+        />
 
-      <ScrollView style={styles.scrollView}>
+        <Animated.View style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}>
+          <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
         {Object.entries(groupedIntegrations).map(([category, items]) => (
           <View key={category} style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
@@ -285,8 +292,10 @@ export default function IntegrationsScreen() {
             })}
           </View>
         ))}
-      </ScrollView>
-    </View>
+          </ScrollView>
+        </Animated.View>
+      </View>
+    </>
   );
 }
 

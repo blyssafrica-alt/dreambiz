@@ -1,10 +1,11 @@
 // Provider Settings Screen - Allows users to switch between backend providers
-import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Animated } from 'react-native';
+import PageHeader from '@/components/PageHeader';
 import { useProvider } from '@/contexts/ProviderContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { CheckCircle, Database, AlertCircle } from 'lucide-react-native';
+import { CheckCircle, Database, AlertCircle, Settings } from 'lucide-react-native';
 import type { ProviderType } from '@/lib/providers';
 
 export default function ProviderSettingsScreen() {

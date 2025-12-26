@@ -7,7 +7,7 @@ import {
   ArrowRight,
   X
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,9 @@ import {
   TextInput,
   Alert as RNAlert,
   Modal,
+  Animated,
 } from 'react-native';
+import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { BusinessType, BusinessStage, Currency } from '@/types/business';
@@ -133,25 +135,29 @@ export default function BusinessesScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
-      <Stack.Screen options={{ title: 'My Businesses', headerShown: false }} />
-      
-      <View style={[styles.header, { backgroundColor: theme.background.card }]}>
-        <View>
-          <Text style={[styles.headerTitle, { color: theme.text.primary }]}>My Businesses</Text>
-          <Text style={[styles.headerSubtitle, { color: theme.text.tertiary }]}>
-            Manage multiple businesses from one account
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.accent.primary }]}
-          onPress={() => setShowModal(true)}
-        >
-          <Plus size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+        <PageHeader
+          title="My Businesses"
+          subtitle="Manage multiple businesses from one account"
+          icon={Building2}
+          iconGradient={['#3B82F6', '#2563EB']}
+          rightAction={
+            <TouchableOpacity
+              style={styles.headerAddButton}
+              onPress={() => setShowModal(true)}
+            >
+              <Plus size={20} color="#FFF" strokeWidth={2.5} />
+            </TouchableOpacity>
+          }
+        />
 
-      <ScrollView style={styles.scrollView}>
+        <Animated.View style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}>
+          <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
         {businesses.length === 0 ? (
           <View style={styles.emptyState}>
             <Building2 size={48} color={theme.text.tertiary} />

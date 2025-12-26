@@ -10,7 +10,7 @@ import {
   CheckCircle,
   XCircle
 } from 'lucide-react-native';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,9 @@ import {
   TextInput,
   Alert as RNAlert,
   Modal,
+  Animated,
 } from 'react-native';
+import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { RecurringInvoice } from '@/types/payments';
@@ -29,7 +31,25 @@ import type { DocumentItem, Currency } from '@/types/business';
 export default function RecurringInvoicesScreen() {
   const { business, recurringInvoices, addRecurringInvoice, updateRecurringInvoice, deleteRecurringInvoice, addDocument } = useBusiness();
   const { theme } = useTheme();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: false,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
@@ -252,24 +272,33 @@ export default function RecurringInvoicesScreen() {
   const { subtotal, tax, total } = calculateTotals();
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
-      <Stack.Screen options={{ title: 'Recurring Invoices', headerShown: false }} />
-      
-      <View style={[styles.header, { backgroundColor: theme.background.card }]}>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Recurring Invoices</Text>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.accent.primary }]}
-          onPress={() => {
-            const today = new Date();
-            setStartDate(today.toISOString().split('T')[0]);
-            setShowModal(true);
-          }}
-        >
-          <Plus size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+        <PageHeader
+          title="Recurring Invoices"
+          subtitle="Automate your billing cycle"
+          icon={Repeat}
+          iconGradient={['#EC4899', '#DB2777']}
+          rightAction={
+            <TouchableOpacity
+              style={styles.headerAddButton}
+              onPress={() => {
+                const today = new Date();
+                setStartDate(today.toISOString().split('T')[0]);
+                setShowModal(true);
+              }}
+            >
+              <Plus size={20} color="#FFF" strokeWidth={2.5} />
+            </TouchableOpacity>
+          }
+        />
 
-      <ScrollView style={styles.scrollView}>
+        <Animated.View style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}>
+          <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
         {recurringInvoices.length === 0 ? (
           <View style={styles.emptyState}>
             <Repeat size={48} color={theme.text.tertiary} />
