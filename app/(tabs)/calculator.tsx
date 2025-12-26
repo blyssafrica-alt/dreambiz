@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
 import { Calculator as CalcIcon, AlertTriangle, CheckCircle, AlertCircle } from 'lucide-react-native';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,19 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
+  Platform,
+  Animated,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import type { ViabilityResult } from '@/types/business';
 
 export default function CalculatorScreen() {
   const { business } = useBusiness();
+  const { theme } = useTheme();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
   const [capital, setCapital] = useState('');
   const [monthlyExpenses, setMonthlyExpenses] = useState('');
   const [pricePerUnit, setPricePerUnit] = useState('');
@@ -21,6 +28,22 @@ export default function CalculatorScreen() {
   const [expectedSales, setExpectedSales] = useState('');
   const [inflationRate, setInflationRate] = useState('');
   const [result, setResult] = useState<ViabilityResult | null>(null);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: false,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
 
   const calculateScenario = (salesVolume: number, cap: number, expenses: number, price: number, cost: number) => {
     const monthlyRevenue = salesVolume * price;
@@ -146,9 +169,39 @@ export default function CalculatorScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Viability Calculator' }} />
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <View style={styles.header}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+        {/* Header with Gradient */}
+        <LinearGradient
+          colors={theme.gradient.primary as [string, string]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.headerTitle}>Viability Calculator</Text>
+              <Text style={styles.headerSubtitle}>
+                Know if your business will succeed
+              </Text>
+            </View>
+            <LinearGradient
+              colors={['#3B82F6', '#2563EB']}
+              style={styles.headerIcon}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <CalcIcon size={28} color="#FFF" strokeWidth={2.5} />
+            </LinearGradient>
+          </View>
+        </LinearGradient>
+
+        <Animated.View style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}>
+          <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+            <View style={styles.formSection}>
           <CalcIcon size={40} color="#0066CC" />
           <Text style={styles.title}>Business Viability Check</Text>
           <Text style={styles.subtitle}>
@@ -373,7 +426,9 @@ export default function CalculatorScreen() {
             </View>
           </View>
         )}
-      </ScrollView>
+          </ScrollView>
+        </Animated.View>
+      </View>
     </>
   );
 }
@@ -492,10 +547,16 @@ const styles = StyleSheet.create({
   },
   warningsCard: {
     padding: 20,
-    borderRadius: 16,
+    borderRadius: 20,
     backgroundColor: '#FEF3C7',
     borderWidth: 1,
     borderColor: '#F59E0B',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   },
   warningsTitle: {
     fontSize: 16,
@@ -511,10 +572,16 @@ const styles = StyleSheet.create({
   },
   tipsCard: {
     padding: 20,
-    borderRadius: 16,
+    borderRadius: 20,
     backgroundColor: '#EFF6FF',
     borderWidth: 1,
     borderColor: '#0066CC',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   },
   tipsTitle: {
     fontSize: 16,
@@ -530,10 +597,16 @@ const styles = StyleSheet.create({
   },
   scenariosCard: {
     padding: 20,
-    borderRadius: 16,
+    borderRadius: 20,
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   },
   scenariosTitle: {
     fontSize: 16,

@@ -9,7 +9,7 @@ import {
   Filter,
   X
 } from 'lucide-react-native';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,10 @@ import {
   TextInput,
   Alert as RNAlert,
   Modal,
+  Platform,
+  Animated,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Product } from '@/types/business';
@@ -40,7 +43,25 @@ const PRODUCT_CATEGORIES = [
 export default function ProductsScreen() {
   const { business, products, addProduct, updateProduct, deleteProduct } = useBusiness();
   const { theme } = useTheme();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: false,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -228,29 +249,51 @@ export default function ProductsScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
-      <Stack.Screen options={{ title: 'Products', headerShown: false }} />
-      
-      <View style={[styles.header, { backgroundColor: theme.background.card }]}>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Products</Text>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.accent.primary }]}
-          onPress={() => setShowModal(true)}
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+        {/* Header with Gradient */}
+        <LinearGradient
+          colors={theme.gradient.primary as [string, string]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerGradient}
         >
-          <Plus size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.headerTitle}>Products</Text>
+              <Text style={styles.headerSubtitle}>
+                Manage your product catalog
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.headerAddButton}
+              onPress={() => setShowModal(true)}
+            >
+              <Plus size={20} color="#FFF" strokeWidth={2.5} />
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
 
-      {lowStockProducts.length > 0 && (
+        <Animated.View style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}>
+          {lowStockProducts.length > 0 && (
         <View style={[styles.alertBanner, { backgroundColor: theme.surface.warning }]}>
           <AlertTriangle size={20} color={theme.accent.warning} />
           <Text style={[styles.alertText, { color: theme.accent.warning }]}>
             {lowStockProducts.length} product{lowStockProducts.length > 1 ? 's' : ''} running low on stock
           </Text>
         </View>
-      )}
+          )}
 
-      <View style={[styles.searchContainer, { backgroundColor: theme.background.card }]}>
+          <View style={[styles.searchContainer, { 
+            backgroundColor: theme.background.card,
+            marginTop: 12,
+            marginHorizontal: 20,
+            marginBottom: 12,
+          }]}>
         <View style={[styles.searchBox, { backgroundColor: theme.background.secondary }]}>
           <Search size={18} color={theme.text.tertiary} />
           <TextInput
@@ -271,10 +314,10 @@ export default function ProductsScreen() {
           onPress={() => setShowCategoryFilter(true)}
         >
           <Filter size={18} color={selectedCategory ? '#fff' : theme.text.tertiary} />
-        </TouchableOpacity>
-      </View>
+          </TouchableOpacity>
+          </View>
 
-      <ScrollView style={styles.scrollView}>
+          <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
         {/* Product Analytics Summary */}
         {products.length > 0 && (
           <View style={[styles.analyticsCard, { backgroundColor: theme.background.card }]}>
@@ -433,9 +476,10 @@ export default function ProductsScreen() {
             );
           })
         )}
-      </ScrollView>
+        </ScrollView>
+        </Animated.View>
 
-      {/* Add/Edit Modal */}
+        {/* Add/Edit Modal */}
       <Modal
         visible={showModal}
         animationType="slide"
@@ -643,24 +687,51 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerGradient: {
+    paddingTop: Platform.OS === 'ios' ? 60 : 50,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    paddingTop: 60,
-    paddingBottom: 16,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 32,
+    fontWeight: '900' as const,
+    color: '#FFF',
+    marginBottom: 4,
   },
-  addButton: {
+  headerSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '500' as const,
+  },
+  headerIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  headerAddButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   alertBanner: {
     flexDirection: 'row',
