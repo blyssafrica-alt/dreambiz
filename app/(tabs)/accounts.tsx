@@ -3,16 +3,19 @@ import {
   TrendingUp, 
   TrendingDown,
   Clock,
-  FileText
+  FileText,
+  Wallet
 } from 'lucide-react-native';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Animated,
 } from 'react-native';
+import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { AccountsReceivable, AccountsPayable } from '@/types/payments';
@@ -20,7 +23,25 @@ import type { AccountsReceivable, AccountsPayable } from '@/types/payments';
 export default function AccountsScreen() {
   const { business, documents } = useBusiness();
   const { theme } = useTheme();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
   const [activeTab, setActiveTab] = useState<'receivable' | 'payable'>('receivable');
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: false,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
 
   const formatCurrency = (amount: number) => {
     const symbol = business?.currency === 'USD' ? '$' : 'ZWL';
@@ -203,15 +224,28 @@ export default function AccountsScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
-      <Stack.Screen options={{ title: 'Accounts', headerShown: false }} />
-      
-      <View style={[styles.header, { backgroundColor: theme.background.card }]}>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Accounts</Text>
-      </View>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+        <PageHeader
+          title="Accounts"
+          subtitle="Track money owed to and by you"
+          icon={Wallet}
+          iconGradient={['#10B981', '#059669']}
+        />
 
-      {/* Tab Selector */}
-      <View style={[styles.tabContainer, { backgroundColor: theme.background.card }]}>
+        <Animated.View style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}>
+          {/* Tab Selector */}
+          <View style={[styles.tabContainer, { 
+            backgroundColor: theme.background.card,
+            marginTop: -12,
+            marginHorizontal: 20,
+            marginBottom: 12,
+            paddingTop: 12,
+          }]}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'receivable' && styles.tabActive, { backgroundColor: activeTab === 'receivable' ? theme.accent.primary : 'transparent' }]}
           onPress={() => setActiveTab('receivable')}
