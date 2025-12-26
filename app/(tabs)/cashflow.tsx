@@ -7,9 +7,10 @@ import {
   X,
   ArrowUpRight,
   ArrowDownRight,
-  BarChart3
+  BarChart3,
+  DollarSign
 } from 'lucide-react-native';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { LineChart, BarChart } from '@/components/Charts';
 import {
   View,
@@ -20,7 +21,9 @@ import {
   TextInput,
   Alert as RNAlert,
   Modal,
+  Animated,
 } from 'react-native';
+import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { CashflowProjection } from '@/types/business';
@@ -28,7 +31,25 @@ import type { CashflowProjection } from '@/types/business';
 export default function CashflowScreen() {
   const { business, cashflowProjections, addCashflowProjection, updateCashflowProjection, deleteCashflowProjection } = useBusiness();
   const { theme } = useTheme();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: false,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [month, setMonth] = useState('');
   const [openingBalance, setOpeningBalance] = useState('');
@@ -331,9 +352,10 @@ export default function CashflowScreen() {
             );
           })
         )}
-      </ScrollView>
+          </ScrollView>
+        </Animated.View>
 
-      {/* Add/Edit Modal */}
+        {/* Add/Edit Modal */}
       <Modal
         visible={showModal}
         animationType="slide"
@@ -442,7 +464,8 @@ export default function CashflowScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+      </View>
+    </>
   );
 }
 
