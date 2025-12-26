@@ -93,15 +93,21 @@ export default function ProviderSettingsScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
-      <View style={[styles.header, { backgroundColor: theme.background.card }]}>
-        <Text style={[styles.title, { color: theme.text.primary }]}>Backend Provider</Text>
-        <Text style={[styles.subtitle, { color: theme.text.secondary }]}>
-          Choose your backend service provider
-        </Text>
-      </View>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
+        <PageHeader
+          title="Backend Provider"
+          subtitle="Choose your backend service provider"
+          icon={Settings}
+          iconGradient={['#6366F1', '#4F46E5']}
+        />
 
-      <View style={styles.providersList}>
+        <Animated.View style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}>
+          <View style={[styles.providersList, { paddingHorizontal: 20, paddingBottom: 40 }]}>
         {availableProviders.map((providerType) => {
           const info = getProviderInfo(providerType);
           const isActive = providerType === currentProvider;

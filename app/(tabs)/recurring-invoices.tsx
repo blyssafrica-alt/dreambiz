@@ -371,9 +371,10 @@ export default function RecurringInvoicesScreen() {
             </View>
           ))
         )}
-      </ScrollView>
+          </ScrollView>
+        </Animated.View>
 
-      {/* Add/Edit Modal */}
+        {/* Add/Edit Modal */}
       <Modal visible={showModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
@@ -552,7 +553,8 @@ export default function RecurringInvoicesScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+      </View>
+    </>
   );
 }
 

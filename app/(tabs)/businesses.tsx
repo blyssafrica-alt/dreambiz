@@ -222,9 +222,10 @@ export default function BusinessesScreen() {
             </TouchableOpacity>
           ))
         )}
-      </ScrollView>
+          </ScrollView>
+        </Animated.View>
 
-      {/* Add Business Modal */}
+        {/* Add Business Modal */}
       <Modal
         visible={showModal}
         animationType="slide"
@@ -339,7 +340,8 @@ export default function BusinessesScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+      </View>
+    </>
   );
 }
 
