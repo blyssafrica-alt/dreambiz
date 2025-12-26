@@ -32,11 +32,7 @@ export default function DocumentsScreen() {
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [presetName, setPresetName] = useState('');
 
-  // Get template for current document type and business type
-  const template = useMemo(() => {
-    if (!business) return null;
-    return getDocumentTemplate(docType, business.type);
-  }, [docType, business]);
+  // Template is now handled by DocumentWizard component
 
   // Payment reminders - overdue invoices
   const overdueInvoices = useMemo(() => {
@@ -138,21 +134,7 @@ export default function DocumentsScreen() {
     );
   };
 
-  // Reset template fields when document type changes
-  const handleDocTypeChange = (newType: DocumentType) => {
-    setDocType(newType);
-    setTemplateFields({});
-  };
-
-  const addItem = () => {
-    setItems([...items, { description: '', quantity: '1', price: '' }]);
-  };
-
-  const updateItem = (index: number, field: string, value: string) => {
-    const newItems = [...items];
-    newItems[index] = { ...newItems[index], [field]: value };
-    setItems(newItems);
-  };
+  // Legacy modal functions removed - DocumentWizard handles document creation
 
   const handleWizardComplete = async (wizardData: {
     type: DocumentType;
@@ -251,15 +233,6 @@ export default function DocumentsScreen() {
     }
   };
 
-  const getCustomerLabel = (type: DocumentType) => {
-    switch (type) {
-      case 'purchase_order':
-      case 'supplier_agreement':
-        return 'Supplier Name *';
-      default:
-        return 'Customer Name *';
-    }
-  };
 
   const getStatusIcon = (status?: DocumentStatus) => {
     switch (status) {
@@ -415,200 +388,6 @@ export default function DocumentsScreen() {
           onComplete={handleWizardComplete}
           businessType={business?.type}
         />
-
-        {/* Legacy Modal - keeping for reference but not used */}
-        {false && <Modal visible={false} animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
-            <ScrollView contentContainerStyle={styles.modalScrollContent}>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Create Document</Text>
-
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeSelector}>
-                  <TouchableOpacity
-                    style={[styles.typeChip, docType === 'invoice' && styles.typeChipActive]}
-                    onPress={() => handleDocTypeChange('invoice')}
-                  >
-                    <Text style={[styles.typeChipText, docType === 'invoice' && styles.typeChipTextActive]}>
-                      Invoice
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.typeChip, docType === 'receipt' && styles.typeChipActive]}
-                    onPress={() => handleDocTypeChange('receipt')}
-                  >
-                    <Text style={[styles.typeChipText, docType === 'receipt' && styles.typeChipTextActive]}>
-                      Receipt
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.typeChip, docType === 'quotation' && styles.typeChipActive]}
-                    onPress={() => handleDocTypeChange('quotation')}
-                  >
-                    <Text style={[styles.typeChipText, docType === 'quotation' && styles.typeChipTextActive]}>
-                      Quotation
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.typeChip, docType === 'purchase_order' && styles.typeChipActive]}
-                    onPress={() => handleDocTypeChange('purchase_order')}
-                  >
-                    <Text style={[styles.typeChipText, docType === 'purchase_order' && styles.typeChipTextActive]}>
-                      Purchase Order
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.typeChip, docType === 'contract' && styles.typeChipActive]}
-                    onPress={() => handleDocTypeChange('contract')}
-                  >
-                    <Text style={[styles.typeChipText, docType === 'contract' && styles.typeChipTextActive]}>
-                      Contract
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.typeChip, docType === 'supplier_agreement' && styles.typeChipActive]}
-                    onPress={() => handleDocTypeChange('supplier_agreement')}
-                  >
-                    <Text style={[styles.typeChipText, docType === 'supplier_agreement' && styles.typeChipTextActive]}>
-                      Supplier Agreement
-                    </Text>
-                  </TouchableOpacity>
-                </ScrollView>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>{getCustomerLabel(docType)}</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder={docType === 'purchase_order' || docType === 'supplier_agreement' ? 'Enter supplier name' : 'Enter customer name'}
-                    value={customerName}
-                    onChangeText={setCustomerName}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>{docType === 'purchase_order' || docType === 'supplier_agreement' ? 'Supplier Phone' : 'Customer Phone'}</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="+263..."
-                    keyboardType="phone-pad"
-                    value={customerPhone}
-                    onChangeText={setCustomerPhone}
-                  />
-                </View>
-
-                {(docType === 'invoice' || docType === 'purchase_order') && (
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Due Date</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="YYYY-MM-DD"
-                      value={dueDate}
-                      onChangeText={setDueDate}
-                    />
-                  </View>
-                )}
-
-                {/* Template-specific fields */}
-                {template && template.fields.length > 0 && (
-                  <View style={styles.templateSection}>
-                    <Text style={styles.templateSectionTitle}>
-                      {template.name} - Additional Fields
-                    </Text>
-                    {template.fields.map((field) => (
-                      <View key={field.id} style={styles.inputGroup}>
-                        <Text style={styles.label}>
-                          {field.label} {field.required && '*'}
-                        </Text>
-                        {field.type === 'select' && field.options ? (
-                          <View style={styles.selectContainer}>
-                            {field.options.map((option) => (
-                              <TouchableOpacity
-                                key={option}
-                                style={[
-                                  styles.selectOption,
-                                  templateFields[field.id] === option && styles.selectOptionActive,
-                                ]}
-                                onPress={() => setTemplateFields({ ...templateFields, [field.id]: option })}
-                              >
-                                <Text
-                                  style={[
-                                    styles.selectOptionText,
-                                    templateFields[field.id] === option && styles.selectOptionTextActive,
-                                  ]}
-                                >
-                                  {option}
-                                </Text>
-                              </TouchableOpacity>
-                            ))}
-                          </View>
-                        ) : field.type === 'date' ? (
-                          <TextInput
-                            style={styles.input}
-                            placeholder="YYYY-MM-DD"
-                            value={templateFields[field.id] || ''}
-                            onChangeText={(text) => setTemplateFields({ ...templateFields, [field.id]: text })}
-                          />
-                        ) : (
-                          <TextInput
-                            style={styles.input}
-                            placeholder={`Enter ${field.label.toLowerCase()}`}
-                            value={templateFields[field.id] || ''}
-                            onChangeText={(text) => setTemplateFields({ ...templateFields, [field.id]: text })}
-                            keyboardType={field.type === 'number' ? 'decimal-pad' : 'default'}
-                          />
-                        )}
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                <Text style={styles.itemsTitle}>Items</Text>
-                {items.map((item, index) => (
-                  <View key={index} style={styles.itemCard}>
-                    <TextInput
-                      style={styles.itemInput}
-                      placeholder="Item description"
-                      value={item.description}
-                      onChangeText={(text) => updateItem(index, 'description', text)}
-                    />
-                    <View style={styles.itemRow}>
-                      <TextInput
-                        style={styles.itemInputSmall}
-                        placeholder="Qty"
-                        keyboardType="decimal-pad"
-                        value={item.quantity}
-                        onChangeText={(text) => updateItem(index, 'quantity', text)}
-                      />
-                      <TextInput
-                        style={styles.itemInputPrice}
-                        placeholder="Price"
-                        keyboardType="decimal-pad"
-                        value={item.price}
-                        onChangeText={(text) => updateItem(index, 'price', text)}
-                      />
-                    </View>
-                  </View>
-                ))}
-
-                <TouchableOpacity style={styles.addItemButton} onPress={addItem}>
-                  <Plus size={16} color="#0066CC" />
-                  <Text style={styles.addItemText}>Add Item</Text>
-                </TouchableOpacity>
-
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={styles.cancelButton}
-                    onPress={() => setShowModal(false)}
-                  >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.createButton} onPress={handleCreate}>
-                    <Text style={styles.createButtonText}>Create</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </ScrollView>
-          </View>
-        </Modal>
       </View>
     </>
   );
