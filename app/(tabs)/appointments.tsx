@@ -348,9 +348,10 @@ export default function AppointmentsScreen() {
             ))
           )}
         </View>
-      </ScrollView>
+          </ScrollView>
+        </Animated.View>
 
-      {/* Add/Edit Modal */}
+        {/* Add/Edit Modal */}
       <Modal
         visible={showModal}
         animationType="slide"
