@@ -376,9 +376,10 @@ export default function SuppliersScreen() {
             </View>
           ))
         )}
-      </ScrollView>
+          </ScrollView>
+        </Animated.View>
 
-      {/* Supplier Detail Modal */}
+        {/* Supplier Detail Modal */}
       <Modal visible={showSupplierDetail} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>

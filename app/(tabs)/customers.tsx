@@ -363,9 +363,10 @@ export default function CustomersScreen() {
             </View>
           ))
         )}
-      </ScrollView>
+          </ScrollView>
+        </Animated.View>
 
-      {/* Customer Detail Modal */}
+        {/* Customer Detail Modal */}
       <Modal visible={showCustomerDetail} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>

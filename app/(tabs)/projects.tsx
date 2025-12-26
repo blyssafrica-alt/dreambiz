@@ -315,9 +315,10 @@ export default function ProjectsScreen() {
             </View>
           ))
         )}
-      </ScrollView>
+          </ScrollView>
+        </Animated.View>
 
-      {/* Add/Edit Modal */}
+        {/* Add/Edit Modal */}
       <Modal
         visible={showModal}
         animationType="slide"
