@@ -289,8 +289,10 @@ export default function POSScreen() {
             </TouchableOpacity>
           </View>
         </View>
+          </View>
+        </Animated.View>
       </View>
-    </View>
+    </>
   );
 }
 
