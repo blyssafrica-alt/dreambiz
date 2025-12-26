@@ -104,6 +104,34 @@ export default function AdminLayout() {
           headerShown: true,
         }} 
       />
+      <Stack.Screen 
+        name="features" 
+        options={{ 
+          title: 'Feature Management',
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
+        name="products" 
+        options={{ 
+          title: 'Product Management',
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
+        name="ads" 
+        options={{ 
+          title: 'Advertisement Management',
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
+        name="templates" 
+        options={{ 
+          title: 'Document Templates',
+          headerShown: false,
+        }} 
+      />
     </Stack>
   );
 }

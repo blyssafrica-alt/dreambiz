@@ -156,35 +156,75 @@ export default function AdminDashboard() {
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/features' as any)}
         >
-          <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Features</Text>
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Features</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Enable/disable features and set visibility rules
+              </Text>
+            </View>
+            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/products' as any)}
         >
-          <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Products</Text>
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Products</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Create and manage platform products
+              </Text>
+            </View>
+            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/ads' as any)}
         >
-          <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Advertisements</Text>
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Advertisements</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Create global and targeted ads
+              </Text>
+            </View>
+            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/templates' as any)}
         >
-          <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Templates</Text>
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Templates</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Configure document templates
+              </Text>
+            </View>
+            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/alerts' as any)}
         >
-          <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Alert Rules</Text>
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Alert Rules</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Configure mistake prevention alerts
+              </Text>
+            </View>
+            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+          </View>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -261,9 +301,25 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  actionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  actionLeft: {
+    flex: 1,
+  },
   actionText: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 4,
+  },
+  actionSubtext: {
+    fontSize: 13,
+  },
+  actionArrow: {
+    fontSize: 20,
+    marginLeft: 12,
   },
 });
 

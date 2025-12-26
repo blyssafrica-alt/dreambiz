@@ -1,5 +1,5 @@
 import { Stack, router } from 'expo-router';
-import { DollarSign, Building2, MapPin, Phone, Save, FileText, Moon, Sun, LogOut, Download, Database, Image as ImageIcon, X, Upload } from 'lucide-react-native';
+import { DollarSign, Building2, MapPin, Phone, Save, FileText, Moon, Sun, LogOut, Download, Database, Image as ImageIcon, X, Upload, Settings as SettingsIcon } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
 import {
   View,
@@ -38,7 +38,7 @@ export default function SettingsScreen() {
     projects,
   } = useBusiness();
   const { theme, isDark, toggleTheme } = useTheme();
-  const { signOut, user } = useAuth();
+  const { signOut, user, isSuperAdmin } = useAuth();
   const [name, setName] = useState(business?.name || '');
   const [owner, setOwner] = useState(business?.owner || '');
   const [phone, setPhone] = useState(business?.phone || '');
@@ -564,6 +564,40 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {isSuperAdmin && (
+          <View style={[styles.section, { 
+            backgroundColor: theme.background.card,
+            borderColor: theme.border.light,
+            marginBottom: 20,
+          }]}>
+            <View style={styles.sectionHeader}>
+              <SettingsIcon size={20} color={theme.accent.primary} />
+              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
+                Super Admin
+              </Text>
+            </View>
+            <TouchableOpacity 
+              style={[styles.toolButton, { 
+                backgroundColor: theme.accent.primary,
+                borderColor: theme.accent.primary,
+              }]}
+              onPress={() => router.push('/admin/dashboard' as any)}
+            >
+              <View style={styles.toolLeft}>
+                <SettingsIcon size={24} color="#FFF" />
+                <View>
+                  <Text style={[styles.toolTitle, { color: '#FFF' }]}>
+                    Admin Console
+                  </Text>
+                  <Text style={[styles.toolDesc, { color: '#FFF', opacity: 0.9 }]}>
+                    Manage features, products, ads, and templates
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <TouchableOpacity
           style={[styles.signOutButton, { 
