@@ -10,7 +10,7 @@ import {
   Bell,
   Calendar
 } from 'lucide-react-native';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,9 @@ import {
   TextInput,
   Alert as RNAlert,
   Modal,
+  Animated,
 } from 'react-native';
+import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { TaxRate } from '@/types/business';
@@ -170,27 +172,29 @@ export default function TaxScreen() {
   }, []);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
-      <Stack.Screen options={{ title: 'Tax Management', headerShown: false }} />
-      
-      <View style={[styles.header, { backgroundColor: theme.background.card }]}>
-        <View>
-          <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Tax Management</Text>
-          {defaultRate && (
-            <Text style={[styles.headerSubtitle, { color: theme.text.tertiary }]}>
-              Default: {defaultRate.name} ({defaultRate.rate}%)
-            </Text>
-          )}
-        </View>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.accent.primary }]}
-          onPress={() => setShowModal(true)}
-        >
-          <Plus size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+        <PageHeader
+          title="Tax Management"
+          subtitle={defaultRate ? `Default: ${defaultRate.name} (${defaultRate.rate}%)` : 'Manage tax rates'}
+          icon={Percent}
+          iconGradient={['#F59E0B', '#D97706']}
+          rightAction={
+            <TouchableOpacity
+              style={styles.headerAddButton}
+              onPress={() => setShowModal(true)}
+            >
+              <Plus size={20} color="#FFF" strokeWidth={2.5} />
+            </TouchableOpacity>
+          }
+        />
 
-      <ScrollView style={styles.scrollView}>
+        <Animated.View style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}>
+          <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
         {/* Tax Reminders */}
         {taxReminders.length > 0 && (
           <View style={[styles.remindersCard, { backgroundColor: theme.background.card }]}>
@@ -440,7 +444,8 @@ export default function TaxScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+      </View>
+    </>
   );
 }
 

@@ -8,7 +8,7 @@ import {
   Search,
   Package
 } from 'lucide-react-native';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,9 @@ import {
   TouchableOpacity,
   TextInput,
   Alert as RNAlert,
+  Animated,
 } from 'react-native';
+import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Product, DocumentItem } from '@/types/business';
@@ -139,14 +141,21 @@ export default function POSScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
-      <Stack.Screen options={{ title: 'Point of Sale', headerShown: false }} />
-      
-      <View style={[styles.header, { backgroundColor: theme.background.card }]}>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Point of Sale</Text>
-      </View>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+        <PageHeader
+          title="Point of Sale"
+          subtitle="Quick checkout and sales"
+          icon={ShoppingCart}
+          iconGradient={['#3B82F6', '#2563EB']}
+        />
 
-      <View style={styles.content}>
+        <Animated.View style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}>
+          <View style={styles.content}>
         {/* Products Section */}
         <View style={styles.productsSection}>
           <View style={[styles.searchBox, { backgroundColor: theme.background.card }]}>
