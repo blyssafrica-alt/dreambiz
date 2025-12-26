@@ -12,6 +12,9 @@ import { BusinessContext, useBusiness } from "@/contexts/BusinessContext";
 import { AuthContext, useAuth } from "@/contexts/AuthContext";
 import { ThemeContext, useTheme } from "@/contexts/ThemeContext";
 import { ProviderContext } from "@/contexts/ProviderContext";
+import { FeatureContextProvider } from "@/contexts/FeatureContext";
+import { ProductContextProvider } from "@/contexts/ProductContext";
+import { AdContextProvider } from "@/contexts/AdContext";
 import { StatusBar } from 'react-native';
 
 SplashScreen.preventAutoHideAsync();
@@ -71,6 +74,7 @@ function RootLayoutNav() {
         <Stack.Screen name="business-plan" options={{ title: 'Business Plan' }} />
         <Stack.Screen name="help" options={{ title: 'Help & Support' }} />
         <Stack.Screen name="receipt-scan" options={{ title: 'Scan Receipt' }} />
+        <Stack.Screen name="admin" options={{ headerShown: false }} />
       </Stack>
     </>
   );
@@ -88,7 +92,13 @@ export default function RootLayout() {
           <ProviderContext>
             <AuthContext>
               <BusinessContext>
-                <RootLayoutNav />
+                <FeatureContextProvider>
+                  <ProductContextProvider>
+                    <AdContextProvider>
+                      <RootLayoutNav />
+                    </AdContextProvider>
+                  </ProductContextProvider>
+                </FeatureContextProvider>
               </BusinessContext>
             </AuthContext>
           </ProviderContext>

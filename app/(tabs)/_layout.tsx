@@ -4,13 +4,22 @@ import React from "react";
 import { Platform, View, ActivityIndicator } from "react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { getVisibleTabs } from "@/constants/books";
+import { useFeatures } from "@/contexts/FeatureContext";
 
 export default function TabLayout() {
   const { theme, isLoading } = useTheme();
   const { business } = useBusiness();
+  const { shouldShowAsTab } = useFeatures();
   
-  const visibleTabs = getVisibleTabs(business?.dreamBigBook);
+  // Check if each tab should be visible using feature visibility system
+  const isTabVisible = (tabName: string) => {
+    // Core tabs are always visible
+    const coreTabs = ['index', 'finances', 'documents', 'calculator', 'settings'];
+    if (coreTabs.includes(tabName)) return true;
+    
+    // Check feature visibility for other tabs
+    return shouldShowAsTab(tabName);
+  };
   
   // Show loading indicator while theme is loading
   if (isLoading || !theme) {
@@ -75,7 +84,7 @@ export default function TabLayout() {
         name="products"
         options={{
           title: "Products",
-          href: visibleTabs.includes('products') ? undefined : null,
+          href: isTabVisible('products') ? undefined : null,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <Package 
               size={focused ? 26 : 24} 
@@ -89,7 +98,7 @@ export default function TabLayout() {
         name="customers"
         options={{
           title: "Customers",
-          href: visibleTabs.includes('customers') ? undefined : null,
+          href: isTabVisible('customers') ? undefined : null,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <Users 
               size={focused ? 26 : 24} 
@@ -103,7 +112,7 @@ export default function TabLayout() {
         name="suppliers"
         options={{
           title: "Suppliers",
-          href: visibleTabs.includes('suppliers') ? undefined : null,
+          href: isTabVisible('suppliers') ? undefined : null,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <Truck 
               size={focused ? 26 : 24} 
@@ -130,7 +139,7 @@ export default function TabLayout() {
         name="reports"
         options={{
           title: "Reports",
-          href: visibleTabs.includes('reports') ? undefined : null,
+          href: isTabVisible('reports') ? undefined : null,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <BarChart3 
               size={focused ? 26 : 24} 
@@ -144,7 +153,7 @@ export default function TabLayout() {
         name="budgets"
         options={{
           title: "Budgets",
-          href: visibleTabs.includes('budgets') ? undefined : null,
+          href: isTabVisible('budgets') ? undefined : null,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <Target 
               size={focused ? 26 : 24} 
@@ -158,7 +167,7 @@ export default function TabLayout() {
         name="cashflow"
         options={{
           title: "Cashflow",
-          href: visibleTabs.includes('cashflow') ? undefined : null,
+          href: isTabVisible('cashflow') ? undefined : null,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <TrendingUp 
               size={focused ? 26 : 24} 
@@ -185,7 +194,7 @@ export default function TabLayout() {
         name="projects"
         options={{
           title: "Projects",
-          href: visibleTabs.includes('projects') ? undefined : null,
+          href: isTabVisible('projects') ? undefined : null,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <FolderKanban 
               size={focused ? 26 : 24} 
@@ -199,7 +208,7 @@ export default function TabLayout() {
         name="employees"
         options={{
           title: "Employees",
-          href: visibleTabs.includes('employees') ? undefined : null,
+          href: isTabVisible('employees') ? undefined : null,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <UserCircle 
               size={focused ? 26 : 24} 
@@ -213,7 +222,7 @@ export default function TabLayout() {
         name="tax"
         options={{
           title: "Tax",
-          href: visibleTabs.includes('tax') ? undefined : null,
+          href: isTabVisible('tax') ? undefined : null,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <Percent 
               size={focused ? 26 : 24} 
@@ -227,7 +236,7 @@ export default function TabLayout() {
         name="accounts"
         options={{
           title: "Accounts",
-          href: visibleTabs.includes('accounts') ? undefined : null,
+          href: isTabVisible('accounts') ? undefined : null,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <Receipt 
               size={focused ? 26 : 24} 
@@ -241,7 +250,7 @@ export default function TabLayout() {
         name="recurring-invoices"
         options={{
           title: "Recurring",
-          href: visibleTabs.includes('recurring-invoices') ? undefined : null,
+          href: isTabVisible('recurring-invoices') ? undefined : null,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <Repeat 
               size={focused ? 26 : 24} 
@@ -283,7 +292,7 @@ export default function TabLayout() {
         name="integrations"
         options={{
           title: "Integrations",
-          href: visibleTabs.includes('integrations') ? undefined : null,
+          href: isTabVisible('integrations') ? undefined : null,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <LinkIcon 
               size={focused ? 26 : 24} 
@@ -297,7 +306,7 @@ export default function TabLayout() {
         name="insights"
         options={{
           title: "Insights",
-          href: visibleTabs.includes('insights') ? undefined : null,
+          href: isTabVisible('insights') ? undefined : null,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <Sparkles 
               size={focused ? 26 : 24} 
@@ -311,7 +320,7 @@ export default function TabLayout() {
         name="businesses"
         options={{
           title: "Businesses",
-          href: visibleTabs.includes('businesses') ? undefined : null,
+          href: isTabVisible('businesses') ? undefined : null,
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <Building2 
               size={focused ? 26 : 24} 
