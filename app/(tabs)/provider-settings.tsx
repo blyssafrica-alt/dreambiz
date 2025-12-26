@@ -108,7 +108,7 @@ export default function ProviderSettingsScreen() {
           transform: [{ translateY: slideAnim }],
         }}>
           <View style={[styles.providersList, { paddingHorizontal: 20, paddingBottom: 40 }]}>
-        {availableProviders.map((providerType) => {
+            {availableProviders.map((providerType) => {
           const info = getProviderInfo(providerType);
           const isActive = providerType === currentProvider;
           const Icon = info.icon;
@@ -149,9 +149,13 @@ export default function ProviderSettingsScreen() {
             </TouchableOpacity>
           );
         })}
-      </View>
+          </View>
 
-      <View style={[styles.infoBox, { backgroundColor: theme.surface.info }]}>
+          <View style={[styles.infoBox, { 
+            backgroundColor: theme.surface.info,
+            marginHorizontal: 20,
+            marginTop: 20,
+          }]}>
         <AlertCircle size={20} color={theme.accent.info} />
         <Text style={[styles.infoText, { color: theme.text.secondary }]}>
           {isAuthenticated
