@@ -208,7 +208,7 @@ export default function LandingScreen() {
                   Smart Financial Tracking
                 </Text>
                 <Text style={[styles.featureDesc, { color: theme.text.secondary }]}>
-                  Track sales, expenses, and profit in real-time. Designed for non-accountants — answer &ldquo;Am I making money?&rdquo; instantly.
+                  Track sales, expenses, and profit in real-time. Designed for non-accountants — answer {"\"Am I making money?\""} instantly.
                 </Text>
                 <View style={styles.featurePoints}>
                   <View style={styles.featurePoint}>
@@ -487,10 +487,10 @@ export default function LandingScreen() {
               borderColor: theme.border.light,
             }]}>
               <View style={styles.quoteIconContainer}>
-                <Text style={styles.quoteIcon}>&ldquo;</Text>
+                <Text style={styles.quoteIcon}>{"\""}</Text>
               </View>
               <Text style={[styles.testimonialQuote, { color: theme.text.primary }]}>
-                DreamBig didn&apos;t just teach me business &mdash; they gave me the tools to run it. This app has everything I need in one place.
+                DreamBig didn&apos;t just teach me business — they gave me the tools to run it. This app has everything I need in one place.
               </Text>
               <View style={styles.testimonialFooter}>
                 <View style={[styles.testimonialAvatar, { backgroundColor: theme.accent.primary }]}>
@@ -512,7 +512,7 @@ export default function LandingScreen() {
               borderColor: theme.border.light,
             }]}>
               <View style={styles.quoteIconContainer}>
-                <Text style={styles.quoteIcon}>&ldquo;</Text>
+                <Text style={styles.quoteIcon}>{"\""}</Text>
               </View>
               <Text style={[styles.testimonialQuote, { color: theme.text.primary }]}>
                 The mistake prevention feature alone saved my business thousands. I know exactly when to act.
