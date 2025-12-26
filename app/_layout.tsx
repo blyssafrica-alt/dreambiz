@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
+// @ts-ignore - react-native-gesture-handler types are included in the package
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BusinessContext, useBusiness } from "@/contexts/BusinessContext";
 import { AuthContext, useAuth } from "@/contexts/AuthContext";

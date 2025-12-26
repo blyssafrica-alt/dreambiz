@@ -501,10 +501,7 @@ export default function DashboardScreen() {
           <View style={styles.actionsSection}>
             <TouchableOpacity 
               style={styles.actionButton}
-              onPress={() => {
-                console.log('Add Transaction button pressed');
-                router.push('/(tabs)/finances' as any);
-              }}
+              onPress={() => router.push('/(tabs)/finances' as any)}
               activeOpacity={0.8}
             >
               <LinearGradient
