@@ -88,6 +88,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           email: businessRes.data.email || undefined,
           address: businessRes.data.address || undefined,
           dreamBigBook: businessRes.data.dream_big_book as any,
+          logo: businessRes.data.logo || undefined,
           createdAt: businessRes.data.created_at,
         });
         setHasOnboarded(true);
@@ -493,6 +494,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           email: newBusiness.email || null,
           address: newBusiness.address || null,
           dream_big_book: newBusiness.dreamBigBook || 'none',
+          logo: newBusiness.logo || null,
       };
 
       // Only include id if we have an existing business with a valid UUID

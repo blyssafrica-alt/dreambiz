@@ -193,20 +193,29 @@ export default function DashboardScreen() {
     return colors[index];
   };
 
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 600,
-        useNativeDriver: false, // Changed to false to avoid native driver issues
+        duration: 800,
+        useNativeDriver: false,
       }),
-      Animated.timing(slideAnim, {
+      Animated.spring(slideAnim, {
         toValue: 0,
-        duration: 600,
-        useNativeDriver: false, // Changed to false to avoid native driver issues
+        tension: 50,
+        friction: 7,
+        useNativeDriver: false,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: false,
       }),
     ]).start();
-  }, [fadeAnim, slideAnim]);
+  }, [fadeAnim, slideAnim, scaleAnim]);
 
   const renderAlert = (alert: Alert) => {
     const colors = {
@@ -280,11 +289,14 @@ export default function DashboardScreen() {
       >
         <Animated.View style={{
           opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
+          transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
         }}>
           <View style={styles.todaySection}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Today</Text>
+              <View>
+                <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>TODAY</Text>
+                <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Today&apos;s Overview</Text>
+              </View>
               <View style={[styles.badge, { backgroundColor: theme.surface.info }]}>
                 <Sparkles size={12} color={theme.accent.info} />
                 <Text style={[styles.badgeText, { color: theme.accent.info }]}>Live</Text>
@@ -292,21 +304,37 @@ export default function DashboardScreen() {
             </View>
 
             <View style={styles.metricsGrid}>
-              <View style={[styles.metricCard, { backgroundColor: theme.background.card }]}>
-                <View style={[styles.metricIconContainer, { backgroundColor: theme.surface.success }]}>
-                  <ArrowUpRight size={18} color={theme.accent.success} strokeWidth={2.5} />
-                </View>
+              <Animated.View style={[styles.metricCard, { 
+                backgroundColor: theme.background.card,
+                transform: [{ scale: scaleAnim }],
+              }]}>
+                <LinearGradient
+                  colors={['#10B981', '#059669']}
+                  style={styles.metricIconGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <ArrowUpRight size={20} color="#FFF" strokeWidth={2.5} />
+                </LinearGradient>
                 <Text style={[styles.metricLabel, { color: theme.text.secondary }]}>Sales</Text>
                 <Text style={[styles.metricValue, { color: theme.text.primary }]}>{formatCurrency(metrics.todaySales)}</Text>
-              </View>
+              </Animated.View>
 
-              <View style={[styles.metricCard, { backgroundColor: theme.background.card }]}>
-                <View style={[styles.metricIconContainer, { backgroundColor: theme.surface.danger }]}>
-                  <ArrowDownRight size={18} color={theme.accent.danger} strokeWidth={2.5} />
-                </View>
+              <Animated.View style={[styles.metricCard, { 
+                backgroundColor: theme.background.card,
+                transform: [{ scale: scaleAnim }],
+              }]}>
+                <LinearGradient
+                  colors={['#EF4444', '#DC2626']}
+                  style={styles.metricIconGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <ArrowDownRight size={20} color="#FFF" strokeWidth={2.5} />
+                </LinearGradient>
                 <Text style={[styles.metricLabel, { color: theme.text.secondary }]}>Expenses</Text>
                 <Text style={[styles.metricValue, { color: theme.text.primary }]}>{formatCurrency(metrics.todayExpenses)}</Text>
-              </View>
+              </Animated.View>
             </View>
 
             <LinearGradient
@@ -334,9 +362,15 @@ export default function DashboardScreen() {
           </View>
 
           {/* Business Health Score */}
-          <View style={[styles.healthCard, { backgroundColor: theme.background.card }]}>
+          <Animated.View style={[styles.healthCard, { 
+            backgroundColor: theme.background.card,
+            transform: [{ scale: scaleAnim }],
+          }]}>
             <View style={styles.healthHeader}>
-              <Text style={[styles.healthTitle, { color: theme.text.primary }]}>Business Health</Text>
+              <View>
+                <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>HEALTH SCORE</Text>
+                <Text style={[styles.healthTitle, { color: theme.text.primary }]}>Business Health</Text>
+              </View>
               <View style={[styles.healthBadge, { backgroundColor: `${getHealthColor(healthScore)}20` }]}>
                 <Text style={[styles.healthBadgeText, { color: getHealthColor(healthScore) }]}>
                   {getHealthLabel(healthScore)}
@@ -377,11 +411,14 @@ export default function DashboardScreen() {
                 </View>
               </View>
             </View>
-          </View>
+          </Animated.View>
 
           <View style={styles.monthSection}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>This Month</Text>
+              <View>
+                <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>MONTHLY</Text>
+                <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>This Month</Text>
+              </View>
               <Activity size={16} color={theme.text.tertiary} />
             </View>
             
@@ -426,14 +463,20 @@ export default function DashboardScreen() {
 
           {metrics.alerts.length > 0 && (
             <View style={styles.alertsSection}>
-              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Alerts</Text>
+              <View>
+                <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>ALERTS</Text>
+                <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Important Notifications</Text>
+              </View>
               {metrics.alerts.map(renderAlert)}
             </View>
           )}
 
           {/* Charts Section */}
           <View style={styles.chartsSection}>
-            <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Visual Analytics</Text>
+            <View>
+              <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>ANALYTICS</Text>
+              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Visual Analytics</Text>
+            </View>
             
             {/* Sales Trend Chart */}
             {chartData.salesTrend.some(v => v > 0) && (
@@ -485,7 +528,10 @@ export default function DashboardScreen() {
 
           {metrics.topCategories.length > 0 && (
             <View style={styles.categoriesSection}>
-              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Top Categories</Text>
+              <View>
+                <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>TOP CATEGORIES</Text>
+                <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Top Categories</Text>
+              </View>
               {metrics.topCategories.map((cat, index) => (
                 <View key={index} style={[styles.categoryItem, { backgroundColor: theme.background.card }]}>
                   <View style={[styles.categoryRank, { backgroundColor: theme.accent.primary }]}>
@@ -603,9 +649,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '800' as const,
+    letterSpacing: 2,
+    marginBottom: 4,
+  },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
+    fontSize: 24,
+    fontWeight: '800' as const,
+    lineHeight: 30,
   },
   badge: {
     flexDirection: 'row',
@@ -626,13 +679,15 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     flex: 1,
-    padding: 18,
-    borderRadius: 20,
+    padding: 24,
+    borderRadius: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   metricIconContainer: {
     width: 36,
@@ -642,23 +697,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
   },
+  metricIconGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 4,
+  },
   metricLabel: {
     fontSize: 13,
     fontWeight: '500' as const,
     marginBottom: 6,
   },
   metricValue: {
-    fontSize: 22,
-    fontWeight: '700' as const,
+    fontSize: 26,
+    fontWeight: '800' as const,
+    letterSpacing: -0.5,
   },
   profitCard: {
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: 28,
+    padding: 28,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 8,
   },
   profitContent: {
     position: 'relative',
@@ -683,22 +752,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   profitValue: {
-    fontSize: 36,
-    fontWeight: '800' as const,
+    fontSize: 42,
+    fontWeight: '900' as const,
     color: '#FFF',
+    letterSpacing: -1,
   },
   monthSection: {
     marginBottom: 24,
   },
   summaryCard: {
-    padding: 20,
-    borderRadius: 20,
+    padding: 24,
+    borderRadius: 24,
     marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   summaryRow: {
     flexDirection: 'row',
@@ -729,14 +801,16 @@ const styles = StyleSheet.create({
   cashCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    borderRadius: 20,
+    padding: 24,
+    borderRadius: 24,
     gap: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   cashGradient: {
     width: 52,
@@ -761,8 +835,9 @@ const styles = StyleSheet.create({
     fontWeight: '500' as const,
   },
   cashValue: {
-    fontSize: 24,
-    fontWeight: '800' as const,
+    fontSize: 28,
+    fontWeight: '900' as const,
+    letterSpacing: -0.5,
   },
   alertsSection: {
     marginBottom: 24,
@@ -799,22 +874,29 @@ const styles = StyleSheet.create({
   categoryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 10,
+    padding: 20,
+    borderRadius: 20,
+    marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 3,
     gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   categoryRank: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   categoryRankText: {
     fontSize: 14,
@@ -823,63 +905,70 @@ const styles = StyleSheet.create({
   },
   categoryName: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '600' as const,
-  },
-  categoryAmount: {
     fontSize: 16,
     fontWeight: '700' as const,
+  },
+  categoryAmount: {
+    fontSize: 18,
+    fontWeight: '800' as const,
   },
   actionsSection: {
     gap: 12,
     marginBottom: 20,
   },
   actionButton: {
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowRadius: 16,
+    elevation: 8,
   },
   actionButtonGradient: {
-    height: 56,
+    height: 58,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
   },
   actionButtonText: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700' as const,
     color: '#FFF',
   },
   actionButtonSecondary: {
-    height: 56,
-    borderRadius: 16,
+    height: 58,
+    borderRadius: 18,
     borderWidth: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   actionButtonSecondaryText: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700' as const,
   },
   chartsSection: {
     marginBottom: 24,
   },
   chartCard: {
-    padding: 20,
-    borderRadius: 20,
+    padding: 24,
+    borderRadius: 24,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   chartHeader: {
     flexDirection: 'row',
@@ -888,18 +977,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   chartTitle: {
-    fontSize: 16,
-    fontWeight: '700' as const,
+    fontSize: 18,
+    fontWeight: '800' as const,
   },
   healthCard: {
-    padding: 20,
-    borderRadius: 20,
+    padding: 28,
+    borderRadius: 28,
     marginBottom: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   healthHeader: {
     flexDirection: 'row',
@@ -908,8 +999,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   healthTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
+    fontSize: 20,
+    fontWeight: '800' as const,
   },
   healthBadge: {
     paddingHorizontal: 12,
@@ -934,9 +1025,10 @@ const styles = StyleSheet.create({
     borderWidth: 3,
   },
   healthScoreValue: {
-    fontSize: 32,
-    fontWeight: '700' as const,
-    lineHeight: 36,
+    fontSize: 36,
+    fontWeight: '900' as const,
+    lineHeight: 40,
+    letterSpacing: -1,
   },
   healthScoreLabel: {
     fontSize: 14,

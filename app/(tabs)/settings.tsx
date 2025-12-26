@@ -1,5 +1,5 @@
 import { Stack, router } from 'expo-router';
-import { DollarSign, Building2, MapPin, Phone, Save, FileText, Moon, Sun, LogOut, Download, Database } from 'lucide-react-native';
+import { DollarSign, Building2, MapPin, Phone, Save, FileText, Moon, Sun, LogOut, Download, Database, Image as ImageIcon, X, Upload } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
 import {
   View,
@@ -10,7 +10,10 @@ import {
   TouchableOpacity,
   Alert as RNAlert,
   Switch,
+  Image,
+  Platform,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -43,6 +46,7 @@ export default function SettingsScreen() {
   const [capital, setCapital] = useState(business?.capital.toString() || '');
   const [currency, setCurrency] = useState<Currency>(business?.currency || 'USD');
   const [rate, setRate] = useState(exchangeRate.usdToZwl.toString());
+  const [logo, setLogo] = useState<string | undefined>(business?.logo);
 
   useEffect(() => {
     if (business) {
@@ -52,8 +56,41 @@ export default function SettingsScreen() {
       setLocation(business.location);
       setCapital(business.capital.toString());
       setCurrency(business.currency);
+      setLogo(business.logo);
     }
   }, [business]);
+
+  const handlePickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        RNAlert.alert('Permission Required', 'Please grant permission to access your photos');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        // Use base64 for storage (in production, you might want to upload to Supabase Storage)
+        const base64Image = `data:image/jpeg;base64,${asset.base64}`;
+        setLogo(base64Image);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      RNAlert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogo(undefined);
+  };
 
   const handleSaveProfile = async () => {
     if (!business || !name || !owner || !location || !capital) {
@@ -69,6 +106,7 @@ export default function SettingsScreen() {
       location,
       capital: parseFloat(capital) || 0,
       currency,
+      logo,
     });
 
     RNAlert.alert('Success', 'Profile updated successfully');
@@ -219,6 +257,42 @@ export default function SettingsScreen() {
             <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
               Business Profile
             </Text>
+          </View>
+
+          {/* Logo Upload */}
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.text.secondary }]}>
+              Business Logo
+            </Text>
+            <Text style={[styles.hint, { color: theme.text.tertiary }]}>
+              Your logo will appear on all documents
+            </Text>
+            <View style={styles.logoContainer}>
+              {logo ? (
+                <View style={styles.logoPreview}>
+                  <Image source={{ uri: logo }} style={styles.logoImage} />
+                  <TouchableOpacity
+                    style={[styles.removeLogoButton, { backgroundColor: theme.surface.danger }]}
+                    onPress={handleRemoveLogo}
+                  >
+                    <X size={16} color={theme.accent.danger} />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.logoUploadButton, { 
+                    backgroundColor: theme.background.secondary,
+                    borderColor: theme.border.light,
+                  }]}
+                  onPress={handlePickImage}
+                >
+                  <ImageIcon size={24} color={theme.accent.primary} />
+                  <Text style={[styles.logoUploadText, { color: theme.text.secondary }]}>
+                    Upload Logo
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
@@ -757,6 +831,49 @@ const styles = StyleSheet.create({
   },
   exportButtonText: {
     fontSize: 15,
+    fontWeight: '600' as const,
+  },
+  logoContainer: {
+    marginTop: 8,
+  },
+  logoPreview: {
+    position: 'relative',
+    width: 120,
+    height: 120,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  removeLogoButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#EF4444',
+  },
+  logoUploadButton: {
+    width: 120,
+    height: 120,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  logoUploadText: {
+    fontSize: 14,
     fontWeight: '600' as const,
   },
 });

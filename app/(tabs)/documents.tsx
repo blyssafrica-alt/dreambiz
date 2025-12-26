@@ -17,20 +17,13 @@ import type { DocumentType, DocumentItem, DocumentStatus } from '@/types/busines
 import { getDocumentTemplate } from '@/lib/document-templates';
 import { getFilterPresets, saveFilterPreset, deleteFilterPreset } from '@/lib/filter-presets';
 import type { FilterPreset } from '@/lib/filter-presets';
+import DocumentWizard from '@/components/DocumentWizard';
 
 export default function DocumentsScreen() {
   const { business, documents, addDocument, updateDocument } = useBusiness();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   useTheme(); // Theme context - values accessed via styles
-  const [showModal, setShowModal] = useState(false);
-  const [docType, setDocType] = useState<DocumentType>('invoice');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [dueDate, setDueDate] = useState('');
-  const [items, setItems] = useState<{ description: string; quantity: string; price: string }[]>([
-    { description: '', quantity: '1', price: '' }
-  ]);
-  const [templateFields, setTemplateFields] = useState<Record<string, string>>({});
+  const [showWizard, setShowWizard] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<DocumentType | 'all'>('all');
@@ -161,64 +154,53 @@ export default function DocumentsScreen() {
     setItems(newItems);
   };
 
-  const handleCreate = async () => {
-    if (!customerName) {
-      RNAlert.alert('Missing Info', 'Please enter customer name');
+  const handleWizardComplete = async (wizardData: {
+    type: DocumentType;
+    customerName: string;
+    customerPhone?: string;
+    customerEmail?: string;
+    items: DocumentItem[];
+    dueDate?: string;
+    notes?: string;
+    templateFields: Record<string, string>;
+  }) => {
+    if (!business) {
+      RNAlert.alert('Error', 'Business profile not found');
       return;
     }
 
-    const validItems = items.filter(item => item.description && item.price);
-    if (validItems.length === 0) {
-      RNAlert.alert('Missing Items', 'Please add at least one item');
-      return;
-    }
-
-    const documentItems: DocumentItem[] = validItems.map((item, index) => {
-      const qty = parseFloat(item.quantity) || 1;
-      const price = parseFloat(item.price) || 0;
-      return {
-        id: `${Date.now()}-${index}`,
-        description: item.description,
-        quantity: qty,
-        unitPrice: price,
-        total: qty * price,
-      };
-    });
-
-    const subtotal = documentItems.reduce((sum, item) => sum + item.total, 0);
+    const subtotal = wizardData.items.reduce((sum, item) => sum + item.total, 0);
+    const template = getDocumentTemplate(wizardData.type, business.type);
 
     // Store template fields in notes as JSON
-    let notes = '';
-    if (template && Object.keys(templateFields).length > 0) {
+    let notes = wizardData.notes || '';
+    if (template && Object.keys(wizardData.templateFields).length > 0) {
       const templateData = {
         templateId: template.id,
         templateName: template.name,
-        fields: templateFields,
+        fields: wizardData.templateFields,
       };
-      notes = JSON.stringify(templateData);
+      const templateJson = JSON.stringify(templateData);
+      notes = notes ? `${notes}\n\n[Template Data: ${templateJson}]` : `[Template Data: ${templateJson}]`;
     }
 
     await addDocument({
-      type: docType,
-      customerName,
-      customerPhone: customerPhone || undefined,
-      items: documentItems,
+      type: wizardData.type,
+      customerName: wizardData.customerName,
+      customerPhone: wizardData.customerPhone,
+      customerEmail: wizardData.customerEmail,
+      items: wizardData.items,
       subtotal,
       total: subtotal,
-      currency: business?.currency || 'USD',
+      currency: business.currency,
       date: new Date().toISOString().split('T')[0],
-      dueDate: dueDate || undefined,
+      dueDate: wizardData.dueDate,
       status: 'draft',
       notes: notes || undefined,
     });
 
-    setCustomerName('');
-    setCustomerPhone('');
-    setDueDate('');
-    setItems([{ description: '', quantity: '1', price: '' }]);
-    setTemplateFields({});
-    setShowModal(false);
-    RNAlert.alert('Success', `${getDocumentTypeLabel(docType)} created`);
+    setShowWizard(false);
+    RNAlert.alert('Success', `${getDocumentTypeLabel(wizardData.type)} created successfully!`);
   };
 
   const formatCurrency = (amount: number) => {
@@ -423,11 +405,19 @@ export default function DocumentsScreen() {
           )}
         </ScrollView>
 
-        <TouchableOpacity style={styles.fab} onPress={() => setShowModal(true)}>
+        <TouchableOpacity style={styles.fab} onPress={() => setShowWizard(true)}>
           <Plus size={24} color="#FFF" />
         </TouchableOpacity>
 
-        <Modal visible={showModal} animationType="slide" transparent>
+        <DocumentWizard
+          visible={showWizard}
+          onClose={() => setShowWizard(false)}
+          onComplete={handleWizardComplete}
+          businessType={business?.type}
+        />
+
+        {/* Legacy Modal - keeping for reference but not used */}
+        {false && <Modal visible={false} animationType="slide" transparent>
           <View style={styles.modalOverlay}>
             <ScrollView contentContainerStyle={styles.modalScrollContent}>
               <View style={styles.modalContent}>
