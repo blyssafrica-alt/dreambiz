@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   TextInput,
   Alert as RNAlert,
-  Modal,
 } from 'react-native';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
