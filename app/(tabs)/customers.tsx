@@ -15,7 +15,7 @@ import {
   FileText,
   DollarSign
 } from 'lucide-react-native';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,9 @@ import {
   Alert as RNAlert,
   Modal,
   Linking,
+  Animated,
 } from 'react-native';
+import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Customer } from '@/types/business';
@@ -34,7 +36,25 @@ import type { Customer } from '@/types/business';
 export default function CustomersScreen() {
   const { business, customers, documents, addCustomer, updateCustomer, deleteCustomer } = useBusiness();
   const { theme } = useTheme();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: false,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -194,20 +214,35 @@ export default function CustomersScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
-      <Stack.Screen options={{ title: 'Customers', headerShown: false }} />
-      
-      <View style={[styles.header, { backgroundColor: theme.background.card }]}>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Customers</Text>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.accent.primary }]}
-          onPress={() => setShowModal(true)}
-        >
-          <Plus size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+        <PageHeader
+          title="Customers"
+          subtitle="Manage your customer relationships"
+          icon={Users}
+          iconGradient={['#10B981', '#059669']}
+          rightAction={
+            <TouchableOpacity
+              style={styles.headerAddButton}
+              onPress={() => setShowModal(true)}
+            >
+              <Plus size={20} color="#FFF" strokeWidth={2.5} />
+            </TouchableOpacity>
+          }
+        />
 
-      <View style={[styles.searchContainer, { backgroundColor: theme.background.card }]}>
+        <Animated.View style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}>
+          <View style={[styles.searchContainer, { 
+            backgroundColor: theme.background.card,
+            marginTop: -12,
+            marginHorizontal: 20,
+            marginBottom: 12,
+            paddingTop: 12,
+          }]}>
         <View style={[styles.searchBox, { backgroundColor: theme.background.secondary }]}>
           <Search size={18} color={theme.text.tertiary} />
           <TextInput
@@ -531,7 +566,8 @@ export default function CustomersScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+      </View>
+    </>
   );
 }
 
