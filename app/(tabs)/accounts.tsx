@@ -332,8 +332,10 @@ export default function AccountsScreen() {
             )}
           </>
         )}
-      </ScrollView>
-    </View>
+          </ScrollView>
+        </Animated.View>
+      </View>
+    </>
   );
 }
 
