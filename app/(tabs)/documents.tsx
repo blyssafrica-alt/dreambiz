@@ -9,7 +9,9 @@ import {
   TouchableOpacity,
   TextInput,
   Alert as RNAlert,
+  Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { DocumentType, DocumentItem, DocumentStatus } from '@/types/business';
@@ -288,8 +290,24 @@ export default function DocumentsScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Documents' }} />
+      <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.container}>
+        {/* Header with Gradient */}
+        <LinearGradient
+          colors={theme.gradient.primary as [string, string]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.headerTitle}>Documents</Text>
+              <Text style={styles.headerSubtitle}>
+                Professional invoices, receipts & more
+              </Text>
+            </View>
+          </View>
+        </LinearGradient>
         {/* Payment Reminders Banner */}
         {overdueInvoices.length > 0 && (
           <View style={styles.paymentReminderBanner}>
@@ -306,8 +324,20 @@ export default function DocumentsScreen() {
         )}
 
         {/* Search and Filters */}
-        <View style={styles.searchFilterContainer}>
-          <View style={styles.searchBox}>
+        <View style={[styles.searchFilterContainer, { 
+          marginTop: -12,
+          paddingTop: 12,
+        }]}>
+          <View style={[styles.searchBox, {
+            backgroundColor: theme.background.card,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 3,
+            borderWidth: 1,
+            borderColor: 'rgba(0,0,0,0.05)',
+          }]}>
             <FileText size={18} color="#94A3B8" />
             <TextInput
               style={styles.searchInput}

@@ -235,26 +235,54 @@ export default function FinancesScreen() {
     <>
       <Stack.Screen 
         options={{ 
-          title: 'Finances',
-          headerRight: () => (
-            <View style={{ flexDirection: 'row', gap: 16, marginRight: 16 }}>
-              <TouchableOpacity onPress={handleExport}>
-                <Download size={22} color="#0066CC" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowFilterModal(true)}>
-                <Filter size={22} color="#0066CC" />
-              </TouchableOpacity>
-            </View>
-          )
+          headerShown: false,
         }} 
       />
       <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+        {/* Header with Gradient */}
+        <LinearGradient
+          colors={theme.gradient.primary as [string, string]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.headerTitle}>Finances</Text>
+              <Text style={styles.headerSubtitle}>
+                Track sales, expenses, and profit
+              </Text>
+            </View>
+            <View style={styles.headerActions}>
+              <TouchableOpacity 
+                style={[styles.headerButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]} 
+                onPress={handleExport}
+              >
+                <Download size={20} color="#FFF" strokeWidth={2.5} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.headerButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]} 
+                onPress={() => setShowFilterModal(true)}
+              >
+                <Filter size={20} color="#FFF" strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </LinearGradient>
+
         {/* Search and Filters */}
         <Animated.View style={[styles.searchFilterContainer, {
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
         }]}>
-          <View style={[styles.searchBox, { backgroundColor: theme.background.card }]}>
+          <View style={[styles.searchBox, { 
+            backgroundColor: theme.background.card,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 3,
+          }]}>
             <Search size={18} color={theme.text.tertiary} />
             <TextInput
               style={[styles.searchInput, { color: theme.text.primary }]}
