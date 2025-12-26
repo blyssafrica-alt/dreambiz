@@ -11,14 +11,16 @@ import {
   Users,
   Calendar
 } from 'lucide-react-native';
-import { useMemo } from 'react';
+import { useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Animated,
 } from 'react-native';
+import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -34,6 +36,24 @@ interface Insight {
 export default function InsightsScreen() {
   const { business, transactions, products, customers, budgets } = useBusiness();
   const { theme } = useTheme();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: false,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
 
   const formatCurrency = (amount: number) => {
     const symbol = business?.currency === 'USD' ? '$' : 'ZWL';
@@ -239,22 +259,21 @@ export default function InsightsScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
-      <Stack.Screen options={{ title: 'AI Insights', headerShown: false }} />
-      
-      <View style={[styles.header, { backgroundColor: theme.background.card }]}>
-        <View style={styles.headerContent}>
-          <Sparkles size={28} color={theme.accent.primary} />
-          <View>
-            <Text style={[styles.headerTitle, { color: theme.text.primary }]}>AI Insights</Text>
-            <Text style={[styles.headerSubtitle, { color: theme.text.tertiary }]}>
-              Smart recommendations for your business
-            </Text>
-          </View>
-        </View>
-      </View>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+        <PageHeader
+          title="AI Insights"
+          subtitle="Smart recommendations for your business"
+          icon={Sparkles}
+          iconGradient={['#8B5CF6', '#7C3AED']}
+        />
 
-      <ScrollView style={styles.scrollView}>
+        <Animated.View style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}>
+          <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
         {insights.length === 0 ? (
           <View style={styles.emptyState}>
             <Sparkles size={48} color={theme.text.tertiary} />
@@ -311,8 +330,10 @@ export default function InsightsScreen() {
             );
           })
         )}
-      </ScrollView>
-    </View>
+          </ScrollView>
+        </Animated.View>
+      </View>
+    </>
   );
 }
 

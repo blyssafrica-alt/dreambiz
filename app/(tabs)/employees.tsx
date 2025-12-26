@@ -28,7 +28,25 @@ import type { Employee } from '@/types/business';
 export default function EmployeesScreen() {
   const { business, employees, addEmployee, updateEmployee, deleteEmployee } = useBusiness();
   const { theme } = useTheme();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: false,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -140,25 +158,29 @@ export default function EmployeesScreen() {
   const inactiveEmployees = employees.filter(e => !e.isActive);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
-      <Stack.Screen options={{ title: 'Employees', headerShown: false }} />
-      
-      <View style={[styles.header, { backgroundColor: theme.background.card }]}>
-        <View>
-          <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Employees</Text>
-          <Text style={[styles.headerSubtitle, { color: theme.text.tertiary }]}>
-            {activeEmployees.length} active, {inactiveEmployees.length} inactive
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.accent.primary }]}
-          onPress={() => setShowModal(true)}
-        >
-          <Plus size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+        <PageHeader
+          title="Employees"
+          subtitle={`${activeEmployees.length} active, ${inactiveEmployees.length} inactive`}
+          icon={Users}
+          iconGradient={['#6366F1', '#4F46E5']}
+          rightAction={
+            <TouchableOpacity
+              style={styles.headerAddButton}
+              onPress={() => setShowModal(true)}
+            >
+              <Plus size={20} color="#FFF" strokeWidth={2.5} />
+            </TouchableOpacity>
+          }
+        />
 
-      <ScrollView style={styles.scrollView}>
+        <Animated.View style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}>
+          <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
         {employees.length === 0 ? (
           <View style={styles.emptyState}>
             <Users size={48} color={theme.text.tertiary} />
@@ -206,9 +228,10 @@ export default function EmployeesScreen() {
             )}
           </>
         )}
-      </ScrollView>
+          </ScrollView>
+        </Animated.View>
 
-      {/* Add/Edit Modal */}
+        {/* Add/Edit Modal */}
       <Modal
         visible={showModal}
         animationType="slide"
@@ -353,7 +376,8 @@ export default function EmployeesScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+      </View>
+    </>
   );
 }
 
