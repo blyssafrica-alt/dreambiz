@@ -198,12 +198,12 @@ export default function DashboardScreen() {
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 600,
-        useNativeDriver: true,
+        useNativeDriver: false, // Changed to false to avoid native driver issues
       }),
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 600,
-        useNativeDriver: true,
+        useNativeDriver: false, // Changed to false to avoid native driver issues
       }),
     ]).start();
   }, [fadeAnim, slideAnim]);
@@ -275,6 +275,8 @@ export default function DashboardScreen() {
         style={styles.scrollContainer} 
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        nestedScrollEnabled={true}
+        keyboardShouldPersistTaps="handled"
       >
         <Animated.View style={{
           opacity: fadeAnim,
@@ -499,7 +501,10 @@ export default function DashboardScreen() {
           <View style={styles.actionsSection}>
             <TouchableOpacity 
               style={styles.actionButton}
-              onPress={() => router.push('/(tabs)/finances' as any)}
+              onPress={() => {
+                console.log('Add Transaction button pressed');
+                router.push('/(tabs)/finances' as any);
+              }}
               activeOpacity={0.8}
             >
               <LinearGradient
@@ -507,6 +512,7 @@ export default function DashboardScreen() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.actionButtonGradient}
+                pointerEvents="none"
               >
                 <Plus size={20} color="#FFF" strokeWidth={2.5} />
                 <Text style={styles.actionButtonText}>Add Transaction</Text>

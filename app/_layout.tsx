@@ -1,3 +1,6 @@
+// Import gesture handler FIRST - this is critical for touch events
+import 'react-native-gesture-handler';
+
 // template
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
@@ -29,12 +32,18 @@ function RootLayoutNav() {
     const currentPath = segments.join('/');
     const inAuth = currentPath.includes('landing') || currentPath.includes('sign-up') || currentPath.includes('sign-in');
     const inOnboarding = currentPath.includes('onboarding');
+    const inTabs = currentPath.includes('(tabs)') || currentPath === '';
 
+    // If not authenticated, redirect to landing page
     if (!isAuthenticated && !inAuth) {
-      router.replace('/(tabs)' as any);
-    } else if (isAuthenticated && !hasOnboarded && !inOnboarding) {
-      router.replace('/(tabs)' as any);
-    } else if (isAuthenticated && hasOnboarded && (inAuth || inOnboarding)) {
+      router.replace('/landing' as any);
+    } 
+    // If authenticated but not onboarded, redirect to onboarding
+    else if (isAuthenticated && !hasOnboarded && !inOnboarding) {
+      router.replace('/onboarding' as any);
+    } 
+    // If authenticated and onboarded, redirect to main app (tabs)
+    else if (isAuthenticated && hasOnboarded && (inAuth || inOnboarding)) {
       router.replace('/(tabs)' as any);
     }
   }, [isAuthenticated, hasOnboarded, isLoading, segments, router]);
