@@ -1,9 +1,10 @@
 import { Stack } from 'expo-router';
 import { 
   Download,
-  FileText
+  FileText,
+  BarChart3
 } from 'lucide-react-native';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,7 +14,9 @@ import {
   Alert as RNAlert,
   Share,
   Platform,
+  Animated,
 } from 'react-native';
+import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { LineChart, PieChart } from '@/components/Charts';
@@ -23,7 +26,25 @@ type ReportPeriod = 'today' | 'week' | 'month' | 'quarter' | 'year' | 'custom';
 export default function ReportsScreen() {
   const { business, transactions, documents } = useBusiness();
   const { theme } = useTheme();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
   const [period, setPeriod] = useState<ReportPeriod>('month');
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: false,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
 
   const formatCurrency = (amount: number) => {
     const symbol = business?.currency === 'USD' ? '$' : 'ZWL';
@@ -239,22 +260,29 @@ export default function ReportsScreen() {
   ];
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
-      <Stack.Screen options={{ title: 'Reports', headerShown: false }} />
-      
-      <View style={[styles.header, { backgroundColor: theme.background.card }]}>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Reports & Analytics</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={[styles.exportButton, { backgroundColor: theme.background.secondary }]}
-            onPress={() => handleExport('summary')}
-          >
-            <Download size={18} color={theme.accent.primary} />
-          </TouchableOpacity>
-        </View>
-      </View>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+        <PageHeader
+          title="Reports"
+          subtitle="Business analytics and insights"
+          icon={BarChart3}
+          iconGradient={['#EC4899', '#DB2777']}
+          rightAction={
+            <TouchableOpacity
+              style={styles.headerExportButton}
+              onPress={() => handleExport('summary')}
+            >
+              <Download size={20} color="#FFF" strokeWidth={2.5} />
+            </TouchableOpacity>
+          }
+        />
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.periodSelector}>
+        <Animated.View style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.periodSelector, { marginTop: -12, marginHorizontal: 20, paddingTop: 12 }]}>
         {periods.map(p => (
           <TouchableOpacity
             key={p.value}
@@ -582,8 +610,10 @@ export default function ReportsScreen() {
             <Download size={18} color={theme.text.tertiary} />
           </TouchableOpacity>
         </View>
-      </ScrollView>
-    </View>
+          </ScrollView>
+        </Animated.View>
+      </View>
+    </>
   );
 }
 
@@ -591,23 +621,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    paddingTop: 60,
-    paddingBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  exportButton: {
+  headerExportButton: {
     width: 44,
     height: 44,
     borderRadius: 22,

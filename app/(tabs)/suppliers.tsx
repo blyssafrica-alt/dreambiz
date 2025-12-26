@@ -16,7 +16,7 @@ import {
   TrendingUp,
   Clock
 } from 'lucide-react-native';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -27,7 +27,9 @@ import {
   Alert as RNAlert,
   Modal,
   Linking,
+  Animated,
 } from 'react-native';
+import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Supplier } from '@/types/business';
@@ -35,7 +37,25 @@ import type { Supplier } from '@/types/business';
 export default function SuppliersScreen() {
   const { business, suppliers, documents, addSupplier, updateSupplier, deleteSupplier } = useBusiness();
   const { theme } = useTheme();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: false,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -200,38 +220,53 @@ export default function SuppliersScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
-      <Stack.Screen options={{ title: 'Suppliers', headerShown: false }} />
-      
-      <View style={[styles.header, { backgroundColor: theme.background.card }]}>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Suppliers</Text>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.accent.primary }]}
-          onPress={() => setShowModal(true)}
-        >
-          <Plus size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={[styles.searchContainer, { backgroundColor: theme.background.card }]}>
-        <View style={[styles.searchBox, { backgroundColor: theme.background.secondary }]}>
-          <Search size={18} color={theme.text.tertiary} />
-          <TextInput
-            style={[styles.searchInput, { color: theme.text.primary }]}
-            placeholder="Search suppliers..."
-            placeholderTextColor={theme.text.tertiary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <X size={18} color={theme.text.tertiary} />
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+        <PageHeader
+          title="Suppliers"
+          subtitle="Manage your supplier relationships"
+          icon={Truck}
+          iconGradient={['#8B5CF6', '#7C3AED']}
+          rightAction={
+            <TouchableOpacity
+              style={styles.headerAddButton}
+              onPress={() => setShowModal(true)}
+            >
+              <Plus size={20} color="#FFF" strokeWidth={2.5} />
             </TouchableOpacity>
-          )}
-        </View>
-      </View>
+          }
+        />
 
-      <ScrollView style={styles.scrollView}>
+        <Animated.View style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}>
+          <View style={[styles.searchContainer, { 
+            backgroundColor: theme.background.card,
+            marginTop: -12,
+            marginHorizontal: 20,
+            marginBottom: 12,
+            paddingTop: 12,
+          }]}>
+            <View style={[styles.searchBox, { backgroundColor: theme.background.secondary }]}>
+              <Search size={18} color={theme.text.tertiary} />
+              <TextInput
+                style={[styles.searchInput, { color: theme.text.primary }]}
+                placeholder="Search suppliers..."
+                placeholderTextColor={theme.text.tertiary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <X size={18} color={theme.text.tertiary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
         {filteredSuppliers.length === 0 ? (
           <View style={styles.emptyState}>
             <Truck size={48} color={theme.text.tertiary} />
@@ -549,7 +584,8 @@ export default function SuppliersScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+      </View>
+    </>
   );
 }
 
@@ -557,27 +593,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    paddingTop: 60,
-    paddingBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  addButton: {
+  headerAddButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   searchContainer: {
+    flexDirection: 'row',
     padding: 16,
+    gap: 12,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   searchBox: {
     flexDirection: 'row',
