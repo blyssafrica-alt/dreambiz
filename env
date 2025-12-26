@@ -1,0 +1,12 @@
+# Supabase Configuration
+# IMPORTANT: Replace these with your actual Supabase credentials
+EXPO_PUBLIC_SUPABASE_URL=https://oqcgerfjjiozltkmmkxf.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_959ZId8aR4E5IjTNoyVsJQ_xt8pelvp
+
+# Setup Instructions:
+# 1. Go to https://supabase.com and create/open your project
+# 2. Go to Project Settings > API
+# 3. Copy the Project URL and paste above
+# 4. Copy the anon/public key and paste above
+# 5. Run the SQL in database/schema.sql in your Supabase SQL Editor
+# 6. Restart the development server: npm start -- --clear
