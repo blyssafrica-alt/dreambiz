@@ -185,5 +185,6 @@ export const [AuthContext, useAuth] = createContextHook(() => {
     signOut,
     isAuthenticated: !!authUser || !!user, // Authenticated if we have authUser (even if profile not loaded yet)
     authUser, // Generic auth user (replaces supabaseUser)
+    isSuperAdmin: user?.isSuperAdmin || false, // Expose isSuperAdmin as a convenience property
   };
 });
