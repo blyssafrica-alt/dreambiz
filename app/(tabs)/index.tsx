@@ -246,7 +246,7 @@ export default function DashboardScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Welcome back 👋</Text>
-            <Text style={styles.businessName}>{business?.name}</Text>
+            <Text style={styles.businessName}>{business?.name || 'Your Business'}</Text>
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity 
@@ -346,7 +346,7 @@ export default function DashboardScreen() {
             <View style={styles.healthScoreContainer}>
               <View style={[styles.healthScoreCircle, { borderColor: getHealthColor(healthScore) }]}>
                 <Text style={[styles.healthScoreValue, { color: getHealthColor(healthScore) }]}>
-                  {healthScore}
+                  {String(healthScore)}
                 </Text>
                 <Text style={[styles.healthScoreLabel, { color: theme.text.tertiary }]}>/ 100</Text>
               </View>
@@ -489,7 +489,7 @@ export default function DashboardScreen() {
               {metrics.topCategories.map((cat, index) => (
                 <View key={index} style={[styles.categoryItem, { backgroundColor: theme.background.card }]}>
                   <View style={[styles.categoryRank, { backgroundColor: theme.accent.primary }]}>
-                    <Text style={styles.categoryRankText}>{index + 1}</Text>
+                    <Text style={styles.categoryRankText}>{String(index + 1)}</Text>
                   </View>
                   <Text style={[styles.categoryName, { color: theme.text.primary }]}>{cat.category}</Text>
                   <Text style={[styles.categoryAmount, { color: theme.accent.primary }]}>{formatCurrency(cat.amount)}</Text>
@@ -508,8 +508,7 @@ export default function DashboardScreen() {
                 colors={theme.gradient.primary as [string, string]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={styles.actionButtonGradient}
-                pointerEvents="none"
+                style={[styles.actionButtonGradient, { pointerEvents: 'none' }]}
               >
                 <Plus size={20} color="#FFF" strokeWidth={2.5} />
                 <Text style={styles.actionButtonText}>Add Transaction</Text>

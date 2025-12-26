@@ -241,9 +241,9 @@ export default function CalculatorScreen() {
               <View style={styles.verdictHeader}>
                 {getVerdictIcon(result.verdict)}
                 <Text style={[styles.verdictText, { color: getVerdictColor(result.verdict).text }]}>
-                  {result.verdict === 'viable' && 'Business is Viable ✓'}
-                  {result.verdict === 'risky' && 'Business is Risky ⚠'}
-                  {result.verdict === 'not-viable' && 'Not Viable Yet ✗'}
+                  {result.verdict === 'viable' ? 'Business is Viable ✓' : 
+                   result.verdict === 'risky' ? 'Business is Risky ⚠' : 
+                   'Not Viable Yet ✗'}
                 </Text>
               </View>
             </View>

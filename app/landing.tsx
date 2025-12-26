@@ -36,19 +36,19 @@ export default function LandingScreen() {
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 800,
-        useNativeDriver: true,
+        useNativeDriver: false, // Disabled to avoid native driver issues
       }),
       Animated.spring(slideAnim, {
         toValue: 0,
         tension: 50,
         friction: 7,
-        useNativeDriver: true,
+        useNativeDriver: false, // Disabled to avoid native driver issues
       }),
       Animated.spring(scaleAnim, {
         toValue: 1,
         tension: 50,
         friction: 7,
-        useNativeDriver: true,
+        useNativeDriver: false, // Disabled to avoid native driver issues
       }),
     ]).start();
 
@@ -56,7 +56,7 @@ export default function LandingScreen() {
       Animated.timing(rotateAnim, {
         toValue: 1,
         duration: 20000,
-        useNativeDriver: true,
+        useNativeDriver: false, // Disabled to avoid native driver issues
       })
     ).start();
   }, [fadeAnim, slideAnim, scaleAnim, rotateAnim]);
