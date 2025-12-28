@@ -533,13 +533,16 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     maxHeight: '90%',
-    paddingBottom: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    flex: 1,
+    minHeight: '60%',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
@@ -567,10 +570,12 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    maxHeight: '100%',
   },
   contentContainer: {
     padding: 20,
     paddingBottom: 40,
+    flexGrow: 1,
   },
   stepContent: {
     flex: 1,
