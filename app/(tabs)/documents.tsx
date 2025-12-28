@@ -356,7 +356,11 @@ export default function DocumentsScreen() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView 
+          contentContainerStyle={[styles.content, { paddingBottom: Platform.OS === 'ios' ? 120 : 100 }]}
+          showsVerticalScrollIndicator={false}
+          style={styles.scrollView}
+        >
           {filteredDocuments.length === 0 ? (
             <View style={styles.emptyState}>
               <FileText size={48} color="#CBD5E1" />
