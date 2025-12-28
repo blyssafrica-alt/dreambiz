@@ -270,6 +270,7 @@ export default function FinancesScreen() {
             </View>
           </View>
         </LinearGradient>
+        </SafeAreaView>
 
         {/* Search and Filters */}
         <Animated.View style={[styles.searchFilterContainer, {
