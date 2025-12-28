@@ -105,6 +105,13 @@ export default function AdminLayout() {
         }} 
       />
       <Stack.Screen 
+        name="books" 
+        options={{ 
+          title: 'Book Management',
+          headerShown: true,
+        }} 
+      />
+      <Stack.Screen 
         name="features" 
         options={{ 
           title: 'Feature Management',

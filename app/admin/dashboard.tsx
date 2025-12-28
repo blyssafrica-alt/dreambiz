@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { BarChart, TrendingUp, Package, Megaphone, FileText, AlertCircle } from 'lucide-react-native';
+import { BarChart, TrendingUp, Package, Megaphone, FileText, AlertCircle, BookOpen } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function AdminDashboard() {
@@ -221,6 +221,21 @@ export default function AdminDashboard() {
               <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Alert Rules</Text>
               <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
                 Configure mistake prevention alerts
+              </Text>
+            </View>
+            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/books' as any)}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Books</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Add and manage DreamBig books
               </Text>
             </View>
             <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
