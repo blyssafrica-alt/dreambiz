@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { 
   Plus, 
   Minus,
@@ -19,7 +19,9 @@ import {
   Printer,
   ChevronDown,
   Percent,
-  Tag
+  Tag,
+  Share2,
+  FileText
 } from 'lucide-react-native';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import {
@@ -34,12 +36,15 @@ import {
   Modal,
   Platform,
   Dimensions,
+  Share,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Product, DocumentItem, Customer, Document } from '@/types/business';
+import { exportToPDF } from '@/lib/pdf-export';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -67,6 +72,9 @@ export default function POSScreen() {
   const [cartOpen, setCartOpen] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [createdReceipt, setCreatedReceipt] = useState<Document | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Animation setup
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -263,8 +271,10 @@ export default function POSScreen() {
         await updateProduct(item.product.id, { quantity: newStock });
       }
 
+      setIsProcessing(true);
+
       // Create invoice/receipt
-      await addDocument({
+      const newReceipt: Document = await addDocument({
         type: 'receipt', // POS sales are receipts
         customerName,
         customerPhone,
@@ -281,26 +291,12 @@ export default function POSScreen() {
           : undefined,
       });
 
-      // Show success and reset
-      RNAlert.alert(
-        'Sale Complete! 🎉',
-        `Total: ${formatCurrency(cartTotal)}\nPayment: ${paymentMethod.replace('_', ' ').toUpperCase()}${paymentMethod === 'cash' ? `\nChange: ${formatCurrency(changeAmount)}` : ''}`,
-        [
-          {
-            text: 'New Sale',
-            onPress: () => {
-              setCart([]);
-              setSelectedCustomer(null);
-              setNewCustomerName('');
-              setNewCustomerPhone('');
-              setDiscount('');
-              setAmountReceived('');
-              setPaymentMethod('cash');
-              setCartOpen(false);
-            },
-          },
-        ]
-      );
+      setIsProcessing(false);
+
+      // Store receipt and show receipt modal
+      setCreatedReceipt(newReceipt);
+      setShowReceiptModal(true);
+      setCartOpen(false);
     } catch (error: any) {
       RNAlert.alert('Error', error.message || 'Failed to complete sale');
     }
@@ -315,6 +311,112 @@ export default function POSScreen() {
     if (quantity === 0) return { color: '#EF4444', label: 'Out of Stock' };
     if (quantity < 10) return { color: '#F59E0B', label: 'Low Stock' };
     return { color: '#10B981', label: 'In Stock' };
+  };
+
+  const handleNewSale = () => {
+    setCart([]);
+    setSelectedCustomer(null);
+    setNewCustomerName('');
+    setNewCustomerPhone('');
+    setDiscount('');
+    setAmountReceived('');
+    setPaymentMethod('cash');
+    setCartOpen(false);
+    setCreatedReceipt(null);
+  };
+
+  const handlePrintReceipt = async () => {
+    if (!createdReceipt || !business) return;
+
+    try {
+      setIsProcessing(true);
+      await exportToPDF(createdReceipt, business);
+      RNAlert.alert('Success', 'Receipt PDF generated. You can now print or share it.');
+    } catch (error: any) {
+      console.error('Print failed:', error);
+      RNAlert.alert('Error', error.message || 'Failed to generate receipt for printing. Make sure expo-print is installed.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleEmailReceipt = async () => {
+    if (!createdReceipt || !business) return;
+
+    const customerEmail = selectedCustomer?.email;
+    if (!customerEmail) {
+      RNAlert.alert(
+        'No Email',
+        'Customer email not available. Please select a customer with an email address or add email in customer details.',
+        [
+          { text: 'OK' },
+          {
+            text: 'View Receipt',
+            onPress: () => {
+              setShowReceiptModal(false);
+              handleViewReceipt();
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    try {
+      // Try to generate PDF and attach
+      const subject = encodeURIComponent(`Receipt ${createdReceipt.documentNumber} - ${business.name}`);
+      const body = encodeURIComponent(
+        `Thank you for your purchase!\n\n` +
+        `Receipt Number: ${createdReceipt.documentNumber}\n` +
+        `Date: ${new Date(createdReceipt.date).toLocaleDateString()}\n` +
+        `Total: ${formatCurrency(createdReceipt.total)}\n` +
+        `Payment Method: ${createdReceipt.paymentMethod?.replace('_', ' ').toUpperCase() || 'CASH'}\n\n` +
+        `Items:\n${createdReceipt.items.map(item => 
+          `- ${item.description} (${item.quantity}x) = ${formatCurrency(item.total)}`
+        ).join('\n')}\n\n` +
+        `Generated by DreamBig Business OS`
+      );
+
+      const mailtoUrl = `mailto:${customerEmail}?subject=${subject}&body=${body}`;
+      Linking.openURL(mailtoUrl).catch(() => {
+        RNAlert.alert('Error', 'Could not open email client');
+      });
+    } catch (error: any) {
+      RNAlert.alert('Error', 'Failed to prepare email');
+    }
+  };
+
+  const handleShareReceipt = async () => {
+    if (!createdReceipt || !business) return;
+
+    try {
+      const receiptText = 
+        `Receipt ${createdReceipt.documentNumber}\n` +
+        `${business.name}\n` +
+        `Date: ${new Date(createdReceipt.date).toLocaleDateString()}\n\n` +
+        `Customer: ${createdReceipt.customerName}\n` +
+        `Payment: ${createdReceipt.paymentMethod?.replace('_', ' ').toUpperCase() || 'CASH'}\n\n` +
+        `Items:\n${createdReceipt.items.map(item => 
+          `${item.description} - ${item.quantity}x ${formatCurrency(item.unitPrice)} = ${formatCurrency(item.total)}`
+        ).join('\n')}\n\n` +
+        `Subtotal: ${formatCurrency(createdReceipt.subtotal)}\n` +
+        `${createdReceipt.tax ? `Tax: ${formatCurrency(createdReceipt.tax)}\n` : ''}` +
+        `Total: ${formatCurrency(createdReceipt.total)}\n\n` +
+        `Thank you for your business!`;
+
+      await Share.share({
+        message: receiptText,
+        title: `Receipt ${createdReceipt.documentNumber}`,
+      });
+    } catch (error: any) {
+      RNAlert.alert('Error', 'Failed to share receipt');
+    }
+  };
+
+  const handleViewReceipt = () => {
+    if (!createdReceipt) return;
+    setShowReceiptModal(false);
+    router.push(`/document/${createdReceipt.id}` as any);
   };
 
   return (
@@ -948,6 +1050,121 @@ export default function POSScreen() {
             </View>
           </View>
         </Modal>
+
+        {/* Receipt Modal */}
+        <Modal
+          visible={showReceiptModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => {
+            setShowReceiptModal(false);
+            handleNewSale();
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, styles.receiptModal, { backgroundColor: theme.background.card }]}>
+              <View style={styles.modalHeader}>
+                <View style={styles.receiptHeaderLeft}>
+                  <View style={[styles.receiptIcon, { backgroundColor: '#10B98120' }]}>
+                    <Receipt size={24} color="#10B981" />
+                  </View>
+                  <View>
+                    <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Sale Complete!</Text>
+                    <Text style={[styles.receiptSubtitle, { color: theme.text.secondary }]}>
+                      {createdReceipt?.documentNumber}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => {
+                  setShowReceiptModal(false);
+                  handleNewSale();
+                }}>
+                  <X size={24} color={theme.text.secondary} />
+                </TouchableOpacity>
+              </View>
+              
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                {createdReceipt && business && (
+                  <>
+                    {/* Receipt Summary */}
+                    <View style={[styles.receiptSummary, { backgroundColor: '#F0FDF420' }]}>
+                      <View style={styles.receiptSummaryRow}>
+                        <Text style={[styles.receiptSummaryLabel, { color: theme.text.secondary }]}>Total</Text>
+                        <Text style={[styles.receiptSummaryValue, { color: theme.accent.primary }]}>
+                          {formatCurrency(createdReceipt.total)}
+                        </Text>
+                      </View>
+                      <View style={styles.receiptSummaryRow}>
+                        <Text style={[styles.receiptSummaryLabel, { color: theme.text.secondary }]}>Payment</Text>
+                        <Text style={[styles.receiptSummaryValue, { color: theme.text.primary }]}>
+                          {createdReceipt.paymentMethod?.replace('_', ' ').toUpperCase() || 'CASH'}
+                        </Text>
+                      </View>
+                      {paymentMethod === 'cash' && changeAmount > 0 && (
+                        <View style={styles.receiptSummaryRow}>
+                          <Text style={[styles.receiptSummaryLabel, { color: theme.text.secondary }]}>Change</Text>
+                          <Text style={[styles.receiptSummaryValue, { color: '#10B981' }]}>
+                            {formatCurrency(changeAmount)}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Receipt Actions */}
+                    <View style={styles.receiptActions}>
+                      <TouchableOpacity
+                        style={[styles.receiptActionButton, { backgroundColor: theme.accent.primary }]}
+                        onPress={handlePrintReceipt}
+                      >
+                        <Printer size={20} color="#FFF" />
+                        <Text style={styles.receiptActionText}>Print Receipt</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.receiptActionButton, { backgroundColor: theme.accent.success }]}
+                        onPress={handleEmailReceipt}
+                        disabled={!selectedCustomer?.email && !newCustomerPhone}
+                      >
+                        <Mail size={20} color="#FFF" />
+                        <Text style={styles.receiptActionText}>Email Receipt</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.receiptActionButton, { backgroundColor: theme.background.secondary, borderWidth: 1, borderColor: theme.border.light }]}
+                        onPress={handleShareReceipt}
+                      >
+                        <Share2 size={20} color={theme.text.primary} />
+                        <Text style={[styles.receiptActionText, { color: theme.text.primary }]}>Share</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.receiptActionButton, { backgroundColor: theme.background.secondary, borderWidth: 1, borderColor: theme.border.light }]}
+                        onPress={handleViewReceipt}
+                      >
+                        <FileText size={20} color={theme.text.primary} />
+                        <Text style={[styles.receiptActionText, { color: theme.text.primary }]}>View Details</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </ScrollView>
+
+              {/* New Sale Button */}
+              <View style={styles.receiptFooter}>
+                <TouchableOpacity
+                  style={[styles.newSaleButton, { backgroundColor: theme.accent.primary }]}
+                  onPress={() => {
+                    setShowReceiptModal(false);
+                    handleNewSale();
+                  }}
+                >
+                  <ShoppingCart size={20} color="#FFF" />
+                  <Text style={styles.newSaleButtonText}>New Sale</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </>
   );
@@ -1529,6 +1746,82 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   completePaymentButtonText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '700' as const,
+  },
+  receiptModal: {
+    maxHeight: '85%',
+  },
+  receiptHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  receiptIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  receiptSubtitle: {
+    fontSize: 14,
+    marginTop: 4,
+  },
+  receiptSummary: {
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#10B98140',
+  },
+  receiptSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  receiptSummaryLabel: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  receiptSummaryValue: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+  },
+  receiptActions: {
+    gap: 12,
+    marginBottom: 20,
+  },
+  receiptActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  receiptActionText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  receiptFooter: {
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  newSaleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 18,
+    borderRadius: 16,
+    gap: 12,
+  },
+  newSaleButtonText: {
     color: '#FFF',
     fontSize: 18,
     fontWeight: '700' as const,
