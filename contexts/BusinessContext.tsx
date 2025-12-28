@@ -549,8 +549,18 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         createdAt: data.created_at,
       };
 
+      // Update business state - this will trigger re-renders in all components using business context
       setBusiness(savedBusiness);
       setHasOnboarded(true);
+      
+      // Log update for debugging
+      console.log('✅ Business profile updated:', {
+        name: savedBusiness.name,
+        phone: savedBusiness.phone,
+        email: savedBusiness.email,
+        address: savedBusiness.address,
+        logo: savedBusiness.logo ? 'Updated' : 'Not set',
+      });
     } catch (error: any) {
       // Better error logging - extract message properly
       let errorMessage = '';

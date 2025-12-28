@@ -42,6 +42,8 @@ export default function SettingsScreen() {
   const [name, setName] = useState(business?.name || '');
   const [owner, setOwner] = useState(business?.owner || '');
   const [phone, setPhone] = useState(business?.phone || '');
+  const [email, setEmail] = useState(business?.email || '');
+  const [address, setAddress] = useState(business?.address || '');
   const [location, setLocation] = useState(business?.location || '');
   const [capital, setCapital] = useState(business?.capital.toString() || '');
   const [currency, setCurrency] = useState<Currency>(business?.currency || 'USD');
@@ -53,6 +55,8 @@ export default function SettingsScreen() {
       setName(business.name);
       setOwner(business.owner);
       setPhone(business.phone || '');
+      setEmail(business.email || '');
+      setAddress(business.address || '');
       setLocation(business.location);
       setCapital(business.capital.toString());
       setCurrency(business.currency);
@@ -98,18 +102,24 @@ export default function SettingsScreen() {
       return;
     }
 
-    await saveBusiness({
-      ...business,
-      name,
-      owner,
-      phone,
-      location,
-      capital: parseFloat(capital) || 0,
-      currency,
-      logo,
-    });
+    try {
+      await saveBusiness({
+        ...business,
+        name,
+        owner,
+        phone: phone || undefined,
+        email: email || undefined,
+        address: address || undefined,
+        location,
+        capital: parseFloat(capital) || 0,
+        currency,
+        logo,
+      });
 
-    RNAlert.alert('Success', 'Profile updated successfully');
+      RNAlert.alert('Success', 'Profile updated successfully. All documents will now use the updated information.');
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to update profile');
+    }
   };
 
   const handleUpdateRate = async () => {
@@ -347,6 +357,46 @@ export default function SettingsScreen() {
                 keyboardType="phone-pad"
               />
             </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.text.secondary }]}>
+              Email Address
+            </Text>
+            <View style={[styles.inputWithIcon, { 
+              backgroundColor: theme.background.secondary,
+              borderColor: theme.border.light,
+            }]}>
+              <Mail size={16} color={theme.text.tertiary} />
+              <TextInput
+                style={[styles.inputWithIconField, { color: theme.text.primary }]}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="business@example.com"
+                placeholderTextColor={theme.text.tertiary}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.text.secondary }]}>
+              Address
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.background.secondary,
+                borderColor: theme.border.light,
+                color: theme.text.primary,
+              }]}
+              value={address}
+              onChangeText={setAddress}
+              placeholder="Street address, building, etc."
+              placeholderTextColor={theme.text.tertiary}
+              multiline
+              numberOfLines={2}
+            />
           </View>
 
           <View style={styles.inputGroup}>
