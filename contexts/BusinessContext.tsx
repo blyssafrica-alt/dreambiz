@@ -755,7 +755,15 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       if (updates.status !== undefined) updateData.status = updates.status;
       if (updates.dueDate !== undefined) updateData.due_date = updates.dueDate || null;
       if (updates.customerEmail !== undefined) updateData.customer_email = updates.customerEmail || null;
+      if (updates.customerName !== undefined) updateData.customer_name = updates.customerName;
+      if (updates.customerPhone !== undefined) updateData.customer_phone = updates.customerPhone || null;
       if (updates.notes !== undefined) updateData.notes = updates.notes || null;
+      if (updates.items !== undefined) updateData.items = updates.items;
+      if (updates.subtotal !== undefined) updateData.subtotal = updates.subtotal;
+      if (updates.tax !== undefined) updateData.tax = updates.tax || null;
+      if (updates.total !== undefined) updateData.total = updates.total;
+      if (updates.date !== undefined) updateData.date = updates.date;
+      if (updates.paymentMethod !== undefined) updateData.payment_method = updates.paymentMethod || null;
 
       const { error } = await supabase
         .from('documents')
@@ -764,10 +772,41 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
 
       if (error) throw error;
 
-      const updated = documents.map(d => 
-        d.id === id ? { ...d, ...updates } : d
-      );
-      setDocuments(updated);
+      // Reload document to get fresh data
+      const { data: updatedDoc, error: fetchError } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      if (updatedDoc) {
+        const updatedDocument: Document = {
+          id: updatedDoc.id,
+          type: updatedDoc.type as any,
+          documentNumber: updatedDoc.document_number,
+          customerName: updatedDoc.customer_name,
+          customerPhone: updatedDoc.customer_phone || undefined,
+          customerEmail: updatedDoc.customer_email || undefined,
+          items: updatedDoc.items as any,
+          subtotal: Number(updatedDoc.subtotal),
+          tax: updatedDoc.tax ? Number(updatedDoc.tax) : undefined,
+          total: Number(updatedDoc.total),
+          currency: updatedDoc.currency as any,
+          date: updatedDoc.date,
+          dueDate: updatedDoc.due_date || undefined,
+          status: (updatedDoc.status as any) || 'draft',
+          createdAt: updatedDoc.created_at,
+          notes: updatedDoc.notes || undefined,
+          paymentMethod: updatedDoc.payment_method as any,
+        };
+
+        const updated = documents.map(d => 
+          d.id === id ? updatedDocument : d
+        );
+        setDocuments(updated);
+      }
     } catch (error) {
       console.error('Failed to update document:', error);
       throw error;
@@ -838,7 +877,10 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         updatedAt: data.updated_at,
       };
 
-      setProducts([newProduct, ...products]);
+      // Ensure we create a new array reference to trigger re-render
+      setProducts(prev => [newProduct, ...prev]);
+      
+      return newProduct;
     } catch (error) {
       console.error('Failed to add product:', error);
       throw error;
@@ -924,7 +966,10 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         updatedAt: data.updated_at,
       };
 
-      setCustomers([newCustomer, ...customers]);
+      // Ensure we create a new array reference to trigger re-render
+      setCustomers(prev => [newCustomer, ...prev]);
+      
+      return newCustomer;
     } catch (error) {
       console.error('Failed to add customer:', error);
       throw error;
@@ -2011,6 +2056,11 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     }
   };
 
+  // Refresh function to reload all data
+  const refreshData = useCallback(async () => {
+    await loadData();
+  }, [loadData]);
+
   return {
     business,
     transactions,
@@ -2072,5 +2122,6 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     logActivity,
     updateExchangeRate,
     getDashboardMetrics,
+    refreshData, // Add refresh function
   };
 });

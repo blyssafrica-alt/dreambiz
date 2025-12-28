@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { Share as ShareIcon, Mail, FileDown, Trash2, X, QrCode, Link as LinkIcon } from 'lucide-react-native';
+import { Share as ShareIcon, Mail, FileDown, Trash2, X, QrCode, Link as LinkIcon, Edit2, Save, Plus, Check, DollarSign, CreditCard, Smartphone, Building2 } from 'lucide-react-native';
 import { useState } from 'react';
 import { 
   View, 
@@ -13,22 +13,42 @@ import {
   Linking,
   Modal,
   Image,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import type { Document } from '@/types/business';
+import type { Document, DocumentItem } from '@/types/business';
 import { getDocumentTemplate, generateDocumentContent } from '@/lib/document-templates';
 import { exportToPDF } from '@/lib/pdf-export';
 import { generateQRCodeData, generatePaymentLink, generateQRCodePattern } from '@/lib/qr-code';
+import type { Payment } from '@/types/payments';
 
 export default function DocumentDetailScreen() {
   const { id } = useLocalSearchParams();
-  const { documents, business, getDocumentPayments, getDocumentPaidAmount, deletePayment } = useBusiness();
+  const { documents, business, getDocumentPayments, getDocumentPaidAmount, deletePayment, updateDocument, addPayment } = useBusiness();
   const { theme } = useTheme();
   const [showQRModal, setShowQRModal] = useState(false);
   const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showMarkPaidModal, setShowMarkPaidModal] = useState(false);
+  
+  // Edit mode state
+  const [editCustomerName, setEditCustomerName] = useState('');
+  const [editCustomerPhone, setEditCustomerPhone] = useState('');
+  const [editCustomerEmail, setEditCustomerEmail] = useState('');
+  const [editItems, setEditItems] = useState<DocumentItem[]>([]);
+  const [editNotes, setEditNotes] = useState('');
+  const [editStatus, setEditStatus] = useState<'draft' | 'sent' | 'paid' | 'cancelled'>('draft');
+  
+  // Payment modal state
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bank_transfer' | 'mobile_money' | 'card' | 'other'>('cash');
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentNotes, setPaymentNotes] = useState('');
   
   const document = documents.find(d => d.id === id) as Document | undefined;
   
@@ -39,6 +59,148 @@ export default function DocumentDetailScreen() {
   const documentPayments = document ? getDocumentPayments(document.id) : [];
   const paidAmount = document ? getDocumentPaidAmount(document.id) : 0;
   const outstandingAmount = document ? document.total - paidAmount : 0;
+
+  // Initialize edit state when entering edit mode
+  const enterEditMode = () => {
+    if (!document) return;
+    setEditCustomerName(document.customerName);
+    setEditCustomerPhone(document.customerPhone || '');
+    setEditCustomerEmail(document.customerEmail || '');
+    setEditItems([...document.items]);
+    setEditNotes(document.notes || '');
+    setEditStatus(document.status || 'draft');
+    setIsEditMode(true);
+  };
+
+  const exitEditMode = () => {
+    setIsEditMode(false);
+    setEditCustomerName('');
+    setEditCustomerPhone('');
+    setEditCustomerEmail('');
+    setEditItems([]);
+    setEditNotes('');
+  };
+
+  const handleSaveDocument = async () => {
+    if (!document) return;
+
+    try {
+      // Recalculate totals from edited items
+      const newSubtotal = editItems.reduce((sum, item) => sum + item.total, 0);
+      const tax = document.tax || 0;
+      const newTotal = newSubtotal + tax;
+
+      await updateDocument(document.id, {
+        customerName: editCustomerName,
+        customerPhone: editCustomerPhone || undefined,
+        customerEmail: editCustomerEmail || undefined,
+        items: editItems,
+        subtotal: newSubtotal,
+        total: newTotal,
+        notes: editNotes || undefined,
+        status: editStatus,
+      });
+
+      RNAlert.alert('Success', 'Document updated successfully');
+      exitEditMode();
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to update document');
+    }
+  };
+
+  const handleAddItem = () => {
+    const newItem: DocumentItem = {
+      id: `item-${Date.now()}`,
+      description: '',
+      quantity: 1,
+      unitPrice: 0,
+      total: 0,
+    };
+    setEditItems([...editItems, newItem]);
+  };
+
+  const handleUpdateItem = (itemId: string, field: keyof DocumentItem, value: any) => {
+    setEditItems(editItems.map(item => {
+      if (item.id === itemId) {
+        const updated = { ...item, [field]: value };
+        if (field === 'quantity' || field === 'unitPrice') {
+          updated.total = updated.quantity * updated.unitPrice;
+        }
+        return updated;
+      }
+      return item;
+    }));
+  };
+
+  const handleDeleteItem = (itemId: string) => {
+    setEditItems(editItems.filter(item => item.id !== itemId));
+  };
+
+  const handleAddPayment = async () => {
+    if (!document || !paymentAmount) {
+      RNAlert.alert('Missing Fields', 'Please enter payment amount');
+      return;
+    }
+
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      RNAlert.alert('Invalid Amount', 'Please enter a valid amount');
+      return;
+    }
+
+    if (amount > outstandingAmount) {
+      RNAlert.alert('Invalid Amount', `Amount cannot exceed outstanding balance of ${formatCurrency(outstandingAmount)}`);
+      return;
+    }
+
+    try {
+      await addPayment({
+        documentId: document.id,
+        amount,
+        currency: document.currency,
+        paymentDate,
+        paymentMethod,
+        reference: paymentReference || undefined,
+        notes: paymentNotes || undefined,
+      });
+
+      // Reset form
+      setPaymentAmount('');
+      setPaymentReference('');
+      setPaymentNotes('');
+      setPaymentDate(new Date().toISOString().split('T')[0]);
+      setShowPaymentModal(false);
+      
+      RNAlert.alert('Success', 'Payment recorded successfully');
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to add payment');
+    }
+  };
+
+  const handleMarkAsPaid = async () => {
+    if (!document) return;
+
+    try {
+      const remainingAmount = outstandingAmount;
+      if (remainingAmount > 0) {
+        // Add a payment for the remaining amount
+        await addPayment({
+          documentId: document.id,
+          amount: remainingAmount,
+          currency: document.currency,
+          paymentDate: new Date().toISOString().split('T')[0],
+          paymentMethod: 'cash',
+          notes: 'Marked as paid manually',
+        });
+      }
+
+      await updateDocument(document.id, { status: 'paid' });
+      setShowMarkPaidModal(false);
+      RNAlert.alert('Success', 'Invoice marked as paid');
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to mark as paid');
+    }
+  };
 
   if (!document) {
     return (
@@ -169,17 +331,33 @@ export default function DocumentDetailScreen() {
           title: document.documentNumber,
           headerRight: () => (
             <View style={{ flexDirection: 'row', gap: 12, marginRight: 16 }}>
-              <TouchableOpacity onPress={handleExportPDF}>
-                <FileDown size={22} color={theme.accent.primary} />
-              </TouchableOpacity>
-              {document.customerEmail && (
-                <TouchableOpacity onPress={handleEmail}>
-                  <Mail size={22} color={theme.accent.primary} />
-                </TouchableOpacity>
+              {isEditMode ? (
+                <>
+                  <TouchableOpacity onPress={exitEditMode}>
+                    <X size={22} color={theme.accent.danger} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleSaveDocument}>
+                    <Save size={22} color={theme.accent.success} />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity onPress={enterEditMode}>
+                    <Edit2 size={22} color={theme.accent.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleExportPDF}>
+                    <FileDown size={22} color={theme.accent.primary} />
+                  </TouchableOpacity>
+                  {document.customerEmail && (
+                    <TouchableOpacity onPress={handleEmail}>
+                      <Mail size={22} color={theme.accent.primary} />
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={handleShare}>
+                    <ShareIcon size={22} color={theme.accent.primary} />
+                  </TouchableOpacity>
+                </>
               )}
-              <TouchableOpacity onPress={handleShare}>
-                <ShareIcon size={22} color={theme.accent.primary} />
-              </TouchableOpacity>
             </View>
           )
         }} 
@@ -242,20 +420,68 @@ export default function DocumentDetailScreen() {
 
         {/* Items Table */}
         <View style={styles.itemsSection}>
-          <Text style={styles.itemsTitle}>ITEMS</Text>
+          <View style={styles.itemsHeader}>
+            <Text style={styles.itemsTitle}>ITEMS</Text>
+            {isEditMode && (
+              <TouchableOpacity
+                style={[styles.addItemButton, { backgroundColor: theme.accent.primary }]}
+                onPress={handleAddItem}
+              >
+                <Plus size={18} color="#FFF" />
+                <Text style={styles.addItemButtonText}>Add Item</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           <View style={styles.itemsTable}>
             <View style={styles.tableHeader}>
               <Text style={[styles.tableHeaderText, { flex: 3 }]}>Description</Text>
               <Text style={[styles.tableHeaderText, { flex: 1, textAlign: 'center' }]}>Qty</Text>
               <Text style={[styles.tableHeaderText, { flex: 1.5, textAlign: 'right' }]}>Unit Price</Text>
               <Text style={[styles.tableHeaderText, { flex: 1.5, textAlign: 'right' }]}>Total</Text>
+              {isEditMode && <Text style={[styles.tableHeaderText, { flex: 0.5 }]}></Text>}
             </View>
-            {document.items.map((item, index) => (
+            {(isEditMode ? editItems : document.items).map((item, index) => (
               <View key={item.id} style={[styles.tableRow, index % 2 === 0 && styles.tableRowEven]}>
-                <Text style={[styles.tableCell, { flex: 3, fontWeight: '600' }]}>{item.description}</Text>
-                <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{item.quantity}</Text>
-                <Text style={[styles.tableCell, { flex: 1.5, textAlign: 'right' }]}>{formatCurrency(item.unitPrice)}</Text>
-                <Text style={[styles.tableCell, { flex: 1.5, textAlign: 'right', fontWeight: '700', color: template?.styling.primaryColor || '#0066CC' }]}>{formatCurrency(item.total)}</Text>
+                {isEditMode ? (
+                  <>
+                    <TextInput
+                      style={[styles.editItemInput, { flex: 3, backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                      value={item.description}
+                      onChangeText={(value) => handleUpdateItem(item.id, 'description', value)}
+                      placeholder="Description"
+                    />
+                    <TextInput
+                      style={[styles.editItemInput, { flex: 1, backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                      value={item.quantity.toString()}
+                      onChangeText={(value) => handleUpdateItem(item.id, 'quantity', parseInt(value) || 0)}
+                      keyboardType="numeric"
+                      placeholder="Qty"
+                    />
+                    <TextInput
+                      style={[styles.editItemInput, { flex: 1.5, backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                      value={item.unitPrice.toString()}
+                      onChangeText={(value) => handleUpdateItem(item.id, 'unitPrice', parseFloat(value) || 0)}
+                      keyboardType="decimal-pad"
+                      placeholder="Price"
+                    />
+                    <Text style={[styles.tableCell, { flex: 1.5, textAlign: 'right', fontWeight: '700', color: template?.styling.primaryColor || '#0066CC' }]}>
+                      {formatCurrency(item.total)}
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.deleteItemButton, { flex: 0.5 }]}
+                      onPress={() => handleDeleteItem(item.id)}
+                    >
+                      <Trash2 size={16} color={theme.accent.danger} />
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <Text style={[styles.tableCell, { flex: 3, fontWeight: '600' }]}>{item.description}</Text>
+                    <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{item.quantity}</Text>
+                    <Text style={[styles.tableCell, { flex: 1.5, textAlign: 'right' }]}>{formatCurrency(item.unitPrice)}</Text>
+                    <Text style={[styles.tableCell, { flex: 1.5, textAlign: 'right', fontWeight: '700', color: template?.styling.primaryColor || '#0066CC' }]}>{formatCurrency(item.total)}</Text>
+                  </>
+                )}
               </View>
             ))}
           </View>
@@ -325,10 +551,59 @@ export default function DocumentDetailScreen() {
         )}
 
         {/* Notes Section */}
-        {notesOnly && (
-          <View style={styles.notesSection}>
-            <Text style={styles.notesTitle}>Notes</Text>
-            <Text style={styles.notesText}>{notesOnly}</Text>
+        <View style={styles.notesSection}>
+          <Text style={styles.notesTitle}>Notes</Text>
+          {isEditMode ? (
+            <TextInput
+              style={[styles.editNotesInput, { 
+                backgroundColor: theme.background.secondary,
+                color: theme.text.primary,
+                borderColor: theme.border.light,
+              }]}
+              value={editNotes}
+              onChangeText={setEditNotes}
+              placeholder="Add notes..."
+              placeholderTextColor={theme.text.tertiary}
+              multiline
+              numberOfLines={4}
+            />
+          ) : (
+            notesOnly ? (
+              <Text style={styles.notesText}>{notesOnly}</Text>
+            ) : (
+              <Text style={[styles.notesText, { color: theme.text.tertiary, fontStyle: 'italic' }]}>
+                No notes
+              </Text>
+            )
+          )}
+        </View>
+
+        {/* Status Section (Edit Mode) */}
+        {isEditMode && (
+          <View style={styles.statusSection}>
+            <Text style={[styles.statusLabel, { color: theme.text.primary }]}>Status</Text>
+            <View style={styles.statusButtons}>
+              {(['draft', 'sent', 'paid', 'cancelled'] as const).map((status) => (
+                <TouchableOpacity
+                  key={status}
+                  style={[
+                    styles.statusButton,
+                    { 
+                      backgroundColor: editStatus === status ? theme.accent.primary : theme.background.secondary,
+                      borderColor: editStatus === status ? theme.accent.primary : theme.border.light,
+                    }
+                  ]}
+                  onPress={() => setEditStatus(status)}
+                >
+                  <Text style={[
+                    styles.statusButtonText,
+                    { color: editStatus === status ? '#FFF' : theme.text.primary }
+                  ]}>
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         )}
 
@@ -337,9 +612,42 @@ export default function DocumentDetailScreen() {
           <View style={styles.paymentsSection}>
             <View style={styles.paymentsHeader}>
               <Text style={styles.paymentsTitle}>Payment History</Text>
+              <View style={styles.paymentActions}>
+                {outstandingAmount > 0 && (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.addPaymentButton, { backgroundColor: theme.accent.primary }]}
+                      onPress={() => setShowPaymentModal(true)}
+                    >
+                      <Plus size={16} color="#FFF" />
+                      <Text style={styles.addPaymentButtonText}>Add Payment</Text>
+                    </TouchableOpacity>
+                    {document.status !== 'paid' && (
+                      <TouchableOpacity
+                        style={[styles.markPaidButton, { backgroundColor: theme.accent.success }]}
+                        onPress={() => setShowMarkPaidModal(true)}
+                      >
+                        <Check size={16} color="#FFF" />
+                        <Text style={styles.markPaidButtonText}>Mark Paid</Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
+              </View>
             </View>
             {documentPayments.length === 0 ? (
-              <Text style={styles.noPaymentsText}>No payments recorded yet</Text>
+              <View style={styles.noPaymentsContainer}>
+                <Text style={styles.noPaymentsText}>No payments recorded yet</Text>
+                {outstandingAmount > 0 && (
+                  <TouchableOpacity
+                    style={[styles.addPaymentButtonSmall, { backgroundColor: theme.accent.primary }]}
+                    onPress={() => setShowPaymentModal(true)}
+                  >
+                    <Plus size={16} color="#FFF" />
+                    <Text style={styles.addPaymentButtonText}>Add Payment</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             ) : (
               documentPayments.map(payment => (
                 <View key={payment.id} style={styles.paymentCard}>
@@ -357,6 +665,9 @@ export default function DocumentDetailScreen() {
                   </View>
                   {payment.reference && (
                     <Text style={styles.paymentReference}>Ref: {payment.reference}</Text>
+                  )}
+                  {payment.notes && (
+                    <Text style={styles.paymentNotes}>{payment.notes}</Text>
                   )}
                 </View>
               ))
@@ -527,6 +838,185 @@ export default function DocumentDetailScreen() {
                 )}
               </View>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add Payment Modal */}
+      <Modal
+        visible={showPaymentModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowPaymentModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Add Payment</Text>
+              <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
+                <X size={24} color={theme.text.secondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <View style={styles.paymentInfoBox}>
+                <Text style={[styles.paymentInfoLabel, { color: theme.text.secondary }]}>Outstanding Amount</Text>
+                <Text style={[styles.paymentInfoValue, { color: theme.accent.primary }]}>
+                  {formatCurrency(outstandingAmount)}
+                </Text>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text.primary }]}>
+                  Amount ({document.currency}) *
+                </Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: theme.background.secondary,
+                    color: theme.text.primary,
+                    borderColor: theme.border.light,
+                  }]}
+                  placeholder="0.00"
+                  placeholderTextColor={theme.text.tertiary}
+                  keyboardType="decimal-pad"
+                  value={paymentAmount}
+                  onChangeText={setPaymentAmount}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text.primary }]}>Payment Method *</Text>
+                <View style={styles.paymentMethodsGrid}>
+                  {(['cash', 'card', 'mobile_money', 'bank_transfer', 'other'] as const).map((method) => (
+                    <TouchableOpacity
+                      key={method}
+                      style={[
+                        styles.paymentMethodOption,
+                        { 
+                          backgroundColor: paymentMethod === method ? theme.accent.primary + '20' : theme.background.secondary,
+                          borderColor: paymentMethod === method ? theme.accent.primary : theme.border.light,
+                        }
+                      ]}
+                      onPress={() => setPaymentMethod(method)}
+                    >
+                      {method === 'cash' && <DollarSign size={20} color={paymentMethod === method ? theme.accent.primary : theme.text.secondary} />}
+                      {method === 'card' && <CreditCard size={20} color={paymentMethod === method ? theme.accent.primary : theme.text.secondary} />}
+                      {method === 'mobile_money' && <Smartphone size={20} color={paymentMethod === method ? theme.accent.primary : theme.text.secondary} />}
+                      {method === 'bank_transfer' && <Building2 size={20} color={paymentMethod === method ? theme.accent.primary : theme.text.secondary} />}
+                      {method === 'other' && <DollarSign size={20} color={paymentMethod === method ? theme.accent.primary : theme.text.secondary} />}
+                      <Text style={[
+                        styles.paymentMethodOptionText,
+                        { color: paymentMethod === method ? theme.accent.primary : theme.text.primary }
+                      ]}>
+                        {method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text.primary }]}>Payment Date</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: theme.background.secondary,
+                    color: theme.text.primary,
+                    borderColor: theme.border.light,
+                  }]}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={theme.text.tertiary}
+                  value={paymentDate}
+                  onChangeText={setPaymentDate}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text.primary }]}>Reference Number</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: theme.background.secondary,
+                    color: theme.text.primary,
+                    borderColor: theme.border.light,
+                  }]}
+                  placeholder="Optional"
+                  placeholderTextColor={theme.text.tertiary}
+                  value={paymentReference}
+                  onChangeText={setPaymentReference}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text.primary }]}>Notes</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea, { 
+                    backgroundColor: theme.background.secondary,
+                    color: theme.text.primary,
+                    borderColor: theme.border.light,
+                  }]}
+                  placeholder="Optional notes"
+                  placeholderTextColor={theme.text.tertiary}
+                  value={paymentNotes}
+                  onChangeText={setPaymentNotes}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.cancelButton, { 
+                    backgroundColor: theme.background.secondary,
+                    borderColor: theme.border.light,
+                  }]}
+                  onPress={() => setShowPaymentModal(false)}
+                >
+                  <Text style={[styles.cancelButtonText, { color: theme.text.secondary }]}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.saveButton, { backgroundColor: theme.accent.primary }]}
+                  onPress={handleAddPayment}
+                >
+                  <Check size={20} color="#FFF" />
+                  <Text style={styles.saveButtonText}>Add Payment</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Mark as Paid Modal */}
+      <Modal
+        visible={showMarkPaidModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowMarkPaidModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.confirmModal, { backgroundColor: theme.background.card }]}>
+            <Text style={[styles.confirmTitle, { color: theme.text.primary }]}>
+              Mark Invoice as Paid
+            </Text>
+            <Text style={[styles.confirmMessage, { color: theme.text.secondary }]}>
+              This will record a payment of {formatCurrency(outstandingAmount)} and mark the invoice as fully paid.
+            </Text>
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity
+                style={[styles.confirmCancelButton, { 
+                  backgroundColor: theme.background.secondary,
+                  borderColor: theme.border.light,
+                }]}
+                onPress={() => setShowMarkPaidModal(false)}
+              >
+                <Text style={[styles.confirmCancelText, { color: theme.text.secondary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmButton, { backgroundColor: theme.accent.success }]}
+                onPress={handleMarkAsPaid}
+              >
+                <Check size={20} color="#FFF" />
+                <Text style={styles.confirmButtonText}>Mark as Paid</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1064,5 +1554,266 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     textAlign: 'center',
     marginTop: 40,
+  },
+  // Edit Mode Styles
+  editInput: {
+    height: 44,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    marginTop: 4,
+  },
+  editItemInput: {
+    height: 40,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    fontSize: 14,
+    borderColor: '#E2E8F0',
+  },
+  deleteItemButton: {
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  addItemButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  addItemButtonText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  editNotesInput: {
+    minHeight: 100,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    textAlignVertical: 'top',
+  },
+  statusSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  statusLabel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    marginBottom: 12,
+  },
+  statusButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  statusButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  statusButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  // Payment Management Styles
+  paymentActions: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  addPaymentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  addPaymentButtonText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  markPaidButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  markPaidButtonText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  noPaymentsContainer: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  addPaymentButtonSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  paymentNotes: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  paymentInfoBox: {
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#10B98140',
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  paymentInfoLabel: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    marginBottom: 4,
+  },
+  paymentInfoValue: {
+    fontSize: 24,
+    fontWeight: '800' as const,
+  },
+  paymentMethodsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  paymentMethodOption: {
+    flex: 1,
+    minWidth: '45%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  paymentMethodOptionText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    marginBottom: 8,
+  },
+  input: {
+    height: 52,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+  },
+  textArea: {
+    minHeight: 100,
+    paddingTop: 12,
+    textAlignVertical: 'top',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  cancelButton: {
+    flex: 1,
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  saveButton: {
+    flex: 1,
+    height: 52,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  saveButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  confirmModal: {
+    borderRadius: 16,
+    padding: 24,
+    margin: 20,
+    maxWidth: 400,
+    alignSelf: 'center',
+  },
+  confirmTitle: {
+    fontSize: 20,
+    fontWeight: '800' as const,
+    marginBottom: 12,
+  },
+  confirmMessage: {
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  confirmButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  confirmCancelButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmCancelText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  confirmButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  confirmButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600' as const,
   },
 });
