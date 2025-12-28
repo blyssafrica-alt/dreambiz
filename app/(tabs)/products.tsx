@@ -7,7 +7,9 @@ import {
   AlertTriangle,
   Search,
   Filter,
-  X
+  X,
+  Image as ImageIcon,
+  Camera
 } from 'lucide-react-native';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import {
@@ -21,7 +23,9 @@ import {
   Modal,
   Platform,
   Animated,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
@@ -75,6 +79,8 @@ export default function ProductsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [featuredImage, setFeaturedImage] = useState<string | null>(null);
+  const [additionalImages, setAdditionalImages] = useState<string[]>([]);
 
   const filteredProducts = useMemo(() => {
     let filtered = products;
@@ -202,6 +208,8 @@ export default function ProductsScreen() {
     setCategory(product.category || '');
     setIsActive(product.isActive);
     setIsTaxExempt(product.isTaxExempt || false);
+    setFeaturedImage(product.featuredImage || null);
+    setAdditionalImages(product.images || []);
     setShowModal(true);
   };
 
@@ -237,6 +245,8 @@ export default function ProductsScreen() {
     setCategory('');
     setIsActive(true);
     setIsTaxExempt(false);
+    setFeaturedImage(null);
+    setAdditionalImages([]);
   };
 
   const formatCurrency = (amount: number) => {
@@ -405,6 +415,9 @@ export default function ProductsScreen() {
                   isOutOfStock && { borderLeftWidth: 4, borderLeftColor: theme.accent.danger }
                 ]}
               >
+                {product.featuredImage && (
+                  <Image source={{ uri: product.featuredImage }} style={styles.productImage} />
+                )}
                 <View style={styles.productHeader}>
                   <View style={styles.productInfo}>
                     <Text style={[styles.productName, { color: theme.text.primary }]}>
@@ -521,6 +534,88 @@ export default function ProductsScreen() {
                   multiline
                   numberOfLines={3}
                 />
+              </View>
+
+              {/* Featured Image */}
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text.primary }]}>Featured Image</Text>
+                {featuredImage ? (
+                  <View style={styles.imagePreviewContainer}>
+                    <Image source={{ uri: featuredImage }} style={styles.imagePreview} />
+                    <TouchableOpacity
+                      style={[styles.removeImageButton, { backgroundColor: theme.accent.danger }]}
+                      onPress={() => setFeaturedImage(null)}
+                    >
+                      <X size={16} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.imageUploadButton, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}
+                    onPress={async () => {
+                      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                      if (status !== 'granted') {
+                        RNAlert.alert('Permission Required', 'Please grant camera roll access to upload images');
+                        return;
+                      }
+                      const result = await ImagePicker.launchImageLibraryAsync({
+                        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                        allowsEditing: true,
+                        aspect: [1, 1],
+                        quality: 0.8,
+                      });
+                      if (!result.canceled && result.assets[0]) {
+                        setFeaturedImage(result.assets[0].uri);
+                      }
+                    }}
+                  >
+                    <ImageIcon size={24} color={theme.accent.primary} />
+                    <Text style={[styles.imageUploadText, { color: theme.text.secondary }]}>
+                      Add Featured Image
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Additional Images */}
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text.primary }]}>Additional Images</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.additionalImagesContainer}>
+                  {additionalImages.map((img, index) => (
+                    <View key={index} style={styles.additionalImageContainer}>
+                      <Image source={{ uri: img }} style={styles.additionalImagePreview} />
+                      <TouchableOpacity
+                        style={[styles.removeAdditionalImageButton, { backgroundColor: theme.accent.danger }]}
+                        onPress={() => setAdditionalImages(additionalImages.filter((_, i) => i !== index))}
+                      >
+                        <X size={14} color="#FFF" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  {additionalImages.length < 5 && (
+                    <TouchableOpacity
+                      style={[styles.addImageButton, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}
+                      onPress={async () => {
+                        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                        if (status !== 'granted') {
+                          RNAlert.alert('Permission Required', 'Please grant camera roll access to upload images');
+                          return;
+                        }
+                        const result = await ImagePicker.launchImageLibraryAsync({
+                          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                          allowsEditing: true,
+                          aspect: [1, 1],
+                          quality: 0.8,
+                        });
+                        if (!result.canceled && result.assets[0]) {
+                          setAdditionalImages([...additionalImages, result.assets[0].uri]);
+                        }
+                      }}
+                    >
+                      <Plus size={20} color={theme.accent.primary} />
+                    </TouchableOpacity>
+                  )}
+                </ScrollView>
               </View>
 
               <View style={styles.row}>

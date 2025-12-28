@@ -231,6 +231,8 @@ export interface Product {
   category?: string;
   isActive: boolean;
   isTaxExempt?: boolean;
+  featuredImage?: string; // Base64 or URI for featured image
+  images?: string[]; // Array of additional images (Base64 or URIs)
   createdAt: string;
   updatedAt: string;
 }

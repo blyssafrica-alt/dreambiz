@@ -139,6 +139,8 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           quantity: p.quantity,
           category: p.category || undefined,
           isActive: p.is_active,
+          featuredImage: p.featured_image || undefined,
+          images: p.images ? (typeof p.images === 'string' ? JSON.parse(p.images) : p.images) : undefined,
           createdAt: p.created_at,
           updatedAt: p.updated_at,
         })));
@@ -867,6 +869,8 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           quantity: product.quantity,
           category: product.category || null,
           is_active: product.isActive,
+          featured_image: product.featuredImage || null,
+          images: product.images ? JSON.stringify(product.images) : '[]',
         })
         .select()
         .single();
@@ -883,6 +887,8 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         quantity: data.quantity,
         category: data.category || undefined,
         isActive: data.is_active,
+        featuredImage: data.featured_image || undefined,
+        images: data.images ? (typeof data.images === 'string' ? JSON.parse(data.images) : data.images) : undefined,
         createdAt: data.created_at,
         updatedAt: data.updated_at,
       };
@@ -908,6 +914,8 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       if (updates.quantity !== undefined) updateData.quantity = updates.quantity;
       if (updates.category !== undefined) updateData.category = updates.category || null;
       if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
+      if (updates.featuredImage !== undefined) updateData.featured_image = updates.featuredImage || null;
+      if (updates.images !== undefined) updateData.images = updates.images ? JSON.stringify(updates.images) : '[]';
 
       const { error } = await supabase
         .from('products')
