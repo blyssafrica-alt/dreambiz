@@ -180,6 +180,12 @@ BEGIN
     ALTER TABLE books ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
   END IF;
 
+  -- Make category nullable if it exists (old schema had it as NOT NULL, but we don't need it)
+  IF EXISTS (SELECT 1 FROM information_schema.columns 
+             WHERE table_name = 'books' AND column_name = 'category' AND is_nullable = 'NO') THEN
+    ALTER TABLE books ALTER COLUMN category DROP NOT NULL;
+  END IF;
+
   -- Update slug for existing books if they don't have one
   UPDATE books 
   SET slug = LOWER(REPLACE(REPLACE(title, ' ', '-'), '''', ''))
@@ -243,14 +249,37 @@ CREATE TRIGGER update_books_updated_at
   EXECUTE FUNCTION update_books_updated_at();
 
 -- Insert default DreamBig books (only if they don't exist)
-INSERT INTO books (slug, title, subtitle, description, price, status, display_order, total_chapters) VALUES
-  ('start-your-business', 'Start Your Business', 'Turn your idea into reality', 'A comprehensive guide to starting your business from scratch', 0, 'published', 1, 10),
-  ('grow-your-business', 'Grow Your Business', 'Scale and expand successfully', 'Learn how to grow and scale your business effectively', 0, 'published', 2, 12),
-  ('manage-your-money', 'Manage Your Money', 'Financial management for entrepreneurs', 'Master your business finances and cash flow', 0, 'published', 3, 8),
-  ('hire-and-lead', 'Hire and Lead', 'Build and lead your team', 'Learn to hire, manage, and lead your team effectively', 0, 'published', 4, 9),
-  ('marketing-mastery', 'Marketing Mastery', 'Market your business effectively', 'Master marketing strategies to grow your customer base', 0, 'published', 5, 11),
-  ('scale-up', 'Scale Up', 'Take your business to the next level', 'Advanced strategies for scaling your business', 0, 'published', 6, 10)
-ON CONFLICT (slug) DO NOTHING;
+-- Include category field if it exists in the table to avoid NOT NULL constraint errors
+INSERT INTO books (slug, title, subtitle, description, price, status, display_order, total_chapters, category) 
+SELECT 
+  'start-your-business', 'Start Your Business', 'Turn your idea into reality', 
+  'A comprehensive guide to starting your business from scratch', 0, 'published', 1, 10, 'business'
+WHERE NOT EXISTS (SELECT 1 FROM books WHERE slug = 'start-your-business')
+UNION ALL
+SELECT 
+  'grow-your-business', 'Grow Your Business', 'Scale and expand successfully', 
+  'Learn how to grow and scale your business effectively', 0, 'published', 2, 12, 'business'
+WHERE NOT EXISTS (SELECT 1 FROM books WHERE slug = 'grow-your-business')
+UNION ALL
+SELECT 
+  'manage-your-money', 'Manage Your Money', 'Financial management for entrepreneurs', 
+  'Master your business finances and cash flow', 0, 'published', 3, 8, 'finance'
+WHERE NOT EXISTS (SELECT 1 FROM books WHERE slug = 'manage-your-money')
+UNION ALL
+SELECT 
+  'hire-and-lead', 'Hire and Lead', 'Build and lead your team', 
+  'Learn to hire, manage, and lead your team effectively', 0, 'published', 4, 9, 'management'
+WHERE NOT EXISTS (SELECT 1 FROM books WHERE slug = 'hire-and-lead')
+UNION ALL
+SELECT 
+  'marketing-mastery', 'Marketing Mastery', 'Market your business effectively', 
+  'Master marketing strategies to grow your customer base', 0, 'published', 5, 11, 'marketing'
+WHERE NOT EXISTS (SELECT 1 FROM books WHERE slug = 'marketing-mastery')
+UNION ALL
+SELECT 
+  'scale-up', 'Scale Up', 'Take your business to the next level', 
+  'Advanced strategies for scaling your business', 0, 'published', 6, 10, 'business'
+WHERE NOT EXISTS (SELECT 1 FROM books WHERE slug = 'scale-up');
 
 -- Add comment for documentation
 COMMENT ON COLUMN books.slug IS 'Unique identifier for the book (used in URLs and references)';
