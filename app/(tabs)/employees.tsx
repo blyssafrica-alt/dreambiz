@@ -21,6 +21,7 @@ import {
   Alert as RNAlert,
   Modal,
 } from 'react-native';
+import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Employee } from '@/types/business';
