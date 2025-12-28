@@ -286,7 +286,7 @@ export default function BooksManagementScreen() {
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {books.length === 0 ? (
           <View style={styles.emptyState}>
-            <Book size={48} color={theme.text.tertiary} />
+            <BookIcon size={48} color={theme.text.tertiary} />
             <Text style={[styles.emptyText, { color: theme.text.secondary }]}>
               No books yet
             </Text>
