@@ -476,18 +476,20 @@ export default function DocumentWizard({ visible, onClose, onComplete, businessT
             <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: theme.accent.primary }]} />
           </View>
 
-          <ScrollView 
-            style={styles.content} 
-            contentContainerStyle={styles.contentContainer}
-            showsVerticalScrollIndicator={true}
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled={true}
-          >
-            {step === 1 && renderStep1()}
-            {step === 2 && renderStep2()}
-            {step === 3 && renderStep3()}
-            {step === 4 && renderStep4()}
-          </ScrollView>
+          <View style={styles.contentWrapper}>
+            <ScrollView 
+              style={styles.content} 
+              contentContainerStyle={styles.contentContainer}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled={true}
+            >
+              {step === 1 && renderStep1()}
+              {step === 2 && renderStep2()}
+              {step === 3 && renderStep3()}
+              {step === 4 && renderStep4()}
+            </ScrollView>
+          </View>
 
           <View style={[styles.footer, { backgroundColor: theme.background.card }]}>
             {step > 1 && (
