@@ -22,8 +22,7 @@ import DocumentWizard from '@/components/DocumentWizard';
 
 export default function DocumentsScreen() {
   const { business, documents, addDocument, updateDocument } = useBusiness();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  useTheme(); // Theme context - values accessed via styles
+  const { theme } = useTheme();
   const [showWizard, setShowWizard] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | 'all'>('all');
@@ -291,23 +290,21 @@ export default function DocumentsScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.container}>
-        {/* Header with Gradient */}
-        <LinearGradient
-          colors={theme.gradient.primary as [string, string]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.headerGradient}
-        >
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.headerTitle}>Documents</Text>
-              <Text style={styles.headerSubtitle}>
-                Professional invoices, receipts & more
-              </Text>
-            </View>
-          </View>
-        </LinearGradient>
+      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+        <PageHeader
+          title="Documents"
+          subtitle="Professional invoices, receipts & more"
+          icon={FileText}
+          iconGradient={['#3B82F6', '#2563EB']}
+          rightAction={
+            <TouchableOpacity
+              style={styles.headerAddButton}
+              onPress={() => setShowWizard(true)}
+            >
+              <Plus size={20} color="#FFF" strokeWidth={2.5} />
+            </TouchableOpacity>
+          }
+        />
         {/* Payment Reminders Banner */}
         {overdueInvoices.length > 0 && (
           <View style={styles.paymentReminderBanner}>
