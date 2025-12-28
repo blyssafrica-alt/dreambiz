@@ -274,33 +274,117 @@ export function parseReceiptText(text: string): ReceiptData {
   }
   
   // Extract items (lines that look like product descriptions with prices)
-  const itemPattern = /^(.+?)\s+([\d,]+\.\d{2})\s*$/;
-  receiptData.items = [];
+  // Multiple patterns to handle different receipt formats
+  const itemPatterns = [
+    /^(.+?)\s+([\d,]+\.\d{2})\s*$/,  // Standard: "ITEM NAME    12.50"
+    /^(.+?)\s+x\s*(\d+)\s+@\s*([\d,]+\.\d{2})\s*$/,  // Quantity format: "ITEM x 2 @ 5.00"
+    /^(.+?)\s+(\d+)\s+([\d,]+\.\d{2})\s*$/,  // Quantity and price: "ITEM 2 10.00"
+    /^(.+?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s*$/,  // Price and total: "ITEM 5.00 10.00"
+  ];
   
-  for (const line of lines) {
-    // Skip header lines, totals, etc.
-    if (
-      line.toUpperCase().includes('TOTAL') ||
-      line.toUpperCase().includes('TAX') ||
-      line.toUpperCase().includes('SUBTOTAL') ||
-      line.toUpperCase().includes('CASH') ||
-      line.toUpperCase().includes('CHANGE') ||
-      line.toUpperCase().includes('THANK') ||
-      line.toUpperCase().includes('DATE') ||
-      line.toUpperCase().includes('TIME') ||
-      line.toUpperCase().includes('CASHIER')
-    ) {
+  receiptData.items = [];
+  const skipKeywords = [
+    'TOTAL', 'TAX', 'SUBTOTAL', 'CASH', 'CHANGE', 'THANK', 'DATE', 'TIME', 
+    'CASHIER', 'RECEIPT', 'INVOICE', 'AMOUNT', 'DUE', 'PAID', 'BALANCE',
+    'DISCOUNT', 'SALE', 'SPECIAL', 'PROMO', 'CARD', 'DEBIT', 'CREDIT',
+    'REFUND', 'RETURN', 'EXCHANGE', 'VAT', 'GST', 'SERVICE', 'CHARGE'
+  ];
+  
+  // Find the start of items section (usually after merchant info)
+  let itemsStartIndex = 0;
+  for (let i = 0; i < Math.min(10, lines.length); i++) {
+    const upperLine = lines[i].toUpperCase();
+    if (upperLine.includes('ITEM') || upperLine.includes('PRODUCT') || 
+        upperLine.includes('DESCRIPTION') || /^\d+/.test(lines[i])) {
+      itemsStartIndex = i;
+      break;
+    }
+  }
+  
+  // Find the end of items section (usually before totals)
+  let itemsEndIndex = lines.length;
+  for (let i = lines.length - 1; i >= Math.max(0, lines.length - 15); i--) {
+    const upperLine = lines[i].toUpperCase();
+    if (skipKeywords.some(keyword => upperLine.includes(keyword))) {
+      itemsEndIndex = i;
+      break;
+    }
+  }
+  
+  // Extract items from the identified section
+  for (let i = itemsStartIndex; i < itemsEndIndex; i++) {
+    const line = lines[i].trim();
+    
+    // Skip empty lines and header lines
+    if (!line || line.length < 3) continue;
+    
+    const upperLine = line.toUpperCase();
+    if (skipKeywords.some(keyword => upperLine.includes(keyword))) {
       continue;
     }
     
-    const match = line.match(itemPattern);
-    if (match) {
-      const itemName = match[1].trim();
-      const itemPrice = match[2].replace(/,/g, '');
-      
-      // Validate it's a reasonable item (not a total amount)
-      if (itemName.length > 2 && parseFloat(itemPrice) < 10000) {
-        receiptData.items.push(`${itemName} - ${itemPrice}`);
+    // Try each pattern
+    let matched = false;
+    for (const pattern of itemPatterns) {
+      const match = line.match(pattern);
+      if (match) {
+        let itemName = '';
+        let itemPrice = '';
+        let quantity = '';
+        
+        if (pattern === itemPatterns[0]) {
+          // Standard format: "ITEM NAME    12.50"
+          itemName = match[1].trim();
+          itemPrice = match[2].replace(/,/g, '');
+        } else if (pattern === itemPatterns[1]) {
+          // Quantity format: "ITEM x 2 @ 5.00"
+          itemName = match[1].trim();
+          quantity = match[2];
+          itemPrice = match[3].replace(/,/g, '');
+        } else if (pattern === itemPatterns[2]) {
+          // Quantity and price: "ITEM 2 10.00"
+          itemName = match[1].trim();
+          quantity = match[2];
+          itemPrice = match[3].replace(/,/g, '');
+        } else if (pattern === itemPatterns[3]) {
+          // Price and total: "ITEM 5.00 10.00"
+          itemName = match[1].trim();
+          itemPrice = match[3].replace(/,/g, ''); // Use the last price as total
+        }
+        
+        // Validate it's a reasonable item
+        const price = parseFloat(itemPrice);
+        if (itemName.length > 2 && !isNaN(price) && price > 0 && price < 100000) {
+          // Skip if it looks like a total amount (very large or matches total patterns)
+          if (price === receiptData.amount || price === receiptData.subtotal) {
+            continue;
+          }
+          
+          let itemString = itemName;
+          if (quantity) {
+            itemString += ` (Qty: ${quantity})`;
+          }
+          itemString += ` - ${business?.currency || 'USD'} ${price.toFixed(2)}`;
+          
+          receiptData.items.push(itemString);
+          matched = true;
+          break;
+        }
+      }
+    }
+    
+    // If no pattern matched but line looks like an item (has text and number)
+    if (!matched && /[a-zA-Z]/.test(line) && /[\d,]+\.?\d*/.test(line)) {
+      // Try to extract any price-like number at the end
+      const priceMatch = line.match(/([\d,]+\.\d{2})$/);
+      if (priceMatch) {
+        const price = parseFloat(priceMatch[1].replace(/,/g, ''));
+        if (price > 0 && price < 100000 && price !== receiptData.amount) {
+          const itemName = line.replace(priceMatch[0], '').trim();
+          if (itemName.length > 2) {
+            receiptData.items.push(`${itemName} - ${business?.currency || 'USD'} ${price.toFixed(2)}`);
+          }
+        }
       }
     }
   }
@@ -327,13 +411,13 @@ export function parseReceiptText(text: string): ReceiptData {
 /**
  * Process receipt image and extract structured data
  */
-export async function processReceiptImage(imageUri: string): Promise<ReceiptData> {
+export async function processReceiptImage(imageUri: string, businessCurrency: string = 'USD'): Promise<ReceiptData> {
   try {
     // Extract text from image
     const text = await extractTextFromImage(imageUri);
     
     // Parse text into structured data
-    const receiptData = parseReceiptText(text);
+    const receiptData = parseReceiptText(text, businessCurrency);
     
     return receiptData;
   } catch (error) {

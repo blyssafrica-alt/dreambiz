@@ -84,7 +84,7 @@ export default function ReceiptScanScreen() {
       const { processReceiptImage } = await import('@/lib/receipt-ocr');
       
       // Extract and parse receipt data
-      const receiptData = await processReceiptImage(imageUri);
+      const receiptData = await processReceiptImage(imageUri, business?.currency || 'USD');
       
       // Pre-fill form with extracted data
       if (receiptData.amount) {
@@ -112,9 +112,11 @@ export default function ReceiptScanScreen() {
       
       // Show success message with extracted info
       if (receiptData.amount || receiptData.merchant) {
+        const itemsCount = receiptData.items?.length || 0;
+        const itemsInfo = itemsCount > 0 ? `\nItems: ${itemsCount} found` : '';
         RNAlert.alert(
-          'Receipt Scanned',
-          `Extracted:\n${receiptData.merchant ? `Merchant: ${receiptData.merchant}\n` : ''}${receiptData.amount ? `Amount: ${business?.currency || 'USD'} ${receiptData.amount.toFixed(2)}\n` : ''}${receiptData.date ? `Date: ${receiptData.date}` : ''}\n\nPlease review and confirm the details.`,
+          'Receipt Scanned Successfully',
+          `Extracted Information:\n${receiptData.merchant ? `Merchant: ${receiptData.merchant}\n` : ''}${receiptData.amount ? `Total: ${business?.currency || 'USD'} ${receiptData.amount.toFixed(2)}\n` : ''}${receiptData.date ? `Date: ${receiptData.date}\n` : ''}${itemsInfo}\n\nPlease review and confirm the details.`,
           [{ text: 'OK' }]
         );
       }
