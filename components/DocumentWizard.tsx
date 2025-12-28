@@ -395,30 +395,36 @@ export default function DocumentWizard({ visible, onClose, onComplete, businessT
         )}
 
         {templateFieldsList.length > 0 && (
-          <>
+          <View>
             <Text style={[styles.sectionLabel, { color: theme.accent.primary, marginTop: 16 }]}>
               {docType?.toUpperCase().replace('_', ' ')} SPECIFIC FIELDS
             </Text>
             {templateFieldsList.map((field) => (
-              <View key={field.key} style={styles.inputGroup}>
+              <View key={field.id} style={styles.inputGroup}>
                 <Text style={[styles.label, { color: theme.text.secondary }]}>
                   {field.label}{field.required ? ' *' : ''}
                 </Text>
                 <TextInput
+                  key={`input-${field.id}`}
                   style={[styles.input, {
                     backgroundColor: theme.background.secondary,
                     borderColor: theme.border.light,
                     color: theme.text.primary,
                   }]}
-                  value={templateFields[field.key] || ''}
-                  onChangeText={(value) => setTemplateFields({ ...templateFields, [field.key]: value })}
-                  placeholder={field.placeholder}
+                  value={templateFields[field.id] || ''}
+                  onChangeText={(value) => {
+                    const updatedFields = { ...templateFields };
+                    updatedFields[field.id] = value;
+                    setTemplateFields(updatedFields);
+                  }}
+                  placeholder={field.defaultValue || `Enter ${field.label.toLowerCase()}`}
                   placeholderTextColor={theme.text.tertiary}
                   multiline={field.type === 'textarea'}
+                  keyboardType={field.type === 'number' ? 'decimal-pad' : field.type === 'date' ? 'default' : 'default'}
                 />
               </View>
             ))}
-          </>
+          </View>
         )}
 
         <View style={styles.inputGroup}>

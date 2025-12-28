@@ -14,6 +14,8 @@ import {
   Modal,
   Image,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Document } from '@/types/business';
@@ -142,7 +144,23 @@ export default function DocumentDetailScreen() {
     );
   };
 
-  const docTypeLabel = document.type.charAt(0).toUpperCase() + document.type.slice(1);
+  const docTypeLabel = document.type.charAt(0).toUpperCase() + document.type.slice(1).replace('_', ' ');
+
+  // Parse template fields from notes
+  let templateFieldsData: Record<string, string> = {};
+  let notesOnly = document.notes || '';
+  if (document.notes) {
+    try {
+      const notesMatch = document.notes.match(/\[Template Data: (.+)\]/);
+      if (notesMatch) {
+        const templateData = JSON.parse(notesMatch[1]);
+        templateFieldsData = templateData.fields || {};
+        notesOnly = document.notes.replace(/\[Template Data: .+\]/, '').trim();
+      }
+    } catch {
+      // Not JSON, treat as regular notes
+    }
+  }
 
   return (
     <>
@@ -167,109 +185,152 @@ export default function DocumentDetailScreen() {
         }} 
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <View style={[
-          styles.header,
-          template && { 
-            backgroundColor: `${template.styling.primaryColor}15`,
-            borderLeftWidth: 4,
-            borderLeftColor: template.styling.primaryColor,
-          }
-        ]}>
-          <View style={[
-            styles.badge,
-            template && { backgroundColor: template.styling.primaryColor + '20' }
-          ]}>
-            <Text style={[
-              styles.badgeText,
-              template && { color: template.styling.primaryColor }
-            ]}>
-              {template?.name || docTypeLabel}
-            </Text>
-          </View>
-          <Text style={styles.docNumber}>{document.documentNumber}</Text>
-          <Text style={styles.date}>{formatDate(document.date)}</Text>
-          {template && (
-            <Text style={styles.templateInfo}>
-              {business?.type.charAt(0).toUpperCase() + business?.type.slice(1)} Business Template
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>From</Text>
-          <View style={styles.infoCard}>
-            <Text style={styles.businessName}>{business?.name}</Text>
-            {business?.phone && <Text style={styles.infoText}>{business.phone}</Text>}
-            {business?.location && <Text style={styles.infoText}>{business.location}</Text>}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>To</Text>
-          <View style={styles.infoCard}>
-            <Text style={styles.customerName}>{document.customerName}</Text>
-            {document.customerPhone && (
-              <Text style={styles.infoText}>{document.customerPhone}</Text>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Items</Text>
-          {document.items.map((item, index) => (
-            <View key={item.id} style={styles.itemCard}>
-              <View style={styles.itemHeader}>
-                <Text style={styles.itemNumber}>{index + 1}</Text>
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemDescription}>{item.description}</Text>
-                  <Text style={styles.itemMeta}>
-                    {item.quantity} x {formatCurrency(item.unitPrice)}
-                  </Text>
-                </View>
-                <Text style={styles.itemTotal}>{formatCurrency(item.total)}</Text>
+        {/* Professional Document Header */}
+        <SafeAreaView edges={['top']} style={styles.safeArea}>
+          <LinearGradient
+            colors={template ? [template.styling.primaryColor, template.styling.primaryColor + 'DD'] : ['#0066CC', '#0052A3']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.documentHeader}
+          >
+            <View style={styles.headerTop}>
+              <View style={styles.headerLeft}>
+                {business?.logo ? (
+                  <Image source={{ uri: business.logo }} style={styles.logo} />
+                ) : (
+                  <View style={styles.logoPlaceholder}>
+                    <Text style={styles.logoText}>{business?.name?.charAt(0) || 'B'}</Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.headerRight}>
+                <Text style={styles.headerDate}>{new Date(document.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}</Text>
+                <Text style={styles.headerTime}>{new Date(document.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</Text>
               </View>
             </View>
-          ))}
+            <View style={styles.headerBottom}>
+              <View style={styles.docTypeContainer}>
+                <View style={styles.docTypeBadge}>
+                  <Text style={styles.docTypeText}>
+                    {docTypeLabel.toUpperCase()}
+                  </Text>
+                </View>
+                <Text style={styles.docNumberLarge}>{document.documentNumber}</Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </SafeAreaView>
+
+        {/* FROM and TO Sections - Side by Side */}
+        <View style={styles.fromToSection}>
+          <View style={styles.fromToCard}>
+            <Text style={styles.fromToLabel}>FROM</Text>
+            <Text style={styles.fromToName}>{business?.name}</Text>
+            {business?.phone && <Text style={styles.fromToDetail}>{business.phone}</Text>}
+            {business?.location && <Text style={styles.fromToDetail}>{business.location}</Text>}
+            {business?.email && <Text style={styles.fromToDetail}>{business.email}</Text>}
+          </View>
+          <View style={styles.fromToCard}>
+            <Text style={styles.fromToLabel}>
+              {document.type === 'purchase_order' || document.type === 'supplier_agreement' ? 'SUPPLIER' : 'TO'}
+            </Text>
+            <Text style={styles.fromToName}>{document.customerName}</Text>
+            {document.customerPhone && <Text style={styles.fromToDetail}>{document.customerPhone}</Text>}
+            {document.customerEmail && <Text style={styles.fromToDetail}>{document.customerEmail}</Text>}
+          </View>
         </View>
 
-        <View style={styles.totalsCard}>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Subtotal</Text>
-            <Text style={styles.totalValue}>{formatCurrency(document.subtotal)}</Text>
+        {/* Items Table */}
+        <View style={styles.itemsSection}>
+          <Text style={styles.itemsTitle}>ITEMS</Text>
+          <View style={styles.itemsTable}>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.tableHeaderText, { flex: 3 }]}>Description</Text>
+              <Text style={[styles.tableHeaderText, { flex: 1, textAlign: 'center' }]}>Qty</Text>
+              <Text style={[styles.tableHeaderText, { flex: 1.5, textAlign: 'right' }]}>Unit Price</Text>
+              <Text style={[styles.tableHeaderText, { flex: 1.5, textAlign: 'right' }]}>Total</Text>
+            </View>
+            {document.items.map((item, index) => (
+              <View key={item.id} style={[styles.tableRow, index % 2 === 0 && styles.tableRowEven]}>
+                <Text style={[styles.tableCell, { flex: 3, fontWeight: '600' }]}>{item.description}</Text>
+                <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{item.quantity}</Text>
+                <Text style={[styles.tableCell, { flex: 1.5, textAlign: 'right' }]}>{formatCurrency(item.unitPrice)}</Text>
+                <Text style={[styles.tableCell, { flex: 1.5, textAlign: 'right', fontWeight: '700', color: template?.styling.primaryColor || '#0066CC' }]}>{formatCurrency(item.total)}</Text>
+              </View>
+            ))}
           </View>
-          {document.tax && (
-            <>
-              <View style={styles.totalDivider} />
+        </View>
+
+        {/* Totals Section */}
+        <View style={styles.totalsSection}>
+          <View style={styles.totalsContainer}>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Subtotal</Text>
+              <Text style={styles.totalValue}>{formatCurrency(document.subtotal)}</Text>
+            </View>
+            {document.tax && (
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Tax</Text>
                 <Text style={styles.totalValue}>{formatCurrency(document.tax)}</Text>
               </View>
-            </>
-          )}
-          <View style={styles.totalDivider} />
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabelFinal}>Total</Text>
-            <Text style={styles.totalValueFinal}>{formatCurrency(document.total)}</Text>
+            )}
+            <View style={styles.totalDivider} />
+            <View style={styles.totalRowFinal}>
+              <Text style={styles.totalLabelFinal}>Total</Text>
+              <Text style={[styles.totalValueFinal, { color: template?.styling.primaryColor || '#10B981' }]}>
+                {formatCurrency(document.total)}
+              </Text>
+            </View>
+            {document.type === 'invoice' && (
+              <>
+                <View style={styles.totalDivider} />
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Paid</Text>
+                  <Text style={[styles.totalValue, { color: '#10B981' }]}>{formatCurrency(paidAmount)}</Text>
+                </View>
+                <View style={styles.totalRow}>
+                  <Text style={[styles.totalLabel, { color: outstandingAmount > 0 ? '#EF4444' : '#10B981', fontWeight: '700' }]}>
+                    Outstanding
+                  </Text>
+                  <Text style={[styles.totalValue, { color: outstandingAmount > 0 ? '#EF4444' : '#10B981', fontWeight: '700' }]}>
+                    {formatCurrency(outstandingAmount)}
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
-          {document.type === 'invoice' && (
-            <>
-              <View style={styles.totalDivider} />
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Paid</Text>
-                <Text style={[styles.totalValue, { color: '#10B981' }]}>{formatCurrency(paidAmount)}</Text>
-              </View>
-              <View style={styles.totalDivider} />
-              <View style={styles.totalRow}>
-                <Text style={[styles.totalLabelFinal, { color: outstandingAmount > 0 ? '#EF4444' : '#10B981' }]}>
-                  Outstanding
-                </Text>
-                <Text style={[styles.totalValueFinal, { color: outstandingAmount > 0 ? '#EF4444' : '#10B981' }]}>
-                  {formatCurrency(outstandingAmount)}
-                </Text>
-              </View>
-            </>
-          )}
         </View>
+
+        {/* Template-specific fields - Professional Display */}
+        {template && Object.keys(templateFieldsData).length > 0 && (
+          <View style={styles.templateFieldsSection}>
+            <View style={[styles.templateFieldsHeader, { backgroundColor: (template.styling.primaryColor || '#6366F1') + '15' }]}>
+              <Text style={[styles.templateFieldsTitle, { color: template.styling.primaryColor || '#6366F1' }]}>
+                {docTypeLabel.toUpperCase()} SPECIFIC FIELDS
+              </Text>
+            </View>
+            <View style={styles.templateFieldsContent}>
+              {Object.entries(templateFieldsData).map(([key, value]) => {
+                const field = template.fields.find(f => f.id === key);
+                if (!field || !value || String(value).trim() === '') return null;
+                return (
+                  <View key={key} style={styles.templateFieldRow}>
+                    <Text style={styles.templateFieldLabel}>{field.label}</Text>
+                    <Text style={styles.templateFieldValue}>{String(value)}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* Notes Section */}
+        {notesOnly && (
+          <View style={styles.notesSection}>
+            <Text style={styles.notesTitle}>Notes</Text>
+            <Text style={styles.notesText}>{notesOnly}</Text>
+          </View>
+        )}
 
         {/* Payment History */}
         {document.type === 'invoice' && (
@@ -302,47 +363,6 @@ export default function DocumentDetailScreen() {
             )}
           </View>
         )}
-
-        {/* Template-specific fields */}
-        {template && (() => {
-          try {
-            const templateData = document.notes ? JSON.parse(document.notes) : null;
-            if (templateData && templateData.fields && Object.keys(templateData.fields).length > 0) {
-              return (
-                <View style={styles.templateFieldsCard}>
-                  <Text style={styles.templateFieldsTitle}>Additional Information</Text>
-                  {Object.entries(templateData.fields).map(([key, value]) => {
-                    const field = template.fields.find(f => f.id === key);
-                    if (!field || !value) return null;
-                    return (
-                      <View key={key} style={styles.templateFieldRow}>
-                        <Text style={styles.templateFieldLabel}>{field.label}:</Text>
-                        <Text style={styles.templateFieldValue}>{String(value)}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              );
-            }
-          } catch {
-            // If notes is not JSON, treat as regular notes
-          }
-          return null;
-        })()}
-
-        {document.notes && (() => {
-          try {
-            JSON.parse(document.notes);
-            return null; // Already displayed as template fields
-          } catch {
-            return (
-              <View style={styles.notesCard}>
-                <Text style={styles.notesTitle}>Notes</Text>
-                <Text style={styles.notesText}>{document.notes}</Text>
-              </View>
-            );
-          }
-        })()}
 
         <View style={styles.actionButtons}>
           <TouchableOpacity 
@@ -519,247 +539,324 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
+  safeArea: {
+    backgroundColor: 'transparent',
+  },
   content: {
-    padding: 20,
+    padding: 0,
     paddingBottom: 40,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 32,
+  // Professional Document Header
+  documentHeader: {
+    paddingTop: 12,
     paddingBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  badge: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#EFF6FF',
-    marginBottom: 12,
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
   },
-  badgeText: {
-    fontSize: 12,
+  headerLeft: {
+    flex: 1,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    backgroundColor: '#FFF',
+    padding: 8,
+    resizeMode: 'contain',
+  },
+  logoPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoText: {
+    fontSize: 32,
+    fontWeight: '800' as const,
+    color: '#FFF',
+  },
+  headerRight: {
+    alignItems: 'flex-end',
+  },
+  headerDate: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '600' as const,
-    color: '#0066CC',
-    textTransform: 'uppercase',
-  },
-  docNumber: {
-    fontSize: 28,
-    fontWeight: '700' as const,
-    color: '#0F172A',
     marginBottom: 4,
   },
-  date: {
-    fontSize: 15,
-    color: '#64748B',
+  headerTime: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
   },
-  section: {
+  headerBottom: {
+    marginTop: 12,
+  },
+  docTypeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  docTypeBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  docTypeText: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+    color: '#FFF',
+    letterSpacing: 1,
+  },
+  docNumberLarge: {
+    fontSize: 24,
+    fontWeight: '800' as const,
+    color: '#FFF',
+    letterSpacing: 1,
+  },
+  // FROM/TO Section
+  fromToSection: {
+    flexDirection: 'row',
+    gap: 16,
+    paddingHorizontal: 20,
     marginBottom: 24,
   },
-  sectionTitle: {
-    fontSize: 12,
+  fromToCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  fromToLabel: {
+    fontSize: 10,
+    fontWeight: '800' as const,
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginBottom: 12,
+  },
+  fromToName: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: '#0F172A',
+    marginBottom: 8,
+  },
+  fromToDetail: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 4,
+  },
+  // Items Section
+  itemsSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  itemsTitle: {
+    fontSize: 10,
+    fontWeight: '800' as const,
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginBottom: 12,
+  },
+  itemsTable: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#F8FAFC',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 2,
+    borderBottomColor: '#E2E8F0',
+  },
+  tableHeaderText: {
+    fontSize: 11,
     fontWeight: '700' as const,
     color: '#64748B',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 8,
   },
-  infoCard: {
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  businessName: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: '#0F172A',
-    marginBottom: 4,
-  },
-  customerName: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: '#0F172A',
-    marginBottom: 4,
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  itemCard: {
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 8,
-  },
-  itemHeader: {
+  tableRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
-  itemNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#EFF6FF',
-    color: '#0066CC',
-    fontSize: 12,
-    fontWeight: '700' as const,
-    textAlign: 'center',
-    lineHeight: 24,
+  tableRowEven: {
+    backgroundColor: '#FAFBFC',
   },
-  itemInfo: {
-    flex: 1,
-  },
-  itemDescription: {
-    fontSize: 15,
-    fontWeight: '600' as const,
+  tableCell: {
+    fontSize: 14,
     color: '#0F172A',
-    marginBottom: 4,
   },
-  itemMeta: {
-    fontSize: 13,
-    color: '#64748B',
+  // Totals Section
+  totalsSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
   },
-  itemTotal: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: '#0066CC',
-  },
-  totalsCard: {
+  totalsContainer: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
     padding: 20,
-    borderRadius: 16,
-    backgroundColor: '#0F172A',
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 8,
+    marginBottom: 12,
+  },
+  totalRowFinal: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 16,
+    borderTopWidth: 2,
+    borderTopColor: '#E2E8F0',
   },
   totalLabel: {
     fontSize: 15,
-    color: '#94A3B8',
+    color: '#64748B',
+    fontWeight: '500' as const,
   },
   totalValue: {
     fontSize: 15,
     fontWeight: '600' as const,
-    color: '#FFF',
+    color: '#0F172A',
   },
   totalDivider: {
     height: 1,
-    backgroundColor: '#334155',
-    marginVertical: 4,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 8,
   },
   totalLabelFinal: {
     fontSize: 18,
     fontWeight: '700' as const,
-    color: '#FFF',
+    color: '#0F172A',
   },
   totalValueFinal: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: '#10B981',
+    fontSize: 28,
+    fontWeight: '800' as const,
   },
-  notesCard: {
-    padding: 16,
+  // Template Fields Section
+  templateFieldsSection: {
+    marginHorizontal: 20,
+    marginBottom: 24,
     borderRadius: 12,
-    backgroundColor: '#FFFBEB',
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#FEF3C7',
-    marginBottom: 16,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  notesTitle: {
-    fontSize: 14,
-    fontWeight: '700' as const,
-    color: '#92400E',
-    marginBottom: 8,
-  },
-  notesText: {
-    fontSize: 14,
-    color: '#78350F',
-    lineHeight: 20,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 52,
-    borderRadius: 12,
-  },
-  emailButton: {
-    backgroundColor: '#10B981',
-  },
-  shareButton: {
-    backgroundColor: '#0066CC',
-  },
-  actionButtonText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: '#FFF',
-  },
-  templateInfo: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#EF4444',
-    textAlign: 'center',
-    marginTop: 40,
-  },
-  templateFieldsCard: {
+  templateFieldsHeader: {
     padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#F0F9FF',
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
-    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
   templateFieldsTitle: {
-    fontSize: 14,
-    fontWeight: '700' as const,
-    color: '#0369A1',
-    marginBottom: 12,
+    fontSize: 11,
+    fontWeight: '800' as const,
+    letterSpacing: 1.5,
+  },
+  templateFieldsContent: {
+    backgroundColor: '#FFF',
+    padding: 16,
   },
   templateFieldRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
-    paddingBottom: 8,
+    marginBottom: 16,
+    paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#DBEAFE',
+    borderBottomColor: '#F1F5F9',
   },
   templateFieldLabel: {
     fontSize: 13,
     fontWeight: '600' as const,
-    color: '#0369A1',
+    color: '#64748B',
     flex: 1,
   },
   templateFieldValue: {
-    fontSize: 13,
-    color: '#0C4A6E',
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#0F172A',
     flex: 1,
     textAlign: 'right',
   },
+  // Notes Section
+  notesSection: {
+    marginHorizontal: 20,
+    marginBottom: 24,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+    borderLeftWidth: 4,
+    borderLeftColor: '#F59E0B',
+  },
+  notesTitle: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: '#92400E',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  notesText: {
+    fontSize: 14,
+    color: '#78350F',
+    lineHeight: 22,
+  },
+  // Payment History
   paymentsSection: {
-    marginTop: 24,
-    marginBottom: 16,
+    marginHorizontal: 20,
+    marginBottom: 24,
   },
   paymentsHeader: {
     flexDirection: 'row',
@@ -771,19 +868,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
     color: '#0F172A',
-  },
-  addPaymentButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  addPaymentText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: '#FFF',
   },
   paymentCard: {
     padding: 16,
@@ -834,6 +918,36 @@ const styles = StyleSheet.create({
     padding: 20,
     fontStyle: 'italic',
   },
+  // Action Buttons
+  actionButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    paddingHorizontal: 20,
+    marginTop: 8,
+  },
+  actionButton: {
+    flex: 1,
+    minWidth: '45%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 52,
+    borderRadius: 12,
+  },
+  emailButton: {
+    backgroundColor: '#10B981',
+  },
+  shareButton: {
+    backgroundColor: '#0066CC',
+  },
+  actionButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#FFF',
+  },
+  // Modals
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -944,5 +1058,11 @@ const styles = StyleSheet.create({
   linkButtonText: {
     fontSize: 16,
     fontWeight: '600' as const,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#EF4444',
+    textAlign: 'center',
+    marginTop: 40,
   },
 });
