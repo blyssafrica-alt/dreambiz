@@ -30,7 +30,7 @@ interface CartItem {
 }
 
 export default function POSScreen() {
-  const { business, products, addDocument } = useBusiness();
+  const { business, products = [], addDocument } = useBusiness();
   const { theme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -55,9 +55,14 @@ export default function POSScreen() {
     ]).start();
   }, []);
 
+  // Early return if theme is not loaded
+  if (!theme) {
+    return null;
+  }
+
   const filteredProducts = useMemo(() => {
-    if (!searchQuery) return products.filter(p => p.isActive && p.quantity > 0);
-    return products.filter(p => 
+    if (!searchQuery) return (products || []).filter(p => p.isActive && p.quantity > 0);
+    return (products || []).filter(p => 
       p.isActive && 
       p.quantity > 0 &&
       (p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
