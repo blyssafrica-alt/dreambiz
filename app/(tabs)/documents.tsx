@@ -22,7 +22,7 @@ import type { FilterPreset } from '@/lib/filter-presets';
 import DocumentWizard from '@/components/DocumentWizard';
 
 export default function DocumentsScreen() {
-  const { business, documents, addDocument, updateDocument } = useBusiness();
+  const { business, documents = [], addDocument, updateDocument } = useBusiness();
   const { theme } = useTheme();
   const [showWizard, setShowWizard] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,6 +32,11 @@ export default function DocumentsScreen() {
   const [filterPresets, setFilterPresets] = useState<FilterPreset[]>([]);
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [presetName, setPresetName] = useState('');
+
+  // Early return if theme is not loaded
+  if (!theme) {
+    return null;
+  }
 
   // Template is now handled by DocumentWizard component
 
