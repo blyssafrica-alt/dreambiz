@@ -52,7 +52,7 @@ interface MenuItem {
 export default function MoreScreen() {
   const { theme } = useTheme();
   const { business } = useBusiness();
-  const { hasFeature, shouldShowAsTab } = useFeatures();
+  const { isFeatureVisible, shouldShowAsTab } = useFeatures();
   const router = useRouter();
 
   const menuSections: MenuSection[] = [
@@ -77,7 +77,7 @@ export default function MoreScreen() {
           route: '/(tabs)/products',
           color: '#F59E0B',
           gradient: ['#F59E0B', '#D97706'],
-          visible: hasFeature('products'),
+          visible: isFeatureVisible('products'),
         },
         {
           id: 'customers',
@@ -87,7 +87,7 @@ export default function MoreScreen() {
           route: '/(tabs)/customers',
           color: '#10B981',
           gradient: ['#10B981', '#059669'],
-          visible: hasFeature('customers'),
+          visible: isFeatureVisible('customers'),
         },
         {
           id: 'suppliers',
@@ -97,7 +97,7 @@ export default function MoreScreen() {
           route: '/(tabs)/suppliers',
           color: '#8B5CF6',
           gradient: ['#8B5CF6', '#7C3AED'],
-          visible: hasFeature('suppliers'),
+          visible: isFeatureVisible('suppliers'),
         },
       ],
     },
@@ -112,7 +112,7 @@ export default function MoreScreen() {
           route: '/(tabs)/budgets',
           color: '#EC4899',
           gradient: ['#EC4899', '#DB2777'],
-          visible: hasFeature('budgets'),
+          visible: isFeatureVisible('budgets'),
         },
         {
           id: 'cashflow',
@@ -122,7 +122,7 @@ export default function MoreScreen() {
           route: '/(tabs)/cashflow',
           color: '#10B981',
           gradient: ['#10B981', '#059669'],
-          visible: hasFeature('cashflow'),
+          visible: isFeatureVisible('cashflow'),
         },
         {
           id: 'tax',
@@ -132,7 +132,7 @@ export default function MoreScreen() {
           route: '/(tabs)/tax',
           color: '#F59E0B',
           gradient: ['#F59E0B', '#D97706'],
-          visible: hasFeature('tax'),
+          visible: isFeatureVisible('tax'),
         },
         {
           id: 'accounts',
@@ -142,7 +142,7 @@ export default function MoreScreen() {
           route: '/(tabs)/accounts',
           color: '#3B82F6',
           gradient: ['#3B82F6', '#2563EB'],
-          visible: hasFeature('accounts'),
+          visible: isFeatureVisible('accounts'),
         },
         {
           id: 'recurring-invoices',
@@ -152,7 +152,7 @@ export default function MoreScreen() {
           route: '/(tabs)/recurring-invoices',
           color: '#8B5CF6',
           gradient: ['#8B5CF6', '#7C3AED'],
-          visible: hasFeature('recurring-invoices'),
+          visible: isFeatureVisible('recurring-invoices'),
         },
       ],
     },
@@ -167,7 +167,7 @@ export default function MoreScreen() {
           route: '/(tabs)/projects',
           color: '#EC4899',
           gradient: ['#EC4899', '#DB2777'],
-          visible: hasFeature('projects'),
+          visible: isFeatureVisible('projects'),
         },
         {
           id: 'employees',
@@ -177,7 +177,7 @@ export default function MoreScreen() {
           route: '/(tabs)/employees',
           color: '#10B981',
           gradient: ['#10B981', '#059669'],
-          visible: hasFeature('employees'),
+          visible: isFeatureVisible('employees'),
         },
         {
           id: 'pos',
@@ -212,7 +212,7 @@ export default function MoreScreen() {
           route: '/(tabs)/reports',
           color: '#8B5CF6',
           gradient: ['#8B5CF6', '#7C3AED'],
-          visible: hasFeature('reports'),
+          visible: isFeatureVisible('reports'),
         },
         {
           id: 'insights',
@@ -222,7 +222,7 @@ export default function MoreScreen() {
           route: '/(tabs)/insights',
           color: '#EC4899',
           gradient: ['#EC4899', '#DB2777'],
-          visible: hasFeature('insights'),
+          visible: isFeatureVisible('insights'),
         },
         {
           id: 'businesses',
@@ -232,7 +232,7 @@ export default function MoreScreen() {
           route: '/(tabs)/businesses',
           color: '#10B981',
           gradient: ['#10B981', '#059669'],
-          visible: hasFeature('businesses'),
+          visible: isFeatureVisible('businesses'),
         },
       ],
     },
@@ -292,7 +292,7 @@ export default function MoreScreen() {
           route: '/(tabs)/integrations',
           color: '#8B5CF6',
           gradient: ['#8B5CF6', '#7C3AED'],
-          visible: hasFeature('integrations'),
+          visible: isFeatureVisible('integrations'),
         },
       ],
     },
