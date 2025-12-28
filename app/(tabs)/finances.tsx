@@ -334,7 +334,11 @@ export default function FinancesScreen() {
           </View>
         )}
 
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={[styles.content, { paddingBottom: Platform.OS === 'ios' ? 140 : 120 }]}
+          showsVerticalScrollIndicator={false}
+        >
           <Animated.View style={{
             opacity: fadeAnim,
             transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
