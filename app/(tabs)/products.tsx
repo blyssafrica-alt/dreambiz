@@ -176,6 +176,8 @@ export default function ProductsScreen() {
           category: category || undefined,
           isActive,
           isTaxExempt,
+          featuredImage: featuredImage || undefined,
+          images: additionalImages.length > 0 ? additionalImages : undefined,
         });
       } else {
         await addProduct({
@@ -188,6 +190,8 @@ export default function ProductsScreen() {
           category: category || undefined,
           isActive,
           isTaxExempt,
+          featuredImage: featuredImage || undefined,
+          images: additionalImages.length > 0 ? additionalImages : undefined,
         });
       }
 
