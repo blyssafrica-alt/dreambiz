@@ -481,6 +481,7 @@ export default function DocumentWizard({ visible, onClose, onComplete, businessT
             contentContainerStyle={styles.contentContainer}
             showsVerticalScrollIndicator={true}
             keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled={true}
           >
             {step === 1 && renderStep1()}
             {step === 2 && renderStep2()}
@@ -488,7 +489,7 @@ export default function DocumentWizard({ visible, onClose, onComplete, businessT
             {step === 4 && renderStep4()}
           </ScrollView>
 
-          <View style={styles.footer}>
+          <View style={[styles.footer, { backgroundColor: theme.background.card }]}>
             {step > 1 && (
               <TouchableOpacity
                 style={[styles.footerButton, styles.backButton, { borderColor: theme.border.medium }]}
