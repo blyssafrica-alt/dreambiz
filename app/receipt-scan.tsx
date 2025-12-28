@@ -80,21 +80,54 @@ export default function ReceiptScanScreen() {
   const processReceipt = async (imageUri: string) => {
     setProcessing(true);
     try {
-      // Simulate OCR processing
-      // In production, you would use a real OCR service like:
-      // - Google Cloud Vision API
-      // - AWS Textract
-      // - Tesseract.js
-      // - Azure Computer Vision
+      // Import OCR utility
+      const { processReceiptImage } = await import('@/lib/receipt-ocr');
       
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Extract and parse receipt data
+      const receiptData = await processReceiptImage(imageUri);
       
-      // Show manual entry form after processing
+      // Pre-fill form with extracted data
+      if (receiptData.amount) {
+        setAmount(receiptData.amount.toString());
+      }
+      if (receiptData.merchant) {
+        setMerchant(receiptData.merchant);
+      }
+      if (receiptData.category) {
+        setCategory(receiptData.category);
+      }
+      if (receiptData.date) {
+        setDate(receiptData.date);
+      }
+      
+      // Create description from items if available
+      if (receiptData.items && receiptData.items.length > 0) {
+        setDescription(receiptData.items.join('\n'));
+      } else if (receiptData.merchant) {
+        setDescription(`Receipt from ${receiptData.merchant}`);
+      }
+      
       setProcessing(false);
       setShowManualForm(true);
-    } catch {
+      
+      // Show success message with extracted info
+      if (receiptData.amount || receiptData.merchant) {
+        RNAlert.alert(
+          'Receipt Scanned',
+          `Extracted:\n${receiptData.merchant ? `Merchant: ${receiptData.merchant}\n` : ''}${receiptData.amount ? `Amount: ${business?.currency || 'USD'} ${receiptData.amount.toFixed(2)}\n` : ''}${receiptData.date ? `Date: ${receiptData.date}` : ''}\n\nPlease review and confirm the details.`,
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error: any) {
+      console.error('Receipt processing error:', error);
       setProcessing(false);
-      setShowManualForm(true);
+      
+      // Show manual entry form even if OCR fails
+      RNAlert.alert(
+        'Scanning Complete',
+        'Please manually enter the receipt details.',
+        [{ text: 'OK', onPress: () => setShowManualForm(true) }]
+      );
     }
   };
 
@@ -369,6 +402,8 @@ export default function ReceiptScanScreen() {
                     <Text style={styles.saveButtonText}>Save Expense</Text>
                   </TouchableOpacity>
                 </View>
+                </>
+                )}
                 </ScrollView>
               </View>
             </View>
