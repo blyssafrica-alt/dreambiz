@@ -36,6 +36,8 @@ interface BusinessListItem {
 export default function BusinessesScreen() {
   const { business } = useBusiness();
   const { theme } = useTheme();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
   const [businesses, setBusinesses] = useState<BusinessListItem[]>([
     // Current business is always first
     business ? {
@@ -48,6 +50,22 @@ export default function BusinessesScreen() {
     } : null,
   ].filter(Boolean) as BusinessListItem[]);
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: false,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
   const [name, setName] = useState('');
   const [type, setType] = useState<BusinessType>('other');
   const [stage, setStage] = useState<BusinessStage>('idea');
