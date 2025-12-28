@@ -540,8 +540,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     maxHeight: '90%',
     paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-    flex: 1,
-    minHeight: '60%',
+    minHeight: '70%',
   },
   header: {
     flexDirection: 'row',
@@ -576,12 +575,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    maxHeight: '100%',
   },
   contentContainer: {
     padding: 20,
     paddingBottom: 40,
-    flexGrow: 1,
   },
   stepContent: {
     flex: 1,
