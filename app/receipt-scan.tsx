@@ -12,6 +12,7 @@ import {
   Modal,
   TextInput,
   ScrollView,
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useBusiness } from '@/contexts/BusinessContext';
@@ -235,7 +236,14 @@ export default function ReceiptScanScreen() {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <View style={styles.modalBodyWrapper}>
+                <ScrollView 
+                  style={styles.modalBody} 
+                  contentContainerStyle={styles.modalBodyContent}
+                  showsVerticalScrollIndicator={true}
+                  keyboardShouldPersistTaps="handled"
+                  nestedScrollEnabled={true}
+                >
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, { color: theme.text.primary }]}>
                     Amount ({business?.currency || 'USD'}) *
@@ -361,7 +369,8 @@ export default function ReceiptScanScreen() {
                     <Text style={styles.saveButtonText}>Save Expense</Text>
                   </TouchableOpacity>
                 </View>
-              </ScrollView>
+                </ScrollView>
+              </View>
             </View>
           </View>
         </Modal>
@@ -489,8 +498,9 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    paddingBottom: 40,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     maxHeight: '90%',
+    minHeight: '70%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -502,8 +512,15 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800' as const,
   },
+  modalBodyWrapper: {
+    flex: 1,
+    minHeight: 300,
+  },
   modalBody: {
     flex: 1,
+  },
+  modalBodyContent: {
+    paddingBottom: 20,
   },
   inputGroup: {
     marginBottom: 20,
