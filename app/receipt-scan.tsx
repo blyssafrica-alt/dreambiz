@@ -279,6 +279,8 @@ export default function ReceiptScanScreen() {
                   keyboardShouldPersistTaps="handled"
                   nestedScrollEnabled={true}
                 >
+                {!processing && (
+                  <>
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, { color: theme.text.primary }]}>
                     Amount ({business?.currency || 'USD'}) *
@@ -404,7 +406,7 @@ export default function ReceiptScanScreen() {
                     <Text style={styles.saveButtonText}>Save Expense</Text>
                   </TouchableOpacity>
                 </View>
-                </>
+                  </>
                 )}
                 </ScrollView>
               </View>
