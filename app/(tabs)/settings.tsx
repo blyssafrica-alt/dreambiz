@@ -1,5 +1,5 @@
 import { Stack, router } from 'expo-router';
-import { DollarSign, Building2, MapPin, Phone, Save, FileText, Moon, Sun, LogOut, Download, Database, Image as ImageIcon, X, Upload, Settings as SettingsIcon } from 'lucide-react-native';
+import { DollarSign, Building2, MapPin, Phone, Mail, Save, FileText, Moon, Sun, LogOut, Download, Database, Image as ImageIcon, X, Upload, Settings as SettingsIcon } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
 import {
   View,
