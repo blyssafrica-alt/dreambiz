@@ -179,25 +179,34 @@ export default function CashflowScreen() {
   }, [cashflowProjections]);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
-      <Stack.Screen options={{ title: 'Cashflow', headerShown: false }} />
-      
-      <View style={[styles.header, { backgroundColor: theme.background.card }]}>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Cashflow Projections</Text>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.accent.primary }]}
-          onPress={() => {
-            const today = new Date();
-            const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-            setMonth(nextMonth.toISOString().split('T')[0].substring(0, 7));
-            setShowModal(true);
-          }}
-        >
-          <Plus size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+        <PageHeader
+          title="Cashflow Projections"
+          subtitle="Track your cash flow trends"
+          icon={TrendingUp}
+          iconGradient={['#10B981', '#059669']}
+          rightAction={
+            <TouchableOpacity
+              style={styles.headerAddButton}
+              onPress={() => {
+                const today = new Date();
+                const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+                setMonth(nextMonth.toISOString().split('T')[0].substring(0, 7));
+                setShowModal(true);
+              }}
+            >
+              <Plus size={20} color="#FFF" strokeWidth={2.5} />
+            </TouchableOpacity>
+          }
+        />
 
-      <ScrollView style={styles.scrollView}>
+        <Animated.View style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}>
+          <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
         {/* Cashflow Charts */}
         {cashflowProjections.length > 0 && (
           <>
