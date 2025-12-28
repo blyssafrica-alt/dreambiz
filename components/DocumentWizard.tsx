@@ -8,6 +8,7 @@ import {
   ScrollView,
   Modal,
   Alert as RNAlert,
+  Platform,
 } from 'react-native';
 import { 
   FileText, 
@@ -454,7 +455,7 @@ export default function DocumentWizard({ visible, onClose, onComplete, businessT
   const progress = (step / totalSteps) * 100;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <View style={[styles.modal, { backgroundColor: theme.background.card }]}>
           <View style={styles.header}>
@@ -475,7 +476,12 @@ export default function DocumentWizard({ visible, onClose, onComplete, businessT
             <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: theme.accent.primary }]} />
           </View>
 
-          <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+          <ScrollView 
+            style={styles.content} 
+            contentContainerStyle={styles.contentContainer}
+            showsVerticalScrollIndicator={true}
+            keyboardShouldPersistTaps="handled"
+          >
             {step === 1 && renderStep1()}
             {step === 2 && renderStep2()}
             {step === 3 && renderStep3()}
