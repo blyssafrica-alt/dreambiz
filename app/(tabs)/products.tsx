@@ -679,7 +679,8 @@ export default function ProductsScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+      </View>
+    </>
   );
 }
 

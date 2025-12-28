@@ -476,7 +476,8 @@ export default function ProjectsScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+      </View>
+    </>
   );
 }
 

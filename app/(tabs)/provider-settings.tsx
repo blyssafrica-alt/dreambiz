@@ -162,8 +162,10 @@ export default function ProviderSettingsScreen() {
             ? 'You must sign out before switching providers.'
             : 'Your data will remain accessible after switching providers.'}
         </Text>
+          </View>
+        </Animated.View>
       </View>
-    </View>
+    </>
   );
 }
 
