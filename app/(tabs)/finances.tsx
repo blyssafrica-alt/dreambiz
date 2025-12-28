@@ -26,6 +26,7 @@ import {
   Platform,
   Animated,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -239,14 +240,14 @@ export default function FinancesScreen() {
         }} 
       />
       <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
-        {/* Header with Gradient */}
-        <LinearGradient
-          colors={theme.gradient.primary as [string, string]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.headerGradient}
-        >
-          <View style={styles.header}>
+        <SafeAreaView edges={['top']} style={styles.safeArea}>
+          <LinearGradient
+            colors={theme.gradient.primary as [string, string]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.headerGradient}
+          >
+            <View style={styles.header}>
             <View>
               <Text style={styles.headerTitle}>Finances</Text>
               <Text style={styles.headerSubtitle}>
@@ -583,7 +584,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 100,
   },
   emptyState: {
     alignItems: 'center',
@@ -662,9 +662,12 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: 4,
   },
+  safeArea: {
+    backgroundColor: 'transparent',
+  },
   fabContainer: {
     position: 'absolute',
-    bottom: 20,
+    bottom: Platform.OS === 'ios' ? 100 : 80,
     right: 20,
     flexDirection: 'row',
     gap: 12,
@@ -673,7 +676,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 20,
+    bottom: Platform.OS === 'ios' ? 100 : 80,
     width: 64,
     height: 64,
     borderRadius: 32,

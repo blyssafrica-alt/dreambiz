@@ -23,6 +23,7 @@ import {
   Animated,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -246,43 +247,45 @@ export default function DashboardScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
-      <LinearGradient
-        colors={theme.gradient.primary as [string, string]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
-      >
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Welcome back 👋</Text>
-            <Text style={styles.businessName}>{business?.name || 'Your Business'}</Text>
+      <SafeAreaView edges={['top']} style={styles.safeArea}>
+        <LinearGradient
+          colors={theme.gradient.primary as [string, string]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.greeting}>Welcome back 👋</Text>
+              <Text style={styles.businessName}>{business?.name || 'Your Business'}</Text>
+            </View>
+            <View style={styles.headerActions}>
+              <TouchableOpacity 
+                style={[styles.quickAddButton, { backgroundColor: theme.background.card }]} 
+                onPress={() => router.push('/help' as any)}
+              >
+                <HelpCircle size={20} color={theme.accent.primary} strokeWidth={2.5} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.quickAddButton, { backgroundColor: theme.background.card }]} 
+                onPress={() => setShowSearch(true)}
+              >
+                <Search size={20} color={theme.accent.primary} strokeWidth={2.5} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.quickAddButton, { backgroundColor: theme.background.card }]} 
+                onPress={() => router.push('/(tabs)/finances' as any)}
+              >
+                <Plus size={20} color={theme.accent.primary} strokeWidth={3} />
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity 
-              style={[styles.quickAddButton, { backgroundColor: theme.background.card }]} 
-              onPress={() => router.push('/help' as any)}
-            >
-              <HelpCircle size={20} color={theme.accent.primary} strokeWidth={2.5} />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.quickAddButton, { backgroundColor: theme.background.card }]} 
-              onPress={() => setShowSearch(true)}
-            >
-              <Search size={20} color={theme.accent.primary} strokeWidth={2.5} />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.quickAddButton, { backgroundColor: theme.background.card }]} 
-              onPress={() => router.push('/(tabs)/finances' as any)}
-            >
-              <Plus size={20} color={theme.accent.primary} strokeWidth={3} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </LinearGradient>
+        </LinearGradient>
+      </SafeAreaView>
 
       <ScrollView 
         style={styles.scrollContainer} 
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: Platform.OS === 'ios' ? 120 : 100 }]}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled={true}
         keyboardShouldPersistTaps="handled"
@@ -594,8 +597,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  safeArea: {
+    backgroundColor: 'transparent',
+  },
   headerGradient: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 50,
+    paddingTop: 12,
     paddingBottom: 30,
     paddingHorizontal: 20,
   },
@@ -637,7 +643,6 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingTop: 0,
-    paddingBottom: 40,
   },
   todaySection: {
     marginTop: -20,

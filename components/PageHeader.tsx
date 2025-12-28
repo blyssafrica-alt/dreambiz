@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { LucideIcon } from 'lucide-react-native';
@@ -22,44 +23,49 @@ export default function PageHeader({
   const { theme } = useTheme();
 
   return (
-    <LinearGradient
-      colors={theme.gradient.primary as [string, string]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.headerGradient}
-    >
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          {Icon && (
-            <LinearGradient
-              colors={iconGradient}
-              style={styles.headerIcon}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Icon size={28} color="#FFF" strokeWidth={2.5} />
-            </LinearGradient>
-          )}
-          <View style={styles.headerText}>
-            <Text style={styles.headerTitle}>{title}</Text>
-            {subtitle && (
-              <Text style={styles.headerSubtitle}>{subtitle}</Text>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <LinearGradient
+        colors={theme.gradient.primary as [string, string]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerGradient}
+      >
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            {Icon && (
+              <LinearGradient
+                colors={iconGradient}
+                style={styles.headerIcon}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Icon size={28} color="#FFF" strokeWidth={2.5} />
+              </LinearGradient>
             )}
+            <View style={styles.headerText}>
+              <Text style={styles.headerTitle}>{title}</Text>
+              {subtitle && (
+                <Text style={styles.headerSubtitle}>{subtitle}</Text>
+              )}
+            </View>
           </View>
+          {rightAction && (
+            <View style={styles.headerRight}>
+              {rightAction}
+            </View>
+          )}
         </View>
-        {rightAction && (
-          <View style={styles.headerRight}>
-            {rightAction}
-          </View>
-        )}
-      </View>
-    </LinearGradient>
+      </LinearGradient>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    backgroundColor: 'transparent',
+  },
   headerGradient: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 50,
+    paddingTop: 12,
     paddingBottom: 24,
     paddingHorizontal: 20,
   },
