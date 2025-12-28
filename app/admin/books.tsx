@@ -15,7 +15,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Plus, Edit, Trash2, Book, X, ImageIcon, Save } from 'lucide-react-native';
+import { ArrowLeft, Plus, Edit, Trash2, Book as BookIcon, X, ImageIcon, Save } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import type { Book, BookFormData, BookChapter } from '@/types/books';
 
