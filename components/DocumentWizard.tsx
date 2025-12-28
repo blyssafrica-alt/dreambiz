@@ -540,8 +540,11 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     maxHeight: '90%',
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
     minHeight: '70%',
+  },
+  contentWrapper: {
+    flex: 1,
+    minHeight: 300,
   },
   header: {
     flexDirection: 'row',
