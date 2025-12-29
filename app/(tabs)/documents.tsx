@@ -10,6 +10,7 @@ import {
   TextInput,
   Alert as RNAlert,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import PageHeader from '@/components/PageHeader';
@@ -33,13 +34,11 @@ export default function DocumentsScreen() {
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [presetName, setPresetName] = useState('');
 
-  // Early return if theme is not loaded
-  if (!theme) {
-    return null;
-  }
-
   // Ensure documents is always an array
   const safeDocuments = Array.isArray(documents) ? documents : [];
+
+  // Don't early return - handle undefined theme gracefully
+  // Theme should always be available from ThemeContext, but if not, use defaults
 
   // Template is now handled by DocumentWizard component
 
@@ -299,7 +298,7 @@ export default function DocumentsScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+      <View style={[styles.container, { backgroundColor: theme?.background?.secondary || '#F5F5F5' }]}>
         <PageHeader
           title="Documents"
           subtitle="Professional invoices, receipts & more"

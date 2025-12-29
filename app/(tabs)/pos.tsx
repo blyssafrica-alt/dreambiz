@@ -105,11 +105,8 @@ export default function POSScreen() {
     }).start();
   }, [cartOpen]);
 
-  // Early return if theme is not loaded
-  if (!theme) {
-    return null;
-  }
-
+  // Don't early return - handle undefined theme gracefully
+  // Theme should always be available from ThemeContext, but if not, use defaults
   // Get unique categories
   const categories = useMemo(() => {
     const cats = products
@@ -437,7 +434,7 @@ export default function POSScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+      <View style={[styles.container, { backgroundColor: theme?.background?.secondary || '#F5F5F5' }]}>
         <PageHeader
           title="Point of Sale"
           subtitle="Quick checkout and sales"

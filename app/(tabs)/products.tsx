@@ -52,6 +52,9 @@ export default function ProductsScreen() {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
 
+  // Ensure products is always an array
+  const safeProducts = Array.isArray(products) ? products : [];
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -83,8 +86,8 @@ export default function ProductsScreen() {
   const [additionalImages, setAdditionalImages] = useState<string[]>([]);
 
   const filteredProducts = useMemo(() => {
-    if (!products || !Array.isArray(products)) return [];
-    let filtered = products;
+    if (!safeProducts || safeProducts.length === 0) return [];
+    let filtered = safeProducts;
     
     if (searchQuery) {
       filtered = filtered.filter(p => 
@@ -98,17 +101,18 @@ export default function ProductsScreen() {
     }
     
     return filtered;
-  }, [products, searchQuery, selectedCategory]);
+  }, [safeProducts, searchQuery, selectedCategory]);
 
   // Low stock threshold (can be made configurable)
   const lowStockThreshold = 10;
   const lowStockProducts = useMemo(() => {
-    return products.filter(p => p.quantity <= lowStockThreshold && p.isActive);
-  }, [products, lowStockThreshold]);
+    if (!safeProducts || safeProducts.length === 0) return [];
+    return safeProducts.filter(p => p && p.quantity <= lowStockThreshold && p.isActive);
+  }, [safeProducts, lowStockThreshold]);
 
   // Product performance analytics
   const productAnalytics = useMemo(() => {
-    if (!products || !Array.isArray(products)) {
+    if (!safeProducts || safeProducts.length === 0) {
       return {
         totalProducts: 0,
         activeProducts: 0,
@@ -120,25 +124,25 @@ export default function ProductsScreen() {
       };
     }
     
-    const totalProducts = products.length;
-    const activeProducts = products.filter(p => p?.isActive).length;
+    const totalProducts = safeProducts.length;
+    const activeProducts = safeProducts.filter(p => p?.isActive).length;
     const lowStockCount = lowStockProducts.length;
-    const outOfStockCount = products.filter(p => (p?.quantity || 0) === 0 && p?.isActive).length;
+    const outOfStockCount = safeProducts.filter(p => (p?.quantity || 0) === 0 && p?.isActive).length;
     
     // Calculate total inventory value
-    const totalInventoryValue = products.reduce((sum, p) => {
+    const totalInventoryValue = safeProducts.reduce((sum, p) => {
       return sum + ((p?.costPrice || 0) * (p?.quantity || 0));
     }, 0);
 
     // Best selling products (by quantity sold - would need transaction data)
     // For now, we'll use products with highest quantity as proxy
-    const bestSelling = [...products]
+    const bestSelling = [...safeProducts]
       .sort((a, b) => (b?.quantity || 0) - (a?.quantity || 0))
       .slice(0, 5);
 
     // Products with best profit margin
-    const bestMargin = [...products]
-      .filter(p => p.costPrice > 0 && p.sellingPrice > p.costPrice)
+    const bestMargin = [...safeProducts]
+      .filter(p => p && p.costPrice > 0 && p.sellingPrice > p.costPrice)
       .map(p => ({
         ...p,
         margin: ((p.sellingPrice - p.costPrice) / p.costPrice) * 100,
@@ -347,7 +351,7 @@ export default function ProductsScreen() {
 
           <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
         {/* Product Analytics Summary */}
-        {products.length > 0 && (
+        {safeProducts.length > 0 && (
           <View style={[styles.analyticsCard, { backgroundColor: theme.background.card }]}>
             <Text style={[styles.analyticsTitle, { color: theme.text.primary }]}>Inventory Overview</Text>
             <View style={styles.analyticsGrid}>
@@ -404,9 +408,9 @@ export default function ProductsScreen() {
           <View style={styles.emptyState}>
             <Package size={48} color={theme.text.tertiary} />
             <Text style={[styles.emptyText, { color: theme.text.tertiary }]}>
-              {products.length === 0 ? 'No products yet' : 'No products match your search'}
+              {safeProducts.length === 0 ? 'No products yet' : 'No products match your search'}
             </Text>
-            {products.length === 0 && (
+            {safeProducts.length === 0 && (
               <TouchableOpacity
                 style={[styles.emptyButton, { backgroundColor: theme.accent.primary }]}
                 onPress={() => setShowModal(true)}
