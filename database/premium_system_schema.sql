@@ -106,6 +106,10 @@ ADD COLUMN IF NOT EXISTS subscription_end_date TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_user_id ON user_subscriptions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_status ON user_subscriptions(status);
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_end_date ON user_subscriptions(end_date);
+-- Partial unique index: Only one active subscription per user per plan
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_subscriptions_active_unique 
+  ON user_subscriptions(user_id, plan_id) 
+  WHERE status = 'active';
 CREATE INDEX IF NOT EXISTS idx_premium_trials_user_id ON premium_trials(user_id);
 CREATE INDEX IF NOT EXISTS idx_premium_trials_status ON premium_trials(status);
 CREATE INDEX IF NOT EXISTS idx_user_discounts_user_id ON user_discounts(user_id);
