@@ -576,6 +576,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerAddButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

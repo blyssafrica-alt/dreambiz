@@ -42,6 +42,8 @@ export default function AppointmentsScreen() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _ = useBusiness(); // Context hook - values not needed yet
   const { theme } = useTheme();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);

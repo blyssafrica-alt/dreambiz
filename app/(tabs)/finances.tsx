@@ -31,6 +31,7 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SALES_CATEGORIES, EXPENSE_CATEGORIES } from '@/constants/categories';
 import type { Currency, TransactionType } from '@/types/business';
 
