@@ -270,9 +270,9 @@ CREATE TRIGGER update_discount_codes_updated_at
 -- Initial Data: Default Subscription Plans
 INSERT INTO subscription_plans (name, description, price, currency, billing_period, features, max_businesses, max_users, display_order)
 VALUES
-  ('Free', 'Basic features for small businesses', 0.00, 'USD', 'monthly', '{}'::jsonb, 1, 1, 1),
-  ('Starter', 'Essential features for growing businesses', 9.99, 'USD', 'monthly', '{"products", "customers", "documents"}'::jsonb, 3, 2, 2),
-  ('Professional', 'Advanced features for established businesses', 29.99, 'USD', 'monthly', '{"products", "customers", "documents", "reports", "integrations"}'::jsonb, 10, 5, 3),
-  ('Enterprise', 'Full feature access for large businesses', 99.99, 'USD', 'monthly', '{"*"}'::jsonb, -1, -1, 4)
+  ('Free', 'Basic features for small businesses', 0.00, 'USD', 'monthly', '[]'::jsonb, 1, 1, 1),
+  ('Starter', 'Essential features for growing businesses', 9.99, 'USD', 'monthly', '["products", "customers", "documents"]'::jsonb, 3, 2, 2),
+  ('Professional', 'Advanced features for established businesses', 29.99, 'USD', 'monthly', '["products", "customers", "documents", "reports", "integrations"]'::jsonb, 10, 5, 3),
+  ('Enterprise', 'Full feature access for large businesses', 99.99, 'USD', 'monthly', '["*"]'::jsonb, -1, -1, 4)
 ON CONFLICT DO NOTHING;
 
