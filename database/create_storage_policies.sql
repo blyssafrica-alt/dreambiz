@@ -6,13 +6,19 @@
 -- BOOK_COVERS BUCKET POLICIES
 -- ============================================
 
+-- Drop existing policies if they exist (to avoid conflicts)
+DROP POLICY IF EXISTS "Public Read - book_covers" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Upload - book_covers" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Update - book_covers" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Delete - book_covers" ON storage.objects;
+
 -- Allow public read access
-CREATE POLICY IF NOT EXISTS "Public Read - book_covers"
+CREATE POLICY "Public Read - book_covers"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'book_covers');
 
 -- Allow authenticated users to upload
-CREATE POLICY IF NOT EXISTS "Authenticated Upload - book_covers"
+CREATE POLICY "Authenticated Upload - book_covers"
 ON storage.objects FOR INSERT
 WITH CHECK (
   bucket_id = 'book_covers' 
@@ -20,7 +26,7 @@ WITH CHECK (
 );
 
 -- Allow authenticated users to update their own uploads
-CREATE POLICY IF NOT EXISTS "Authenticated Update - book_covers"
+CREATE POLICY "Authenticated Update - book_covers"
 ON storage.objects FOR UPDATE
 USING (
   bucket_id = 'book_covers' 
@@ -28,7 +34,7 @@ USING (
 );
 
 -- Allow authenticated users to delete
-CREATE POLICY IF NOT EXISTS "Authenticated Delete - book_covers"
+CREATE POLICY "Authenticated Delete - book_covers"
 ON storage.objects FOR DELETE
 USING (
   bucket_id = 'book_covers' 
@@ -39,13 +45,19 @@ USING (
 -- BOOK-DOCUMENTS BUCKET POLICIES
 -- ============================================
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Public Read - book-documents" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Upload - book-documents" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Update - book-documents" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Delete - book-documents" ON storage.objects;
+
 -- Allow public read access
-CREATE POLICY IF NOT EXISTS "Public Read - book-documents"
+CREATE POLICY "Public Read - book-documents"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'book-documents');
 
 -- Allow authenticated users to upload
-CREATE POLICY IF NOT EXISTS "Authenticated Upload - book-documents"
+CREATE POLICY "Authenticated Upload - book-documents"
 ON storage.objects FOR INSERT
 WITH CHECK (
   bucket_id = 'book-documents' 
@@ -53,7 +65,7 @@ WITH CHECK (
 );
 
 -- Allow authenticated users to update
-CREATE POLICY IF NOT EXISTS "Authenticated Update - book-documents"
+CREATE POLICY "Authenticated Update - book-documents"
 ON storage.objects FOR UPDATE
 USING (
   bucket_id = 'book-documents' 
@@ -61,7 +73,7 @@ USING (
 );
 
 -- Allow authenticated users to delete
-CREATE POLICY IF NOT EXISTS "Authenticated Delete - book-documents"
+CREATE POLICY "Authenticated Delete - book-documents"
 ON storage.objects FOR DELETE
 USING (
   bucket_id = 'book-documents' 
@@ -72,13 +84,19 @@ USING (
 -- AD_IMAGES BUCKET POLICIES
 -- ============================================
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Public Read - ad_images" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Upload - ad_images" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Update - ad_images" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Delete - ad_images" ON storage.objects;
+
 -- Allow public read access
-CREATE POLICY IF NOT EXISTS "Public Read - ad_images"
+CREATE POLICY "Public Read - ad_images"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'ad_images');
 
 -- Allow authenticated users to upload
-CREATE POLICY IF NOT EXISTS "Authenticated Upload - ad_images"
+CREATE POLICY "Authenticated Upload - ad_images"
 ON storage.objects FOR INSERT
 WITH CHECK (
   bucket_id = 'ad_images' 
@@ -86,7 +104,7 @@ WITH CHECK (
 );
 
 -- Allow authenticated users to update
-CREATE POLICY IF NOT EXISTS "Authenticated Update - ad_images"
+CREATE POLICY "Authenticated Update - ad_images"
 ON storage.objects FOR UPDATE
 USING (
   bucket_id = 'ad_images' 
@@ -94,7 +112,7 @@ USING (
 );
 
 -- Allow authenticated users to delete
-CREATE POLICY IF NOT EXISTS "Authenticated Delete - ad_images"
+CREATE POLICY "Authenticated Delete - ad_images"
 ON storage.objects FOR DELETE
 USING (
   bucket_id = 'ad_images' 
@@ -105,13 +123,19 @@ USING (
 -- PRODUCT_IMAGES BUCKET POLICIES
 -- ============================================
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Public Read - product_images" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Upload - product_images" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Update - product_images" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Delete - product_images" ON storage.objects;
+
 -- Allow public read access
-CREATE POLICY IF NOT EXISTS "Public Read - product_images"
+CREATE POLICY "Public Read - product_images"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'product_images');
 
 -- Allow authenticated users to upload
-CREATE POLICY IF NOT EXISTS "Authenticated Upload - product_images"
+CREATE POLICY "Authenticated Upload - product_images"
 ON storage.objects FOR INSERT
 WITH CHECK (
   bucket_id = 'product_images' 
@@ -119,7 +143,7 @@ WITH CHECK (
 );
 
 -- Allow authenticated users to update
-CREATE POLICY IF NOT EXISTS "Authenticated Update - product_images"
+CREATE POLICY "Authenticated Update - product_images"
 ON storage.objects FOR UPDATE
 USING (
   bucket_id = 'product_images' 
@@ -127,7 +151,7 @@ USING (
 );
 
 -- Allow authenticated users to delete
-CREATE POLICY IF NOT EXISTS "Authenticated Delete - product_images"
+CREATE POLICY "Authenticated Delete - product_images"
 ON storage.objects FOR DELETE
 USING (
   bucket_id = 'product_images' 
@@ -138,13 +162,19 @@ USING (
 -- BUSINESS_LOGOS BUCKET POLICIES
 -- ============================================
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Public Read - business_logos" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Upload - business_logos" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Update - business_logos" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Delete - business_logos" ON storage.objects;
+
 -- Allow public read access
-CREATE POLICY IF NOT EXISTS "Public Read - business_logos"
+CREATE POLICY "Public Read - business_logos"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'business_logos');
 
 -- Allow authenticated users to upload
-CREATE POLICY IF NOT EXISTS "Authenticated Upload - business_logos"
+CREATE POLICY "Authenticated Upload - business_logos"
 ON storage.objects FOR INSERT
 WITH CHECK (
   bucket_id = 'business_logos' 
@@ -152,7 +182,7 @@ WITH CHECK (
 );
 
 -- Allow authenticated users to update (for logo updates)
-CREATE POLICY IF NOT EXISTS "Authenticated Update - business_logos"
+CREATE POLICY "Authenticated Update - business_logos"
 ON storage.objects FOR UPDATE
 USING (
   bucket_id = 'business_logos' 
@@ -160,7 +190,7 @@ USING (
 );
 
 -- Allow authenticated users to delete
-CREATE POLICY IF NOT EXISTS "Authenticated Delete - business_logos"
+CREATE POLICY "Authenticated Delete - business_logos"
 ON storage.objects FOR DELETE
 USING (
   bucket_id = 'business_logos' 
