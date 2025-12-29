@@ -707,6 +707,45 @@ export default function DashboardScreen() {
       </ScrollView>
 
       <GlobalSearch visible={showSearch} onClose={() => setShowSearch(false)} />
+
+      {/* Alerts Modal */}
+      <Modal
+        visible={showAlertsModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAlertsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: theme.background.card }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.border.light }]}>
+              <View>
+                <Text style={[styles.modalTitle, { color: theme.text.primary }]}>All Alerts</Text>
+                <Text style={[styles.modalSubtitle, { color: theme.text.secondary }]}>
+                  {activeAlerts.length} active notification{activeAlerts.length !== 1 ? 's' : ''}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowAlertsModal(false)}>
+                <X size={24} color={theme.text.secondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalContent} contentContainerStyle={styles.modalContentContainer}>
+              {activeAlerts.length === 0 ? (
+                <View style={styles.emptyAlerts}>
+                  <Bell size={48} color={theme.text.tertiary} />
+                  <Text style={[styles.emptyAlertsText, { color: theme.text.secondary }]}>
+                    No active alerts
+                  </Text>
+                  <Text style={[styles.emptyAlertsSubtext, { color: theme.text.tertiary }]}>
+                    Your business is doing great!
+                  </Text>
+                </View>
+              ) : (
+                activeAlerts.map(alert => renderAlert(alert, false))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
