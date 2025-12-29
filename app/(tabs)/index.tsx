@@ -257,6 +257,52 @@ export default function DashboardScreen() {
     setDismissedAlerts(prev => new Set(prev).add(alertId));
   };
 
+  const handleAlertPress = (alert: Alert) => {
+    // Smart navigation based on alert type and content
+    const message = alert.message.toLowerCase();
+    
+    if (message.includes('profit') || message.includes('margin') || message.includes('pricing')) {
+      // Navigate to finances or pricing calculator
+      router.push('/(tabs)/finances' as any);
+    } else if (message.includes('expense') || message.includes('spending') || message.includes('cost')) {
+      // Navigate to finances to view expenses
+      router.push('/(tabs)/finances' as any);
+    } else if (message.includes('cash') || message.includes('cashflow') || message.includes('cash position')) {
+      // Navigate to cashflow or finances
+      router.push('/(tabs)/cashflow' as any);
+    } else if (message.includes('invoice') || message.includes('payment') || message.includes('overdue')) {
+      // Navigate to documents
+      router.push('/(tabs)/documents' as any);
+    } else if (message.includes('stock') || message.includes('inventory') || message.includes('product')) {
+      // Navigate to products
+      router.push('/(tabs)/products' as any);
+    } else if (message.includes('sale') || message.includes('revenue')) {
+      // Navigate to finances
+      router.push('/(tabs)/finances' as any);
+    } else {
+      // Default: open modal to see full details
+      setShowAlertsModal(true);
+    }
+  };
+
+  const handleBookReferencePress = (bookReference: Alert['bookReference']) => {
+    if (bookReference) {
+      // Navigate to book chapter or show book details
+      // For now, open modal with book info
+      Alert.alert(
+        'DreamBig Book Reference',
+        `Chapter ${bookReference.chapter}: ${bookReference.chapterTitle}\n\nThis chapter in your DreamBig book contains relevant guidance for this alert.`,
+        [
+          { text: 'OK', style: 'default' },
+          { text: 'View Book', onPress: () => {
+            // Navigate to books/insights page if available
+            router.push('/insights' as any);
+          }}
+        ]
+      );
+    }
+  };
+
   // Get active alerts (not dismissed)
   const activeAlerts = useMemo(() => {
     if (!metrics?.alerts) return [];
@@ -286,46 +332,78 @@ export default function DashboardScreen() {
         <TouchableOpacity
           key={alert.id}
           style={[styles.alertCompact, { backgroundColor: color.bg, borderColor: color.border }]}
-          onPress={() => setShowAlertsModal(true)}
+          onPress={() => handleAlertPress(alert)}
+          activeOpacity={0.7}
         >
           <View style={[styles.alertIconCompact, { backgroundColor: color.border }]}>
             <AlertCircle size={16} color="#FFF" />
           </View>
           <View style={styles.alertContentCompact}>
-            <Text style={[styles.alertTextCompact, { color: color.text }]} numberOfLines={1}>
+            <Text style={[styles.alertTextCompact, { color: color.text }]} numberOfLines={2}>
               {alert.message}
             </Text>
+            {alert.action && (
+              <Text style={[styles.alertActionCompact, { color: color.text }]} numberOfLines={1}>
+                {alert.action}
+              </Text>
+            )}
           </View>
-          <ChevronRight size={16} color={color.text} />
+          <ChevronRight size={18} color={color.text} style={{ opacity: 0.7 }} />
         </TouchableOpacity>
       );
     }
 
     return (
-      <View key={alert.id} style={[styles.alert, { backgroundColor: color.bg, borderColor: color.border }]}>
+      <TouchableOpacity
+        key={alert.id}
+        style={[styles.alert, { backgroundColor: color.bg, borderColor: color.border }]}
+        onPress={() => handleAlertPress(alert)}
+        activeOpacity={0.8}
+      >
         <View style={styles.alertHeader}>
           <View style={[styles.alertIconContainer, { backgroundColor: color.border }]}>
             <AlertCircle size={20} color="#FFF" />
           </View>
           <TouchableOpacity
-            onPress={() => handleDismissAlert(alert.id)}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleDismissAlert(alert.id);
+            }}
             style={styles.alertDismiss}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <X size={16} color={color.text} />
+            <X size={18} color={color.text} />
           </TouchableOpacity>
         </View>
         <View style={styles.alertContent}>
           <Text style={[styles.alertText, { color: color.text }]}>{alert.message}</Text>
           {alert.action && (
-            <Text style={[styles.alertAction, { color: color.text }]}>{alert.action}</Text>
+            <View style={styles.alertActionContainer}>
+              <Text style={[styles.alertAction, { color: color.text }]}>{alert.action}</Text>
+            </View>
           )}
           {alert.bookReference && (
-            <Text style={[styles.alertBookRef, { color: color.text }]}>
-              📖 {alert.bookReference.chapterTitle} (Ch. {alert.bookReference.chapter})
-            </Text>
+            <TouchableOpacity
+              style={[styles.bookReferenceButton, { backgroundColor: color.border + '20', borderColor: color.border }]}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleBookReferencePress(alert.bookReference);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.alertBookRef, { color: color.text }]}>
+                📖 {alert.bookReference.chapterTitle} (Ch. {alert.bookReference.chapter})
+              </Text>
+              <ChevronRight size={14} color={color.text} />
+            </TouchableOpacity>
           )}
         </View>
-      </View>
+        <View style={[styles.alertFooter, { borderTopColor: color.border + '30' }]}>
+          <Text style={[styles.alertTapHint, { color: color.text }]}>
+            Tap to take action →
+          </Text>
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -1041,11 +1119,16 @@ const styles = StyleSheet.create({
   alertCompact: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 8,
-    borderWidth: 1,
-    gap: 10,
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1.5,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   alertIconCompact: {
     width: 28,
@@ -1061,12 +1144,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600' as const,
     lineHeight: 18,
+    flex: 1,
+  },
+  alertActionCompact: {
+    fontSize: 11,
+    fontWeight: '500' as const,
+    marginTop: 4,
+    opacity: 0.9,
   },
   alert: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
+    padding: 18,
+    borderRadius: 16,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
   },
   alertHeader: {
     flexDirection: 'row',
@@ -1085,25 +1180,47 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   alertContent: {
-    gap: 6,
+    gap: 8,
   },
   alertText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    lineHeight: 20,
+    fontSize: 15,
+    fontWeight: '700' as const,
+    lineHeight: 22,
+  },
+  alertActionContainer: {
+    marginTop: 4,
   },
   alertAction: {
     fontSize: 13,
-    fontWeight: '500' as const,
+    fontWeight: '600' as const,
     lineHeight: 18,
-    marginTop: 2,
+  },
+  bookReferenceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 8,
+    gap: 8,
   },
   alertBookRef: {
     fontSize: 12,
-    fontWeight: '400' as const,
+    fontWeight: '600' as const,
     lineHeight: 16,
-    marginTop: 4,
-    opacity: 0.8,
+    flex: 1,
+  },
+  alertFooter: {
+    borderTopWidth: 1,
+    paddingTop: 10,
+    marginTop: 10,
+  },
+  alertTapHint: {
+    fontSize: 11,
+    fontWeight: '500' as const,
+    opacity: 0.7,
+    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,
