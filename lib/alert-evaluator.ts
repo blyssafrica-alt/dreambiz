@@ -173,15 +173,15 @@ export function evaluateAlertRules(
 
     if (shouldTrigger) {
       // Format message template
-      let message = rule.messageTemplate;
+      let message = rule.messageTemplate || '';
       if (value !== undefined) {
-        message = message.replace('{value}', value.toFixed(2));
+        message = message.replace(/{value}/g, value.toFixed(2));
       }
       if (percentage !== undefined) {
-        message = message.replace('{percentage}', percentage.toFixed(1));
+        message = message.replace(/{percentage}/g, percentage.toFixed(1));
       }
       if (days !== undefined) {
-        message = message.replace('{days}', days.toString());
+        message = message.replace(/{days}/g, days.toString());
       }
 
       alerts.push({

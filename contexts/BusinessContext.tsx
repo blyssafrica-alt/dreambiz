@@ -1188,14 +1188,15 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
 
+    // Calculate metrics needed for alerts
+    const profitMargin = monthSales > 0 ? ((monthSales - monthExpenses) / monthSales) * 100 : 0;
+    const cashPosition = (business?.capital || 0) + monthSales - monthExpenses;
+
     // Use database alert rules instead of hardcoded logic
     let evaluatedAlerts: any[] = [];
     try {
       const { fetchActiveAlertRules, evaluateAlertRules } = await import('@/lib/alert-evaluator');
       const alertRules = await fetchActiveAlertRules();
-    
-    const profitMargin = monthSales > 0 ? ((monthSales - monthExpenses) / monthSales) * 100 : 0;
-    const cashPosition = (business?.capital || 0) + monthSales - monthExpenses;
 
       evaluatedAlerts = evaluateAlertRules(alertRules, {
         monthSales,
