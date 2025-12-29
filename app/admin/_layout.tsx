@@ -111,6 +111,20 @@ export default function AdminLayout() {
           headerShown: true,
         }} 
       />
+      <Stack.Screen 
+        name="users" 
+        options={{ 
+          title: 'User Management',
+          headerShown: true,
+        }} 
+      />
+      <Stack.Screen 
+        name="premium" 
+        options={{ 
+          title: 'Premium Management',
+          headerShown: true,
+        }} 
+      />
     </Stack>
   );
 }

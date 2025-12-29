@@ -241,6 +241,36 @@ export default function AdminDashboard() {
             <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
           </View>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/users' as any)}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Users</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                View and manage all users
+              </Text>
+            </View>
+            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/premium' as any)}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Premium Management</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Manage subscriptions, trials, and discounts
+              </Text>
+            </View>
+            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+          </View>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
