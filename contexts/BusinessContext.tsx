@@ -25,8 +25,7 @@ import type { RecurringInvoice, Payment } from '@/types/payments';
 import { fetchActiveAlertRules, evaluateAlertRules } from '@/lib/alert-evaluator';
 
 export const [BusinessContext, useBusiness] = createContextHook(() => {
-  try {
-    const { user, authUser } = useAuth();
+  const { user, authUser } = useAuth();
     const [business, setBusiness] = useState<BusinessProfile | null>(null);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [documents, setDocuments] = useState<Document[]>([]);
