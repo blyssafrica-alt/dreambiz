@@ -22,6 +22,7 @@ import type {
   ProjectTask
 } from '@/types/business';
 import type { RecurringInvoice, Payment } from '@/types/payments';
+import { fetchActiveAlertRules, evaluateAlertRules } from '@/lib/alert-evaluator';
 
 export const [BusinessContext, useBusiness] = createContextHook(() => {
   const { user, authUser } = useAuth();
@@ -1196,43 +1197,35 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     // Completely disable alerts if there's any error to prevent syntax errors
     let evaluatedAlerts: any[] = [];
     
-    // Use a flag to track if alerts should be disabled
-    const ALERTS_ENABLED = true; // Set to false to completely disable alerts
-    
-    if (ALERTS_ENABLED) {
-      try {
-        // Use static import instead of dynamic to avoid module loading issues
-        const alertEvaluatorModule = require('@/lib/alert-evaluator');
-        const { fetchActiveAlertRules, evaluateAlertRules } = alertEvaluatorModule;
-        
-        if (typeof fetchActiveAlertRules === 'function' && typeof evaluateAlertRules === 'function') {
-          const alertRules = await fetchActiveAlertRules();
+    try {
+      // Use static import - already imported at top of file
+      if (typeof fetchActiveAlertRules === 'function' && typeof evaluateAlertRules === 'function') {
+        const alertRules = await fetchActiveAlertRules();
 
-          // Ensure we have valid metrics before evaluating
-          if (alertRules && Array.isArray(alertRules) && alertRules.length > 0) {
-            evaluatedAlerts = evaluateAlertRules(alertRules, {
-              monthSales: monthSales || 0,
-              monthExpenses: monthExpenses || 0,
-              monthProfit: (monthSales || 0) - (monthExpenses || 0),
-              profitMargin: profitMargin || 0,
-              cashPosition: cashPosition || 0,
-              transactions: Array.isArray(transactions) ? transactions : [],
-              products: Array.isArray(products) ? products : [],
-              documents: Array.isArray(documents) ? documents : [],
-              business: business || null,
-            });
-            
-            // Validate the result is an array
-            if (!Array.isArray(evaluatedAlerts)) {
-              evaluatedAlerts = [];
-            }
+        // Ensure we have valid metrics before evaluating
+        if (alertRules && Array.isArray(alertRules) && alertRules.length > 0) {
+          evaluatedAlerts = evaluateAlertRules(alertRules, {
+            monthSales: monthSales || 0,
+            monthExpenses: monthExpenses || 0,
+            monthProfit: (monthSales || 0) - (monthExpenses || 0),
+            profitMargin: profitMargin || 0,
+            cashPosition: cashPosition || 0,
+            transactions: Array.isArray(transactions) ? transactions : [],
+            products: Array.isArray(products) ? products : [],
+            documents: Array.isArray(documents) ? documents : [],
+            business: business || null,
+          });
+          
+          // Validate the result is an array
+          if (!Array.isArray(evaluatedAlerts)) {
+            evaluatedAlerts = [];
           }
         }
-      } catch (error: any) {
-        // Silently fail - don't log errors that might cause issues
-        // Just return empty alerts array
-        evaluatedAlerts = [];
       }
+    } catch (error: any) {
+      // Silently fail - don't log errors that might cause issues
+      // Just return empty alerts array to prevent any syntax errors from breaking the app
+      evaluatedAlerts = [];
     }
 
     // Convert evaluated alerts to Alert format with validation
