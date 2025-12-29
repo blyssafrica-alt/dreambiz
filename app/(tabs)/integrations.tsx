@@ -237,7 +237,11 @@ export default function IntegrationsScreen() {
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
         }}>
-          <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
+          <ScrollView 
+            style={styles.scrollView} 
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
+            showsVerticalScrollIndicator={false}
+          >
         {Object.entries(groupedIntegrations).map(([category, items]) => (
           <View key={category} style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>

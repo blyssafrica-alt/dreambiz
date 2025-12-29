@@ -80,6 +80,19 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="payments"
+        options={{
+          title: "Payments",
+          tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
+            <DollarSign 
+              size={focused ? 26 : 24} 
+              color={color} 
+              strokeWidth={focused ? 2.5 : 2}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="more"
         options={{
           title: "More",

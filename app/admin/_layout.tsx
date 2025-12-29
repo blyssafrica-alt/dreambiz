@@ -125,6 +125,13 @@ export default function AdminLayout() {
           headerShown: true,
         }} 
       />
+      <Stack.Screen 
+        name="payment-methods" 
+        options={{ 
+          title: 'Payment Methods',
+          headerShown: true,
+        }} 
+      />
     </Stack>
   );
 }

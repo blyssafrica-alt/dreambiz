@@ -4,8 +4,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Gift, Percent, Users, Calendar, X, Save, Crown } from 'lucide-react-native';
+import { ArrowLeft, Gift, Percent, Users, Calendar, X, Save, Crown, Edit, Trash2, Plus } from 'lucide-react-native';
 import type { SubscriptionPlan, PremiumTrial, UserDiscount } from '@/types/premium';
+import UserSelector from '@/components/UserSelector';
 
 export default function PremiumManagementScreen() {
   const { theme } = useTheme();
@@ -45,6 +46,22 @@ export default function PremiumManagementScreen() {
     planId: '',
     days: '14',
     notes: 'Bulk trial grant',
+  });
+
+  // Plan Management State
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
+  const [planForm, setPlanForm] = useState({
+    name: '',
+    description: '',
+    price: '',
+    currency: 'USD',
+    billingPeriod: 'monthly' as 'monthly' | 'yearly' | 'lifetime',
+    maxBusinesses: '1',
+    maxUsers: '1',
+    maxStorageMb: '100',
+    isActive: true,
+    displayOrder: '0',
   });
 
   useEffect(() => {
@@ -288,6 +305,50 @@ export default function PremiumManagementScreen() {
     }
   };
 
+  const handleSavePlan = async () => {
+    if (!planForm.name || !planForm.price) {
+      Alert.alert('Error', 'Please fill in name and price');
+      return;
+    }
+
+    try {
+      const planData: any = {
+        name: planForm.name,
+        description: planForm.description || null,
+        price: parseFloat(planForm.price),
+        currency: planForm.currency,
+        billing_period: planForm.billingPeriod,
+        max_businesses: planForm.maxBusinesses === '-1' ? -1 : parseInt(planForm.maxBusinesses),
+        max_users: planForm.maxUsers === '-1' ? -1 : parseInt(planForm.maxUsers),
+        max_storage: planForm.maxStorageMb === '-1' ? -1 : parseInt(planForm.maxStorageMb),
+        is_active: planForm.isActive,
+        display_order: parseInt(planForm.displayOrder),
+        features: [],
+      };
+
+      if (editingPlan) {
+        const { error } = await supabase
+          .from('subscription_plans')
+          .update(planData)
+          .eq('id', editingPlan.id);
+
+        if (error) throw error;
+        Alert.alert('Success', 'Plan updated successfully');
+      } else {
+        const { error } = await supabase.from('subscription_plans').insert(planData);
+
+        if (error) throw error;
+        Alert.alert('Success', 'Plan created successfully');
+      }
+
+      setShowPlanModal(false);
+      loadPlans();
+    } catch (error) {
+      console.error('Failed to save plan:', error);
+      Alert.alert('Error', 'Failed to save plan');
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
@@ -491,26 +552,74 @@ export default function PremiumManagementScreen() {
 
         {activeTab === 'plans' && (
           <>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: theme.accent.primary }]}
+              onPress={() => {
+                setEditingPlan(null);
+                setPlanForm({
+                  name: '',
+                  description: '',
+                  price: '',
+                  currency: 'USD',
+                  billingPeriod: 'monthly',
+                  maxBusinesses: '1',
+                  maxUsers: '1',
+                  maxStorageMb: '100',
+                  isActive: true,
+                  displayOrder: '0',
+                });
+                setShowPlanModal(true);
+              }}
+            >
+              <Plus size={18} color="#FFF" />
+              <Text style={styles.actionButtonText}>Create Plan</Text>
+            </TouchableOpacity>
+
             {plans.map((plan) => (
               <View key={plan.id} style={[styles.card, { backgroundColor: theme.background.card }]}>
                 <View style={styles.cardHeader}>
-                  <Text style={[styles.cardTitle, { color: theme.text.primary }]}>
-                    {plan.name}
-                  </Text>
-                  <View
-                    style={[
-                      styles.badge,
-                      { backgroundColor: plan.isActive ? '#10B98120' : '#64748B20' },
-                    ]}
-                  >
-                    <Text
+                  <View style={styles.cardHeaderLeft}>
+                    <Text style={[styles.cardTitle, { color: theme.text.primary }]}>
+                      {plan.name}
+                    </Text>
+                    <View
                       style={[
-                        styles.badgeText,
-                        { color: plan.isActive ? '#10B981' : '#64748B' },
+                        styles.badge,
+                        { backgroundColor: plan.isActive ? '#10B98120' : '#64748B20' },
                       ]}
                     >
-                      {plan.isActive ? 'Active' : 'Inactive'}
-                    </Text>
+                      <Text
+                        style={[
+                          styles.badgeText,
+                          { color: plan.isActive ? '#10B981' : '#64748B' },
+                        ]}
+                      >
+                        {plan.isActive ? 'Active' : 'Inactive'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.cardActions}>
+                    <TouchableOpacity
+                      style={[styles.cardActionButton, { backgroundColor: theme.surface.info }]}
+                      onPress={() => {
+                        setEditingPlan(plan);
+                        setPlanForm({
+                          name: plan.name,
+                          description: plan.description || '',
+                          price: plan.price.toString(),
+                          currency: plan.currency,
+                          billingPeriod: plan.billingPeriod,
+                          maxBusinesses: plan.maxBusinesses === -1 ? '-1' : plan.maxBusinesses.toString(),
+                          maxUsers: plan.maxUsers === -1 ? '-1' : plan.maxUsers.toString(),
+                          maxStorageMb: plan.maxStorageMb === -1 ? '-1' : plan.maxStorageMb.toString(),
+                          isActive: plan.isActive,
+                          displayOrder: plan.displayOrder.toString(),
+                        });
+                        setShowPlanModal(true);
+                      }}
+                    >
+                      <Edit size={16} color={theme.accent.info} />
+                    </TouchableOpacity>
                   </View>
                 </View>
                 <Text style={[styles.cardText, { color: theme.text.secondary }]}>
@@ -520,7 +629,7 @@ export default function PremiumManagementScreen() {
                   {plan.currency} {plan.price.toFixed(2)} / {plan.billingPeriod}
                 </Text>
                 <Text style={[styles.cardText, { color: theme.text.secondary }]}>
-                  Features: {plan.features.length} | Max Businesses: {plan.maxBusinesses === -1 ? 'Unlimited' : plan.maxBusinesses}
+                  Features: {plan.features.length} | Max Businesses: {plan.maxBusinesses === -1 ? 'Unlimited' : plan.maxBusinesses} | Max Users: {plan.maxUsers === -1 ? 'Unlimited' : plan.maxUsers}
                 </Text>
               </View>
             ))}
@@ -539,12 +648,10 @@ export default function PremiumManagementScreen() {
               </TouchableOpacity>
             </View>
 
-            <TextInput
-              style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-              placeholder="User ID"
-              placeholderTextColor={theme.text.tertiary}
-              value={trialForm.userId}
-              onChangeText={(text) => setTrialForm({ ...trialForm, userId: text })}
+            <Text style={[styles.label, { color: theme.text.secondary }]}>Select User *</Text>
+            <UserSelector
+              selectedUserId={trialForm.userId}
+              onSelectUser={(userId) => setTrialForm({ ...trialForm, userId })}
             />
 
             <Text style={[styles.label, { color: theme.text.secondary }]}>Select Plan</Text>
@@ -608,12 +715,10 @@ export default function PremiumManagementScreen() {
               </TouchableOpacity>
             </View>
 
-            <TextInput
-              style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-              placeholder="User ID"
-              placeholderTextColor={theme.text.tertiary}
-              value={discountForm.userId}
-              onChangeText={(text) => setDiscountForm({ ...discountForm, userId: text })}
+            <Text style={[styles.label, { color: theme.text.secondary }]}>Select User *</Text>
+            <UserSelector
+              selectedUserId={discountForm.userId}
+              onSelectUser={(userId) => setDiscountForm({ ...discountForm, userId })}
             />
 
             <TextInput
@@ -702,6 +807,150 @@ export default function PremiumManagementScreen() {
               <Users size={18} color="#FFF" />
               <Text style={styles.saveButtonText}>Grant to All Free Users</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Plan Management Modal */}
+      <Modal visible={showPlanModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text.primary }]}>
+                {editingPlan ? 'Edit Plan' : 'Create Plan'}
+              </Text>
+              <TouchableOpacity onPress={() => setShowPlanModal(false)}>
+                <X size={24} color={theme.text.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Name *</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="Plan name"
+                placeholderTextColor={theme.text.tertiary}
+                value={planForm.name}
+                onChangeText={(text) => setPlanForm({ ...planForm, name: text })}
+              />
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Description</Text>
+              <TextInput
+                style={[styles.input, styles.textArea, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="Plan description"
+                placeholderTextColor={theme.text.tertiary}
+                value={planForm.description}
+                onChangeText={(text) => setPlanForm({ ...planForm, description: text })}
+                multiline
+                numberOfLines={3}
+              />
+
+              <View style={styles.priceRow}>
+                <View style={styles.priceInputContainer}>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Price *</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                    placeholder="0.00"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={planForm.price}
+                    onChangeText={(text) => setPlanForm({ ...planForm, price: text })}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                <View style={styles.currencyInputContainer}>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Currency</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                    placeholder="USD"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={planForm.currency}
+                    onChangeText={(text) => setPlanForm({ ...planForm, currency: text })}
+                  />
+                </View>
+              </View>
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Billing Period</Text>
+              <View style={styles.typeButtons}>
+                {(['monthly', 'yearly', 'lifetime'] as const).map((period) => (
+                  <TouchableOpacity
+                    key={period}
+                    style={[
+                      styles.typeButton,
+                      {
+                        backgroundColor:
+                          planForm.billingPeriod === period ? theme.accent.primary : theme.background.secondary,
+                      },
+                    ]}
+                    onPress={() => setPlanForm({ ...planForm, billingPeriod: period })}
+                  >
+                    <Text
+                      style={[
+                        styles.typeButtonText,
+                        { color: planForm.billingPeriod === period ? '#FFF' : theme.text.primary },
+                      ]}
+                    >
+                      {period}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Max Businesses (-1 for unlimited)</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="1"
+                placeholderTextColor={theme.text.tertiary}
+                value={planForm.maxBusinesses}
+                onChangeText={(text) => setPlanForm({ ...planForm, maxBusinesses: text })}
+                keyboardType="numeric"
+              />
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Max Users (-1 for unlimited)</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="1"
+                placeholderTextColor={theme.text.tertiary}
+                value={planForm.maxUsers}
+                onChangeText={(text) => setPlanForm({ ...planForm, maxUsers: text })}
+                keyboardType="numeric"
+              />
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Max Storage (MB, -1 for unlimited)</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="100"
+                placeholderTextColor={theme.text.tertiary}
+                value={planForm.maxStorageMb}
+                onChangeText={(text) => setPlanForm({ ...planForm, maxStorageMb: text })}
+                keyboardType="numeric"
+              />
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Display Order</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="0"
+                placeholderTextColor={theme.text.tertiary}
+                value={planForm.displayOrder}
+                onChangeText={(text) => setPlanForm({ ...planForm, displayOrder: text })}
+                keyboardType="numeric"
+              />
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.cancelButton, { backgroundColor: theme.background.secondary }]}
+                onPress={() => setShowPlanModal(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: theme.text.secondary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveButton, { backgroundColor: theme.accent.primary }]}
+                onPress={handleSavePlan}
+              >
+                <Save size={18} color="#FFF" />
+                <Text style={styles.saveButtonText}>{editingPlan ? 'Update Plan' : 'Create Plan'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -798,6 +1047,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  cardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cardActionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cardTitle: {
     fontSize: 16,
     fontWeight: '700',
@@ -890,6 +1156,57 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalBody: {
+    maxHeight: 500,
+  },
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  priceRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  priceInputContainer: {
+    flex: 2,
+  },
+  currencyInputContainer: {
+    flex: 1,
+  },
+  typeButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+    flexWrap: 'wrap',
+  },
+  typeButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  typeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  cancelButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
   },

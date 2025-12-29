@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Search, User, Mail, Calendar, Crown, Gift, Percent } from 'lucide-react-native';
+import { ArrowLeft, Search, User, Mail, Calendar, Crown, Gift, Percent, Trash2 } from 'lucide-react-native';
 
 interface UserData {
   id: string;
@@ -75,6 +75,33 @@ export default function UsersManagementScreen() {
 
   const handleGrantDiscount = (userId: string) => {
     router.push(`/admin/premium?action=grant_discount&userId=${userId}` as any);
+  };
+
+  const handleDeleteUser = (userId: string, userEmail: string) => {
+    Alert.alert(
+      'Delete User',
+      `Are you sure you want to delete ${userEmail}? This action cannot be undone and will delete all associated data.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase.from('users').delete().eq('id', userId);
+
+              if (error) throw error;
+
+              Alert.alert('Success', 'User deleted successfully');
+              loadUsers();
+            } catch (error) {
+              console.error('Failed to delete user:', error);
+              Alert.alert('Error', 'Failed to delete user');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const getSubscriptionBadgeColor = (status?: string) => {
@@ -224,6 +251,15 @@ export default function UsersManagementScreen() {
                     <Percent size={16} color={theme.accent.success} />
                     <Text style={[styles.actionButtonText, { color: theme.accent.success }]}>
                       Grant Discount
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionButton, { backgroundColor: theme.surface.danger }]}
+                    onPress={() => handleDeleteUser(user.id, user.email)}
+                  >
+                    <Trash2 size={16} color={theme.accent.danger} />
+                    <Text style={[styles.actionButtonText, { color: theme.accent.danger }]}>
+                      Delete
                     </Text>
                   </TouchableOpacity>
                 </View>
