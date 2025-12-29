@@ -65,12 +65,17 @@ export default function TemplatesManagementScreen() {
   const handleOpenModal = (template?: DocumentTemplate) => {
     if (template) {
       setEditingTemplate(template);
+      // Convert numberingRule object to string format if needed
+      const numberingRuleStr = typeof template.numberingRule === 'object' && template.numberingRule?.format
+        ? template.numberingRule.format
+        : (typeof template.numberingRule === 'string' ? template.numberingRule : 'INV-{YYYY}-{####}');
+      
       setFormData({
         name: template.name,
         documentType: template.documentType,
         businessType: template.businessType || '',
-        requiredFields: template.requiredFields,
-        numberingRule: template.numberingRule,
+        requiredFields: Array.isArray(template.requiredFields) ? template.requiredFields : [],
+        numberingRule: numberingRuleStr,
       });
     } else {
       setEditingTemplate(null);
@@ -92,12 +97,22 @@ export default function TemplatesManagementScreen() {
     }
 
     try {
+      // Convert numberingRule string to JSONB object
+      const numberingRuleObj = typeof formData.numberingRule === 'string' 
+        ? {
+            prefix: formData.numberingRule.split('-')[0] || 'INV',
+            format: formData.numberingRule,
+            start: 1,
+            padding: 4,
+          }
+        : formData.numberingRule;
+
       const templateData: any = {
         name: formData.name,
         document_type: formData.documentType,
         business_type: formData.businessType || null,
-        required_fields: formData.requiredFields,
-        numbering_rule: formData.numberingRule,
+        required_fields: Array.isArray(formData.requiredFields) ? formData.requiredFields : [],
+        numbering_rule: numberingRuleObj,
         template_data: {},
         is_active: true,
         version: editingTemplate ? editingTemplate.version + 1 : 1,
