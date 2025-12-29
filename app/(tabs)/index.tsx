@@ -248,13 +248,14 @@ export default function DashboardScreen() {
   }, [fadeAnim, slideAnim, scaleAnim]);
 
   const renderAlert = (alert: Alert) => {
-    const colors = {
+    const colors: Record<string, { bg: string; border: string; text: string }> = {
       danger: { bg: theme.surface.danger, border: theme.accent.danger, text: theme.accent.danger },
       warning: { bg: theme.surface.warning, border: theme.accent.warning, text: theme.accent.warning },
       info: { bg: theme.surface.info, border: theme.accent.info, text: theme.accent.info },
+      success: { bg: theme.surface.success, border: theme.accent.success, text: theme.accent.success },
     };
 
-    const color = colors[alert.type];
+    const color = colors[alert.type] || colors.info;
 
     return (
       <View key={alert.id} style={[styles.alert, { backgroundColor: color.bg, borderColor: color.border }]}>
