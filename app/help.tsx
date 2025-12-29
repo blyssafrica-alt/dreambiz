@@ -1,6 +1,6 @@
 import { Stack, router } from 'expo-router';
-import { HelpCircle, Book, Mail, MessageCircle, X, ChevronRight } from 'lucide-react-native';
-import { useState } from 'react';
+import { HelpCircle, Book, Mail, MessageCircle, X, ChevronRight, Edit } from 'lucide-react-native';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,69 +8,133 @@ import {
   ScrollView,
   TouchableOpacity,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
-const FAQ_ITEMS = [
-  {
-    id: 'getting-started',
-    question: 'How do I get started?',
-    answer: 'After signing in, complete the onboarding wizard to set up your business profile. Select your DreamBig book, business type, and enter your financial information. The app will then unlock features based on your book selection.',
-  },
-  {
-    id: 'documents',
-    question: 'How do I create invoices and receipts?',
-    answer: 'Go to the Documents tab and tap the + button. Select the document type (Invoice, Receipt, Quotation, etc.), fill in customer details, add items, and save. Documents are automatically numbered and can be exported as PDF.',
-  },
-  {
-    id: 'budgets',
-    question: 'How do I create a budget?',
-    answer: 'Go to the Budgets tab and tap the + button. You can create a custom budget or use a template based on your business type. Set your total budget, dates, and optionally add category budgets.',
-  },
-  {
-    id: 'products',
-    question: 'How do I manage inventory?',
-    answer: 'Go to the Products tab to add, edit, or delete products. Track stock levels, set prices, and view low stock alerts. The app will warn you when products are running low.',
-  },
-  {
-    id: 'reports',
-    question: 'How do I view my financial reports?',
-    answer: 'Go to the Reports tab to see profit & loss statements, sales trends, expense breakdowns, and more. You can filter by date range and export reports.',
-  },
-  {
-    id: 'book-features',
-    question: 'Why are some features hidden?',
-    answer: 'Features are unlocked based on your selected DreamBig book. Each book provides access to specific tools and templates. To access all features, select the appropriate book during onboarding.',
-  },
-];
+interface FAQItem {
+  id: string;
+  question: string;
+  answer: string;
+}
 
-const SUPPORT_OPTIONS = [
-  {
-    id: 'email',
-    title: 'Email Support',
-    description: 'Send us an email for assistance',
-    icon: Mail,
-    action: () => Linking.openURL('mailto:support@dreambig.co.zw'),
-  },
-  {
-    id: 'whatsapp',
-    title: 'WhatsApp Support',
-    description: 'Chat with us on WhatsApp',
-    icon: MessageCircle,
-    action: () => Linking.openURL('https://wa.me/263771234567'),
-  },
-  {
-    id: 'books',
-    title: 'DreamBig Books',
-    description: 'Learn more about our books',
-    icon: Book,
-    action: () => Linking.openURL('https://dreambig.co.zw/books'),
-  },
-];
+interface SupportOption {
+  id: string;
+  title: string;
+  description: string;
+  icon: any;
+  action: () => void;
+}
+
+interface QuickTip {
+  id: string;
+  text: string;
+}
+
+// Icon mapping
+const iconMap: Record<string, any> = {
+  Mail,
+  MessageCircle,
+  Book,
+  HelpCircle,
+};
 
 export default function HelpScreen() {
   const { theme } = useTheme();
+  const { isSuperAdmin } = useAuth();
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const [faqItems, setFaqItems] = useState<FAQItem[]>([]);
+  const [supportOptions, setSupportOptions] = useState<SupportOption[]>([]);
+  const [quickTips, setQuickTips] = useState<QuickTip[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadHelpContent();
+  }, []);
+
+  const loadHelpContent = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Load FAQs
+      const { data: faqData } = await supabase
+        .from('help_content')
+        .select('*')
+        .eq('content_type', 'faq')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (faqData) {
+        setFaqItems(faqData.map(item => ({
+          id: item.faq_id || item.id,
+          question: item.faq_question || '',
+          answer: item.faq_answer || '',
+        })));
+      }
+
+      // Load support options
+      const { data: supportData } = await supabase
+        .from('help_content')
+        .select('*')
+        .eq('content_type', 'support_option')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (supportData) {
+        setSupportOptions(supportData.map(item => {
+          const Icon = iconMap[item.support_icon] || HelpCircle;
+          const actionType = item.support_action_type;
+          const actionValue = item.support_action_value || '';
+
+          let action: () => void;
+          if (actionType === 'email') {
+            action = () => Linking.openURL(`mailto:${actionValue}`);
+          } else if (actionType === 'whatsapp') {
+            action = () => Linking.openURL(actionValue);
+          } else if (actionType === 'url') {
+            action = () => Linking.openURL(actionValue);
+          } else if (actionType === 'internal') {
+            action = () => router.push(actionValue as any);
+          } else {
+            action = () => {};
+          }
+
+          return {
+            id: item.support_id || item.id,
+            title: item.support_title || '',
+            description: item.support_description || '',
+            icon: Icon,
+            action,
+          };
+        }));
+      }
+
+      // Load quick tips
+      const { data: tipsData } = await supabase
+        .from('help_content')
+        .select('*')
+        .eq('content_type', 'quick_tip')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (tipsData) {
+        setQuickTips(tipsData.map(item => ({
+          id: item.id,
+          text: item.tip_text || '',
+        })));
+      }
+    } catch (error) {
+      console.error('Failed to load help content:', error);
+      // Fallback to empty arrays
+      setFaqItems([]);
+      setSupportOptions([]);
+      setQuickTips([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
@@ -78,16 +142,36 @@ export default function HelpScreen() {
       
       <View style={[styles.header, { backgroundColor: theme.background.card }]}>
         <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Help & Support</Text>
-        <TouchableOpacity onPress={() => router.back()}>
-          <X size={24} color={theme.text.tertiary} />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          {isSuperAdmin && (
+            <TouchableOpacity
+              onPress={() => router.push('/admin/help-content' as any)}
+              style={[styles.editButton, { backgroundColor: theme.accent.primary + '20' }]}
+            >
+              <Edit size={20} color={theme.accent.primary} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={() => router.back()}>
+            <X size={24} color={theme.text.tertiary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <ScrollView style={styles.scrollView}>
-        {/* Support Options */}
-        <View style={[styles.section, { backgroundColor: theme.background.card }]}>
-          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Get Support</Text>
-          {SUPPORT_OPTIONS.map(option => (
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.accent.primary} />
+        </View>
+      ) : (
+        <ScrollView style={styles.scrollView}>
+          {/* Support Options */}
+          <View style={[styles.section, { backgroundColor: theme.background.card }]}>
+            <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Get Support</Text>
+            {supportOptions.length === 0 ? (
+              <Text style={[styles.emptyText, { color: theme.text.secondary }]}>
+                No support options available
+              </Text>
+            ) : (
+              supportOptions.map(option => (
             <TouchableOpacity
               key={option.id}
               style={[styles.supportOption, { backgroundColor: theme.background.secondary }]}
@@ -108,16 +192,22 @@ export default function HelpScreen() {
               </View>
               <ChevronRight size={20} color={theme.text.tertiary} />
             </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* FAQ Section */}
-        <View style={[styles.section, { backgroundColor: theme.background.card }]}>
-          <View style={styles.sectionHeader}>
-            <HelpCircle size={20} color={theme.accent.primary} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Frequently Asked Questions</Text>
+              ))
+            )}
           </View>
-          {FAQ_ITEMS.map(item => (
+
+          {/* FAQ Section */}
+          <View style={[styles.section, { backgroundColor: theme.background.card }]}>
+            <View style={styles.sectionHeader}>
+              <HelpCircle size={20} color={theme.accent.primary} />
+              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Frequently Asked Questions</Text>
+            </View>
+            {faqItems.length === 0 ? (
+              <Text style={[styles.emptyText, { color: theme.text.secondary }]}>
+                No FAQs available
+              </Text>
+            ) : (
+              faqItems.map(item => (
             <TouchableOpacity
               key={item.id}
               style={[styles.faqItem, { backgroundColor: theme.background.secondary }]}
@@ -139,34 +229,25 @@ export default function HelpScreen() {
                 </Text>
               )}
             </TouchableOpacity>
-          ))}
-        </View>
+              ))
+            )}
+          </View>
 
-        {/* Quick Tips */}
-        <View style={[styles.section, { backgroundColor: theme.background.card }]}>
-          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Quick Tips</Text>
-          <View style={styles.tipCard}>
-            <Text style={[styles.tipText, { color: theme.text.secondary }]}>
-              💡 Use budget templates to quickly set up budgets based on your business type
-            </Text>
-          </View>
-          <View style={styles.tipCard}>
-            <Text style={[styles.tipText, { color: theme.text.secondary }]}>
-              📊 Check the dashboard regularly to monitor your business health score
-            </Text>
-          </View>
-          <View style={styles.tipCard}>
-            <Text style={[styles.tipText, { color: theme.text.secondary }]}>
-              🔔 Set up low stock alerts to never run out of inventory
-            </Text>
-          </View>
-          <View style={styles.tipCard}>
-            <Text style={[styles.tipText, { color: theme.text.secondary }]}>
-              📄 Export documents as PDF for professional presentation
-            </Text>
-          </View>
-        </View>
-      </ScrollView>
+          {/* Quick Tips */}
+          {quickTips.length > 0 && (
+            <View style={[styles.section, { backgroundColor: theme.background.card }]}>
+              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Quick Tips</Text>
+              {quickTips.map(tip => (
+                <View key={tip.id} style={[styles.tipCard, { backgroundColor: theme.background.secondary }]}>
+                  <Text style={[styles.tipText, { color: theme.text.secondary }]}>
+                    {tip.text}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -183,9 +264,32 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 16,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  editButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: '700' as const,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    padding: 16,
   },
   scrollView: {
     flex: 1,
@@ -270,7 +374,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
-    backgroundColor: '#F8FAFC',
   },
   tipText: {
     fontSize: 14,

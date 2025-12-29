@@ -132,6 +132,13 @@ export default function AdminLayout() {
           headerShown: true,
         }} 
       />
+      <Stack.Screen 
+        name="help-content" 
+        options={{ 
+          title: 'Help Content',
+          headerShown: true,
+        }} 
+      />
     </Stack>
   );
 }

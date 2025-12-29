@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { 
   Sparkles,
   TrendingUp,
@@ -40,6 +40,7 @@ export default function InsightsScreen() {
   const { business, transactions, products, customers, budgets } = useBusiness();
   const { theme } = useTheme();
   const { getAdsForLocation } = useAds();
+  const router = useRouter();
   const insightsAds = getAdsForLocation('insights');
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -330,6 +331,20 @@ export default function InsightsScreen() {
                     {insight.action && (
                       <TouchableOpacity
                         style={[styles.actionButton, { backgroundColor: color + '20' }]}
+                        onPress={() => {
+                          // Navigate based on action text
+                          if (insight.action?.includes('Product')) {
+                            router.push('/(tabs)/products' as any);
+                          } else if (insight.action?.includes('Customer')) {
+                            router.push('/(tabs)/customers' as any);
+                          } else if (insight.action?.includes('Budget') || insight.action?.includes('Cashflow')) {
+                            router.push('/(tabs)/budgets' as any);
+                          } else if (insight.action?.includes('Finance') || insight.action?.includes('Transaction')) {
+                            router.push('/(tabs)/finances' as any);
+                          } else if (insight.action?.includes('Report')) {
+                            router.push('/(tabs)/reports' as any);
+                          }
+                        }}
                       >
                         <Text style={[styles.actionButtonText, { color }]}>
                           {insight.action}

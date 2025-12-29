@@ -244,6 +244,21 @@ export default function AdminDashboard() {
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/help-content' as any)}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Help Content</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Edit FAQs, support options, and tips
+              </Text>
+            </View>
+            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/users' as any)}
         >
           <View style={styles.actionContent}>
