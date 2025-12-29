@@ -36,8 +36,7 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
   payment_method TEXT,
   payment_status TEXT CHECK (payment_status IN ('pending', 'completed', 'failed', 'refunded')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(user_id, plan_id, status) WHERE status = 'active'
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Premium Trials Table
