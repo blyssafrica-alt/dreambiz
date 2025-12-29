@@ -44,23 +44,43 @@ export async function fetchActiveAlertRules(): Promise<AlertRule[]> {
 
     if (!data) return [];
 
-    return data.map((row: any) => ({
-      id: row.id,
-      name: row.name,
-      type: row.type,
-      conditionType: row.condition_type,
-      thresholdValue: row.threshold_value ? parseFloat(row.threshold_value) : undefined,
-      thresholdPercentage: row.threshold_percentage ? parseFloat(row.threshold_percentage) : undefined,
-      thresholdDays: row.threshold_days,
-      messageTemplate: row.message_template,
-      actionTemplate: row.action_template,
-      bookReference: row.book_reference,
-      isActive: row.is_active,
-      priority: row.priority,
-      createdBy: row.created_by,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
+    return data.map((row: any) => {
+      // Safely parse book_reference JSONB field
+      let bookReference = null;
+      if (row.book_reference) {
+        try {
+          // If it's already an object, use it directly
+          if (typeof row.book_reference === 'object') {
+            bookReference = row.book_reference;
+          } 
+          // If it's a string, parse it
+          else if (typeof row.book_reference === 'string') {
+            bookReference = JSON.parse(row.book_reference);
+          }
+        } catch (e) {
+          console.warn('Failed to parse book_reference for alert rule:', row.id, e);
+          bookReference = null;
+        }
+      }
+
+      return {
+        id: row.id,
+        name: row.name,
+        type: row.type,
+        conditionType: row.condition_type,
+        thresholdValue: row.threshold_value ? parseFloat(row.threshold_value) : undefined,
+        thresholdPercentage: row.threshold_percentage ? parseFloat(row.threshold_percentage) : undefined,
+        thresholdDays: row.threshold_days,
+        messageTemplate: row.message_template || '',
+        actionTemplate: row.action_template || undefined,
+        bookReference: bookReference,
+        isActive: row.is_active,
+        priority: row.priority,
+        createdBy: row.created_by,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+    });
   } catch (error) {
     console.error('Error fetching alert rules:', error);
     return [];
@@ -172,29 +192,54 @@ export function evaluateAlertRules(
     }
 
     if (shouldTrigger) {
-      // Format message template
-      let message = rule.messageTemplate || '';
-      if (value !== undefined) {
-        message = message.replace(/{value}/g, value.toFixed(2));
-      }
-      if (percentage !== undefined) {
-        message = message.replace(/{percentage}/g, percentage.toFixed(1));
-      }
-      if (days !== undefined) {
-        message = message.replace(/{days}/g, days.toString());
-      }
+      try {
+        // Format message template safely
+        let message = rule.messageTemplate || '';
+        if (typeof message !== 'string') {
+          message = String(message);
+        }
+        
+        if (value !== undefined && !isNaN(value)) {
+          message = message.replace(/{value}/g, value.toFixed(2));
+        }
+        if (percentage !== undefined && !isNaN(percentage)) {
+          message = message.replace(/{percentage}/g, percentage.toFixed(1));
+        }
+        if (days !== undefined && !isNaN(days)) {
+          message = message.replace(/{days}/g, days.toString());
+        }
 
-      alerts.push({
-        id: rule.id,
-        type: rule.type,
-        message,
-        action: rule.actionTemplate || undefined,
-        bookReference: rule.bookReference ? {
-          book: rule.bookReference.book || '',
-          chapter: rule.bookReference.chapter || 0,
-          chapterTitle: rule.bookReference.chapterTitle || '',
-        } : undefined,
-      });
+        // Safely parse book reference
+        let bookReference = undefined;
+        if (rule.bookReference) {
+          try {
+            const ref = typeof rule.bookReference === 'string' 
+              ? JSON.parse(rule.bookReference) 
+              : rule.bookReference;
+            
+            if (ref && typeof ref === 'object') {
+              bookReference = {
+                book: ref.book || '',
+                chapter: typeof ref.chapter === 'number' ? ref.chapter : 0,
+                chapterTitle: ref.chapterTitle || '',
+              };
+            }
+          } catch (e) {
+            console.warn('Failed to parse bookReference for alert:', rule.id, e);
+          }
+        }
+
+        alerts.push({
+          id: rule.id,
+          type: rule.type,
+          message,
+          action: rule.actionTemplate || undefined,
+          bookReference,
+        });
+      } catch (error) {
+        console.error('Error processing alert rule:', rule.id, error);
+        // Skip this alert if there's an error processing it
+      }
     }
   }
 
