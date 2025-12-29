@@ -308,6 +308,7 @@ export default function ProductsScreen() {
         </LinearGradient>
 
         <Animated.View style={{
+          flex: 1,
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
         }}>

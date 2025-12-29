@@ -416,6 +416,7 @@ export default function FinancesScreen() {
           showsVerticalScrollIndicator={false}
         >
           <Animated.View style={{
+            flex: 1,
             opacity: fadeAnim,
             transform: [{ translateY: slideAnim }],
           }}>

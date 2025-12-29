@@ -170,10 +170,10 @@ export default function CalculatorScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
+      <View style={[styles.container, { backgroundColor: theme?.background?.secondary || '#F8FAFC' }]}>
         {/* Header with Gradient */}
         <LinearGradient
-          colors={theme.gradient.primary as [string, string]}
+          colors={(theme?.gradient?.primary || ['#3B82F6', '#2563EB']) as [string, string]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
@@ -197,29 +197,30 @@ export default function CalculatorScreen() {
         </LinearGradient>
 
         <Animated.View style={{
+          flex: 1,
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
         }}>
           <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
             <View style={[styles.formSection, { alignItems: 'center' }]}>
-              <CalcIcon size={40} color={theme.accent.primary} />
-              <Text style={[styles.title, { color: theme.text.primary }]}>Business Viability Check</Text>
-              <Text style={[styles.subtitle, { color: theme.text.secondary }]}>
+              <CalcIcon size={40} color={theme?.accent?.primary || '#3B82F6'} />
+              <Text style={[styles.title, { color: theme?.text?.primary || '#0F172A' }]}>Business Viability Check</Text>
+              <Text style={[styles.subtitle, { color: theme?.text?.secondary || '#64748B' }]}>
                 Calculate if your business model is profitable
               </Text>
             </View>
 
         <View style={styles.form}>
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.text.primary }]}>Starting Capital ({business?.currency})</Text>
+            <Text style={[styles.label, { color: theme?.text?.primary || '#334155' }]}>Starting Capital ({business?.currency})</Text>
             <TextInput
               style={[styles.input, { 
-                backgroundColor: theme.background.card,
-                borderColor: theme.border.light,
-                color: theme.text.primary
+                backgroundColor: theme?.background?.card || '#FFF',
+                borderColor: theme?.border?.light || '#E2E8F0',
+                color: theme?.text?.primary || '#0F172A'
               }]}
               placeholder="0.00"
-              placeholderTextColor={theme.text.tertiary}
+              placeholderTextColor={theme?.text?.tertiary || '#94A3B8'}
               keyboardType="decimal-pad"
               value={capital}
               onChangeText={setCapital}
@@ -227,16 +228,16 @@ export default function CalculatorScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.text.primary }]}>Monthly Fixed Expenses ({business?.currency})</Text>
-            <Text style={[styles.hint, { color: theme.text.tertiary }]}>Rent, salaries, utilities, etc.</Text>
+            <Text style={[styles.label, { color: theme?.text?.primary || '#334155' }]}>Monthly Fixed Expenses ({business?.currency})</Text>
+            <Text style={[styles.hint, { color: theme?.text?.tertiary || '#94A3B8' }]}>Rent, salaries, utilities, etc.</Text>
             <TextInput
               style={[styles.input, { 
-                backgroundColor: theme.background.card,
-                borderColor: theme.border.light,
-                color: theme.text.primary
+                backgroundColor: theme?.background?.card || '#FFF',
+                borderColor: theme?.border?.light || '#E2E8F0',
+                color: theme?.text?.primary || '#0F172A'
               }]}
               placeholder="0.00"
-              placeholderTextColor={theme.text.tertiary}
+              placeholderTextColor={theme?.text?.tertiary || '#94A3B8'}
               keyboardType="decimal-pad"
               value={monthlyExpenses}
               onChangeText={setMonthlyExpenses}
@@ -244,16 +245,16 @@ export default function CalculatorScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.text.primary }]}>Price Per Unit ({business?.currency})</Text>
-            <Text style={[styles.hint, { color: theme.text.tertiary }]}>What you sell one item for</Text>
+            <Text style={[styles.label, { color: theme?.text?.primary || '#334155' }]}>Price Per Unit ({business?.currency})</Text>
+            <Text style={[styles.hint, { color: theme?.text?.tertiary || '#94A3B8' }]}>What you sell one item for</Text>
             <TextInput
               style={[styles.input, { 
-                backgroundColor: theme.background.card,
-                borderColor: theme.border.light,
-                color: theme.text.primary
+                backgroundColor: theme?.background?.card || '#FFF',
+                borderColor: theme?.border?.light || '#E2E8F0',
+                color: theme?.text?.primary || '#0F172A'
               }]}
               placeholder="0.00"
-              placeholderTextColor={theme.text.tertiary}
+              placeholderTextColor={theme?.text?.tertiary || '#94A3B8'}
               keyboardType="decimal-pad"
               value={pricePerUnit}
               onChangeText={setPricePerUnit}
@@ -261,16 +262,16 @@ export default function CalculatorScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.text.primary }]}>Cost Per Unit ({business?.currency})</Text>
-            <Text style={[styles.hint, { color: theme.text.tertiary }]}>What it costs you to make/buy one item</Text>
+            <Text style={[styles.label, { color: theme?.text?.primary || '#334155' }]}>Cost Per Unit ({business?.currency})</Text>
+            <Text style={[styles.hint, { color: theme?.text?.tertiary || '#94A3B8' }]}>What it costs you to make/buy one item</Text>
             <TextInput
               style={[styles.input, { 
-                backgroundColor: theme.background.card,
-                borderColor: theme.border.light,
-                color: theme.text.primary
+                backgroundColor: theme?.background?.card || '#FFF',
+                borderColor: theme?.border?.light || '#E2E8F0',
+                color: theme?.text?.primary || '#0F172A'
               }]}
               placeholder="0.00"
-              placeholderTextColor={theme.text.tertiary}
+              placeholderTextColor={theme?.text?.tertiary || '#94A3B8'}
               keyboardType="decimal-pad"
               value={costPerUnit}
               onChangeText={setCostPerUnit}
@@ -278,15 +279,15 @@ export default function CalculatorScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.text.primary }]}>Expected Sales Per Month (units)</Text>
+            <Text style={[styles.label, { color: theme?.text?.primary || '#334155' }]}>Expected Sales Per Month (units)</Text>
             <TextInput
               style={[styles.input, { 
-                backgroundColor: theme.background.card,
-                borderColor: theme.border.light,
-                color: theme.text.primary
+                backgroundColor: theme?.background?.card || '#FFF',
+                borderColor: theme?.border?.light || '#E2E8F0',
+                color: theme?.text?.primary || '#0F172A'
               }]}
               placeholder="0"
-              placeholderTextColor={theme.text.tertiary}
+              placeholderTextColor={theme?.text?.tertiary || '#94A3B8'}
               keyboardType="number-pad"
               value={expectedSales}
               onChangeText={setExpectedSales}
@@ -294,16 +295,16 @@ export default function CalculatorScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.text.primary }]}>Annual Inflation Rate (%)</Text>
-            <Text style={[styles.hint, { color: theme.text.tertiary }]}>Optional - helps adjust projections</Text>
+            <Text style={[styles.label, { color: theme?.text?.primary || '#334155' }]}>Annual Inflation Rate (%)</Text>
+            <Text style={[styles.hint, { color: theme?.text?.tertiary || '#94A3B8' }]}>Optional - helps adjust projections</Text>
             <TextInput
               style={[styles.input, { 
-                backgroundColor: theme.background.card,
-                borderColor: theme.border.light,
-                color: theme.text.primary
+                backgroundColor: theme?.background?.card || '#FFF',
+                borderColor: theme?.border?.light || '#E2E8F0',
+                color: theme?.text?.primary || '#0F172A'
               }]}
               placeholder="0"
-              placeholderTextColor={theme.text.tertiary}
+              placeholderTextColor={theme?.text?.tertiary || '#94A3B8'}
               keyboardType="decimal-pad"
               value={inflationRate}
               onChangeText={setInflationRate}
@@ -311,7 +312,7 @@ export default function CalculatorScreen() {
           </View>
 
           <TouchableOpacity 
-            style={[styles.calculateButton, { backgroundColor: theme.accent.primary }]} 
+            style={[styles.calculateButton, { backgroundColor: theme?.accent?.primary || '#3B82F6' }]} 
             onPress={calculate}
           >
             <Text style={styles.calculateButtonText}>Calculate Viability</Text>

@@ -206,6 +206,7 @@ export default function CashflowScreen() {
         />
 
         <Animated.View style={{
+          flex: 1,
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
         }}>

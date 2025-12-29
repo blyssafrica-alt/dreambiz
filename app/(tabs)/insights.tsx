@@ -281,6 +281,7 @@ export default function InsightsScreen() {
         />
 
         <Animated.View style={{
+          flex: 1,
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
         }}>
