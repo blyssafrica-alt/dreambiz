@@ -2,6 +2,9 @@ import { supabase } from './supabase';
 import type { AlertRule } from '@/types/super-admin';
 import type { Transaction, Product, Document, BusinessProfile } from '@/types/business';
 
+// Module-level flag to track if alerts should be disabled (only used as fallback)
+let ALERTS_DISABLED = false;
+
 interface BusinessMetrics {
   monthSales: number;
   monthExpenses: number;
@@ -30,11 +33,6 @@ export interface EvaluatedAlert {
  * Fetch active alert rules from database
  */
 export async function fetchActiveAlertRules(): Promise<AlertRule[]> {
-  // If alerts are disabled, return empty array immediately
-  if (ALERTS_DISABLED) {
-    return [];
-  }
-  
   try {
     const { data, error } = await supabase
       .from('alert_rules')
@@ -117,11 +115,9 @@ export async function fetchActiveAlertRules(): Promise<AlertRule[]> {
       })
       .filter((rule: any) => rule !== null); // Remove any null entries from failed mappings
   } catch (error: any) {
-    // If there's a syntax error or critical error, disable alerts permanently
-    if (error?.message?.includes('SyntaxError') || error?.name === 'SyntaxError') {
-      ALERTS_DISABLED = true;
-      console.warn('Alerts disabled due to syntax error');
-    }
+    // Log error but don't disable alerts - just return empty array
+    // This allows alerts to work on next attempt
+    console.warn('Error fetching alert rules:', error?.message || error);
     return [];
   }
 }
@@ -133,11 +129,6 @@ export function evaluateAlertRules(
   rules: AlertRule[],
   metrics: BusinessMetrics
 ): EvaluatedAlert[] {
-  // If alerts are disabled, return empty array immediately
-  if (ALERTS_DISABLED) {
-    return [];
-  }
-  
   try {
     // Validate inputs
     if (!rules || !Array.isArray(rules)) {
@@ -316,11 +307,9 @@ export function evaluateAlertRules(
       }
     });
   } catch (error: any) {
-    // If there's a syntax error, disable alerts permanently
-    if (error?.message?.includes('SyntaxError') || error?.name === 'SyntaxError') {
-      ALERTS_DISABLED = true;
-      console.warn('Alerts disabled due to syntax error in evaluation');
-    }
+    // Log error but don't disable alerts - just return empty array
+    // This allows alerts to work on next attempt
+    console.warn('Error evaluating alert rules:', error?.message || error);
     // Return empty array to prevent app crash
     return [];
   }
