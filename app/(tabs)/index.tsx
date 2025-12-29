@@ -43,8 +43,24 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     const loadMetrics = async () => {
-      const m = await getDashboardMetrics();
-      setMetrics(m);
+      try {
+        const m = await getDashboardMetrics();
+        setMetrics(m);
+      } catch (error) {
+        console.error('Failed to load metrics:', error);
+        // Set default metrics to prevent null errors
+        setMetrics({
+          todaySales: 0,
+          todayExpenses: 0,
+          todayProfit: 0,
+          monthSales: 0,
+          monthExpenses: 0,
+          monthProfit: 0,
+          cashPosition: 0,
+          topCategories: [],
+          alerts: [],
+        });
+      }
     };
     loadMetrics();
   }, [getDashboardMetrics, transactions, documents]);
@@ -307,53 +323,53 @@ export default function DashboardScreen() {
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
         }}>
-          <View style={styles.todaySection}>
-            <View style={styles.sectionHeader}>
-              <View>
-                <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>TODAY</Text>
-                <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Today&apos;s Overview</Text>
+          {metrics && (
+            <View style={styles.todaySection}>
+              <View style={styles.sectionHeader}>
+                <View>
+                  <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>TODAY</Text>
+                  <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Today&apos;s Overview</Text>
+                </View>
+                <View style={[styles.badge, { backgroundColor: theme.surface.info }]}>
+                  <Sparkles size={12} color={theme.accent.info} />
+                  <Text style={[styles.badgeText, { color: theme.accent.info }]}>Live</Text>
+                </View>
               </View>
-              <View style={[styles.badge, { backgroundColor: theme.surface.info }]}>
-                <Sparkles size={12} color={theme.accent.info} />
-                <Text style={[styles.badgeText, { color: theme.accent.info }]}>Live</Text>
+
+              <View style={styles.metricsGrid}>
+                <Animated.View style={[styles.metricCard, { 
+                  backgroundColor: theme.background.card,
+                  transform: [{ scale: scaleAnim }],
+                }]}>
+                  <LinearGradient
+                    colors={['#10B981', '#059669']}
+                    style={styles.metricIconGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <ArrowUpRight size={20} color="#FFF" strokeWidth={2.5} />
+                  </LinearGradient>
+                  <Text style={[styles.metricLabel, { color: theme.text.secondary }]}>Sales</Text>
+                  <Text style={[styles.metricValue, { color: theme.text.primary }]}>{formatCurrency(metrics.todaySales || 0)}</Text>
+                </Animated.View>
+
+                <Animated.View style={[styles.metricCard, { 
+                  backgroundColor: theme.background.card,
+                  transform: [{ scale: scaleAnim }],
+                }]}>
+                  <LinearGradient
+                    colors={['#EF4444', '#DC2626']}
+                    style={styles.metricIconGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <ArrowDownRight size={20} color="#FFF" strokeWidth={2.5} />
+                  </LinearGradient>
+                  <Text style={[styles.metricLabel, { color: theme.text.secondary }]}>Expenses</Text>
+                  <Text style={[styles.metricValue, { color: theme.text.primary }]}>{formatCurrency(metrics.todayExpenses || 0)}</Text>
+                </Animated.View>
               </View>
-            </View>
 
-            <View style={styles.metricsGrid}>
-              <Animated.View style={[styles.metricCard, { 
-                backgroundColor: theme.background.card,
-                transform: [{ scale: scaleAnim }],
-              }]}>
-                <LinearGradient
-                  colors={['#10B981', '#059669']}
-                  style={styles.metricIconGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <ArrowUpRight size={20} color="#FFF" strokeWidth={2.5} />
-                </LinearGradient>
-                <Text style={[styles.metricLabel, { color: theme.text.secondary }]}>Sales</Text>
-                <Text style={[styles.metricValue, { color: theme.text.primary }]}>{formatCurrency(metrics.todaySales)}</Text>
-              </Animated.View>
-
-              <Animated.View style={[styles.metricCard, { 
-                backgroundColor: theme.background.card,
-                transform: [{ scale: scaleAnim }],
-              }]}>
-                <LinearGradient
-                  colors={['#EF4444', '#DC2626']}
-                  style={styles.metricIconGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <ArrowDownRight size={20} color="#FFF" strokeWidth={2.5} />
-                </LinearGradient>
-                <Text style={[styles.metricLabel, { color: theme.text.secondary }]}>Expenses</Text>
-                <Text style={[styles.metricValue, { color: theme.text.primary }]}>{formatCurrency(metrics.todayExpenses)}</Text>
-              </Animated.View>
-            </View>
-
-            {metrics && (
               <LinearGradient
                 colors={(metrics.todayProfit || 0) >= 0 ? [theme.accent.success, theme.accent.success] : [theme.accent.danger, theme.accent.danger] as [string, string]}
                 start={{ x: 0, y: 0 }}
@@ -376,96 +392,94 @@ export default function DashboardScreen() {
                   </Text>
                 </View>
               </LinearGradient>
-            )}
-          </View>
+            </View>
+          )}
 
           {/* Business Health Score */}
-          <Animated.View style={[styles.healthCard, { 
-            backgroundColor: theme.background.card,
-            transform: [{ scale: scaleAnim }],
-          }]}>
-            <View style={styles.healthHeader}>
-              <View>
-                <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>HEALTH SCORE</Text>
-                <Text style={[styles.healthTitle, { color: theme.text.primary }]}>Business Health</Text>
-              </View>
-              <View style={[styles.healthBadge, { backgroundColor: `${getHealthColor(healthScore)}20` }]}>
-                <Text style={[styles.healthBadgeText, { color: getHealthColor(healthScore) }]}>
-                  {getHealthLabel(healthScore)}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.healthScoreContainer}>
-              <View style={[styles.healthScoreCircle, { borderColor: getHealthColor(healthScore) }]}>
-                <Text style={[styles.healthScoreValue, { color: getHealthColor(healthScore) }]}>
-                  {String(healthScore)}
-                </Text>
-                <Text style={[styles.healthScoreLabel, { color: theme.text.tertiary }]}>/ 100</Text>
-              </View>
-              <View style={styles.healthIndicators}>
-                <View style={styles.healthIndicator}>
-                  <View style={[
-                    styles.healthIndicatorBar,
-                    { 
-                      backgroundColor: (metrics?.monthProfit || 0) >= 0 ? theme.accent.success : theme.accent.danger,
-                      width: `${Math.min(100, Math.abs(metrics?.monthProfit || 0) / Math.max(metrics?.monthSales || 1, 1) * 100)}%`
-                    }
-                  ]} />
-                  <Text style={[styles.healthIndicatorLabel, { color: theme.text.secondary }]}>
-                    Profitability
-                  </Text>
+          {metrics && (
+            <Animated.View style={[styles.healthCard, { 
+              backgroundColor: theme.background.card,
+              transform: [{ scale: scaleAnim }],
+            }]}>
+              <View style={styles.healthHeader}>
+                <View>
+                  <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>HEALTH SCORE</Text>
+                  <Text style={[styles.healthTitle, { color: theme.text.primary }]}>Business Health</Text>
                 </View>
-                <View style={styles.healthIndicator}>
-                  <View style={[
-                    styles.healthIndicatorBar,
-                    { 
-                      backgroundColor: (metrics?.cashPosition || 0) >= 0 ? theme.accent.success : theme.accent.danger,
-                      width: `${Math.min(100, Math.max(0, ((metrics?.cashPosition || 0) / Math.max(business?.capital || 1, 1)) * 100))}%`
-                    }
-                  ]} />
-                  <Text style={[styles.healthIndicatorLabel, { color: theme.text.secondary }]}>
-                    Cash Position
+                <View style={[styles.healthBadge, { backgroundColor: `${getHealthColor(healthScore)}20` }]}>
+                  <Text style={[styles.healthBadgeText, { color: getHealthColor(healthScore) }]}>
+                    {getHealthLabel(healthScore)}
                   </Text>
                 </View>
               </View>
-            </View>
-          </Animated.View>
-
-          <View style={styles.monthSection}>
-            <View style={styles.sectionHeader}>
-              <View>
-                <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>MONTHLY</Text>
-                <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>This Month</Text>
-              </View>
-              <Activity size={16} color={theme.text.tertiary} />
-            </View>
-            
-            <View style={[styles.summaryCard, { backgroundColor: theme.background.card }]}>
-              {metrics && (
-                <>
-                  <View style={styles.summaryRow}>
-                    <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Sales</Text>
-                    <Text style={[styles.summaryValue, { color: theme.text.primary }]}>{formatCurrency(metrics.monthSales || 0)}</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Expenses</Text>
-                    <Text style={[styles.summaryValue, { color: theme.text.primary }]}>{formatCurrency(metrics.monthExpenses || 0)}</Text>
-                  </View>
-                  <View style={[styles.summaryDivider, { backgroundColor: theme.border.light }]} />
-                  <View style={styles.summaryRow}>
-                    <Text style={[styles.summaryLabelBold, { color: theme.text.primary }]}>Net Profit</Text>
-                    <Text style={[
-                      styles.summaryValueBold,
-                      { color: (metrics.monthProfit || 0) >= 0 ? theme.accent.success : theme.accent.danger }
-                    ]}>
-                      {formatCurrency(metrics.monthProfit || 0)}
+              <View style={styles.healthScoreContainer}>
+                <View style={[styles.healthScoreCircle, { borderColor: getHealthColor(healthScore) }]}>
+                  <Text style={[styles.healthScoreValue, { color: getHealthColor(healthScore) }]}>
+                    {String(healthScore)}
+                  </Text>
+                  <Text style={[styles.healthScoreLabel, { color: theme.text.tertiary }]}>/ 100</Text>
+                </View>
+                <View style={styles.healthIndicators}>
+                  <View style={styles.healthIndicator}>
+                    <View style={[
+                      styles.healthIndicatorBar,
+                      { 
+                        backgroundColor: (metrics.monthProfit || 0) >= 0 ? theme.accent.success : theme.accent.danger,
+                        width: `${Math.min(100, Math.abs(metrics.monthProfit || 0) / Math.max(metrics.monthSales || 1, 1) * 100)}%`
+                      }
+                    ]} />
+                    <Text style={[styles.healthIndicatorLabel, { color: theme.text.secondary }]}>
+                      Profitability
                     </Text>
                   </View>
-                </>
-              )}
-            </View>
+                  <View style={styles.healthIndicator}>
+                    <View style={[
+                      styles.healthIndicatorBar,
+                      { 
+                        backgroundColor: (metrics.cashPosition || 0) >= 0 ? theme.accent.success : theme.accent.danger,
+                        width: `${Math.min(100, Math.max(0, ((metrics.cashPosition || 0) / Math.max(business?.capital || 1, 1)) * 100))}%`
+                      }
+                    ]} />
+                    <Text style={[styles.healthIndicatorLabel, { color: theme.text.secondary }]}>
+                      Cash Position
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </Animated.View>
+          )}
 
-            {metrics && (
+          {metrics && (
+            <View style={styles.monthSection}>
+              <View style={styles.sectionHeader}>
+                <View>
+                  <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>MONTHLY</Text>
+                  <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>This Month</Text>
+                </View>
+                <Activity size={16} color={theme.text.tertiary} />
+              </View>
+              
+              <View style={[styles.summaryCard, { backgroundColor: theme.background.card }]}>
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Sales</Text>
+                  <Text style={[styles.summaryValue, { color: theme.text.primary }]}>{formatCurrency(metrics.monthSales || 0)}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Expenses</Text>
+                  <Text style={[styles.summaryValue, { color: theme.text.primary }]}>{formatCurrency(metrics.monthExpenses || 0)}</Text>
+                </View>
+                <View style={[styles.summaryDivider, { backgroundColor: theme.border.light }]} />
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabelBold, { color: theme.text.primary }]}>Net Profit</Text>
+                  <Text style={[
+                    styles.summaryValueBold,
+                    { color: (metrics.monthProfit || 0) >= 0 ? theme.accent.success : theme.accent.danger }
+                  ]}>
+                    {formatCurrency(metrics.monthProfit || 0)}
+                  </Text>
+                </View>
+              </View>
+
               <View style={[styles.cashCard, { backgroundColor: theme.background.card }]}>
                 <LinearGradient
                   colors={theme.gradient.primary as [string, string]}
@@ -482,8 +496,8 @@ export default function DashboardScreen() {
                   <Text style={[styles.cashValue, { color: theme.accent.primary }]}>{formatCurrency(metrics.cashPosition || 0)}</Text>
                 </View>
               </View>
-            )}
-          </View>
+            </View>
+          )}
 
           {metrics && metrics.alerts && metrics.alerts.length > 0 && (
             <View style={styles.alertsSection}>
