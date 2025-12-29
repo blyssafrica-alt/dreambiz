@@ -117,10 +117,48 @@ export default function BooksManagementScreen() {
       allowsEditing: true,
       aspect: [3, 4], // Book cover aspect ratio
       quality: 0.8,
+      base64: true,
     });
 
     if (!result.canceled && result.assets[0]) {
-      setFormData({ ...formData, coverImage: result.assets[0].uri });
+      const asset = result.assets[0];
+      if (asset.base64) {
+        try {
+          const base64 = asset.base64;
+          const fileExt = asset.uri.split('.').pop() || 'jpg';
+          const fileName = `book-cover-${Date.now()}.${fileExt}`;
+          const filePath = `book_covers/${fileName}`;
+
+          const { data, error } = await supabase.storage
+            .from('book_covers')
+            .upload(filePath, decode(base64), {
+              contentType: asset.mimeType || 'image/jpeg',
+              upsert: false,
+            });
+
+          if (error) {
+            if (error.message.includes('Bucket not found')) {
+              Alert.alert('Storage Error', 'Book covers bucket not found. Please create a "book_covers" bucket in Supabase Storage.');
+              return;
+            }
+            throw error;
+          }
+
+          const { data: publicUrlData } = supabase.storage
+            .from('book_covers')
+            .getPublicUrl(filePath);
+
+          if (publicUrlData?.publicUrl) {
+            setFormData({ ...formData, coverImage: publicUrlData.publicUrl });
+          }
+        } catch (error: any) {
+          console.error('Error uploading cover image:', error);
+          Alert.alert('Upload Error', error.message || 'Failed to upload cover image');
+        }
+      } else {
+        // Fallback to local URI if base64 not available
+        setFormData({ ...formData, coverImage: asset.uri });
+      }
     }
   };
 
