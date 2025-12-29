@@ -1,5 +1,5 @@
 import { Stack, router } from 'expo-router';
-import { BookOpen, ArrowLeft, Star, Package } from 'lucide-react-native';
+import { BookOpen, ArrowLeft, Star } from 'lucide-react-native';
 import { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -10,7 +10,6 @@ import {
   Image,
   Animated,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getAllPublishedBooks } from '@/lib/book-service';

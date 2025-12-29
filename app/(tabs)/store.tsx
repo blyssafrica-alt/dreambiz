@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useState, useRef, useEffect } from 'react';
 import {
   View,
@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function StoreScreen() {
   const { theme } = useTheme();
   const { products, isLoading } = useProducts();
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
@@ -93,6 +94,7 @@ export default function StoreScreen() {
                     <TouchableOpacity
                       key={product.id}
                       style={[styles.featuredCard, { backgroundColor: theme.background.card }]}
+                      onPress={() => router.push(`/(tabs)/store/${product.id}` as any)}
                     >
                       {product.images && product.images.length > 0 && (
                         <Image source={{ uri: product.images[0] }} style={styles.featuredImage} />
@@ -131,6 +133,7 @@ export default function StoreScreen() {
                     <TouchableOpacity
                       key={product.id}
                       style={[styles.productCard, { backgroundColor: theme.background.card }]}
+                      onPress={() => router.push(`/(tabs)/store/${product.id}` as any)}
                     >
                       {product.images && product.images.length > 0 ? (
                         <Image source={{ uri: product.images[0] }} style={styles.productImage} />
