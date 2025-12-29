@@ -290,7 +290,7 @@ export default function DashboardScreen() {
     if (bookReference) {
       // Navigate to book chapter or show book details
       // For now, open modal with book info
-      Alert.alert(
+      RNAlert.alert(
         'DreamBig Book Reference',
         `Chapter ${bookReference.chapter}: ${bookReference.chapterTitle}\n\nThis chapter in your DreamBig book contains relevant guidance for this alert.`,
         [
