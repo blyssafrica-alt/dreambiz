@@ -27,7 +27,7 @@ import type { Payment } from '@/types/payments';
 
 export default function DocumentDetailScreen() {
   const { id } = useLocalSearchParams();
-  const { documents, business, getDocumentPayments, getDocumentPaidAmount, deletePayment, updateDocument, addPayment } = useBusiness();
+  const { documents, business, getDocumentPayments, getDocumentPaidAmount, deletePayment, updateDocument, addPayment, addTransaction } = useBusiness();
   const { theme } = useTheme();
   const [showQRModal, setShowQRModal] = useState(false);
   const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
@@ -39,6 +39,10 @@ export default function DocumentDetailScreen() {
   const [editCustomerName, setEditCustomerName] = useState('');
   const [editCustomerPhone, setEditCustomerPhone] = useState('');
   const [editCustomerEmail, setEditCustomerEmail] = useState('');
+  const [editCustomerAddress, setEditCustomerAddress] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editDueDate, setEditDueDate] = useState('');
+  const [editTax, setEditTax] = useState('');
   const [editItems, setEditItems] = useState<DocumentItem[]>([]);
   const [editNotes, setEditNotes] = useState('');
   const [editStatus, setEditStatus] = useState<'draft' | 'sent' | 'paid' | 'cancelled'>('draft');
@@ -66,6 +70,10 @@ export default function DocumentDetailScreen() {
     setEditCustomerName(document.customerName);
     setEditCustomerPhone(document.customerPhone || '');
     setEditCustomerEmail(document.customerEmail || '');
+    setEditCustomerAddress(''); // Will be added to Document type if needed
+    setEditDate(document.date);
+    setEditDueDate(document.dueDate || '');
+    setEditTax(document.tax?.toString() || '');
     setEditItems([...document.items]);
     setEditNotes(document.notes || '');
     setEditStatus(document.status || 'draft');
@@ -77,6 +85,10 @@ export default function DocumentDetailScreen() {
     setEditCustomerName('');
     setEditCustomerPhone('');
     setEditCustomerEmail('');
+    setEditCustomerAddress('');
+    setEditDate('');
+    setEditDueDate('');
+    setEditTax('');
     setEditItems([]);
     setEditNotes('');
   };
@@ -87,8 +99,13 @@ export default function DocumentDetailScreen() {
     try {
       // Recalculate totals from edited items
       const newSubtotal = editItems.reduce((sum, item) => sum + item.total, 0);
-      const tax = document.tax || 0;
+      const tax = editTax ? parseFloat(editTax) : 0;
       const newTotal = newSubtotal + tax;
+
+      // Check if status changed to 'paid' - if so, create transaction
+      const wasPaid = document.status === 'paid';
+      const isNowPaid = editStatus === 'paid';
+      const statusChangedToPaid = !wasPaid && isNowPaid;
 
       await updateDocument(document.id, {
         customerName: editCustomerName,
@@ -96,10 +113,30 @@ export default function DocumentDetailScreen() {
         customerEmail: editCustomerEmail || undefined,
         items: editItems,
         subtotal: newSubtotal,
+        tax: tax > 0 ? tax : undefined,
         total: newTotal,
+        date: editDate,
+        dueDate: editDueDate || undefined,
         notes: editNotes || undefined,
         status: editStatus,
       });
+
+      // If status changed to paid and it's an invoice/receipt, create transaction
+      if (statusChangedToPaid && (document.type === 'invoice' || document.type === 'receipt')) {
+        try {
+          await addTransaction({
+            type: 'sale',
+            amount: newTotal,
+            currency: document.currency,
+            description: `${document.type.toUpperCase()} ${document.documentNumber} - ${editCustomerName}`,
+            category: 'sales',
+            date: editDate || document.date,
+          });
+        } catch (error) {
+          console.error('Failed to create transaction for paid document:', error);
+          // Don't fail the document update if transaction creation fails
+        }
+      }
 
       RNAlert.alert('Success', 'Document updated successfully');
       exitEditMode();
@@ -195,6 +232,23 @@ export default function DocumentDetailScreen() {
       }
 
       await updateDocument(document.id, { status: 'paid' });
+      
+      // Create transaction for paid invoice/receipt
+      if (document.type === 'invoice' || document.type === 'receipt') {
+        try {
+          await addTransaction({
+            type: 'sale',
+            amount: document.total,
+            currency: document.currency,
+            description: `${document.type.toUpperCase()} ${document.documentNumber} - ${document.customerName}`,
+            category: 'sales',
+            date: document.date,
+          });
+        } catch (error) {
+          console.error('Failed to create transaction:', error);
+        }
+      }
+      
       setShowMarkPaidModal(false);
       RNAlert.alert('Success', 'Invoice marked as paid');
     } catch (error: any) {
@@ -382,8 +436,20 @@ export default function DocumentDetailScreen() {
                 )}
               </View>
               <View style={styles.headerRight}>
-                <Text style={styles.headerDate}>{new Date(document.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}</Text>
-                <Text style={styles.headerTime}>{new Date(document.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</Text>
+                {isEditMode ? (
+                  <TextInput
+                    style={[styles.editDateInput, { backgroundColor: 'rgba(255,255,255,0.2)', color: '#FFF' }]}
+                    value={editDate}
+                    onChangeText={setEditDate}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor="rgba(255,255,255,0.7)"
+                  />
+                ) : (
+                  <>
+                    <Text style={styles.headerDate}>{new Date(document.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}</Text>
+                    <Text style={styles.headerTime}>{new Date(document.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</Text>
+                  </>
+                )}
               </View>
             </View>
             <View style={styles.headerBottom}>
@@ -412,9 +478,48 @@ export default function DocumentDetailScreen() {
             <Text style={styles.fromToLabel}>
               {document.type === 'purchase_order' || document.type === 'supplier_agreement' ? 'SUPPLIER' : 'TO'}
             </Text>
-            <Text style={styles.fromToName}>{document.customerName}</Text>
-            {document.customerPhone && <Text style={styles.fromToDetail}>{document.customerPhone}</Text>}
-            {document.customerEmail && <Text style={styles.fromToDetail}>{document.customerEmail}</Text>}
+            {isEditMode ? (
+              <>
+                <TextInput
+                  style={[styles.editInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                  value={editCustomerName}
+                  onChangeText={setEditCustomerName}
+                  placeholder="Customer Name"
+                  placeholderTextColor={theme.text.tertiary}
+                />
+                <TextInput
+                  style={[styles.editInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                  value={editCustomerPhone}
+                  onChangeText={setEditCustomerPhone}
+                  placeholder="Phone"
+                  placeholderTextColor={theme.text.tertiary}
+                  keyboardType="phone-pad"
+                />
+                <TextInput
+                  style={[styles.editInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                  value={editCustomerEmail}
+                  onChangeText={setEditCustomerEmail}
+                  placeholder="Email"
+                  placeholderTextColor={theme.text.tertiary}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+                <TextInput
+                  style={[styles.editInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                  value={editCustomerAddress}
+                  onChangeText={setEditCustomerAddress}
+                  placeholder="Address"
+                  placeholderTextColor={theme.text.tertiary}
+                  multiline
+                />
+              </>
+            ) : (
+              <>
+                <Text style={styles.fromToName}>{document.customerName}</Text>
+                {document.customerPhone && <Text style={styles.fromToDetail}>{document.customerPhone}</Text>}
+                {document.customerEmail && <Text style={styles.fromToDetail}>{document.customerEmail}</Text>}
+              </>
+            )}
           </View>
         </View>
 
@@ -492,12 +597,41 @@ export default function DocumentDetailScreen() {
           <View style={styles.totalsContainer}>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Subtotal</Text>
-              <Text style={styles.totalValue}>{formatCurrency(document.subtotal)}</Text>
+              <Text style={styles.totalValue}>
+                {isEditMode ? formatCurrency(editItems.reduce((sum, item) => sum + item.total, 0)) : formatCurrency(document.subtotal)}
+              </Text>
             </View>
-            {document.tax && (
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Tax</Text>
+              {isEditMode ? (
+                <TextInput
+                  style={[styles.editTaxInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                  value={editTax}
+                  onChangeText={setEditTax}
+                  placeholder="0.00"
+                  placeholderTextColor={theme.text.tertiary}
+                  keyboardType="decimal-pad"
+                />
+              ) : (
+                <Text style={styles.totalValue}>{document.tax ? formatCurrency(document.tax) : formatCurrency(0)}</Text>
+              )}
+            </View>
+            {document.dueDate && !isEditMode && (
               <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Tax</Text>
-                <Text style={styles.totalValue}>{formatCurrency(document.tax)}</Text>
+                <Text style={styles.totalLabel}>Due Date</Text>
+                <Text style={styles.totalValue}>{new Date(document.dueDate).toLocaleDateString()}</Text>
+              </View>
+            )}
+            {isEditMode && (
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Due Date</Text>
+                <TextInput
+                  style={[styles.editDateInputSmall, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                  value={editDueDate}
+                  onChangeText={setEditDueDate}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={theme.text.tertiary}
+                />
               </View>
             )}
             <View style={styles.totalDivider} />
@@ -1563,6 +1697,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 15,
     marginTop: 4,
+  },
+  editDateInput: {
+    height: 36,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    borderColor: 'rgba(255,255,255,0.3)',
+    color: '#FFF',
+    minWidth: 120,
+  },
+  editDateInputSmall: {
+    height: 40,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    flex: 1,
+  },
+  editTaxInput: {
+    height: 40,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    width: 100,
+    textAlign: 'right',
   },
   editItemInput: {
     height: 40,
