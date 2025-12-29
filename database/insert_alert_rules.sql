@@ -234,5 +234,3 @@ INSERT INTO alert_rules (name, type, condition_type, threshold_percentage, messa
     2
   );
 
-ON CONFLICT DO NOTHING;
-
