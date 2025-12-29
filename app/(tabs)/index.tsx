@@ -12,7 +12,10 @@ import {
   BarChart3,
   Search,
   HelpCircle,
-  Camera
+  Camera,
+  X,
+  ChevronRight,
+  Bell,
 } from 'lucide-react-native';
 import { 
   View, 
@@ -22,6 +25,7 @@ import {
   TouchableOpacity,
   Animated,
   Platform,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -40,6 +44,8 @@ export default function DashboardScreen() {
   const { getAdsForLocation } = useAds();
   const [metrics, setMetrics] = useState<any>(null);
   const dashboardAds = getAdsForLocation('dashboard');
+  const [showAlertsModal, setShowAlertsModal] = useState(false);
+  const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const loadMetrics = async () => {
@@ -249,7 +255,25 @@ export default function DashboardScreen() {
     ]).start();
   }, [fadeAnim, slideAnim, scaleAnim]);
 
-  const renderAlert = (alert: Alert) => {
+  const handleDismissAlert = (alertId: string) => {
+    setDismissedAlerts(prev => new Set(prev).add(alertId));
+  };
+
+  // Get active alerts (not dismissed)
+  const activeAlerts = useMemo(() => {
+    if (!metrics?.alerts) return [];
+    return metrics.alerts.filter((alert: Alert) => !dismissedAlerts.has(alert.id));
+  }, [metrics?.alerts, dismissedAlerts]);
+
+  // Get top 2 most critical alerts for compact view
+  const topAlerts = useMemo(() => {
+    const priorityOrder: Record<string, number> = { danger: 3, warning: 2, info: 1, success: 0 };
+    return activeAlerts
+      .sort((a, b) => (priorityOrder[b.type] || 0) - (priorityOrder[a.type] || 0))
+      .slice(0, 2);
+  }, [activeAlerts]);
+
+  const renderAlert = (alert: Alert, compact: boolean = false) => {
     const colors: Record<string, { bg: string; border: string; text: string }> = {
       danger: { bg: theme.surface.danger, border: theme.accent.danger, text: theme.accent.danger },
       warning: { bg: theme.surface.warning, border: theme.accent.warning, text: theme.accent.warning },
@@ -259,9 +283,39 @@ export default function DashboardScreen() {
 
     const color = colors[alert.type] || colors.info;
 
+    if (compact) {
+      return (
+        <TouchableOpacity
+          key={alert.id}
+          style={[styles.alertCompact, { backgroundColor: color.bg, borderColor: color.border }]}
+          onPress={() => setShowAlertsModal(true)}
+        >
+          <View style={[styles.alertIconCompact, { backgroundColor: color.border }]}>
+            <AlertCircle size={16} color="#FFF" />
+          </View>
+          <View style={styles.alertContentCompact}>
+            <Text style={[styles.alertTextCompact, { color: color.text }]} numberOfLines={1}>
+              {alert.message}
+            </Text>
+          </View>
+          <ChevronRight size={16} color={color.text} />
+        </TouchableOpacity>
+      );
+    }
+
     return (
       <View key={alert.id} style={[styles.alert, { backgroundColor: color.bg, borderColor: color.border }]}>
-        <AlertCircle size={20} color={color.text} />
+        <View style={styles.alertHeader}>
+          <View style={[styles.alertIconContainer, { backgroundColor: color.border }]}>
+            <AlertCircle size={20} color="#FFF" />
+          </View>
+          <TouchableOpacity
+            onPress={() => handleDismissAlert(alert.id)}
+            style={styles.alertDismiss}
+          >
+            <X size={16} color={color.text} />
+          </TouchableOpacity>
+        </View>
         <View style={styles.alertContent}>
           <Text style={[styles.alertText, { color: color.text }]}>{alert.message}</Text>
           {alert.action && (
@@ -502,13 +556,32 @@ export default function DashboardScreen() {
             </View>
           )}
 
-          {metrics && metrics.alerts && metrics.alerts.length > 0 && (
+          {metrics && activeAlerts.length > 0 && (
             <View style={styles.alertsSection}>
-              <View>
-                <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>ALERTS</Text>
-                <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Important Notifications</Text>
+              <View style={styles.alertsHeader}>
+                <View style={styles.alertsHeaderLeft}>
+                  <View style={[styles.alertBadge, { backgroundColor: theme.surface.danger }]}>
+                    <Bell size={14} color={theme.accent.danger} />
+                    <Text style={[styles.alertBadgeText, { color: theme.accent.danger }]}>
+                      {activeAlerts.length}
+                    </Text>
+                  </View>
+                  <View>
+                    <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>ALERTS</Text>
+                    <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Important Notifications</Text>
+                  </View>
+                </View>
+                {activeAlerts.length > 2 && (
+                  <TouchableOpacity
+                    onPress={() => setShowAlertsModal(true)}
+                    style={styles.viewAllButton}
+                  >
+                    <Text style={[styles.viewAllText, { color: theme.accent.primary }]}>View All</Text>
+                    <ChevronRight size={16} color={theme.accent.primary} />
+                  </TouchableOpacity>
+                )}
               </View>
-              {metrics.alerts.map(renderAlert)}
+              {topAlerts.map(alert => renderAlert(alert, true))}
             </View>
           )}
 
@@ -894,29 +967,154 @@ const styles = StyleSheet.create({
   alertsSection: {
     marginBottom: 24,
   },
-  alert: {
+  alertsHeader: {
     flexDirection: 'row',
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    marginBottom: 10,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  alertsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
-  alertContent: {
+  alertBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  alertBadgeText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+  },
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  viewAllText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  alertCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    gap: 10,
+  },
+  alertIconCompact: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  alertContentCompact: {
     flex: 1,
+  },
+  alertTextCompact: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    lineHeight: 18,
+  },
+  alert: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  alertHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  alertIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  alertDismiss: {
+    padding: 4,
+  },
+  alertContent: {
+    gap: 6,
   },
   alertText: {
     fontSize: 14,
     fontWeight: '600' as const,
-    marginBottom: 4,
+    lineHeight: 20,
   },
   alertAction: {
     fontSize: 13,
     fontWeight: '500' as const,
+    lineHeight: 18,
+    marginTop: 2,
   },
   alertBookRef: {
     fontSize: 12,
+    fontWeight: '400' as const,
+    lineHeight: 16,
+    marginTop: 4,
+    opacity: 0.8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    paddingTop: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  modalContent: {
+    flex: 1,
+  },
+  modalContentContainer: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  emptyAlerts: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyAlertsText: {
+    fontSize: 16,
     fontWeight: '600' as const,
+    marginTop: 16,
+  },
+  emptyAlertsSubtext: {
+    fontSize: 13,
+    marginTop: 4,
     marginTop: 4,
     opacity: 0.9,
   },
