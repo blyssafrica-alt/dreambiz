@@ -43,10 +43,19 @@ export default function DashboardScreen() {
   const { business, getDashboardMetrics, transactions, documents } = useBusiness();
   const { theme } = useTheme();
   const { getAdsForLocation } = useAds();
+  
+  // State declarations
   const [metrics, setMetrics] = useState<any>(null);
-  const dashboardAds = getAdsForLocation('dashboard');
   const [showAlertsModal, setShowAlertsModal] = useState(false);
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
+  const [showSearch, setShowSearch] = useState(false);
+  
+  // Refs
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  
+  // Computed values
+  const dashboardAds = getAdsForLocation('dashboard');
 
   useEffect(() => {
     const loadMetrics = async () => {
@@ -71,9 +80,6 @@ export default function DashboardScreen() {
     };
     loadMetrics();
   }, [getDashboardMetrics, transactions, documents]);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const [showSearch, setShowSearch] = useState(false);
 
   // Calculate business health score (0-100)
   const healthScore = useMemo(() => {
