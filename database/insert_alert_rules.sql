@@ -221,7 +221,9 @@ INSERT INTO alert_rules (name, type, condition_type, threshold_percentage, messa
     '{"book": "start-your-business", "chapter": 9, "chapterTitle": "Growing Your Business"}'::jsonb,
     true,
     3
-  ),
+  );
+
+INSERT INTO alert_rules (name, type, condition_type, threshold_value, message_template, action_template, book_reference, is_active, priority) VALUES
   (
     'Strong Cash Position',
     'info',
