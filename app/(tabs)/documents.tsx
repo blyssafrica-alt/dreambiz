@@ -16,7 +16,7 @@ import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { DocumentType, DocumentItem, DocumentStatus } from '@/types/business';
-import { getDocumentTemplate } from '@/lib/document-templates';
+import { getDocumentTemplate } from '@/lib/document-templates-db';
 import { getFilterPresets, saveFilterPreset, deleteFilterPreset } from '@/lib/filter-presets';
 import type { FilterPreset } from '@/lib/filter-presets';
 import DocumentWizard from '@/components/DocumentWizard';
