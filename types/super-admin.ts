@@ -33,6 +33,8 @@ export interface FeatureConfig {
   enabled: boolean;
   enabledByDefault: boolean;
   canBeDisabled: boolean;
+  isPremium?: boolean;
+  premiumPlanIds?: string[];
   updatedBy?: string;
   createdAt: string;
   updatedAt: string;

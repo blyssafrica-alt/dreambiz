@@ -1,17 +1,36 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Plus, Edit, Trash2, Package } from 'lucide-react-native';
-import type { PlatformProduct } from '@/types/super-admin';
+import { ArrowLeft, Plus, Edit, Trash2, Package, X, Save } from 'lucide-react-native';
+import type { PlatformProduct, ProductType, ProductStatus, StockStatus } from '@/types/super-admin';
 
 export default function ProductsManagementScreen() {
   const { theme } = useTheme();
+  const { user } = useAuth();
   const router = useRouter();
   const [products, setProducts] = useState<PlatformProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<PlatformProduct | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    shortDescription: '',
+    sku: '',
+    type: 'physical' as ProductType,
+    basePrice: '',
+    currency: 'USD',
+    salePrice: '',
+    manageStock: false,
+    stockQuantity: '',
+    lowStockThreshold: '',
+    status: 'draft' as ProductStatus,
+    featured: false,
+  });
 
   useEffect(() => {
     loadProducts();
@@ -65,10 +84,125 @@ export default function ProductsManagementScreen() {
     }
   };
 
-  const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(searchQuery.toLowerCase())
+  const handleOpenModal = (product?: PlatformProduct) => {
+    if (product) {
+      setEditingProduct(product);
+      setFormData({
+        name: product.name,
+        description: product.description || '',
+        shortDescription: product.shortDescription || '',
+        sku: product.sku || '',
+        type: product.type,
+        basePrice: product.basePrice.toString(),
+        currency: product.currency,
+        salePrice: product.salePrice?.toString() || '',
+        manageStock: product.manageStock,
+        stockQuantity: product.stockQuantity.toString(),
+        lowStockThreshold: product.lowStockThreshold.toString(),
+        status: product.status,
+        featured: product.featured,
+      });
+    } else {
+      setEditingProduct(null);
+      setFormData({
+        name: '',
+        description: '',
+        shortDescription: '',
+        sku: '',
+        type: 'physical',
+        basePrice: '',
+        currency: 'USD',
+        salePrice: '',
+        manageStock: false,
+        stockQuantity: '',
+        lowStockThreshold: '',
+        status: 'draft',
+        featured: false,
+      });
+    }
+    setShowModal(true);
+  };
+
+  const handleSave = async () => {
+    if (!formData.name || !formData.basePrice) {
+      Alert.alert('Error', 'Please fill in name and base price');
+      return;
+    }
+
+    try {
+      const productData: any = {
+        name: formData.name,
+        description: formData.description || null,
+        short_description: formData.shortDescription || null,
+        sku: formData.sku || null,
+        type: formData.type,
+        base_price: parseFloat(formData.basePrice),
+        currency: formData.currency,
+        sale_price: formData.salePrice ? parseFloat(formData.salePrice) : null,
+        manage_stock: formData.manageStock,
+        stock_quantity: formData.manageStock ? parseInt(formData.stockQuantity) : 0,
+        low_stock_threshold: formData.manageStock ? parseInt(formData.lowStockThreshold) : 0,
+        stock_status: formData.manageStock && parseInt(formData.stockQuantity) > 0 ? 'in_stock' : 'out_of_stock',
+        status: formData.status,
+        featured: formData.featured,
+        created_by: user?.id,
+      };
+
+      if (editingProduct) {
+        const { error } = await supabase
+          .from('platform_products')
+          .update(productData)
+          .eq('id', editingProduct.id);
+
+        if (error) throw error;
+        Alert.alert('Success', 'Product updated successfully');
+      } else {
+        const { error } = await supabase
+          .from('platform_products')
+          .insert(productData);
+
+        if (error) throw error;
+        Alert.alert('Success', 'Product created successfully');
+      }
+
+      setShowModal(false);
+      loadProducts();
+    } catch (error) {
+      console.error('Failed to save product:', error);
+      Alert.alert('Error', 'Failed to save product');
+    }
+  };
+
+  const handleDelete = async (productId: string) => {
+    Alert.alert('Delete Product', 'Are you sure you want to delete this product?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const { error } = await supabase
+              .from('platform_products')
+              .delete()
+              .eq('id', productId);
+
+            if (error) throw error;
+            Alert.alert('Success', 'Product deleted successfully');
+            loadProducts();
+          } catch (error) {
+            console.error('Failed to delete product:', error);
+            Alert.alert('Error', 'Failed to delete product');
+          }
+        },
+      },
+    ]);
+  };
+
+  const filteredProducts = products.filter(
+    p =>
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.sku?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (isLoading) {
@@ -85,20 +219,15 @@ export default function ProductsManagementScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <ArrowLeft size={24} color={theme.text.primary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>
-          Product Management
-        </Text>
-        <TouchableOpacity onPress={() => Alert.alert('Coming Soon', 'Product creation UI coming soon')}>
+        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Product Management</Text>
+        <TouchableOpacity onPress={() => handleOpenModal()}>
           <Plus size={24} color={theme.accent.primary} />
         </TouchableOpacity>
       </View>
 
       <View style={[styles.searchContainer, { backgroundColor: theme.background.card }]}>
         <TextInput
-          style={[styles.searchInput, { 
-            backgroundColor: theme.background.secondary,
-            color: theme.text.primary,
-          }]}
+          style={[styles.searchInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
           placeholder="Search products..."
           placeholderTextColor={theme.text.tertiary}
           value={searchQuery}
@@ -119,27 +248,25 @@ export default function ProductsManagementScreen() {
           </View>
         ) : (
           filteredProducts.map((product) => (
-            <View
-              key={product.id}
-              style={[styles.productCard, { backgroundColor: theme.background.card }]}
-            >
+            <View key={product.id} style={[styles.productCard, { backgroundColor: theme.background.card }]}>
               <View style={styles.productHeader}>
                 <View style={styles.productInfo}>
-                  <Text style={[styles.productName, { color: theme.text.primary }]}>
-                    {product.name}
-                  </Text>
+                  <Text style={[styles.productName, { color: theme.text.primary }]}>{product.name}</Text>
                   {product.description && (
                     <Text style={[styles.productDesc, { color: theme.text.secondary }]} numberOfLines={2}>
                       {product.description}
                     </Text>
                   )}
                   <View style={styles.productMeta}>
-                    <View style={[styles.badge, { 
-                      backgroundColor: product.status === 'published' ? '#10B98120' : '#64748B20' 
-                    }]}>
-                      <Text style={[styles.badgeText, { 
-                        color: product.status === 'published' ? '#10B981' : '#64748B' 
-                      }]}>
+                    <View
+                      style={[
+                        styles.badge,
+                        { backgroundColor: product.status === 'published' ? '#10B98120' : '#64748B20' },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.badgeText, { color: product.status === 'published' ? '#10B981' : '#64748B' }]}
+                      >
                         {product.status}
                       </Text>
                     </View>
@@ -149,20 +276,15 @@ export default function ProductsManagementScreen() {
                   </View>
                 </View>
                 <View style={styles.productActions}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[styles.actionButton, { backgroundColor: theme.surface.info }]}
-                    onPress={() => Alert.alert('Coming Soon', 'Edit product UI coming soon')}
+                    onPress={() => handleOpenModal(product)}
                   >
                     <Edit size={18} color={theme.accent.info} />
                   </TouchableOpacity>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[styles.actionButton, { backgroundColor: theme.surface.danger }]}
-                    onPress={() => Alert.alert('Delete', 'Delete product?', [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Delete', style: 'destructive', onPress: () => {
-                        // TODO: Implement delete
-                      }},
-                    ])}
+                    onPress={() => handleDelete(product.id)}
                   >
                     <Trash2 size={18} color={theme.accent.danger} />
                   </TouchableOpacity>
@@ -172,6 +294,192 @@ export default function ProductsManagementScreen() {
           ))
         )}
       </ScrollView>
+
+      {/* Product Form Modal */}
+      <Modal visible={showModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text.primary }]}>
+                {editingProduct ? 'Edit Product' : 'Create Product'}
+              </Text>
+              <TouchableOpacity onPress={() => setShowModal(false)}>
+                <X size={24} color={theme.text.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Name *</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="Product name"
+                placeholderTextColor={theme.text.tertiary}
+                value={formData.name}
+                onChangeText={(text) => setFormData({ ...formData, name: text })}
+              />
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Description</Text>
+              <TextInput
+                style={[styles.input, styles.textArea, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="Product description"
+                placeholderTextColor={theme.text.tertiary}
+                value={formData.description}
+                onChangeText={(text) => setFormData({ ...formData, description: text })}
+                multiline
+                numberOfLines={4}
+              />
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>SKU</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="SKU"
+                placeholderTextColor={theme.text.tertiary}
+                value={formData.sku}
+                onChangeText={(text) => setFormData({ ...formData, sku: text })}
+              />
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Type</Text>
+              <View style={styles.typeButtons}>
+                {(['physical', 'digital', 'service', 'subscription'] as ProductType[]).map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.typeButton,
+                      {
+                        backgroundColor: formData.type === type ? theme.accent.primary : theme.background.secondary,
+                      },
+                    ]}
+                    onPress={() => setFormData({ ...formData, type })}
+                  >
+                    <Text
+                      style={[
+                        styles.typeButtonText,
+                        { color: formData.type === type ? '#FFF' : theme.text.primary },
+                      ]}
+                    >
+                      {type}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Base Price *</Text>
+              <View style={styles.priceRow}>
+                <TextInput
+                  style={[styles.input, styles.priceInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                  placeholder="0.00"
+                  placeholderTextColor={theme.text.tertiary}
+                  value={formData.basePrice}
+                  onChangeText={(text) => setFormData({ ...formData, basePrice: text })}
+                  keyboardType="decimal-pad"
+                />
+                <TextInput
+                  style={[styles.input, styles.currencyInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                  placeholder="USD"
+                  placeholderTextColor={theme.text.tertiary}
+                  value={formData.currency}
+                  onChangeText={(text) => setFormData({ ...formData, currency: text })}
+                />
+              </View>
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Sale Price (optional)</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="0.00"
+                placeholderTextColor={theme.text.tertiary}
+                value={formData.salePrice}
+                onChangeText={(text) => setFormData({ ...formData, salePrice: text })}
+                keyboardType="decimal-pad"
+              />
+
+              <View style={styles.switchRow}>
+                <Text style={[styles.label, { color: theme.text.secondary }]}>Manage Stock</Text>
+                <Switch
+                  value={formData.manageStock}
+                  onValueChange={(value) => setFormData({ ...formData, manageStock: value })}
+                  trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
+                  thumbColor="#FFF"
+                />
+              </View>
+
+              {formData.manageStock && (
+                <>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Stock Quantity</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                    placeholder="0"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={formData.stockQuantity}
+                    onChangeText={(text) => setFormData({ ...formData, stockQuantity: text })}
+                    keyboardType="numeric"
+                  />
+
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Low Stock Threshold</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                    placeholder="0"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={formData.lowStockThreshold}
+                    onChangeText={(text) => setFormData({ ...formData, lowStockThreshold: text })}
+                    keyboardType="numeric"
+                  />
+                </>
+              )}
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Status</Text>
+              <View style={styles.typeButtons}>
+                {(['draft', 'published', 'archived'] as ProductStatus[]).map((status) => (
+                  <TouchableOpacity
+                    key={status}
+                    style={[
+                      styles.typeButton,
+                      {
+                        backgroundColor: formData.status === status ? theme.accent.primary : theme.background.secondary,
+                      },
+                    ]}
+                    onPress={() => setFormData({ ...formData, status })}
+                  >
+                    <Text
+                      style={[
+                        styles.typeButtonText,
+                        { color: formData.status === status ? '#FFF' : theme.text.primary },
+                      ]}
+                    >
+                      {status}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.switchRow}>
+                <Text style={[styles.label, { color: theme.text.secondary }]}>Featured</Text>
+                <Switch
+                  value={formData.featured}
+                  onValueChange={(value) => setFormData({ ...formData, featured: value })}
+                  trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
+                  thumbColor="#FFF"
+                />
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.cancelButton, { backgroundColor: theme.background.secondary }]}
+                onPress={() => setShowModal(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: theme.text.secondary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveButton, { backgroundColor: theme.accent.primary }]}
+                onPress={handleSave}
+              >
+                <Save size={18} color="#FFF" />
+                <Text style={styles.saveButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -282,5 +590,110 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  modalBody: {
+    padding: 20,
+    maxHeight: 500,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  input: {
+    padding: 12,
+    borderRadius: 10,
+    fontSize: 15,
+    marginBottom: 4,
+  },
+  textArea: {
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  priceRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  priceInput: {
+    flex: 2,
+  },
+  currencyInput: {
+    flex: 1,
+  },
+  typeButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+    flexWrap: 'wrap',
+  },
+  typeButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  typeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  cancelButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  saveButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 14,
+    borderRadius: 10,
+    gap: 8,
+  },
+  saveButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });
-

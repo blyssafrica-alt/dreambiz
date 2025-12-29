@@ -15,6 +15,7 @@ import { ProviderContext } from "@/contexts/ProviderContext";
 import { FeatureContextProvider } from "@/contexts/FeatureContext";
 import { ProductContextProvider } from "@/contexts/ProductContext";
 import { AdContextProvider } from "@/contexts/AdContext";
+import { PremiumContextProvider } from "@/contexts/PremiumContext";
 import { StatusBar } from 'react-native';
 
 SplashScreen.preventAutoHideAsync();
@@ -92,13 +93,15 @@ export default function RootLayout() {
           <ProviderContext>
             <AuthContext>
               <BusinessContext>
-                <FeatureContextProvider>
-                  <ProductContextProvider>
-                    <AdContextProvider>
-                      <RootLayoutNav />
-                    </AdContextProvider>
-                  </ProductContextProvider>
-                </FeatureContextProvider>
+                <PremiumContextProvider>
+                  <FeatureContextProvider>
+                    <ProductContextProvider>
+                      <AdContextProvider>
+                        <RootLayoutNav />
+                      </AdContextProvider>
+                    </ProductContextProvider>
+                  </FeatureContextProvider>
+                </PremiumContextProvider>
               </BusinessContext>
             </AuthContext>
           </ProviderContext>

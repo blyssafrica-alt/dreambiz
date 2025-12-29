@@ -20,6 +20,7 @@ const FeatureContext = createContext<FeatureContextValue | undefined>(undefined)
 export function FeatureContextProvider({ children }: { children: React.ReactNode }) {
   const { user, isSuperAdmin } = useAuth();
   const { business } = useBusiness();
+  const { hasActivePremium, checkFeatureAccess } = usePremium();
   const [features, setFeatures] = useState<FeatureConfig[]>([]);
   const [enabledFeatureIds, setEnabledFeatureIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,6 +60,8 @@ export function FeatureContextProvider({ children }: { children: React.ReactNode
           enabled: row.enabled,
           enabledByDefault: row.enabled_by_default,
           canBeDisabled: row.can_be_disabled,
+          isPremium: row.is_premium || false,
+          premiumPlanIds: row.premium_plan_ids || [],
           updatedBy: row.updated_by,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
@@ -89,6 +92,20 @@ export function FeatureContextProvider({ children }: { children: React.ReactNode
 
     const feature = features.find(f => f.featureId === featureId);
     if (!feature || !feature.enabled) return false;
+
+    // Check premium requirement
+    if (feature.isPremium) {
+      if (!hasActivePremium) {
+        return false; // Feature requires premium
+      }
+      
+      // Check if user's plan includes this feature
+      if (feature.premiumPlanIds && feature.premiumPlanIds.length > 0) {
+        if (!checkFeatureAccess(featureId)) {
+          return false; // User's plan doesn't include this feature
+        }
+      }
+    }
 
     const userBook = business?.dreamBigBook;
     const businessType = business?.type;
@@ -125,7 +142,7 @@ export function FeatureContextProvider({ children }: { children: React.ReactNode
     }
 
     return true;
-  }, [features, enabledFeatureIds, business, isSuperAdmin]);
+  }, [features, enabledFeatureIds, business, isSuperAdmin, hasActivePremium, checkFeatureAccess]);
 
   const shouldShowAsTab = useCallback((featureId: string): boolean => {
     if (!isFeatureVisible(featureId)) return false;
