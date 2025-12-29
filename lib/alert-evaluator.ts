@@ -122,19 +122,20 @@ export function evaluateAlertRules(
   rules: AlertRule[],
   metrics: BusinessMetrics
 ): EvaluatedAlert[] {
-  // Validate inputs
-  if (!rules || !Array.isArray(rules)) {
-    console.warn('Invalid rules array provided to evaluateAlertRules');
-    return [];
-  }
-  
-  if (!metrics || typeof metrics !== 'object') {
-    console.warn('Invalid metrics provided to evaluateAlertRules');
-    return [];
-  }
+  try {
+    // Validate inputs
+    if (!rules || !Array.isArray(rules)) {
+      console.warn('Invalid rules array provided to evaluateAlertRules');
+      return [];
+    }
+    
+    if (!metrics || typeof metrics !== 'object') {
+      console.warn('Invalid metrics provided to evaluateAlertRules');
+      return [];
+    }
 
-  const alerts: EvaluatedAlert[] = [];
-  const now = new Date();
+    const alerts: EvaluatedAlert[] = [];
+    const now = new Date();
 
   for (const rule of rules) {
     // Skip invalid rules
@@ -287,11 +288,21 @@ export function evaluateAlertRules(
     }
   }
 
-  // Sort by priority (higher priority first)
-  return alerts.sort((a, b) => {
-    const aRule = rules.find(r => r.id === a.id);
-    const bRule = rules.find(r => r.id === b.id);
-    return (bRule?.priority || 0) - (aRule?.priority || 0);
-  });
+    // Sort by priority (higher priority first)
+    return alerts.sort((a, b) => {
+      try {
+        const aRule = rules.find(r => r && r.id === a.id);
+        const bRule = rules.find(r => r && r.id === b.id);
+        return (bRule?.priority || 0) - (aRule?.priority || 0);
+      } catch (error) {
+        console.warn('Error sorting alerts:', error);
+        return 0;
+      }
+    });
+  } catch (error) {
+    console.error('Critical error in evaluateAlertRules:', error);
+    // Return empty array to prevent app crash
+    return [];
+  }
 }
 
