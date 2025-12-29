@@ -57,6 +57,22 @@ export default function AppointmentsScreen() {
   const [notes, setNotes] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | Appointment['status']>('all');
 
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: false,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
+
   const filteredAppointments = useMemo(() => {
     if (filterStatus === 'all') return appointments;
     return appointments.filter(a => a.status === filterStatus);
@@ -492,6 +508,14 @@ export default function AppointmentsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  headerAddButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   header: {
     flexDirection: 'row',
