@@ -4,6 +4,7 @@ import type { FeatureConfig, FeatureVisibilityType } from '@/types/super-admin';
 import type { DreamBigBook, BusinessType, BusinessStage } from '@/types/business';
 import { useAuth } from './AuthContext';
 import { useBusiness } from './BusinessContext';
+import { usePremium } from './PremiumContext';
 
 interface FeatureContextValue {
   features: FeatureConfig[];
