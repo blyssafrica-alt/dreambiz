@@ -96,13 +96,13 @@ export function FeatureContextProvider({ children }: { children: React.ReactNode
 
     // Check premium requirement
     if (feature.isPremium) {
-      if (!premium.hasActivePremium) {
+      if (!hasActivePremium) {
         return false; // Feature requires premium
       }
       
       // Check if user's plan includes this feature
       if (feature.premiumPlanIds && feature.premiumPlanIds.length > 0) {
-        if (!premium.checkFeatureAccess(featureId)) {
+        if (!checkFeatureAccess(featureId)) {
           return false; // User's plan doesn't include this feature
         }
       }
@@ -143,7 +143,7 @@ export function FeatureContextProvider({ children }: { children: React.ReactNode
     }
 
     return true;
-  }, [features, enabledFeatureIds, business, isSuperAdmin, premium]);
+  }, [features, enabledFeatureIds, business, isSuperAdmin, hasActivePremium, checkFeatureAccess]);
 
   const shouldShowAsTab = useCallback((featureId: string): boolean => {
     if (!isFeatureVisible(featureId)) return false;
