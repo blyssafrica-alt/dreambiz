@@ -42,7 +42,9 @@ export async function fetchActiveAlertRules(): Promise<AlertRule[]> {
       return [];
     }
 
-    if (!data) return [];
+    if (!data || !Array.isArray(data)) {
+      return [];
+    }
 
     return data
       .filter((row: any) => row && row.id) // Filter out invalid rows
