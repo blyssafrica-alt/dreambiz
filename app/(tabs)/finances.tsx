@@ -52,6 +52,9 @@ export default function FinancesScreen() {
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
+  // Ensure transactions is always an array
+  const safeTransactions = Array.isArray(transactions) ? transactions : [];
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -68,7 +71,7 @@ export default function FinancesScreen() {
   }, []);
 
   const filteredTransactions = useMemo(() => {
-    let filtered = transactions;
+    let filtered = safeTransactions;
 
     // Type filter
     if (filterType !== 'all') {
@@ -113,7 +116,7 @@ export default function FinancesScreen() {
     }
 
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, filterType, searchQuery, dateFilter, categoryFilter]);
+  }, [safeTransactions, filterType, searchQuery, dateFilter, categoryFilter]);
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -212,21 +215,21 @@ export default function FinancesScreen() {
   };
 
   const handleExport = async () => {
-    if (transactions.length === 0) {
+    if (safeTransactions.length === 0) {
       RNAlert.alert('No Data', 'No transactions to export');
       return;
     }
 
     const csvHeader = 'Date,Type,Category,Description,Amount,Currency\n';
-    const csvRows = transactions.map(t => 
+    const csvRows = safeTransactions.map(t => 
       `${t.date},${t.type},${t.category},"${t.description}",${t.amount},${t.currency}`
     ).join('\n');
     const csvContent = csvHeader + csvRows;
 
     const summary = `\n\nSUMMARY\n` +
-      `Total Transactions: ${transactions.length}\n` +
-      `Total Sales: ${formatCurrency(transactions.filter(t => t.type === 'sale').reduce((sum, t) => sum + t.amount, 0))}\n` +
-      `Total Expenses: ${formatCurrency(transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0))}`;
+      `Total Transactions: ${safeTransactions.length}\n` +
+      `Total Sales: ${formatCurrency(safeTransactions.filter(t => t.type === 'sale').reduce((sum, t) => sum + t.amount, 0))}\n` +
+      `Total Expenses: ${formatCurrency(safeTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0))}`;
 
     try {
       if (Platform.OS === 'web') {

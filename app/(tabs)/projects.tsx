@@ -36,6 +36,9 @@ export default function ProjectsScreen() {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
 
+  // Ensure projects is always an array
+  const safeProjects = Array.isArray(projects) ? projects : [];
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -187,8 +190,8 @@ export default function ProjectsScreen() {
     }
   };
 
-  const activeProjects = projects.filter(p => p.status === 'active');
-  const completedProjects = projects.filter(p => p.status === 'completed');
+  const activeProjects = safeProjects.filter(p => p.status === 'active');
+  const completedProjects = safeProjects.filter(p => p.status === 'completed');
 
   return (
     <>
@@ -214,7 +217,7 @@ export default function ProjectsScreen() {
           transform: [{ translateY: slideAnim }],
         }}>
           <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
-        {projects.length === 0 ? (
+        {safeProjects.length === 0 ? (
           <View style={styles.emptyState}>
             <FolderKanban size={48} color={theme.text.tertiary} />
             <Text style={[styles.emptyText, { color: theme.text.tertiary }]}>
@@ -228,7 +231,7 @@ export default function ProjectsScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          projects.map(project => (
+          safeProjects.map(project => (
             <View key={project.id} style={[styles.projectCard, { backgroundColor: theme.background.card }]}>
               <View style={styles.projectHeader}>
                 <View style={styles.projectInfo}>

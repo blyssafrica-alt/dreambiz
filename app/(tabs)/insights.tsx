@@ -44,6 +44,12 @@ export default function InsightsScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
+  // Ensure arrays are always valid
+  const safeTransactions = Array.isArray(transactions) ? transactions : [];
+  const safeProducts = Array.isArray(products) ? products : [];
+  const safeCustomers = Array.isArray(customers) ? customers : [];
+  const safeBudgets = Array.isArray(budgets) ? budgets : [];
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -72,7 +78,7 @@ export default function InsightsScreen() {
     const currentYear = now.getFullYear();
 
     // Calculate metrics
-    const monthTransactions = transactions.filter(t => {
+    const monthTransactions = safeTransactions.filter(t => {
       const tDate = new Date(t.date);
       return tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
     });
@@ -84,7 +90,7 @@ export default function InsightsScreen() {
     // Previous month for comparison
     const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
     const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-    const prevMonthTransactions = transactions.filter(t => {
+    const prevMonthTransactions = safeTransactions.filter(t => {
       const tDate = new Date(t.date);
       return tDate.getMonth() === prevMonth && tDate.getFullYear() === prevYear;
     });
@@ -92,7 +98,7 @@ export default function InsightsScreen() {
     const salesGrowth = prevMonthSales > 0 ? ((monthSales - prevMonthSales) / prevMonthSales) * 100 : 0;
 
     // Low stock products
-    const lowStockProducts = products.filter(p => p.isActive && p.quantity <= 10 && p.quantity > 0);
+    const lowStockProducts = safeProducts.filter(p => p.isActive && p.quantity <= 10 && p.quantity > 0);
     if (lowStockProducts.length > 0) {
       result.push({
         id: 'low-stock',
@@ -105,7 +111,7 @@ export default function InsightsScreen() {
     }
 
     // Out of stock products
-    const outOfStockProducts = products.filter(p => p.isActive && p.quantity === 0);
+    const outOfStockProducts = safeProducts.filter(p => p.isActive && p.quantity === 0);
     if (outOfStockProducts.length > 0) {
       result.push({
         id: 'out-of-stock',
@@ -158,12 +164,12 @@ export default function InsightsScreen() {
     }
 
     // Budget insights
-    const activeBudgets = budgets.filter(b => {
+    const activeBudgets = safeBudgets.filter(b => {
       const endDate = new Date(b.endDate);
       return endDate >= now;
     });
     activeBudgets.forEach(budget => {
-      const spent = transactions
+      const spent = safeTransactions
         .filter(t => t.type === 'expense' && t.date >= budget.startDate && t.date <= budget.endDate)
         .reduce((sum, t) => sum + t.amount, 0);
       const percentage = (spent / budget.totalBudget) * 100;
@@ -181,8 +187,8 @@ export default function InsightsScreen() {
     });
 
     // Customer insights
-    if (customers.length > 0) {
-      const customersWithPurchases = customers.filter(c => c.totalPurchases > 0);
+    if (safeCustomers.length > 0) {
+      const customersWithPurchases = safeCustomers.filter(c => c.totalPurchases > 0);
       const avgPurchaseValue = customersWithPurchases.length > 0
         ? customersWithPurchases.reduce((sum, c) => sum + c.totalPurchases, 0) / customersWithPurchases.length
         : 0;

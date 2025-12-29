@@ -35,6 +35,9 @@ export default function CashflowScreen() {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
 
+  // Ensure cashflowProjections is always an array
+  const safeCashflowProjections = Array.isArray(cashflowProjections) ? cashflowProjections : [];
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -155,7 +158,7 @@ export default function CashflowScreen() {
 
   // Prepare chart data from projections
   const chartData = useMemo(() => {
-    if (cashflowProjections.length === 0) {
+    if (safeCashflowProjections.length === 0) {
       return {
         labels: [],
         income: [],
@@ -165,7 +168,7 @@ export default function CashflowScreen() {
       };
     }
 
-    const sortedProjections = [...cashflowProjections].sort((a, b) => 
+    const sortedProjections = [...safeCashflowProjections].sort((a, b) => 
       a.month.localeCompare(b.month)
     );
 
@@ -176,7 +179,7 @@ export default function CashflowScreen() {
       netCashflow: sortedProjections.map(p => p.projectedIncome - p.projectedExpenses),
       closingBalances: sortedProjections.map(p => p.closingBalance),
     };
-  }, [cashflowProjections]);
+  }, [safeCashflowProjections]);
 
   return (
     <>
@@ -208,7 +211,7 @@ export default function CashflowScreen() {
         }}>
           <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
         {/* Cashflow Charts */}
-        {cashflowProjections.length > 0 && (
+        {safeCashflowProjections.length > 0 && (
           <>
             <View style={[styles.chartCard, { backgroundColor: theme.background.card }]}>
               <View style={styles.chartHeader}>
@@ -259,7 +262,7 @@ export default function CashflowScreen() {
           </>
         )}
 
-        {cashflowProjections.length === 0 ? (
+        {safeCashflowProjections.length === 0 ? (
           <View style={styles.emptyState}>
             <TrendingUp size={48} color={theme.text.tertiary} />
             <Text style={[styles.emptyText, { color: theme.text.tertiary }]}>
@@ -273,7 +276,7 @@ export default function CashflowScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          cashflowProjections.map(projection => {
+          safeCashflowProjections.map(projection => {
             const netCashflow = projection.projectedIncome - projection.projectedExpenses;
             const isPositive = netCashflow >= 0;
             

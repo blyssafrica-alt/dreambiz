@@ -30,6 +30,9 @@ export default function ReportsScreen() {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [period, setPeriod] = useState<ReportPeriod>('month');
 
+  // Ensure arrays are always valid
+  const safeTransactions = Array.isArray(transactions) ? transactions : [];
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -92,7 +95,7 @@ export default function ReportsScreen() {
 
   const reportData = useMemo(() => {
     const { start, end } = getDateRange(period);
-    const filtered = transactions.filter(t => t.date >= start && t.date <= end);
+    const filtered = safeTransactions.filter(t => t.date >= start && t.date <= end);
 
     const sales = filtered.filter(t => t.type === 'sale');
     const expenses = filtered.filter(t => t.type === 'expense');

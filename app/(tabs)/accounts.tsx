@@ -50,7 +50,7 @@ export default function AccountsScreen() {
 
   // Calculate Accounts Receivable (money owed to us)
   const accountsReceivable = useMemo(() => {
-    const invoices = documents.filter(d => d.type === 'invoice' && d.status !== 'cancelled');
+    const invoices = safeDocuments.filter(d => d.type === 'invoice' && d.status !== 'cancelled');
     
     return invoices.map(doc => {
       const isPaid = doc.status === 'paid';
@@ -83,7 +83,7 @@ export default function AccountsScreen() {
 
   // Calculate Accounts Payable (money we owe)
   const accountsPayable = useMemo(() => {
-    const purchaseOrders = documents.filter(d => 
+    const purchaseOrders = safeDocuments.filter(d => 
       (d.type === 'purchase_order' || d.type === 'supplier_agreement') && 
       d.status !== 'cancelled'
     );

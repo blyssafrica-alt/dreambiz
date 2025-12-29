@@ -34,6 +34,9 @@ export default function EmployeesScreen() {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
 
+  // Ensure employees is always an array
+  const safeEmployees = Array.isArray(employees) ? employees : [];
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -156,8 +159,8 @@ export default function EmployeesScreen() {
     setNotes('');
   };
 
-  const activeEmployees = employees.filter(e => e.isActive);
-  const inactiveEmployees = employees.filter(e => !e.isActive);
+  const activeEmployees = safeEmployees.filter(e => e.isActive);
+  const inactiveEmployees = safeEmployees.filter(e => !e.isActive);
 
   return (
     <>
@@ -183,7 +186,7 @@ export default function EmployeesScreen() {
           transform: [{ translateY: slideAnim }],
         }}>
           <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
-        {employees.length === 0 ? (
+        {safeEmployees.length === 0 ? (
           <View style={styles.emptyState}>
             <Users size={48} color={theme.text.tertiary} />
             <Text style={[styles.emptyText, { color: theme.text.tertiary }]}>

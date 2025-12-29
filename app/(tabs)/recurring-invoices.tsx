@@ -35,6 +35,9 @@ export default function RecurringInvoicesScreen() {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
 
+  // Ensure recurringInvoices is always an array
+  const safeRecurringInvoices = Array.isArray(recurringInvoices) ? recurringInvoices : [];
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -265,8 +268,8 @@ export default function RecurringInvoicesScreen() {
   };
 
   const activeInvoices = useMemo(() => 
-    recurringInvoices.filter(r => r.isActive),
-    [recurringInvoices]
+    safeRecurringInvoices.filter(r => r.isActive),
+    [safeRecurringInvoices]
   );
 
   const { subtotal, tax, total } = calculateTotals();
@@ -299,7 +302,7 @@ export default function RecurringInvoicesScreen() {
           transform: [{ translateY: slideAnim }],
         }}>
           <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
-        {recurringInvoices.length === 0 ? (
+        {safeRecurringInvoices.length === 0 ? (
           <View style={styles.emptyState}>
             <Repeat size={48} color={theme.text.tertiary} />
             <Text style={[styles.emptyText, { color: theme.text.tertiary }]}>
@@ -313,7 +316,7 @@ export default function RecurringInvoicesScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          recurringInvoices.map(invoice => (
+          safeRecurringInvoices.map(invoice => (
             <View
               key={invoice.id}
               style={[styles.invoiceCard, { backgroundColor: theme.background.card }]}

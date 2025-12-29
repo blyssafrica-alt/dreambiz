@@ -30,6 +30,8 @@ import type { TaxRate } from '@/types/business';
 export default function TaxScreen() {
   const { business, taxRates, addTaxRate, updateTaxRate, deleteTaxRate } = useBusiness();
   const { theme } = useTheme();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -38,6 +40,25 @@ export default function TaxScreen() {
   const [isDefault, setIsDefault] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [appliesTo, setAppliesTo] = useState<'all' | 'products' | 'services' | 'custom'>('all');
+
+  // Ensure taxRates is always an array
+  const safeTaxRates = Array.isArray(taxRates) ? taxRates : [];
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: false,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
 
   const handleSave = async () => {
     if (!name || !rate) {
@@ -122,8 +143,8 @@ export default function TaxScreen() {
     setAppliesTo('all');
   };
 
-  const activeRates = taxRates.filter(t => t.isActive);
-  const defaultRate = taxRates.find(t => t.isDefault && t.isActive);
+  const activeRates = safeTaxRates.filter(t => t.isActive);
+  const defaultRate = safeTaxRates.find(t => t.isDefault && t.isActive);
 
   // Tax reminders - upcoming tax deadlines
   const taxReminders = useMemo(() => {
@@ -236,7 +257,7 @@ export default function TaxScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          taxRates.map(taxRate => (
+          safeTaxRates.map(taxRate => (
             <View
               key={taxRate.id}
               style={[

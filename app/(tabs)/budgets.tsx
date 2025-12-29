@@ -35,6 +35,10 @@ export default function BudgetsScreen() {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
 
+  // Ensure arrays are always valid
+  const safeTransactions = Array.isArray(transactions) ? transactions : [];
+  const safeBudgets = Array.isArray(budgets) ? budgets : [];
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -74,7 +78,7 @@ export default function BudgetsScreen() {
     if (now < start) return { status: 'upcoming', spent: 0, percentage: 0 };
     if (now > end) {
       // Calculate total spent in period
-      const periodTransactions = transactions.filter(t => 
+      const periodTransactions = safeTransactions.filter(t => 
         t.date >= budget.startDate && t.date <= budget.endDate && t.type === 'expense'
       );
       const spent = periodTransactions.reduce((sum, t) => sum + t.amount, 0);
@@ -87,7 +91,7 @@ export default function BudgetsScreen() {
     }
 
     // Active budget - calculate spent so far
-    const periodTransactions = transactions.filter(t => 
+    const periodTransactions = safeTransactions.filter(t => 
       t.date >= budget.startDate && t.date <= now.toISOString().split('T')[0] && t.type === 'expense'
     );
     const spent = periodTransactions.reduce((sum, t) => sum + t.amount, 0);
@@ -257,7 +261,7 @@ export default function BudgetsScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          budgets.map(budget => {
+          safeBudgets.map(budget => {
             const performance = getBudgetPerformance(budget);
             const remaining = budget.totalBudget - performance.spent;
             const isOver = performance.percentage > 100;

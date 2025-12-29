@@ -38,11 +38,14 @@ export default function DocumentsScreen() {
     return null;
   }
 
+  // Ensure documents is always an array
+  const safeDocuments = Array.isArray(documents) ? documents : [];
+
   // Template is now handled by DocumentWizard component
 
   // Payment reminders - overdue invoices
   const overdueInvoices = useMemo(() => {
-    return documents.filter(doc => {
+    return safeDocuments.filter(doc => {
       if (doc.type !== 'invoice') return false;
       if (doc.status === 'paid' || doc.status === 'cancelled') return false;
       if (!doc.dueDate) return false;
@@ -52,7 +55,7 @@ export default function DocumentsScreen() {
 
   // Filtered documents
   const filteredDocuments = useMemo(() => {
-    let filtered = documents;
+    let filtered = safeDocuments;
 
     // Search filter
     if (searchQuery) {
@@ -73,7 +76,7 @@ export default function DocumentsScreen() {
     }
 
     return filtered;
-  }, [documents, searchQuery, statusFilter, typeFilter]);
+  }, [safeDocuments, searchQuery, statusFilter, typeFilter]);
 
   // Load filter presets
   useEffect(() => {

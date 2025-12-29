@@ -41,6 +41,10 @@ export default function SuppliersScreen() {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
 
+  // Ensure arrays are always valid
+  const safeSuppliers = Array.isArray(suppliers) ? suppliers : [];
+  const safeDocuments = Array.isArray(documents) ? documents : [];
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -69,21 +73,21 @@ export default function SuppliersScreen() {
   const [showSupplierDetail, setShowSupplierDetail] = useState(false);
 
   const filteredSuppliers = useMemo(() => {
-    if (!searchQuery) return suppliers;
-    return suppliers.filter(s => 
+    if (!searchQuery) return safeSuppliers;
+    return safeSuppliers.filter(s => 
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.phone?.includes(searchQuery) ||
       s.contactPerson?.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [suppliers, searchQuery]);
+  }, [safeSuppliers, searchQuery]);
 
   // Supplier analytics
   const supplierAnalytics = useMemo(() => {
     if (!selectedSupplier) return null;
 
     // Find purchase orders and supplier agreements for this supplier
-    const supplierDocs = documents.filter(doc =>
+    const supplierDocs = safeDocuments.filter(doc =>
       (doc.type === 'purchase_order' || doc.type === 'supplier_agreement') &&
       (doc.customerName.toLowerCase() === selectedSupplier.name.toLowerCase() ||
        (selectedSupplier.email && doc.customerEmail?.toLowerCase() === selectedSupplier.email.toLowerCase()) ||
@@ -271,9 +275,9 @@ export default function SuppliersScreen() {
           <View style={styles.emptyState}>
             <Truck size={48} color={theme.text.tertiary} />
             <Text style={[styles.emptyText, { color: theme.text.tertiary }]}>
-              {suppliers.length === 0 ? 'No suppliers yet' : 'No suppliers match your search'}
+              {safeSuppliers.length === 0 ? 'No suppliers yet' : 'No suppliers match your search'}
             </Text>
-            {suppliers.length === 0 && (
+            {safeSuppliers.length === 0 && (
               <TouchableOpacity
                 style={[styles.emptyButton, { backgroundColor: theme.accent.primary }]}
                 onPress={() => setShowModal(true)}
