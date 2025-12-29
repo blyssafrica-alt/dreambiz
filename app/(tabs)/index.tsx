@@ -1237,8 +1237,8 @@ const styles = StyleSheet.create({
   modalContainer: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '80%',
-    paddingTop: 20,
+    maxHeight: '90%',
+    backgroundColor: 'transparent',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1258,10 +1258,12 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     flex: 1,
+    maxHeight: '100%',
   },
   modalContentContainer: {
     padding: 20,
     paddingBottom: 40,
+    flexGrow: 1,
   },
   emptyAlerts: {
     alignItems: 'center',
