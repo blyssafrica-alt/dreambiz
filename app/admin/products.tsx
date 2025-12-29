@@ -4,8 +4,11 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Plus, Edit, Trash2, Package, X, Save } from 'lucide-react-native';
+import { ArrowLeft, Plus, Edit, Trash2, Package, X, Save, ImageIcon } from 'lucide-react-native';
 import type { PlatformProduct, ProductType, ProductStatus, StockStatus } from '@/types/super-admin';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'react-native';
+import { decode } from 'base64-arraybuffer';
 
 export default function ProductsManagementScreen() {
   const { theme } = useTheme();
@@ -30,6 +33,7 @@ export default function ProductsManagementScreen() {
     lowStockThreshold: '',
     status: 'draft' as ProductStatus,
     featured: false,
+    images: [] as string[],
   });
 
   useEffect(() => {
@@ -101,6 +105,7 @@ export default function ProductsManagementScreen() {
         lowStockThreshold: product.lowStockThreshold.toString(),
         status: product.status,
         featured: product.featured,
+        images: product.images || [],
       });
     } else {
       setEditingProduct(null);
@@ -118,9 +123,69 @@ export default function ProductsManagementScreen() {
         lowStockThreshold: '',
         status: 'draft',
         featured: false,
+        images: [],
       });
     }
     setShowModal(true);
+  };
+
+  const handlePickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please grant media library permissions to upload images.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      if (asset.base64) {
+        const base64 = asset.base64;
+        const fileExt = asset.uri.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `product_images/${fileName}`;
+
+        try {
+          const { data, error } = await supabase.storage
+            .from('product_images')
+            .upload(filePath, decode(base64), {
+              contentType: asset.mimeType || 'image/jpeg',
+              upsert: false,
+            });
+
+          if (error) throw error;
+
+          const { data: publicUrlData } = supabase.storage
+            .from('product_images')
+            .getPublicUrl(filePath);
+
+          if (publicUrlData?.publicUrl) {
+            setFormData(prev => ({
+              ...prev,
+              images: [...prev.images, publicUrlData.publicUrl],
+            }));
+          }
+        } catch (error) {
+          console.error('Error uploading image:', error);
+          Alert.alert('Upload Error', `Failed to upload image: ${(error as Error).message}`);
+        }
+      }
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setFormData(prev => {
+      const newImages = [...prev.images];
+      newImages.splice(index, 1);
+      return { ...prev, images: newImages };
+    });
   };
 
   const handleSave = async () => {
@@ -143,6 +208,7 @@ export default function ProductsManagementScreen() {
         stock_quantity: formData.manageStock ? parseInt(formData.stockQuantity) : 0,
         low_stock_threshold: formData.manageStock ? parseInt(formData.lowStockThreshold) : 0,
         stock_status: formData.manageStock && parseInt(formData.stockQuantity) > 0 ? 'in_stock' : 'out_of_stock',
+        images: formData.images,
         status: formData.status,
         featured: formData.featured,
         created_by: user?.id,
@@ -460,6 +526,22 @@ export default function ProductsManagementScreen() {
                   thumbColor="#FFF"
                 />
               </View>
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Product Images</Text>
+              <View style={styles.imageUploadContainer}>
+                {formData.images.map((imageUri, index) => (
+                  <View key={index} style={styles.imagePreviewContainer}>
+                    <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                    <TouchableOpacity onPress={() => handleRemoveImage(index)} style={styles.removeImageButton}>
+                      <X size={16} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                <TouchableOpacity style={styles.imagePickerButton} onPress={handlePickImage}>
+                  <ImageIcon size={24} color={theme.accent.primary} />
+                  <Text style={[styles.imagePickerButtonText, { color: theme.accent.primary }]}>Add Image</Text>
+                </TouchableOpacity>
+              </View>
             </ScrollView>
 
             <View style={styles.modalFooter}>
@@ -540,6 +622,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+  },
+  productImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 12,
+    resizeMode: 'cover',
   },
   productHeader: {
     flexDirection: 'row',
@@ -695,5 +784,47 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  imageUploadContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 12,
+  },
+  imagePickerButton: {
+    width: 100,
+    height: 100,
+    borderRadius: 10,
+    backgroundColor: '#E0E7FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    borderStyle: 'dashed',
+  },
+  imagePickerButtonText: {
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  imagePreviewContainer: {
+    position: 'relative',
+    width: 100,
+    height: 100,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 15,
+    padding: 3,
   },
 });

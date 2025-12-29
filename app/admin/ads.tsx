@@ -4,8 +4,11 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Plus, Megaphone, TrendingUp, Eye, MousePointerClick, X, Save, Trash2, Edit } from 'lucide-react-native';
+import { ArrowLeft, Plus, Megaphone, TrendingUp, Eye, MousePointerClick, X, Save, Trash2, Edit, ImageIcon } from 'lucide-react-native';
 import type { Advertisement, AdType, AdStatus } from '@/types/super-admin';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'react-native';
+import { decode } from 'base64-arraybuffer';
 
 export default function AdsManagementScreen() {
   const { theme } = useTheme();
@@ -26,6 +29,9 @@ export default function AdsManagementScreen() {
     status: 'draft' as AdStatus,
     startDate: '',
     endDate: '',
+    imageUrl: '',
+    videoUrl: '',
+    thumbnailUrl: '',
   });
 
   useEffect(() => {
@@ -106,9 +112,63 @@ export default function AdsManagementScreen() {
         status: 'draft',
         startDate: '',
         endDate: '',
+        imageUrl: '',
+        videoUrl: '',
+        thumbnailUrl: '',
       });
     }
     setShowModal(true);
+  };
+
+  const handlePickImage = async (field: 'imageUrl' | 'thumbnailUrl') => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please grant media library permissions.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      if (asset.base64) {
+        const base64 = asset.base64;
+        const fileExt = asset.uri.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `ad_images/${fileName}`;
+
+        try {
+          const { data, error } = await supabase.storage
+            .from('ad_images')
+            .upload(filePath, decode(base64), {
+              contentType: asset.mimeType || 'image/jpeg',
+              upsert: false,
+            });
+
+          if (error) throw error;
+
+          const { data: publicUrlData } = supabase.storage
+            .from('ad_images')
+            .getPublicUrl(filePath);
+
+          if (publicUrlData?.publicUrl) {
+            setFormData(prev => ({
+              ...prev,
+              [field]: publicUrlData.publicUrl,
+            }));
+          }
+        } catch (error) {
+          console.error('Error uploading image:', error);
+          Alert.alert('Upload Error', `Failed to upload image: ${(error as Error).message}`);
+        }
+      }
+    }
   };
 
   const handleSave = async () => {
@@ -122,6 +182,9 @@ export default function AdsManagementScreen() {
         title: formData.title,
         description: formData.description || null,
         type: formData.type,
+        image_url: formData.imageUrl || null,
+        video_url: formData.videoUrl || null,
+        thumbnail_url: formData.thumbnailUrl || null,
         headline: formData.headline || null,
         body_text: formData.bodyText || null,
         cta_text: formData.ctaText,
@@ -214,6 +277,9 @@ export default function AdsManagementScreen() {
         ) : (
           ads.map((ad) => (
             <View key={ad.id} style={[styles.adCard, { backgroundColor: theme.background.card }]}>
+              {ad.imageUrl && (
+                <Image source={{ uri: ad.imageUrl }} style={styles.adImage} />
+              )}
               <View style={styles.adHeader}>
                 <View style={styles.adInfo}>
                   <Text style={[styles.adTitle, { color: theme.text.primary }]}>{ad.title}</Text>
@@ -419,4 +485,10 @@ const styles = StyleSheet.create({
   cancelButtonText: { fontSize: 16, fontWeight: '600' },
   saveButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 10, gap: 8 },
   saveButtonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
+  adImage: { width: '100%', height: 200, borderRadius: 8, marginBottom: 12, resizeMode: 'cover' },
+  imagePreviewContainer: { position: 'relative', width: '100%', height: 200, borderRadius: 10, overflow: 'hidden', marginBottom: 12 },
+  imagePreview: { width: '100%', height: '100%', resizeMode: 'cover' },
+  removeImageButton: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, padding: 8 },
+  imagePickerButton: { width: '100%', height: 120, borderRadius: 10, backgroundColor: '#E0E7FF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE', borderStyle: 'dashed', marginBottom: 12 },
+  imagePickerButtonText: { fontSize: 14, marginTop: 8, fontWeight: '600' },
 });
