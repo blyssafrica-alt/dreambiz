@@ -33,7 +33,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAds } from '@/contexts/AdContext';
-import type { Alert } from '@/types/business';
+import type { Alert as AlertType } from '@/types/business';
 import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { LineChart, PieChart, BarChart } from '@/components/Charts';
 import GlobalSearch from '@/components/GlobalSearch';
@@ -258,7 +258,7 @@ export default function DashboardScreen() {
     setDismissedAlerts(prev => new Set(prev).add(alertId));
   };
 
-  const handleAlertPress = (alert: Alert) => {
+  const handleAlertPress = (alert: AlertType) => {
     // Smart navigation based on alert type and content
     const message = alert.message.toLowerCase();
     
@@ -286,7 +286,7 @@ export default function DashboardScreen() {
     }
   };
 
-  const handleBookReferencePress = (bookReference: Alert['bookReference']) => {
+  const handleBookReferencePress = (bookReference: AlertType['bookReference']) => {
     if (bookReference) {
       // Navigate to book chapter or show book details
       // For now, open modal with book info
@@ -307,7 +307,7 @@ export default function DashboardScreen() {
   // Get active alerts (not dismissed)
   const activeAlerts = useMemo(() => {
     if (!metrics?.alerts) return [];
-    return metrics.alerts.filter((alert: Alert) => !dismissedAlerts.has(alert.id));
+    return metrics.alerts.filter((alert: AlertType) => !dismissedAlerts.has(alert.id));
   }, [metrics?.alerts, dismissedAlerts]);
 
   // Get top 2 most critical alerts for compact view
@@ -318,7 +318,7 @@ export default function DashboardScreen() {
       .slice(0, 2);
   }, [activeAlerts]);
 
-  const renderAlert = (alert: Alert, compact: boolean = false) => {
+  const renderAlert = (alert: AlertType, compact: boolean = false) => {
     const colors: Record<string, { bg: string; border: string; text: string }> = {
       danger: { bg: theme.surface.danger, border: theme.accent.danger, text: theme.accent.danger },
       warning: { bg: theme.surface.warning, border: theme.accent.warning, text: theme.accent.warning },
