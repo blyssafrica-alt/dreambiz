@@ -73,8 +73,6 @@ export default function DashboardScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showSearch, setShowSearch] = useState(false);
-  const [showAlertsModal, setShowAlertsModal] = useState(false);
-  const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
 
   // Calculate business health score (0-100)
   const healthScore = useMemo(() => {
