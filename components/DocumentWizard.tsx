@@ -26,7 +26,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { DocumentType, DocumentItem } from '@/types/business';
-import { getDocumentTemplate } from '@/lib/document-templates';
+import { getDocumentTemplate } from '@/lib/document-templates-db';
 
 interface DocumentWizardProps {
   visible: boolean;
@@ -67,7 +67,19 @@ export default function DocumentWizard({ visible, onClose, onComplete, businessT
   const [notes, setNotes] = useState('');
   const [templateFields, setTemplateFields] = useState<Record<string, string>>({});
 
-  const template = docType && businessType ? getDocumentTemplate(docType, businessType as any) : null;
+  const [template, setTemplate] = useState<any>(null);
+
+  useEffect(() => {
+    const loadTemplate = async () => {
+      if (docType && businessType) {
+        const t = await getDocumentTemplate(docType, businessType as any);
+        setTemplate(t);
+      } else {
+        setTemplate(null);
+      }
+    };
+    loadTemplate();
+  }, [docType, businessType]);
 
   const resetWizard = () => {
     setStep(1);

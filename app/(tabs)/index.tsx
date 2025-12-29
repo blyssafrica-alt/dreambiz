@@ -38,14 +38,23 @@ export default function DashboardScreen() {
   const { business, getDashboardMetrics, transactions, documents } = useBusiness();
   const { theme } = useTheme();
   const { getAdsForLocation } = useAds();
-  const metrics = getDashboardMetrics();
+  const [metrics, setMetrics] = useState<any>(null);
   const dashboardAds = getAdsForLocation('dashboard');
+
+  useEffect(() => {
+    const loadMetrics = async () => {
+      const m = await getDashboardMetrics();
+      setMetrics(m);
+    };
+    loadMetrics();
+  }, [getDashboardMetrics, transactions, documents]);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showSearch, setShowSearch] = useState(false);
 
   // Calculate business health score (0-100)
   const healthScore = useMemo(() => {
+    if (!metrics) return 50;
     let score = 100;
     
     // Deduct points for negative cash position
@@ -344,28 +353,30 @@ export default function DashboardScreen() {
               </Animated.View>
             </View>
 
-            <LinearGradient
-              colors={metrics.todayProfit >= 0 ? [theme.accent.success, theme.accent.success] : [theme.accent.danger, theme.accent.danger] as [string, string]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.profitCard}
-            >
-              <View style={styles.profitContent}>
-                <View style={styles.profitHeader}>
-                  <Text style={styles.profitLabel}>Today&apos;s Profit</Text>
-                  <View style={styles.profitIconBg}>
-                    {metrics.todayProfit >= 0 ? (
-                      <TrendingUp size={20} color="#FFF" strokeWidth={2.5} />
-                    ) : (
-                      <TrendingDown size={20} color="#FFF" strokeWidth={2.5} />
-                    )}
+            {metrics && (
+              <LinearGradient
+                colors={(metrics.todayProfit || 0) >= 0 ? [theme.accent.success, theme.accent.success] : [theme.accent.danger, theme.accent.danger] as [string, string]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.profitCard}
+              >
+                <View style={styles.profitContent}>
+                  <View style={styles.profitHeader}>
+                    <Text style={styles.profitLabel}>Today&apos;s Profit</Text>
+                    <View style={styles.profitIconBg}>
+                      {(metrics.todayProfit || 0) >= 0 ? (
+                        <TrendingUp size={20} color="#FFF" strokeWidth={2.5} />
+                      ) : (
+                        <TrendingDown size={20} color="#FFF" strokeWidth={2.5} />
+                      )}
+                    </View>
                   </View>
+                  <Text style={styles.profitValue}>
+                    {formatCurrency(metrics.todayProfit || 0)}
+                  </Text>
                 </View>
-                <Text style={styles.profitValue}>
-                  {formatCurrency(metrics.todayProfit)}
-                </Text>
-              </View>
-            </LinearGradient>
+              </LinearGradient>
+            )}
           </View>
 
           {/* Business Health Score */}
@@ -396,8 +407,8 @@ export default function DashboardScreen() {
                   <View style={[
                     styles.healthIndicatorBar,
                     { 
-                      backgroundColor: metrics.monthProfit >= 0 ? theme.accent.success : theme.accent.danger,
-                      width: `${Math.min(100, Math.abs(metrics.monthProfit) / Math.max(metrics.monthSales || 1, 1) * 100)}%`
+                      backgroundColor: (metrics?.monthProfit || 0) >= 0 ? theme.accent.success : theme.accent.danger,
+                      width: `${Math.min(100, Math.abs(metrics?.monthProfit || 0) / Math.max(metrics?.monthSales || 1, 1) * 100)}%`
                     }
                   ]} />
                   <Text style={[styles.healthIndicatorLabel, { color: theme.text.secondary }]}>
@@ -408,8 +419,8 @@ export default function DashboardScreen() {
                   <View style={[
                     styles.healthIndicatorBar,
                     { 
-                      backgroundColor: metrics.cashPosition >= 0 ? theme.accent.success : theme.accent.danger,
-                      width: `${Math.min(100, Math.max(0, (metrics.cashPosition / Math.max(business?.capital || 1, 1)) * 100))}%`
+                      backgroundColor: (metrics?.cashPosition || 0) >= 0 ? theme.accent.success : theme.accent.danger,
+                      width: `${Math.min(100, Math.max(0, ((metrics?.cashPosition || 0) / Math.max(business?.capital || 1, 1)) * 100))}%`
                     }
                   ]} />
                   <Text style={[styles.healthIndicatorLabel, { color: theme.text.secondary }]}>
@@ -430,45 +441,51 @@ export default function DashboardScreen() {
             </View>
             
             <View style={[styles.summaryCard, { backgroundColor: theme.background.card }]}>
-              <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Sales</Text>
-                <Text style={[styles.summaryValue, { color: theme.text.primary }]}>{formatCurrency(metrics.monthSales)}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Expenses</Text>
-                <Text style={[styles.summaryValue, { color: theme.text.primary }]}>{formatCurrency(metrics.monthExpenses)}</Text>
-              </View>
-              <View style={[styles.summaryDivider, { backgroundColor: theme.border.light }]} />
-              <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabelBold, { color: theme.text.primary }]}>Net Profit</Text>
-                <Text style={[
-                  styles.summaryValueBold,
-                  { color: metrics.monthProfit >= 0 ? theme.accent.success : theme.accent.danger }
-                ]}>
-                  {formatCurrency(metrics.monthProfit)}
-                </Text>
-              </View>
+              {metrics && (
+                <>
+                  <View style={styles.summaryRow}>
+                    <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Sales</Text>
+                    <Text style={[styles.summaryValue, { color: theme.text.primary }]}>{formatCurrency(metrics.monthSales || 0)}</Text>
+                  </View>
+                  <View style={styles.summaryRow}>
+                    <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Expenses</Text>
+                    <Text style={[styles.summaryValue, { color: theme.text.primary }]}>{formatCurrency(metrics.monthExpenses || 0)}</Text>
+                  </View>
+                  <View style={[styles.summaryDivider, { backgroundColor: theme.border.light }]} />
+                  <View style={styles.summaryRow}>
+                    <Text style={[styles.summaryLabelBold, { color: theme.text.primary }]}>Net Profit</Text>
+                    <Text style={[
+                      styles.summaryValueBold,
+                      { color: (metrics.monthProfit || 0) >= 0 ? theme.accent.success : theme.accent.danger }
+                    ]}>
+                      {formatCurrency(metrics.monthProfit || 0)}
+                    </Text>
+                  </View>
+                </>
+              )}
             </View>
 
-            <View style={[styles.cashCard, { backgroundColor: theme.background.card }]}>
-              <LinearGradient
-                colors={theme.gradient.primary as [string, string]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.cashGradient}
-              >
-                <View style={[styles.cashIconBg, { backgroundColor: theme.background.card }]}>
-                  <DollarSign size={20} color={theme.accent.primary} strokeWidth={2.5} />
+            {metrics && (
+              <View style={[styles.cashCard, { backgroundColor: theme.background.card }]}>
+                <LinearGradient
+                  colors={theme.gradient.primary as [string, string]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.cashGradient}
+                >
+                  <View style={[styles.cashIconBg, { backgroundColor: theme.background.card }]}>
+                    <DollarSign size={20} color={theme.accent.primary} strokeWidth={2.5} />
+                  </View>
+                </LinearGradient>
+                <View style={styles.cashContent}>
+                  <Text style={[styles.cashLabel, { color: theme.text.secondary }]}>Cash Position</Text>
+                  <Text style={[styles.cashValue, { color: theme.accent.primary }]}>{formatCurrency(metrics.cashPosition || 0)}</Text>
                 </View>
-              </LinearGradient>
-              <View style={styles.cashContent}>
-                <Text style={[styles.cashLabel, { color: theme.text.secondary }]}>Cash Position</Text>
-                <Text style={[styles.cashValue, { color: theme.accent.primary }]}>{formatCurrency(metrics.cashPosition)}</Text>
               </View>
-            </View>
+            )}
           </View>
 
-          {metrics.alerts.length > 0 && (
+          {metrics && metrics.alerts && metrics.alerts.length > 0 && (
             <View style={styles.alertsSection}>
               <View>
                 <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>ALERTS</Text>
@@ -542,13 +559,13 @@ export default function DashboardScreen() {
             )}
           </View>
 
-          {metrics.topCategories.length > 0 && (
+          {metrics && metrics.topCategories && metrics.topCategories.length > 0 && (
             <View style={styles.categoriesSection}>
               <View>
                 <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>TOP CATEGORIES</Text>
                 <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Top Categories</Text>
               </View>
-              {metrics.topCategories.map((cat, index) => (
+              {metrics.topCategories.map((cat: any, index: number) => (
                 <View key={index} style={[styles.categoryItem, { backgroundColor: theme.background.card }]}>
                   <View style={[styles.categoryRank, { backgroundColor: theme.accent.primary }]}>
                     <Text style={styles.categoryRankText}>{String(index + 1)}</Text>
