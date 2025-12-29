@@ -27,6 +27,9 @@ export default function AccountsScreen() {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [activeTab, setActiveTab] = useState<'receivable' | 'payable'>('receivable');
 
+  // Ensure documents is always an array
+  const safeDocuments = useMemo(() => Array.isArray(documents) ? documents : [], [documents]);
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -50,7 +53,8 @@ export default function AccountsScreen() {
 
   // Calculate Accounts Receivable (money owed to us)
   const accountsReceivable = useMemo(() => {
-    const invoices = safeDocuments.filter(d => d.type === 'invoice' && d.status !== 'cancelled');
+    const safeDocs = Array.isArray(documents) ? documents : [];
+    const invoices = safeDocs.filter(d => d.type === 'invoice' && d.status !== 'cancelled');
     
     return invoices.map(doc => {
       const isPaid = doc.status === 'paid';
@@ -83,7 +87,8 @@ export default function AccountsScreen() {
 
   // Calculate Accounts Payable (money we owe)
   const accountsPayable = useMemo(() => {
-    const purchaseOrders = safeDocuments.filter(d => 
+    const safeDocs = Array.isArray(documents) ? documents : [];
+    const purchaseOrders = safeDocs.filter(d => 
       (d.type === 'purchase_order' || d.type === 'supplier_agreement') && 
       d.status !== 'cancelled'
     );
