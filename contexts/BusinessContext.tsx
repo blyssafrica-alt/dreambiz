@@ -25,27 +25,28 @@ import type { RecurringInvoice, Payment } from '@/types/payments';
 import { fetchActiveAlertRules, evaluateAlertRules } from '@/lib/alert-evaluator';
 
 export const [BusinessContext, useBusiness] = createContextHook(() => {
-  const { user, authUser } = useAuth();
-  const [business, setBusiness] = useState<BusinessProfile | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [cashflowProjections, setCashflowProjections] = useState<CashflowProjection[]>([]);
-  const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
-  const [recurringInvoices, setRecurringInvoices] = useState<RecurringInvoice[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [exchangeRate, setExchangeRate] = useState<ExchangeRate>({
-    usdToZwl: 25000,
-    lastUpdated: new Date().toISOString(),
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasOnboarded, setHasOnboarded] = useState(false);
+  try {
+    const { user, authUser } = useAuth();
+    const [business, setBusiness] = useState<BusinessProfile | null>(null);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [documents, setDocuments] = useState<Document[]>([]);
+    const [products, setProducts] = useState<Product[]>([]);
+    const [customers, setCustomers] = useState<Customer[]>([]);
+    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+    const [budgets, setBudgets] = useState<Budget[]>([]);
+    const [cashflowProjections, setCashflowProjections] = useState<CashflowProjection[]>([]);
+    const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
+    const [recurringInvoices, setRecurringInvoices] = useState<RecurringInvoice[]>([]);
+    const [payments, setPayments] = useState<Payment[]>([]);
+    const [exchangeRate, setExchangeRate] = useState<ExchangeRate>({
+      usdToZwl: 25000,
+      lastUpdated: new Date().toISOString(),
+    });
+    const [isLoading, setIsLoading] = useState(true);
+    const [hasOnboarded, setHasOnboarded] = useState(false);
 
   // Get user ID - use authUser.id if available (even if profile not loaded yet)
   const userId = authUser?.id || user?.id;
@@ -57,6 +58,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     }
 
     try {
+      setIsLoading(true);
       const [businessRes, transactionsRes, documentsRes, productsRes, customersRes, suppliersRes, budgetsRes, cashflowRes, taxRatesRes, employeesRes, projectsRes, projectTasksRes, recurringInvoicesRes, paymentsRes, exchangeRateRes] = await Promise.all([
         supabase.from('business_profiles').select('*').eq('user_id', userId).single(),
         supabase.from('transactions').select('*').eq('user_id', userId).order('date', { ascending: false }),

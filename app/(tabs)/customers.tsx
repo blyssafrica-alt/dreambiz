@@ -67,11 +67,12 @@ export default function CustomersScreen() {
   const [showCustomerDetail, setShowCustomerDetail] = useState(false);
 
   const filteredCustomers = useMemo(() => {
+    if (!customers || !Array.isArray(customers)) return [];
     if (!searchQuery) return customers;
     return customers.filter(c => 
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.phone?.includes(searchQuery)
+      c?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c?.phone?.includes(searchQuery)
     );
   }, [customers, searchQuery]);
 

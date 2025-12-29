@@ -83,17 +83,18 @@ export default function ProductsScreen() {
   const [additionalImages, setAdditionalImages] = useState<string[]>([]);
 
   const filteredProducts = useMemo(() => {
+    if (!products || !Array.isArray(products)) return [];
     let filtered = products;
     
     if (searchQuery) {
       filtered = filtered.filter(p => 
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.description?.toLowerCase().includes(searchQuery.toLowerCase())
+        p?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p?.description?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
     
     if (selectedCategory) {
-      filtered = filtered.filter(p => p.category === selectedCategory);
+      filtered = filtered.filter(p => p?.category === selectedCategory);
     }
     
     return filtered;

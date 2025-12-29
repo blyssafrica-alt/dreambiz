@@ -38,24 +38,26 @@ export default function PaymentsScreen() {
     ]).start();
   }, []);
 
-  // Calculate payment statistics
-  const totalPaid = documents
-    .filter(d => d.status === 'paid')
-    .reduce((sum, d) => sum + d.total, 0);
+  // Calculate payment statistics - ensure documents is an array
+  const safeDocuments = Array.isArray(documents) ? documents : [];
+  
+  const totalPaid = safeDocuments
+    .filter(d => d?.status === 'paid')
+    .reduce((sum, d) => sum + (d?.total || 0), 0);
 
-  const totalPending = documents
-    .filter(d => d.status === 'sent' || d.status === 'draft')
-    .reduce((sum, d) => sum + d.total, 0);
+  const totalPending = safeDocuments
+    .filter(d => d?.status === 'sent' || d?.status === 'draft')
+    .reduce((sum, d) => sum + (d?.total || 0), 0);
 
-  const totalOverdue = documents
+  const totalOverdue = safeDocuments
     .filter(d => {
-      if (!d.dueDate || d.status === 'paid') return false;
+      if (!d?.dueDate || d?.status === 'paid') return false;
       return new Date(d.dueDate) < new Date();
     })
-    .reduce((sum, d) => sum + d.total, 0);
+    .reduce((sum, d) => sum + (d?.total || 0), 0);
 
-  const invoices = documents.filter(d => d.type === 'invoice');
-  const receipts = documents.filter(d => d.type === 'receipt');
+  const invoices = safeDocuments.filter(d => d?.type === 'invoice');
+  const receipts = safeDocuments.filter(d => d?.type === 'receipt');
 
   return (
     <>
