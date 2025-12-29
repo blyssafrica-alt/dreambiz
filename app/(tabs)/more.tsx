@@ -260,6 +260,16 @@ export default function MoreScreen() {
           gradient: ['#3B82F6', '#2563EB'],
           visible: true,
         },
+        {
+          id: 'my-library',
+          title: 'My Library',
+          description: 'Your purchased books',
+          icon: BookOpen,
+          route: '/my-library',
+          color: '#10B981',
+          gradient: ['#10B981', '#059669'],
+          visible: true,
+        },
       ],
     },
     {

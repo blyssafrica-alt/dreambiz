@@ -1939,6 +1939,8 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           payment_method: payment.paymentMethod,
           reference: payment.reference || null,
           notes: payment.notes || null,
+          proof_of_payment_url: payment.proofOfPaymentUrl || null,
+          verification_status: payment.verificationStatus || 'pending',
         })
         .select()
         .single();
@@ -1954,6 +1956,11 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         paymentMethod: data.payment_method as any,
         reference: data.reference || undefined,
         notes: data.notes || undefined,
+        proofOfPaymentUrl: data.proof_of_payment_url || undefined,
+        verificationStatus: data.verification_status || 'pending',
+        verifiedBy: data.verified_by || undefined,
+        verifiedAt: data.verified_at || undefined,
+        verificationNotes: data.verification_notes || undefined,
         createdAt: data.created_at,
       };
 

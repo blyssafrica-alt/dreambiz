@@ -139,6 +139,13 @@ export default function AdminLayout() {
           headerShown: true,
         }} 
       />
+      <Stack.Screen 
+        name="payment-verification" 
+        options={{ 
+          title: 'Payment Verification',
+          headerShown: true,
+        }} 
+      />
     </Stack>
   );
 }

@@ -7,6 +7,11 @@ export interface Payment {
   paymentMethod: 'cash' | 'bank_transfer' | 'mobile_money' | 'card' | 'other';
   reference?: string;
   notes?: string;
+  proofOfPaymentUrl?: string;
+  verificationStatus?: 'pending' | 'approved' | 'rejected';
+  verifiedBy?: string;
+  verifiedAt?: string;
+  verificationNotes?: string;
   createdAt: string;
 }
 

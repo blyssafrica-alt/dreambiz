@@ -9,11 +9,15 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
-import { ArrowLeft, Save, DollarSign } from 'lucide-react-native';
+import { ArrowLeft, Save, DollarSign, Camera, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '@/lib/supabase';
+import { decode } from 'base64-arraybuffer';
 
 export default function AddPaymentScreen() {
   const { theme } = useTheme();
@@ -25,12 +29,71 @@ export default function AddPaymentScreen() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bank_transfer' | 'mobile_money' | 'card' | 'other'>('cash');
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
+  const [proofImage, setProofImage] = useState<string | null>(null);
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
 
   const safeDocuments = Array.isArray(documents) ? documents : [];
   const invoices = safeDocuments.filter(d => d?.type === 'invoice' && d?.status !== 'paid' && d?.status !== 'cancelled');
 
   const selectedDocument = invoices.find(d => d.id === selectedDocumentId);
   const outstandingAmount = selectedDocument ? (selectedDocument.total || 0) - (selectedDocument.paidAmount || 0) : 0;
+
+  const handlePickProofImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant camera roll access to upload proof of payment');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        if (asset.base64) {
+          setIsUploadingProof(true);
+          try {
+            const fileExt = asset.uri.split('.').pop() || 'jpg';
+            const fileName = `payment-proof-${Date.now()}.${fileExt}`;
+            const filePath = `payment_proofs/${fileName}`;
+
+            const { data, error } = await supabase.storage
+              .from('payment_proofs')
+              .upload(filePath, decode(asset.base64), {
+                contentType: asset.mimeType || 'image/jpeg',
+                upsert: false,
+              });
+
+            if (error) throw error;
+
+            const { data: publicUrlData } = supabase.storage
+              .from('payment_proofs')
+              .getPublicUrl(filePath);
+
+            if (publicUrlData?.publicUrl) {
+              setProofImage(publicUrlData.publicUrl);
+            }
+          } catch (error: any) {
+            console.error('Error uploading proof:', error);
+            Alert.alert('Upload Error', error.message || 'Failed to upload proof of payment');
+          } finally {
+            setIsUploadingProof(false);
+          }
+        }
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to pick image');
+    }
+  };
+
+  const handleRemoveProofImage = () => {
+    setProofImage(null);
+  };
 
   const handleSave = async () => {
     if (!selectedDocumentId) {
@@ -64,6 +127,8 @@ export default function AddPaymentScreen() {
         paymentMethod,
         reference: reference || undefined,
         notes: notes || undefined,
+        proofOfPaymentUrl: proofImage || undefined,
+        verificationStatus: 'pending',
       });
 
       Alert.alert('Success', 'Payment recorded successfully', [
@@ -207,6 +272,41 @@ export default function AddPaymentScreen() {
                 multiline
                 numberOfLines={3}
               />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.text.primary }]}>Proof of Payment</Text>
+              <Text style={[styles.helperText, { color: theme.text.tertiary, marginBottom: 8 }]}>
+                Attach a receipt, screenshot, or photo of your payment
+              </Text>
+              {proofImage ? (
+                <View style={styles.proofImageContainer}>
+                  <Image source={{ uri: proofImage }} style={styles.proofImage} />
+                  <TouchableOpacity
+                    style={[styles.removeProofButton, { backgroundColor: theme.accent.danger }]}
+                    onPress={handleRemoveProofImage}
+                  >
+                    <X size={16} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.proofUploadButton, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}
+                  onPress={handlePickProofImage}
+                  disabled={isUploadingProof}
+                >
+                  {isUploadingProof ? (
+                    <ActivityIndicator color={theme.accent.primary} />
+                  ) : (
+                    <>
+                      <Camera size={24} color={theme.accent.primary} />
+                      <Text style={[styles.proofUploadText, { color: theme.text.primary }]}>
+                        Upload Proof of Payment
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}
@@ -359,6 +459,40 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  proofImageContainer: {
+    position: 'relative',
+    marginTop: 8,
+  },
+  proofImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    resizeMode: 'cover',
+  },
+  removeProofButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  proofUploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    gap: 8,
+  },
+  proofUploadText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

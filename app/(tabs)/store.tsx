@@ -46,12 +46,14 @@ export default function StoreScreen() {
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.shortDescription?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = !selectedCategory || product.categoryId === selectedCategory;
     return matchesSearch && matchesCategory && product.status === 'published';
   });
 
   const featuredProducts = filteredProducts.filter(p => p.featured);
+  const categories = Array.from(new Set(products.filter(p => p.status === 'published' && p.categoryId).map(p => p.categoryId))).filter(Boolean);
 
   return (
     <>
@@ -80,6 +82,54 @@ export default function StoreScreen() {
               onChangeText={setSearchQuery}
             />
           </View>
+
+          {/* Category Filter */}
+          {categories.length > 0 && (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.categoryScroll}
+              contentContainerStyle={styles.categoryContainer}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.categoryChip,
+                  { 
+                    backgroundColor: !selectedCategory ? theme.accent.primary : theme.background.secondary,
+                    borderColor: !selectedCategory ? theme.accent.primary : theme.border.light,
+                  }
+                ]}
+                onPress={() => setSelectedCategory(null)}
+              >
+                <Text style={[
+                  styles.categoryChipText,
+                  { color: !selectedCategory ? '#FFF' : theme.text.primary }
+                ]}>
+                  All
+                </Text>
+              </TouchableOpacity>
+              {categories.map(categoryId => (
+                <TouchableOpacity
+                  key={categoryId}
+                  style={[
+                    styles.categoryChip,
+                    { 
+                      backgroundColor: selectedCategory === categoryId ? theme.accent.primary : theme.background.secondary,
+                      borderColor: selectedCategory === categoryId ? theme.accent.primary : theme.border.light,
+                    }
+                  ]}
+                  onPress={() => setSelectedCategory(categoryId)}
+                >
+                  <Text style={[
+                    styles.categoryChipText,
+                    { color: selectedCategory === categoryId ? '#FFF' : theme.text.primary }
+                  ]}>
+                    {categoryId}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
 
           <ScrollView
             style={styles.scrollView}
@@ -121,11 +171,30 @@ export default function StoreScreen() {
                 <ActivityIndicator size="large" color={theme.accent.primary} style={{ marginTop: 40 }} />
               ) : filteredProducts.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Package size={64} color={theme.text.tertiary} />
-                  <Text style={[styles.emptyText, { color: theme.text.secondary }]}>No products found</Text>
-                  <Text style={[styles.emptySubtext, { color: theme.text.tertiary }]}>
-                    {searchQuery ? 'Try a different search term' : 'Check back later for new products'}
+                  <View style={[styles.emptyIconContainer, { backgroundColor: theme.background.secondary }]}>
+                    <Package size={48} color={theme.text.tertiary} />
+                  </View>
+                  <Text style={[styles.emptyText, { color: theme.text.primary }]}>
+                    {searchQuery || selectedCategory ? 'No products found' : 'Store is empty'}
                   </Text>
+                  <Text style={[styles.emptySubtext, { color: theme.text.secondary }]}>
+                    {searchQuery 
+                      ? 'Try a different search term or clear filters' 
+                      : selectedCategory
+                      ? 'No products in this category'
+                      : 'Products will appear here once they are added'}
+                  </Text>
+                  {(searchQuery || selectedCategory) && (
+                    <TouchableOpacity
+                      style={[styles.clearButton, { backgroundColor: theme.accent.primary }]}
+                      onPress={() => {
+                        setSearchQuery('');
+                        setSelectedCategory(null);
+                      }}
+                    >
+                      <Text style={styles.clearButtonText}>Clear Filters</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ) : (
                 <View style={styles.productsGrid}>
@@ -306,6 +375,45 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 14,
     marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  clearButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  clearButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  categoryScroll: {
+    marginHorizontal: 20,
+    marginBottom: 8,
+  },
+  categoryContainer: {
+    paddingRight: 20,
+    gap: 8,
+  },
+  categoryChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  categoryChipText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 
