@@ -15,8 +15,10 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Plus, Edit, Trash2, Book as BookIcon, X, ImageIcon, Save } from 'lucide-react-native';
+import { ArrowLeft, Plus, Edit, Trash2, Book as BookIcon, X, ImageIcon, Save, FileText, Upload } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import { decode } from 'base64-arraybuffer';
 import type { Book, BookFormData, BookChapter } from '@/types/books';
 
 export default function BooksManagementScreen() {
@@ -32,6 +34,8 @@ export default function BooksManagementScreen() {
     subtitle: '',
     description: '',
     coverImage: undefined,
+    documentFile: undefined,
+    documentFileUrl: undefined,
     price: 0,
     currency: 'USD',
     salePrice: undefined,
@@ -47,6 +51,7 @@ export default function BooksManagementScreen() {
     isFeatured: false,
     displayOrder: 0,
   });
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
 
   useEffect(() => {
     loadBooks();
@@ -70,6 +75,7 @@ export default function BooksManagementScreen() {
           subtitle: row.subtitle,
           description: row.description,
           coverImage: row.cover_image,
+          documentFileUrl: row.document_file_url,
           price: parseFloat(row.price || '0'),
           currency: row.currency || 'USD',
           salePrice: row.sale_price ? parseFloat(row.sale_price) : undefined,
@@ -118,6 +124,76 @@ export default function BooksManagementScreen() {
     }
   };
 
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setFormData({ ...formData, documentFile: result.assets[0].uri });
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
+      Alert.alert('Error', 'Failed to pick document');
+    }
+  };
+
+  const uploadDocumentToStorage = async (fileUri: string, bookSlug: string): Promise<string | null> => {
+    try {
+      setIsUploadingDocument(true);
+      
+      // Read file as base64
+      const response = await fetch(fileUri);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          const base64String = (reader.result as string).split(',')[1];
+          resolve(base64String);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      // Get file extension
+      const fileExtension = fileUri.split('.').pop()?.toLowerCase() || 'pdf';
+      const fileName = `${bookSlug}-${Date.now()}.${fileExtension}`;
+      const filePath = `books/${fileName}`;
+
+      // Upload to Supabase storage
+      const { data, error } = await supabase.storage
+        .from('book-documents')
+        .upload(filePath, decode(base64), {
+          contentType: fileExtension === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          upsert: false,
+        });
+
+      if (error) {
+        // If bucket doesn't exist, show error
+        if (error.message.includes('Bucket not found')) {
+          Alert.alert('Storage Error', 'Book documents bucket not found. Please create a "book-documents" bucket in Supabase Storage.');
+          return null;
+        }
+        throw error;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('book-documents')
+        .getPublicUrl(filePath);
+
+      return urlData.publicUrl;
+    } catch (error: any) {
+      console.error('Failed to upload document:', error);
+      Alert.alert('Upload Error', error.message || 'Failed to upload document');
+      return null;
+    } finally {
+      setIsUploadingDocument(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!formData.slug || !formData.title) {
       Alert.alert('Missing Fields', 'Please fill in slug and title');
@@ -125,12 +201,24 @@ export default function BooksManagementScreen() {
     }
 
     try {
+      // Upload document if a new file was selected
+      let documentFileUrl = formData.documentFileUrl;
+      if (formData.documentFile && !formData.documentFileUrl) {
+        const uploadedUrl = await uploadDocumentToStorage(formData.documentFile, formData.slug);
+        if (uploadedUrl) {
+          documentFileUrl = uploadedUrl;
+        } else {
+          Alert.alert('Upload Failed', 'Document upload failed. Book will be saved without document.');
+        }
+      }
+
       const bookData: any = {
         slug: formData.slug,
         title: formData.title,
         subtitle: formData.subtitle || null,
         description: formData.description || null,
         cover_image: formData.coverImage || null,
+        document_file_url: documentFileUrl || null,
         price: formData.price,
         currency: formData.currency,
         sale_price: formData.salePrice || null,
@@ -180,6 +268,8 @@ export default function BooksManagementScreen() {
       subtitle: book.subtitle,
       description: book.description,
       coverImage: book.coverImage,
+      documentFile: undefined,
+      documentFileUrl: book.documentFileUrl,
       price: book.price,
       currency: book.currency,
       salePrice: book.salePrice,
@@ -234,6 +324,8 @@ export default function BooksManagementScreen() {
       subtitle: '',
       description: '',
       coverImage: undefined,
+      documentFile: undefined,
+      documentFileUrl: undefined,
       price: 0,
       currency: 'USD',
       salePrice: undefined,
@@ -335,6 +427,14 @@ export default function BooksManagementScreen() {
                     ${book.price.toFixed(2)}
                   </Text>
                 </View>
+                {book.documentFileUrl && (
+                  <View style={[styles.documentBadge, { backgroundColor: theme.surface.info }]}>
+                    <FileText size={12} color={theme.accent.info} />
+                    <Text style={[styles.documentBadgeText, { color: theme.accent.info }]}>
+                      Document Available
+                    </Text>
+                  </View>
+                )}
                 {book.description && (
                   <Text 
                     style={[styles.bookDescription, { color: theme.text.secondary }]}
@@ -414,6 +514,54 @@ export default function BooksManagementScreen() {
                     </Text>
                   </TouchableOpacity>
                 )}
+              </View>
+
+              {/* Document File (PDF/Word) */}
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text.primary }]}>Book Document (PDF/Word)</Text>
+                {formData.documentFileUrl ? (
+                  <View style={styles.documentPreviewContainer}>
+                    <View style={[styles.documentPreview, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}>
+                      <FileText size={24} color={theme.accent.primary} />
+                      <Text style={[styles.documentPreviewText, { color: theme.text.primary }]} numberOfLines={1}>
+                        {formData.documentFileUrl.split('/').pop() || 'Document uploaded'}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => setFormData({ ...formData, documentFileUrl: undefined, documentFile: undefined })}
+                      >
+                        <X size={18} color={theme.text.secondary} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : formData.documentFile ? (
+                  <View style={styles.documentPreviewContainer}>
+                    <View style={[styles.documentPreview, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}>
+                      <FileText size={24} color={theme.accent.primary} />
+                      <Text style={[styles.documentPreviewText, { color: theme.text.primary }]} numberOfLines={1}>
+                        {formData.documentFile.split('/').pop() || 'Document selected'}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => setFormData({ ...formData, documentFile: undefined })}
+                      >
+                        <X size={18} color={theme.text.secondary} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.imageUploadButton, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}
+                    onPress={handlePickDocument}
+                    disabled={isUploadingDocument}
+                  >
+                    <Upload size={24} color={theme.accent.primary} />
+                    <Text style={[styles.imageUploadText, { color: theme.text.secondary }]}>
+                      {isUploadingDocument ? 'Uploading...' : 'Upload PDF/Word Document'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                <Text style={[styles.helperText, { color: theme.text.tertiary }]}>
+                  Upload the complete book as PDF or Word document. This will be used to extract book information.
+                </Text>
               </View>
 
               {/* Basic Info */}
@@ -569,9 +717,16 @@ export default function BooksManagementScreen() {
               <TouchableOpacity
                 style={[styles.footerButton, { backgroundColor: theme.accent.primary }]}
                 onPress={handleSave}
+                disabled={isUploadingDocument}
               >
-                <Save size={18} color="#FFF" />
-                <Text style={[styles.footerButtonText, { color: '#FFF' }]}>Save</Text>
+                {isUploadingDocument ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <>
+                    <Save size={18} color="#FFF" />
+                    <Text style={[styles.footerButtonText, { color: '#FFF' }]}>Save</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -812,6 +967,27 @@ const styles = StyleSheet.create({
   imageUploadText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  documentPreviewContainer: {
+    marginTop: 8,
+  },
+  documentPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 12,
+  },
+  documentPreviewText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  helperText: {
+    fontSize: 12,
+    marginTop: 6,
+    lineHeight: 16,
   },
   statusOptions: {
     flexDirection: 'row',
