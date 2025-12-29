@@ -1,5 +1,6 @@
 import type { Document, BusinessProfile } from '@/types/business';
-import { getDocumentTemplate, generateDocumentContent } from '@/lib/document-templates';
+import { getDocumentTemplate } from '@/lib/document-templates-db';
+import { generateDocumentContent } from '@/lib/document-templates';
 
 export interface PDFOptions {
   includeLogo?: boolean;
@@ -14,7 +15,7 @@ export async function generatePDF(
   options: PDFOptions = {}
 ): Promise<string> {
   // Get template for document
-  const template = getDocumentTemplate(document.type, business.type);
+  const template = await getDocumentTemplate(document.type, business.type);
   
   // For now, return formatted text content
   // In production, use expo-print or react-native-pdf to generate actual PDF
