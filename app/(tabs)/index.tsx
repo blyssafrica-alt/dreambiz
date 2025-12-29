@@ -1115,7 +1115,6 @@ const styles = StyleSheet.create({
   emptyAlertsSubtext: {
     fontSize: 13,
     marginTop: 4,
-    marginTop: 4,
     opacity: 0.9,
   },
   categoriesSection: {
