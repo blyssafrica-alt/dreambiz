@@ -414,7 +414,8 @@ export async function exportToPDF(
     }
   } catch (error) {
     console.warn('PDF export not available, using text format', error);
-    const content = generateDocumentContent(document, business, getDocumentTemplate(document.type, business.type));
+    const template = await getDocumentTemplate(document.type, business.type);
+    const content = generateDocumentContent(document, business, template);
     const { Share } = await import('react-native');
     await Share.share({
       message: content,
