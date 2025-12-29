@@ -108,20 +108,32 @@ export default function ProductsScreen() {
 
   // Product performance analytics
   const productAnalytics = useMemo(() => {
+    if (!products || !Array.isArray(products)) {
+      return {
+        totalProducts: 0,
+        activeProducts: 0,
+        lowStockCount: 0,
+        outOfStockCount: 0,
+        totalInventoryValue: 0,
+        bestSelling: [],
+        bestMargin: [],
+      };
+    }
+    
     const totalProducts = products.length;
-    const activeProducts = products.filter(p => p.isActive).length;
+    const activeProducts = products.filter(p => p?.isActive).length;
     const lowStockCount = lowStockProducts.length;
-    const outOfStockCount = products.filter(p => p.quantity === 0 && p.isActive).length;
+    const outOfStockCount = products.filter(p => (p?.quantity || 0) === 0 && p?.isActive).length;
     
     // Calculate total inventory value
     const totalInventoryValue = products.reduce((sum, p) => {
-      return sum + (p.costPrice * p.quantity);
+      return sum + ((p?.costPrice || 0) * (p?.quantity || 0));
     }, 0);
 
     // Best selling products (by quantity sold - would need transaction data)
     // For now, we'll use products with highest quantity as proxy
     const bestSelling = [...products]
-      .sort((a, b) => b.quantity - a.quantity)
+      .sort((a, b) => (b?.quantity || 0) - (a?.quantity || 0))
       .slice(0, 5);
 
     // Products with best profit margin
