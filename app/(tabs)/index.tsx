@@ -350,7 +350,7 @@ export default function DashboardScreen() {
                     <ArrowUpRight size={20} color="#FFF" strokeWidth={2.5} />
                   </LinearGradient>
                   <Text style={[styles.metricLabel, { color: theme.text.secondary }]}>Sales</Text>
-                  <Text style={[styles.metricValue, { color: theme.text.primary }]}>{formatCurrency(metrics.todaySales || 0)}</Text>
+                  <Text style={[styles.metricValue, { color: theme.text.primary }]}>{formatCurrency(metrics?.todaySales || 0)}</Text>
                 </Animated.View>
 
                 <Animated.View style={[styles.metricCard, { 
@@ -366,7 +366,7 @@ export default function DashboardScreen() {
                     <ArrowDownRight size={20} color="#FFF" strokeWidth={2.5} />
                   </LinearGradient>
                   <Text style={[styles.metricLabel, { color: theme.text.secondary }]}>Expenses</Text>
-                  <Text style={[styles.metricValue, { color: theme.text.primary }]}>{formatCurrency(metrics.todayExpenses || 0)}</Text>
+                  <Text style={[styles.metricValue, { color: theme.text.primary }]}>{formatCurrency(metrics?.todayExpenses || 0)}</Text>
                 </Animated.View>
               </View>
 
