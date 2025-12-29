@@ -695,6 +695,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     lineHeight: 18,
   },
+  documentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  documentBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
   bookStats: {
     flexDirection: 'row',
     gap: 16,

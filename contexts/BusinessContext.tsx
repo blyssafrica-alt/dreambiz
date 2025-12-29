@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 import { getProvider } from '@/lib/providers';
-import { getChapterForTopic } from '@/constants/book-chapters';
+import { getChapterForTopic } from '@/lib/book-service';
 import type { 
   BusinessProfile, 
   Transaction, 

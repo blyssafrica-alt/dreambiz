@@ -45,6 +45,8 @@ export interface BookFormData {
   subtitle?: string;
   description?: string;
   coverImage?: string;
+  documentFile?: string; // Local file URI for upload
+  documentFileUrl?: string; // Stored file URL
   price: number;
   currency: string;
   salePrice?: number;
