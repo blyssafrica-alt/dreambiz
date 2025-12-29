@@ -17,10 +17,10 @@ import {
   Percent, 
   Receipt, 
   Repeat, 
-  ShoppingCart, 
-  Calendar, 
-  Link as LinkIcon, 
-  Sparkles, 
+  ShoppingCart,
+  Calendar,
+  Link as LinkIcon,
+  Sparkles,
   Building2,
   ChevronRight,
   Settings,
@@ -28,7 +28,8 @@ import {
   FileText,
   BookOpen,
   Camera,
-  Zap
+  Zap,
+  ShoppingBag
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -233,6 +234,31 @@ export default function MoreScreen() {
           color: '#10B981',
           gradient: ['#10B981', '#059669'],
           visible: isFeatureVisible('businesses'),
+        },
+      ],
+    },
+    {
+      title: 'DreamBig Resources',
+      items: [
+        {
+          id: 'store',
+          title: 'Store',
+          description: 'Browse DreamBig products & resources',
+          icon: ShoppingBag,
+          route: '/(tabs)/store',
+          color: '#8B5CF6',
+          gradient: ['#8B5CF6', '#7C3AED'],
+          visible: true,
+        },
+        {
+          id: 'books',
+          title: 'DreamBig Books',
+          description: 'Business guides & resources',
+          icon: BookOpen,
+          route: '/books',
+          color: '#3B82F6',
+          gradient: ['#3B82F6', '#2563EB'],
+          visible: true,
         },
       ],
     },

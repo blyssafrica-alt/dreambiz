@@ -125,6 +125,7 @@ export default function TabLayout() {
       <Tabs.Screen name="businesses" options={{ href: null }} />
       <Tabs.Screen name="provider-settings" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
+      <Tabs.Screen name="store" options={{ href: null }} />
     </Tabs>
   );
 }

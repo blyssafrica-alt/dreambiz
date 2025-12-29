@@ -794,6 +794,11 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       if (fetchError) throw fetchError;
 
       if (updatedDoc) {
+        const oldDocument = documents.find(d => d.id === id);
+        const wasPaid = oldDocument?.status === 'paid';
+        const isNowPaid = (updatedDoc.status as any) === 'paid';
+        const statusChangedToPaid = !wasPaid && isNowPaid;
+
         const updatedDocument: Document = {
           id: updatedDoc.id,
           type: updatedDoc.type as any,
@@ -818,6 +823,23 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           d.id === id ? updatedDocument : d
         );
         setDocuments(updated);
+
+        // If status changed to paid and it's an invoice/receipt, create transaction
+        if (statusChangedToPaid && (updatedDocument.type === 'invoice' || updatedDocument.type === 'receipt')) {
+          try {
+            await addTransaction({
+              type: 'sale',
+              amount: updatedDocument.total,
+              currency: updatedDocument.currency,
+              description: `${updatedDocument.type.toUpperCase()} ${updatedDocument.documentNumber} - ${updatedDocument.customerName}`,
+              category: 'sales',
+              date: updatedDocument.date,
+            });
+          } catch (error) {
+            console.error('Failed to create transaction for paid document:', error);
+            // Don't fail the document update if transaction creation fails
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to update document:', error);

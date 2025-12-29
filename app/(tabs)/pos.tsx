@@ -56,7 +56,7 @@ interface CartItem {
 type PaymentMethod = 'cash' | 'card' | 'mobile_money' | 'bank_transfer';
 
 export default function POSScreen() {
-  const { business, products = [], customers = [], addDocument, updateProduct } = useBusiness();
+  const { business, products = [], customers = [], addDocument, updateProduct, addTransaction } = useBusiness();
   const { theme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -290,6 +290,21 @@ export default function POSScreen() {
           ? `Discount: ${discountType === 'percent' ? `${discount}%` : formatCurrency(discountAmount)}`
           : undefined,
       });
+
+      // Create transaction for the sale
+      try {
+        await addTransaction({
+          type: 'sale',
+          amount: cartTotal,
+          currency: business?.currency || 'USD',
+          description: `POS Sale - ${customerName}`,
+          category: 'sales',
+          date: new Date().toISOString().split('T')[0],
+        });
+      } catch (error) {
+        console.error('Failed to create transaction for POS sale:', error);
+        // Don't fail the checkout if transaction creation fails
+      }
 
       setIsProcessing(false);
 

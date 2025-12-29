@@ -10,6 +10,7 @@ import {
   Animated,
   TextInput,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import PageHeader from '@/components/PageHeader';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -81,7 +82,7 @@ export default function StoreScreen() {
 
           <ScrollView
             style={styles.scrollView}
-            contentContainerStyle={styles.contentContainer}
+            contentContainerStyle={[styles.contentContainer, { paddingBottom: Platform.OS === 'ios' ? 120 : 100 }]}
             showsVerticalScrollIndicator={false}
           >
             {featuredProducts.length > 0 && (

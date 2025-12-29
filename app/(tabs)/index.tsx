@@ -27,15 +27,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAds } from '@/contexts/AdContext';
 import type { Alert } from '@/types/business';
 import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { LineChart, PieChart, BarChart } from '@/components/Charts';
 import GlobalSearch from '@/components/GlobalSearch';
+import { AdCard } from '@/components/AdCard';
 
 export default function DashboardScreen() {
   const { business, getDashboardMetrics, transactions, documents } = useBusiness();
   const { theme } = useTheme();
+  const { getAdsForLocation } = useAds();
   const metrics = getDashboardMetrics();
+  const dashboardAds = getAdsForLocation('dashboard');
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showSearch, setShowSearch] = useState(false);
@@ -471,6 +475,15 @@ export default function DashboardScreen() {
                 <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Important Notifications</Text>
               </View>
               {metrics.alerts.map(renderAlert)}
+            </View>
+          )}
+
+          {/* Advertisements Section */}
+          {dashboardAds.length > 0 && (
+            <View style={styles.adsSection}>
+              {dashboardAds.slice(0, 2).map((ad) => (
+                <AdCard key={ad.id} ad={ad} location="dashboard" />
+              ))}
             </View>
           )}
 

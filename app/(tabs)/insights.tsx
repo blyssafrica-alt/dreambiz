@@ -19,10 +19,13 @@ import {
   ScrollView,
   TouchableOpacity,
   Animated,
+  Platform,
 } from 'react-native';
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAds } from '@/contexts/AdContext';
+import { AdCard } from '@/components/AdCard';
 
 interface Insight {
   id: string;
@@ -36,6 +39,8 @@ interface Insight {
 export default function InsightsScreen() {
   const { business, transactions, products, customers, budgets } = useBusiness();
   const { theme } = useTheme();
+  const { getAdsForLocation } = useAds();
+  const insightsAds = getAdsForLocation('insights');
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
@@ -330,6 +335,15 @@ export default function InsightsScreen() {
             );
           })
         )}
+
+        {/* Advertisements Section */}
+        {insightsAds.length > 0 && (
+          <View style={styles.adsSection}>
+            {insightsAds.slice(0, 1).map((ad) => (
+              <AdCard key={ad.id} ad={ad} location="insights" />
+            ))}
+          </View>
+        )}
           </ScrollView>
         </Animated.View>
       </View>
@@ -432,6 +446,10 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     textAlign: 'center',
+  },
+  adsSection: {
+    marginTop: 24,
+    marginBottom: 16,
   },
 });
 
