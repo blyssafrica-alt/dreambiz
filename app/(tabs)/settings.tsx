@@ -17,6 +17,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { decode } from 'base64-arraybuffer';
 import type { Currency } from '@/types/business';
 import { exportAllData, shareData } from '@/lib/data-export';
 
@@ -82,9 +84,40 @@ export default function SettingsScreen() {
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        // Use base64 for storage (in production, you might want to upload to Supabase Storage)
-        const base64Image = `data:image/jpeg;base64,${asset.base64}`;
-        setLogo(base64Image);
+        if (asset.base64) {
+          try {
+            const base64 = asset.base64;
+            const fileExt = asset.uri.split('.').pop() || 'jpg';
+            const fileName = `business-logo-${business?.id || 'temp'}-${Date.now()}.${fileExt}`;
+            const filePath = `logos/${fileName}`;
+
+            const { data, error } = await supabase.storage
+              .from('business_logos')
+              .upload(filePath, decode(base64), {
+                contentType: asset.mimeType || 'image/jpeg',
+                upsert: true, // Allow overwriting existing logo
+              });
+
+            if (error) {
+              if (error.message.includes('Bucket not found')) {
+                RNAlert.alert('Storage Error', 'Business logos bucket not found. Please create a "business_logos" bucket in Supabase Storage.');
+                return;
+              }
+              throw error;
+            }
+
+            const { data: publicUrlData } = supabase.storage
+              .from('business_logos')
+              .getPublicUrl(filePath);
+
+            if (publicUrlData?.publicUrl) {
+              setLogo(publicUrlData.publicUrl);
+            }
+          } catch (error: any) {
+            console.error('Error uploading logo:', error);
+            RNAlert.alert('Upload Error', error.message || 'Failed to upload logo');
+          }
+        }
       }
     } catch (error) {
       console.error('Error picking image:', error);
