@@ -1189,23 +1189,29 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       .slice(0, 5);
 
     // Use database alert rules instead of hardcoded logic
-    const { fetchActiveAlertRules, evaluateAlertRules } = await import('@/lib/alert-evaluator');
-    const alertRules = await fetchActiveAlertRules();
+    let evaluatedAlerts: any[] = [];
+    try {
+      const { fetchActiveAlertRules, evaluateAlertRules } = await import('@/lib/alert-evaluator');
+      const alertRules = await fetchActiveAlertRules();
     
     const profitMargin = monthSales > 0 ? ((monthSales - monthExpenses) / monthSales) * 100 : 0;
     const cashPosition = (business?.capital || 0) + monthSales - monthExpenses;
 
-    const evaluatedAlerts = evaluateAlertRules(alertRules, {
-      monthSales,
-      monthExpenses,
-      monthProfit: monthSales - monthExpenses,
-      profitMargin,
-      cashPosition,
-      transactions,
-      products,
-      documents,
-      business,
-    });
+      evaluatedAlerts = evaluateAlertRules(alertRules, {
+        monthSales,
+        monthExpenses,
+        monthProfit: monthSales - monthExpenses,
+        profitMargin,
+        cashPosition,
+        transactions,
+        products,
+        documents,
+        business,
+      });
+    } catch (error) {
+      console.error('Failed to evaluate alerts:', error);
+      // Continue with empty alerts array
+    }
 
     // Convert evaluated alerts to Alert format
     const alerts: Alert[] = evaluatedAlerts.map(ea => ({
