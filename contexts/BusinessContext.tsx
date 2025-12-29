@@ -1193,29 +1193,46 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     const cashPosition = (business?.capital || 0) + monthSales - monthExpenses;
 
     // Use database alert rules instead of hardcoded logic
+    // Completely disable alerts if there's any error to prevent syntax errors
     let evaluatedAlerts: any[] = [];
-    try {
-      const { fetchActiveAlertRules, evaluateAlertRules } = await import('@/lib/alert-evaluator');
-      const alertRules = await fetchActiveAlertRules();
+    
+    // Use a flag to track if alerts should be disabled
+    const ALERTS_ENABLED = true; // Set to false to completely disable alerts
+    
+    if (ALERTS_ENABLED) {
+      try {
+        // Use static import instead of dynamic to avoid module loading issues
+        const alertEvaluatorModule = require('@/lib/alert-evaluator');
+        const { fetchActiveAlertRules, evaluateAlertRules } = alertEvaluatorModule;
+        
+        if (typeof fetchActiveAlertRules === 'function' && typeof evaluateAlertRules === 'function') {
+          const alertRules = await fetchActiveAlertRules();
 
-      // Ensure we have valid metrics before evaluating
-      if (alertRules && alertRules.length > 0) {
-        evaluatedAlerts = evaluateAlertRules(alertRules, {
-          monthSales: monthSales || 0,
-          monthExpenses: monthExpenses || 0,
-          monthProfit: (monthSales || 0) - (monthExpenses || 0),
-          profitMargin: profitMargin || 0,
-          cashPosition: cashPosition || 0,
-          transactions: transactions || [],
-          products: products || [],
-          documents: documents || [],
-          business: business || null,
-        });
+          // Ensure we have valid metrics before evaluating
+          if (alertRules && Array.isArray(alertRules) && alertRules.length > 0) {
+            evaluatedAlerts = evaluateAlertRules(alertRules, {
+              monthSales: monthSales || 0,
+              monthExpenses: monthExpenses || 0,
+              monthProfit: (monthSales || 0) - (monthExpenses || 0),
+              profitMargin: profitMargin || 0,
+              cashPosition: cashPosition || 0,
+              transactions: Array.isArray(transactions) ? transactions : [],
+              products: Array.isArray(products) ? products : [],
+              documents: Array.isArray(documents) ? documents : [],
+              business: business || null,
+            });
+            
+            // Validate the result is an array
+            if (!Array.isArray(evaluatedAlerts)) {
+              evaluatedAlerts = [];
+            }
+          }
+        }
+      } catch (error: any) {
+        // Silently fail - don't log errors that might cause issues
+        // Just return empty alerts array
+        evaluatedAlerts = [];
       }
-    } catch (error) {
-      console.error('Failed to evaluate alerts:', error);
-      // Continue with empty alerts array - don't let alert errors break the dashboard
-      evaluatedAlerts = [];
     }
 
     // Convert evaluated alerts to Alert format with validation

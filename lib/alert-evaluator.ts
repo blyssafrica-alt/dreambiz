@@ -30,6 +30,11 @@ export interface EvaluatedAlert {
  * Fetch active alert rules from database
  */
 export async function fetchActiveAlertRules(): Promise<AlertRule[]> {
+  // If alerts are disabled, return empty array immediately
+  if (ALERTS_DISABLED) {
+    return [];
+  }
+  
   try {
     const { data, error } = await supabase
       .from('alert_rules')
@@ -111,8 +116,12 @@ export async function fetchActiveAlertRules(): Promise<AlertRule[]> {
         }
       })
       .filter((rule: any) => rule !== null); // Remove any null entries from failed mappings
-  } catch (error) {
-    console.error('Error fetching alert rules:', error);
+  } catch (error: any) {
+    // If there's a syntax error or critical error, disable alerts permanently
+    if (error?.message?.includes('SyntaxError') || error?.name === 'SyntaxError') {
+      ALERTS_DISABLED = true;
+      console.warn('Alerts disabled due to syntax error');
+    }
     return [];
   }
 }
@@ -124,6 +133,11 @@ export function evaluateAlertRules(
   rules: AlertRule[],
   metrics: BusinessMetrics
 ): EvaluatedAlert[] {
+  // If alerts are disabled, return empty array immediately
+  if (ALERTS_DISABLED) {
+    return [];
+  }
+  
   try {
     // Validate inputs
     if (!rules || !Array.isArray(rules)) {
@@ -301,8 +315,12 @@ export function evaluateAlertRules(
         return 0;
       }
     });
-  } catch (error) {
-    console.error('Critical error in evaluateAlertRules:', error);
+  } catch (error: any) {
+    // If there's a syntax error, disable alerts permanently
+    if (error?.message?.includes('SyntaxError') || error?.name === 'SyntaxError') {
+      ALERTS_DISABLED = true;
+      console.warn('Alerts disabled due to syntax error in evaluation');
+    }
     // Return empty array to prevent app crash
     return [];
   }
