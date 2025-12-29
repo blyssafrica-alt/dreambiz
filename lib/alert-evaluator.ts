@@ -44,43 +44,71 @@ export async function fetchActiveAlertRules(): Promise<AlertRule[]> {
 
     if (!data) return [];
 
-    return data.map((row: any) => {
-      // Safely parse book_reference JSONB field
-      let bookReference = null;
-      if (row.book_reference) {
+    return data
+      .filter((row: any) => row && row.id) // Filter out invalid rows
+      .map((row: any) => {
         try {
-          // If it's already an object, use it directly
-          if (typeof row.book_reference === 'object') {
-            bookReference = row.book_reference;
-          } 
-          // If it's a string, parse it
-          else if (typeof row.book_reference === 'string') {
-            bookReference = JSON.parse(row.book_reference);
+          // Safely parse book_reference JSONB field
+          let bookReference = null;
+          if (row.book_reference) {
+            try {
+              // If it's already an object, use it directly (Supabase returns JSONB as object)
+              if (typeof row.book_reference === 'object' && row.book_reference !== null) {
+                bookReference = row.book_reference;
+              } 
+              // If it's a string, parse it
+              else if (typeof row.book_reference === 'string' && row.book_reference.trim()) {
+                bookReference = JSON.parse(row.book_reference);
+              }
+            } catch (e) {
+              console.warn('Failed to parse book_reference for alert rule:', row.id, e);
+              bookReference = null;
+            }
           }
-        } catch (e) {
-          console.warn('Failed to parse book_reference for alert rule:', row.id, e);
-          bookReference = null;
-        }
-      }
 
-      return {
-        id: row.id,
-        name: row.name,
-        type: row.type,
-        conditionType: row.condition_type,
-        thresholdValue: row.threshold_value ? parseFloat(row.threshold_value) : undefined,
-        thresholdPercentage: row.threshold_percentage ? parseFloat(row.threshold_percentage) : undefined,
-        thresholdDays: row.threshold_days,
-        messageTemplate: row.message_template || '',
-        actionTemplate: row.action_template || undefined,
-        bookReference: bookReference,
-        isActive: row.is_active,
-        priority: row.priority,
-        createdBy: row.created_by,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      };
-    });
+          // Ensure messageTemplate is always a string
+          let messageTemplate = '';
+          if (row.message_template) {
+            if (typeof row.message_template === 'string') {
+              messageTemplate = row.message_template;
+            } else {
+              messageTemplate = String(row.message_template);
+            }
+          }
+
+          // Ensure actionTemplate is a string or undefined
+          let actionTemplate = undefined;
+          if (row.action_template) {
+            if (typeof row.action_template === 'string') {
+              actionTemplate = row.action_template;
+            } else {
+              actionTemplate = String(row.action_template);
+            }
+          }
+
+          return {
+            id: String(row.id),
+            name: String(row.name || ''),
+            type: row.type || 'info',
+            conditionType: String(row.condition_type || ''),
+            thresholdValue: row.threshold_value != null ? parseFloat(String(row.threshold_value)) : undefined,
+            thresholdPercentage: row.threshold_percentage != null ? parseFloat(String(row.threshold_percentage)) : undefined,
+            thresholdDays: row.threshold_days != null ? parseInt(String(row.threshold_days), 10) : undefined,
+            messageTemplate: messageTemplate,
+            actionTemplate: actionTemplate,
+            bookReference: bookReference,
+            isActive: Boolean(row.is_active),
+            priority: parseInt(String(row.priority || 0), 10),
+            createdBy: row.created_by || undefined,
+            createdAt: row.created_at || new Date().toISOString(),
+            updatedAt: row.updated_at || new Date().toISOString(),
+          };
+        } catch (error) {
+          console.error('Error mapping alert rule:', row?.id, error);
+          return null;
+        }
+      })
+      .filter((rule: any) => rule !== null); // Remove any null entries from failed mappings
   } catch (error) {
     console.error('Error fetching alert rules:', error);
     return [];
@@ -94,10 +122,26 @@ export function evaluateAlertRules(
   rules: AlertRule[],
   metrics: BusinessMetrics
 ): EvaluatedAlert[] {
+  // Validate inputs
+  if (!rules || !Array.isArray(rules)) {
+    console.warn('Invalid rules array provided to evaluateAlertRules');
+    return [];
+  }
+  
+  if (!metrics || typeof metrics !== 'object') {
+    console.warn('Invalid metrics provided to evaluateAlertRules');
+    return [];
+  }
+
   const alerts: EvaluatedAlert[] = [];
   const now = new Date();
 
   for (const rule of rules) {
+    // Skip invalid rules
+    if (!rule || !rule.id || !rule.conditionType) {
+      console.warn('Skipping invalid alert rule:', rule);
+      continue;
+    }
     let shouldTrigger = false;
     let value: number | undefined;
     let percentage: number | undefined;

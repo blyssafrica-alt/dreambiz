@@ -1198,30 +1198,40 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       const { fetchActiveAlertRules, evaluateAlertRules } = await import('@/lib/alert-evaluator');
       const alertRules = await fetchActiveAlertRules();
 
-      evaluatedAlerts = evaluateAlertRules(alertRules, {
-        monthSales,
-        monthExpenses,
-        monthProfit: monthSales - monthExpenses,
-        profitMargin,
-        cashPosition,
-        transactions,
-        products,
-        documents,
-        business,
-      });
+      // Ensure we have valid metrics before evaluating
+      if (alertRules && alertRules.length > 0) {
+        evaluatedAlerts = evaluateAlertRules(alertRules, {
+          monthSales: monthSales || 0,
+          monthExpenses: monthExpenses || 0,
+          monthProfit: (monthSales || 0) - (monthExpenses || 0),
+          profitMargin: profitMargin || 0,
+          cashPosition: cashPosition || 0,
+          transactions: transactions || [],
+          products: products || [],
+          documents: documents || [],
+          business: business || null,
+        });
+      }
     } catch (error) {
       console.error('Failed to evaluate alerts:', error);
-      // Continue with empty alerts array
+      // Continue with empty alerts array - don't let alert errors break the dashboard
+      evaluatedAlerts = [];
     }
 
-    // Convert evaluated alerts to Alert format
-    const alerts: Alert[] = evaluatedAlerts.map(ea => ({
-      id: ea.id,
-      type: ea.type,
-      message: ea.message,
-      action: ea.action,
-      bookReference: ea.bookReference,
-    }));
+    // Convert evaluated alerts to Alert format with validation
+    const alerts: Alert[] = (evaluatedAlerts || [])
+      .filter((ea: any) => ea && ea.id && ea.message)
+      .map((ea: any) => ({
+        id: String(ea.id),
+        type: ea.type || 'info',
+        message: String(ea.message || ''),
+        action: ea.action ? String(ea.action) : undefined,
+        bookReference: ea.bookReference && typeof ea.bookReference === 'object' ? {
+          book: String(ea.bookReference.book || ''),
+          chapter: typeof ea.bookReference.chapter === 'number' ? ea.bookReference.chapter : 0,
+          chapterTitle: String(ea.bookReference.chapterTitle || ''),
+        } : undefined,
+      }));
 
     return {
       todaySales,
