@@ -877,7 +877,7 @@ export async function exportBusinessPlanToPDF(
       }
     } catch (importError: any) {
       console.error('Failed to import expo-print:', importError);
-      throw new Error('expo-print is not installed or not available. Please install it using: npm install expo-print');
+      throw new Error('expo-print module not available. This is a native module that requires rebuilding the app. Please:\n1. Stop the development server\n2. Clear cache: npx expo start -c\n3. Rebuild the app (if using development build)\n4. Or use: npx expo prebuild (if using bare workflow)');
     }
 
     const Sharing = await import('expo-sharing');

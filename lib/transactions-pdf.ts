@@ -428,9 +428,16 @@ export async function exportTransactionsToPDF(
   } catch (error: any) {
     console.error('PDF export error:', error);
     const { Alert } = await import('react-native');
+    let errorMessage = error.message || 'Unknown error';
+    
+    // Provide helpful message for expo-print issues
+    if (errorMessage.includes('expo-print') || errorMessage.includes('not available')) {
+      errorMessage = 'expo-print module not available. This is a native module that requires rebuilding the app.\n\nPlease:\n1. Stop the development server\n2. Clear cache: npx expo start -c\n3. Rebuild the app (if using development build)';
+    }
+    
     Alert.alert(
       'PDF Export Failed',
-      `Unable to export transactions as PDF. Error: ${error.message || 'Unknown error'}`,
+      `Unable to export transactions as PDF.\n\n${errorMessage}`,
       [{ text: 'OK' }]
     );
     throw error;
