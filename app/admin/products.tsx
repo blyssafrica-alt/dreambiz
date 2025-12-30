@@ -19,6 +19,7 @@ export default function ProductsManagementScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<PlatformProduct | null>(null);
+  const [categories, setCategories] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -28,17 +29,38 @@ export default function ProductsManagementScreen() {
     basePrice: '',
     currency: 'USD',
     salePrice: '',
+    saleStartDate: '',
+    saleEndDate: '',
     manageStock: false,
     stockQuantity: '',
     lowStockThreshold: '',
     status: 'draft' as ProductStatus,
     featured: false,
+    categoryId: '',
+    tags: '',
     images: [] as string[],
   });
 
   useEffect(() => {
     loadProducts();
+    loadCategories();
   }, []);
+
+  const loadCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('product_categories')
+        .select('*')
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+      if (data) {
+        setCategories(data);
+      }
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    }
+  };
 
   const loadProducts = async () => {
     try {
@@ -98,6 +120,10 @@ export default function ProductsManagementScreen() {
         sku: product.sku || '',
         type: product.type,
         basePrice: product.basePrice.toString(),
+        saleStartDate: product.saleStartDate ? product.saleStartDate.split('T')[0] : '',
+        saleEndDate: product.saleEndDate ? product.saleEndDate.split('T')[0] : '',
+        categoryId: product.categoryId || '',
+        tags: product.tags?.join(', ') || '',
         currency: product.currency,
         salePrice: product.salePrice?.toString() || '',
         manageStock: product.manageStock,
@@ -204,11 +230,15 @@ export default function ProductsManagementScreen() {
         base_price: parseFloat(formData.basePrice),
         currency: formData.currency,
         sale_price: formData.salePrice ? parseFloat(formData.salePrice) : null,
+        sale_start_date: formData.saleStartDate ? new Date(formData.saleStartDate).toISOString() : null,
+        sale_end_date: formData.saleEndDate ? new Date(formData.saleEndDate).toISOString() : null,
         manage_stock: formData.manageStock,
         stock_quantity: formData.manageStock ? parseInt(formData.stockQuantity) : 0,
         low_stock_threshold: formData.manageStock ? parseInt(formData.lowStockThreshold) : 0,
         stock_status: formData.manageStock && parseInt(formData.stockQuantity) > 0 ? 'in_stock' : 'out_of_stock',
         images: formData.images,
+        category_id: formData.categoryId || null,
+        tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(t => t) : [],
         status: formData.status,
         featured: formData.featured,
         created_by: user?.id,
@@ -301,6 +331,17 @@ export default function ProductsManagementScreen() {
         />
       </View>
 
+      {/* Add Product Button */}
+      <View style={styles.addButtonContainer}>
+        <TouchableOpacity
+          style={[styles.addProductButton, { backgroundColor: theme.accent.primary }]}
+          onPress={() => handleOpenModal()}
+        >
+          <Plus size={24} color="#FFF" />
+          <Text style={styles.addProductButtonText}>Add New Product</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {filteredProducts.length === 0 ? (
           <View style={styles.emptyState}>
@@ -384,10 +425,19 @@ export default function ProductsManagementScreen() {
                 onChangeText={(text) => setFormData({ ...formData, name: text })}
               />
 
-              <Text style={[styles.label, { color: theme.text.secondary }]}>Description</Text>
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Short Description</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="Brief product description (shown in listings)"
+                placeholderTextColor={theme.text.tertiary}
+                value={formData.shortDescription}
+                onChangeText={(text) => setFormData({ ...formData, shortDescription: text })}
+              />
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Full Description</Text>
               <TextInput
                 style={[styles.input, styles.textArea, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                placeholder="Product description"
+                placeholder="Detailed product description"
                 placeholderTextColor={theme.text.tertiary}
                 value={formData.description}
                 onChangeText={(text) => setFormData({ ...formData, description: text })}
@@ -458,6 +508,28 @@ export default function ProductsManagementScreen() {
                 keyboardType="decimal-pad"
               />
 
+              {formData.salePrice && (
+                <>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Sale Start Date</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={formData.saleStartDate}
+                    onChangeText={(text) => setFormData({ ...formData, saleStartDate: text })}
+                  />
+
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Sale End Date</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={formData.saleEndDate}
+                    onChangeText={(text) => setFormData({ ...formData, saleEndDate: text })}
+                  />
+                </>
+              )}
+
               <View style={styles.switchRow}>
                 <Text style={[styles.label, { color: theme.text.secondary }]}>Manage Stock</Text>
                 <Switch
@@ -516,6 +588,67 @@ export default function ProductsManagementScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Category</Text>
+              {categories.length > 0 ? (
+                <View style={styles.typeButtons}>
+                  <TouchableOpacity
+                    style={[
+                      styles.typeButton,
+                      {
+                        backgroundColor: !formData.categoryId ? theme.accent.primary : theme.background.secondary,
+                      },
+                    ]}
+                    onPress={() => setFormData({ ...formData, categoryId: '' })}
+                  >
+                    <Text
+                      style={[
+                        styles.typeButtonText,
+                        { color: !formData.categoryId ? '#FFF' : theme.text.primary },
+                      ]}
+                    >
+                      None
+                    </Text>
+                  </TouchableOpacity>
+                  {categories.map((category) => (
+                    <TouchableOpacity
+                      key={category.id}
+                      style={[
+                        styles.typeButton,
+                        {
+                          backgroundColor: formData.categoryId === category.id ? theme.accent.primary : theme.background.secondary,
+                        },
+                      ]}
+                      onPress={() => setFormData({ ...formData, categoryId: category.id })}
+                    >
+                      <Text
+                        style={[
+                          styles.typeButtonText,
+                          { color: formData.categoryId === category.id ? '#FFF' : theme.text.primary },
+                        ]}
+                      >
+                        {category.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : (
+                <Text style={[styles.helperText, { color: theme.text.tertiary }]}>
+                  No categories available. Create categories first.
+                </Text>
+              )}
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Tags</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="tag1, tag2, tag3 (comma separated)"
+                placeholderTextColor={theme.text.tertiary}
+                value={formData.tags}
+                onChangeText={(text) => setFormData({ ...formData, tags: text })}
+              />
+              <Text style={[styles.helperText, { color: theme.text.tertiary }]}>
+                Separate tags with commas
+              </Text>
 
               <View style={styles.switchRow}>
                 <Text style={[styles.label, { color: theme.text.secondary }]}>Featured</Text>
@@ -593,6 +726,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 15,
   },
+  addButtonContainer: {
+    padding: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  addProductButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  addProductButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
   content: {
     flex: 1,
   },
@@ -612,6 +768,23 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 14,
     marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyAddButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+    marginTop: 24,
+  },
+  emptyAddButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   productCard: {
     padding: 16,
@@ -720,6 +893,11 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 100,
     textAlignVertical: 'top',
+  },
+  helperText: {
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 8,
   },
   priceRow: {
     flexDirection: 'row',

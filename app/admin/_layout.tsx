@@ -146,6 +146,13 @@ export default function AdminLayout() {
           headerShown: true,
         }} 
       />
+      <Stack.Screen 
+        name="product-categories" 
+        options={{ 
+          title: 'Product Categories',
+          headerShown: true,
+        }} 
+      />
     </Stack>
   );
 }

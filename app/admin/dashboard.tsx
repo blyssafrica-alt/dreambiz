@@ -169,6 +169,21 @@ export default function AdminDashboard() {
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/product-categories' as any)}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Product Categories</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Create and manage product categories
+              </Text>
+            </View>
+            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/products' as any)}
         >
           <View style={styles.actionContent}>
