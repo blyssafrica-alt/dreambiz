@@ -160,7 +160,7 @@ export default function DocumentsScreen() {
     }
 
     const subtotal = wizardData.items.reduce((sum, item) => sum + item.total, 0);
-    const template = getDocumentTemplate(wizardData.type, business.type);
+    const template = await getDocumentTemplate(wizardData.type, business.type);
 
     // Store template fields in notes as JSON
     let notes = wizardData.notes || '';

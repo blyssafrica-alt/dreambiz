@@ -98,6 +98,9 @@ export default function AdsManagementScreen() {
         status: ad.status,
         startDate: ad.startDate || '',
         endDate: ad.endDate || '',
+        imageUrl: ad.imageUrl || '',
+        videoUrl: ad.videoUrl || '',
+        thumbnailUrl: ad.thumbnailUrl || '',
       });
     } else {
       setEditingAd(null);

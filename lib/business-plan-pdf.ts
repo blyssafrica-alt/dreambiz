@@ -902,7 +902,7 @@ export async function exportBusinessPlanToPDF(
 
         // Method 1: Try browser print dialog
         try {
-          const printWindow = window.open('', '_blank', 'width=800,height=600');
+          const printWindow = (typeof globalThis !== 'undefined' && (globalThis as any).window ? (globalThis as any).window : null)?.open('', '_blank', 'width=800,height=600');
           if (printWindow && printWindow.document) {
             printWindow.document.write(html);
             printWindow.document.close();
@@ -917,7 +917,10 @@ export async function exportBusinessPlanToPDF(
         }
 
         // Method 2: Create downloadable HTML file
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+          const blob = typeof Blob !== 'undefined' ? new Blob([html], { type: 'text/html;charset=utf-8', lastModified: Date.now() }) : null;
+        if (!blob) {
+          throw new Error('Blob API not available');
+        }
         const url = URL.createObjectURL(blob);
         
         // Create download link
@@ -985,12 +988,12 @@ export async function exportBusinessPlanToPDF(
           
           // If base64 is returned, convert to blob
           if (result && result.base64) {
-            const { FileSystem } = await import('expo-file-system');
+            const FileSystem = await import('expo-file-system');
             const base64Data = result.base64;
-            const filename = `${FileSystem.documentDirectory}${business.name.replace(/[^a-z0-9]/gi, '_')}-Business-Plan.pdf`;
+            const filename = `${(FileSystem as any).documentDirectory}${business.name.replace(/[^a-z0-9]/gi, '_')}-Business-Plan.pdf`;
             
-            await FileSystem.writeAsStringAsync(filename, base64Data, {
-              encoding: FileSystem.EncodingType.Base64,
+            await (FileSystem as any).writeAsStringAsync(filename, base64Data, {
+              encoding: (FileSystem as any).EncodingType.Base64,
             });
             
             result = { uri: filename };

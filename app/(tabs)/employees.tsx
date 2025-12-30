@@ -126,7 +126,7 @@ export default function EmployeesScreen() {
                 name,
                 is_employee: true,
               },
-              email_redirect_to: undefined, // No redirect needed for employees
+              emailRedirectTo: undefined, // No redirect needed for employees
             },
           });
 

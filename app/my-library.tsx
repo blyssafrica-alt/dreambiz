@@ -151,9 +151,13 @@ export default function MyLibraryScreen() {
       
       const sanitizedTitle = book.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       const filename = `${sanitizedTitle}.pdf`;
-      const fileUri = `${FileSystem.documentDirectory}${filename}`;
+      const docDir = (FileSystem as any).documentDirectory;
+      if (!docDir) {
+        throw new Error('Document directory not available');
+      }
+      const fileUri = `${docDir}${filename}`;
 
-      const downloadResumable = FileSystem.createDownloadResumable(
+      const downloadResumable = (FileSystem as any).createDownloadResumable(
         fileUrl,
         fileUri,
         {}

@@ -94,7 +94,7 @@ export async function getDocumentTemplate(
     
     // Filter by business type if specified
     const matchingTemplate = dbTemplates.find(t => 
-      !t.businessType || t.businessType === businessType || t.businessType === ''
+      !t.businessType || t.businessType === businessType
     );
 
     if (matchingTemplate) {

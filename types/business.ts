@@ -9,7 +9,7 @@ export type DreamBigBook =
   | 'scale-up'
   | 'none';
 
-export type BusinessStage = 'idea' | 'running' | 'growing';
+export type BusinessStage = 'idea' | 'running' | 'growing' | 'startup' | 'growth' | 'mature';
 
 export type BusinessType = 
   | 'retail' | 'services' | 'manufacturing' | 'agriculture' 
@@ -52,12 +52,13 @@ export interface Transaction {
 }
 
 export type DocumentType = 'invoice' | 'receipt' | 'quotation' | 'purchase_order' | 'contract' | 'supplier_agreement';
-export type DocumentStatus = 'draft' | 'sent' | 'paid' | 'cancelled';
+export type DocumentStatus = 'draft' | 'sent' | 'paid' | 'cancelled' | 'pending';
 
 export interface Document {
   id: string;
   type: DocumentType;
   documentNumber: string;
+  number?: string; // Alias for documentNumber for backward compatibility
   customerName: string;
   customerPhone?: string;
   customerEmail?: string;

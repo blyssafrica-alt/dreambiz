@@ -144,11 +144,15 @@ export default function ProductsManagementScreen() {
         basePrice: '',
         currency: 'USD',
         salePrice: '',
+        saleStartDate: '',
+        saleEndDate: '',
         manageStock: false,
         stockQuantity: '',
         lowStockThreshold: '',
         status: 'draft',
         featured: false,
+        categoryId: '',
+        tags: '',
         images: [],
       });
     }

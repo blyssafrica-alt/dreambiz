@@ -1,6 +1,7 @@
 // Provider Settings Screen - Allows users to switch between backend providers
 import { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Animated } from 'react-native';
+import { Stack } from 'expo-router';
 import PageHeader from '@/components/PageHeader';
 import { useProvider } from '@/contexts/ProviderContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -13,6 +14,23 @@ export default function ProviderSettingsScreen() {
   const { currentProvider, availableProviders, switchProvider, isInitialized } = useProvider();
   const { isAuthenticated, signOut } = useAuth();
   const [isSwitching, setIsSwitching] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const handleSwitchProvider = async (providerType: ProviderType) => {
     if (providerType === currentProvider) {

@@ -466,7 +466,7 @@ export default function EmployeeRolesScreen() {
                   <Text style={[styles.categoryTitle, { color: theme.text.primary }]}>
                     {PERMISSION_CATEGORIES[category as keyof typeof PERMISSION_CATEGORIES] || category}
                   </Text>
-                  {categoryPermissions.map((perm) => (
+                  {Array.isArray(categoryPermissions) && categoryPermissions.map((perm) => (
                     <TouchableOpacity
                       key={perm.id}
                       style={[

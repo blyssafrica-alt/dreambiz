@@ -154,7 +154,7 @@ export class SupabaseProvider implements IBackendProvider {
         const result = rpcData as any;
         if (result.success) {
           // Wait a moment for the insert to complete
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
           existing = await this.getUserProfile(userId);
           if (existing) {
             console.log('✅ User profile synced via RPC function');
@@ -223,7 +223,7 @@ export class SupabaseProvider implements IBackendProvider {
         // Duplicate key means profile EXISTS in database - wait and retry to fetch it
         // Wait and retry multiple times (profile might be created by trigger/RPC)
         for (let i = 0; i < 3; i++) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
           existing = await this.getUserProfile(userId);
           if (existing) {
             console.log('✅ User profile found after duplicate key error');
@@ -278,7 +278,7 @@ export class SupabaseProvider implements IBackendProvider {
               console.log('✅ RPC function succeeded:', result.message || 'Profile synced');
               
               // Wait a moment for the insert to complete
-              await new Promise(resolve => setTimeout(resolve, 1500));
+              await new Promise<void>(resolve => setTimeout(() => resolve(), 1500));
               
               // Try to read the profile
               existing = await this.getUserProfile(userId);
@@ -327,7 +327,7 @@ export class SupabaseProvider implements IBackendProvider {
         // The trigger should have created it when the user signed up
         console.log('Waiting for trigger to create profile...');
         for (let i = 0; i < 3; i++) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
           existing = await this.getUserProfile(userId);
           if (existing) {
             console.log('✅ User profile created by trigger after RLS error');

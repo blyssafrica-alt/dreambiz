@@ -365,7 +365,7 @@ export async function exportTransactionsToPDF(
           throw new Error('Document not available');
         }
 
-        const printWindow = window.open('', '_blank', 'width=800,height=600');
+        const printWindow = (typeof globalThis !== 'undefined' && (globalThis as any).window ? (globalThis as any).window : null)?.open('', '_blank', 'width=800,height=600');
         if (printWindow && printWindow.document) {
           printWindow.document.write(html);
           printWindow.document.close();
@@ -400,11 +400,11 @@ export async function exportTransactionsToPDF(
           });
           
           if (result && result.base64) {
-            const { FileSystem } = await import('expo-file-system');
-            const filename = `${FileSystem.documentDirectory}transactions-${period}-${new Date().toISOString().split('T')[0]}.pdf`;
+            const FileSystem = await import('expo-file-system');
+            const filename = `${(FileSystem as any).documentDirectory}transactions-${period}-${new Date().toISOString().split('T')[0]}.pdf`;
             
-            await FileSystem.writeAsStringAsync(filename, result.base64, {
-              encoding: FileSystem.EncodingType.Base64,
+            await (FileSystem as any).writeAsStringAsync(filename, result.base64, {
+              encoding: (FileSystem as any).EncodingType.Base64,
             });
             
             result = { uri: filename };

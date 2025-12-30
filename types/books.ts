@@ -18,6 +18,7 @@ export interface Book {
   subtitle?: string;
   description?: string;
   coverImage?: string;
+  documentFileUrl?: string; // Stored file URL for PDF/document
   price: number;
   currency: string;
   salePrice?: number;

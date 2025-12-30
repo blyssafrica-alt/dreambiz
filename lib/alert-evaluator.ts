@@ -95,7 +95,7 @@ export async function fetchActiveAlertRules(): Promise<AlertRule[]> {
             id: String(row.id),
             name: String(row.name || ''),
             type: row.type || 'info',
-            conditionType: String(row.condition_type || ''),
+            conditionType: (row.condition_type as any) || 'profit_margin',
             thresholdValue: row.threshold_value != null ? parseFloat(String(row.threshold_value)) : undefined,
             thresholdPercentage: row.threshold_percentage != null ? parseFloat(String(row.threshold_percentage)) : undefined,
             thresholdDays: row.threshold_days != null ? parseInt(String(row.threshold_days), 10) : undefined,

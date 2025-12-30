@@ -19,7 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import type { Document, DocumentItem } from '@/types/business';
+import type { Document, DocumentItem, DocumentStatus } from '@/types/business';
 import { getDocumentTemplate, generateDocumentContent } from '@/lib/document-templates';
 import { exportToPDF } from '@/lib/pdf-export';
 import { generateQRCodeData, generatePaymentLink, generateQRCodePattern } from '@/lib/qr-code';
@@ -45,7 +45,7 @@ export default function DocumentDetailScreen() {
   const [editTax, setEditTax] = useState('');
   const [editItems, setEditItems] = useState<DocumentItem[]>([]);
   const [editNotes, setEditNotes] = useState('');
-  const [editStatus, setEditStatus] = useState<'draft' | 'sent' | 'paid' | 'cancelled'>('draft');
+  const [editStatus, setEditStatus] = useState<DocumentStatus>('draft');
   
   // Payment modal state
   const [paymentAmount, setPaymentAmount] = useState('');

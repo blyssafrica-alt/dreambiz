@@ -1498,9 +1498,9 @@ const styles = StyleSheet.create({
   recentActivitySection: {
     marginBottom: 24,
   },
-  viewAllText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
+  adsSection: {
+    marginTop: 24,
+    marginBottom: 24,
   },
   activityItem: {
     flexDirection: 'row',

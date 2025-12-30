@@ -496,7 +496,7 @@ export async function exportReportToPDF(
         }
 
         try {
-          const printWindow = window.open('', '_blank', 'width=800,height=600');
+          const printWindow = (typeof globalThis !== 'undefined' && (globalThis as any).window ? (globalThis as any).window : null)?.open('', '_blank', 'width=800,height=600');
           if (printWindow && printWindow.document) {
             printWindow.document.write(html);
             printWindow.document.close();
@@ -509,7 +509,10 @@ export async function exportReportToPDF(
           console.log('Print window failed, trying download:', printError);
         }
 
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const blob = typeof Blob !== 'undefined' ? new Blob([html], { type: 'text/html;charset=utf-8', lastModified: Date.now() }) : null;
+        if (!blob) {
+          throw new Error('Blob API not available');
+        }
         const url = URL.createObjectURL(blob);
         const link = doc.createElement('a');
         if (link) {
@@ -566,12 +569,12 @@ export async function exportReportToPDF(
           console.log('PDF generation with base64 result:', result);
           
           if (result && result.base64) {
-            const { FileSystem } = await import('expo-file-system');
+            const FileSystem = await import('expo-file-system');
             const base64Data = result.base64;
-            const filename = `${FileSystem.documentDirectory}report-${period}-${new Date().toISOString().split('T')[0]}.pdf`;
+            const filename = `${(FileSystem as any).documentDirectory}report-${period}-${new Date().toISOString().split('T')[0]}.pdf`;
             
-            await FileSystem.writeAsStringAsync(filename, base64Data, {
-              encoding: FileSystem.EncodingType.Base64,
+            await (FileSystem as any).writeAsStringAsync(filename, base64Data, {
+              encoding: (FileSystem as any).EncodingType.Base64,
             });
             
             result = { uri: filename };

@@ -139,9 +139,13 @@ export default function BookReaderScreen() {
       const filename = `${sanitizedTitle}.pdf`;
 
       // Download file
+      const docDir = (FileSystem as any).documentDirectory;
+      if (!docDir) {
+        throw new Error('Document directory not available');
+      }
       const downloadResumable = FileSystem.createDownloadResumable(
         bookUrl,
-        `${FileSystem.documentDirectory}${filename}`,
+        `${docDir}${filename}`,
         {}
       );
 

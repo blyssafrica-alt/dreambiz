@@ -357,7 +357,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
             console.log('✅ User profile synced via RPC:', (rpcData as any).message);
             profileExists = true;
             // Wait a moment for the insert to complete
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
           } else if (rpcError) {
             const rpcErrorCode = (rpcError as any)?.code || '';
             const rpcErrorMessage = rpcError?.message || String(rpcError);
@@ -411,7 +411,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
               // RLS blocks creation - wait for trigger/RPC, then verify
               console.log('⚠️ RLS prevents creation - waiting for trigger/RPC...');
               for (let i = 0; i < 3; i++) {
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
                 const checkProfile = await provider.getUserProfile(authUser.id);
                 if (checkProfile) {
                   console.log('✅ Profile created by trigger/RPC');
@@ -1257,7 +1257,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         message: String(ea.message || ''),
         action: ea.action ? String(ea.action) : undefined,
         bookReference: ea.bookReference && typeof ea.bookReference === 'object' ? {
-          book: String(ea.bookReference.book || ''),
+          book: (ea.bookReference.book as any) || 'none',
           chapter: typeof ea.bookReference.chapter === 'number' ? ea.bookReference.chapter : 0,
           chapterTitle: String(ea.bookReference.chapterTitle || ''),
         } : undefined,

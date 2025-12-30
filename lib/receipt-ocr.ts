@@ -21,7 +21,7 @@ export interface ReceiptData {
 async function imageUriToBase64(uri: string): Promise<string> {
   try {
     const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: FileSystem.EncodingType.Base64,
+      encoding: (FileSystem as any).EncodingType.Base64,
     });
     return base64;
   } catch (error) {
@@ -163,7 +163,7 @@ export async function extractTextFromImage(imageUri: string): Promise<string> {
  */
 async function mockOCR(imageUri: string): Promise<string> {
   // Simulate processing delay
-  await new Promise(resolve => setTimeout(resolve, 1500));
+  await new Promise<void>(resolve => setTimeout(() => resolve(), 1500));
   
   // Return sample receipt text for demonstration
   // In production, this would be replaced with actual OCR results
