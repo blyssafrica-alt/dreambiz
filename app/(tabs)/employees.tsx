@@ -26,6 +26,10 @@ import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Employee } from '@/types/business';
+import { router } from 'expo-router';
+import { Shield, Eye, EyeOff } from 'lucide-react-native';
+import { supabase } from '@/lib/supabase';
+import { Switch } from 'react-native';
 
 export default function EmployeesScreen() {
   const { business, employees, addEmployee, updateEmployee, deleteEmployee } = useBusiness();
@@ -36,6 +40,8 @@ export default function EmployeesScreen() {
 
   // Ensure employees is always an array
   const safeEmployees = Array.isArray(employees) ? employees : [];
+
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     Animated.parallel([
@@ -51,7 +57,24 @@ export default function EmployeesScreen() {
         useNativeDriver: false,
       }),
     ]).start();
-  }, [fadeAnim, slideAnim]);
+    loadRoles();
+  }, [fadeAnim, slideAnim, business]);
+
+  const loadRoles = async () => {
+    if (!business?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from('employee_roles')
+        .select('id, name')
+        .eq('business_id', business.id)
+        .order('name');
+      if (!error && data) {
+        setAvailableRoles(data);
+      }
+    } catch (error) {
+      console.error('Failed to load roles:', error);
+    }
+  };
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -62,6 +85,10 @@ export default function EmployeesScreen() {
   const [salary, setSalary] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [notes, setNotes] = useState('');
+  const [password, setPassword] = useState('');
+  const [canLogin, setCanLogin] = useState(false);
+  const [roleId, setRoleId] = useState<string | null>(null);
+  const [availableRoles, setAvailableRoles] = useState<any[]>([]);
 
   const formatCurrency = (amount: number) => {
     const symbol = business?.currency === 'USD' ? '$' : 'ZWL';
@@ -74,7 +101,98 @@ export default function EmployeesScreen() {
       return;
     }
 
+    if (canLogin && !email) {
+      RNAlert.alert('Missing Fields', 'Email is required when login is enabled');
+      return;
+    }
+
+    if (canLogin && !password && !editingId) {
+      RNAlert.alert('Missing Fields', 'Password is required when login is enabled');
+      return;
+    }
+
     try {
+      let authUserId: string | null = null;
+
+      // Create auth account if login is enabled
+      if (canLogin && email) {
+        if (!editingId && password) {
+          // Create new auth user using signUp (will require email confirmation unless auto-confirm is enabled)
+          const { data: authData, error: authError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                name,
+                is_employee: true,
+              },
+              email_redirect_to: undefined, // No redirect needed for employees
+            },
+          });
+
+          if (authError) {
+            // If user already exists, check if we can link it
+            if (authError.message.includes('already registered') || authError.message.includes('User already registered')) {
+              // Try to sign in to verify and get user ID
+              const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+              });
+              
+              if (signInError) {
+                throw new Error('Email already exists. Please use a different email or contact support to link the account.');
+              }
+              
+              if (signInData?.user) {
+                authUserId = signInData.user.id;
+                // Sign out immediately after getting the user ID
+                await supabase.auth.signOut();
+              }
+            } else {
+              throw authError;
+            }
+          } else if (authData?.user) {
+            authUserId = authData.user.id;
+            // Note: Email confirmation may be required unless auto-confirm is enabled in Supabase
+            RNAlert.alert(
+              'Account Created',
+              'Employee account created. If email confirmation is enabled, the employee will receive a confirmation email.'
+            );
+          }
+        } else if (editingId) {
+          // For editing, check if employee already has auth_user_id
+          const existingEmployee = employees.find(e => e.id === editingId);
+          if (!existingEmployee || !(existingEmployee as any).authUserId) {
+            // Need to create auth account for existing employee
+            if (password) {
+              const { data: authData, error: authError } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                  data: {
+                    name,
+                    is_employee: true,
+                  },
+                },
+              });
+
+              if (authError) {
+                if (authError.message.includes('already registered')) {
+                  throw new Error('Email already exists. Please use a different email.');
+                }
+                throw authError;
+              } else if (authData?.user) {
+                authUserId = authData.user.id;
+              }
+            }
+          } else {
+            authUserId = (existingEmployee as any).authUserId;
+            // If password is provided and employee has account, we could update password here
+            // But that requires admin API, so we'll skip it for now
+          }
+        }
+      }
+
       if (editingId) {
         await updateEmployee(editingId, {
           name,
@@ -87,7 +205,10 @@ export default function EmployeesScreen() {
           currency: business?.currency || 'USD',
           isActive,
           notes: notes || undefined,
-        });
+          authUserId: authUserId || undefined,
+          roleId: roleId || undefined,
+          canLogin,
+        } as any);
       } else {
         await addEmployee({
           name,
@@ -100,12 +221,16 @@ export default function EmployeesScreen() {
           currency: business?.currency || 'USD',
           isActive,
           notes: notes || undefined,
-        });
+          authUserId: authUserId || undefined,
+          roleId: roleId || undefined,
+          canLogin,
+        } as any);
       }
 
       handleCloseModal();
       RNAlert.alert('Success', editingId ? 'Employee updated' : 'Employee added');
     } catch (error: any) {
+      console.error('Error saving employee:', error);
       RNAlert.alert('Error', error.message || 'Failed to save employee');
     }
   };
@@ -157,6 +282,10 @@ export default function EmployeesScreen() {
     setSalary('');
     setIsActive(true);
     setNotes('');
+    setPassword('');
+    setCanLogin(false);
+    setRoleId(null);
+    setShowPassword(false);
   };
 
   const activeEmployees = safeEmployees.filter(e => e.isActive);
@@ -172,12 +301,20 @@ export default function EmployeesScreen() {
           icon={Users}
           iconGradient={['#6366F1', '#4F46E5']}
           rightAction={
-            <TouchableOpacity
-              style={styles.headerAddButton}
-              onPress={() => setShowModal(true)}
-            >
-              <Plus size={20} color="#FFF" strokeWidth={2.5} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                style={styles.headerAddButton}
+                onPress={() => router.push('/admin/employee-roles' as any)}
+              >
+                <Shield size={20} color="#FFF" strokeWidth={2.5} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.headerAddButton}
+                onPress={() => setShowModal(true)}
+              >
+                <Plus size={20} color="#FFF" strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
           }
         />
 
@@ -291,7 +428,9 @@ export default function EmployeesScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: theme.text.primary }]}>Email</Text>
+                <Text style={[styles.label, { color: theme.text.primary }]}>
+                  Email {canLogin && '*'}
+                </Text>
                 <TextInput
                   style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
                   value={email}
@@ -300,8 +439,96 @@ export default function EmployeesScreen() {
                   placeholderTextColor={theme.text.tertiary}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  editable={!editingId || !canLogin}
                 />
               </View>
+
+              {/* Can Login Toggle */}
+              <View style={styles.inputGroup}>
+                <TouchableOpacity
+                  style={[styles.switchRow, { backgroundColor: theme.background.secondary }]}
+                  onPress={() => setCanLogin(!canLogin)}
+                >
+                  <View>
+                    <Text style={[styles.label, { color: theme.text.primary, marginBottom: 4 }]}>Allow Login</Text>
+                    <Text style={[styles.hint, { color: theme.text.tertiary }]}>
+                      Enable this to allow employee to log in to the app
+                    </Text>
+                  </View>
+                  <Switch
+                    value={canLogin}
+                    onValueChange={setCanLogin}
+                    trackColor={{ false: theme.text.tertiary, true: theme.accent.primary }}
+                    thumbColor="#fff"
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* Password Field (shown when canLogin is enabled) */}
+              {canLogin && (
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: theme.text.primary }]}>
+                    Password {!editingId && '*'}
+                  </Text>
+                  <View style={[styles.passwordInputContainer, { backgroundColor: theme.background.secondary }]}>
+                    <TextInput
+                      style={[styles.passwordInput, { color: theme.text.primary }]}
+                      value={password}
+                      onChangeText={setPassword}
+                      placeholder={editingId ? "Leave blank to keep current password" : "Enter password"}
+                      placeholderTextColor={theme.text.tertiary}
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                    />
+                    <TouchableOpacity
+                      onPress={() => setShowPassword(!showPassword)}
+                      style={styles.eyeIcon}
+                    >
+                      {showPassword ? (
+                        <EyeOff size={20} color={theme.text.tertiary} />
+                      ) : (
+                        <Eye size={20} color={theme.text.tertiary} />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {/* Role Selection */}
+              {availableRoles.length > 0 && (
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: theme.text.primary }]}>Employee Role</Text>
+                  <ScrollView style={styles.roleScroll} nestedScrollEnabled>
+                    {availableRoles.map((r) => (
+                      <TouchableOpacity
+                        key={r.id}
+                        style={[
+                          styles.roleOption,
+                          {
+                            backgroundColor: roleId === r.id ? theme.accent.primary + '20' : theme.background.secondary,
+                            borderColor: roleId === r.id ? theme.accent.primary : theme.border.light,
+                          },
+                        ]}
+                        onPress={() => setRoleId(roleId === r.id ? null : r.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.roleOptionText,
+                            { color: roleId === r.id ? theme.accent.primary : theme.text.primary },
+                          ]}
+                        >
+                          {r.name}
+                        </Text>
+                        {roleId === r.id && (
+                          <View style={[styles.roleCheck, { backgroundColor: theme.accent.primary }]}>
+                            <Text style={styles.roleCheckText}>✓</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
 
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: theme.text.primary }]}>Phone</Text>
@@ -669,6 +896,55 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  passwordInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 12,
+    fontSize: 16,
+  },
+  eyeIcon: {
+    padding: 8,
+  },
+  hint: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  roleScroll: {
+    maxHeight: 150,
+    marginTop: 8,
+  },
+  roleOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+  },
+  roleOptionText: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  roleCheck: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roleCheckText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });
 

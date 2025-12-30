@@ -47,6 +47,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import type { Product, DocumentItem, Customer, Document } from '@/types/business';
 import { exportToPDF } from '@/lib/pdf-export';
 import { getCurrentEmployee } from '@/lib/get-current-employee';
+import { useEmployeePermissions } from '@/hooks/useEmployeePermissions';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -60,6 +61,7 @@ type PaymentMethod = 'cash' | 'card' | 'mobile_money' | 'bank_transfer';
 export default function POSScreen() {
   const { business, products = [], customers = [], addDocument, updateProduct, addTransaction, addCustomer } = useBusiness();
   const { theme } = useTheme();
+  const { hasPermission, isOwner, loading: permissionsLoading } = useEmployeePermissions();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -742,10 +744,16 @@ export default function POSScreen() {
             </ScrollView>
 
             {/* Discount Toggle */}
-            {cart.length > 0 && (
+            {cart.length > 0 && (isOwner || hasPermission('pos:apply_discounts')) && (
               <TouchableOpacity
                 style={[styles.discountToggle, { backgroundColor: theme.background.secondary }]}
-                onPress={() => setShowDiscountInput(!showDiscountInput)}
+                onPress={() => {
+                  if (!isOwner && !hasPermission('pos:apply_discounts')) {
+                    RNAlert.alert('Permission Denied', 'You do not have permission to apply discounts');
+                    return;
+                  }
+                  setShowDiscountInput(!showDiscountInput);
+                }}
               >
                 <Tag size={18} color={theme.text.secondary} />
                 <Text style={[styles.discountToggleText, { color: theme.text.primary }]}>
@@ -763,7 +771,7 @@ export default function POSScreen() {
             )}
 
             {/* Discount Input */}
-            {showDiscountInput && cart.length > 0 && (
+            {showDiscountInput && cart.length > 0 && (isOwner || hasPermission('pos:apply_discounts')) && (
               <View style={[styles.discountInput, { backgroundColor: theme.background.secondary }]}>
                 <View style={styles.discountTypeSelector}>
                   <TouchableOpacity

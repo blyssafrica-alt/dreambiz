@@ -68,7 +68,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         supabase.from('budgets').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('cashflow_projections').select('*').eq('user_id', userId).order('month', { ascending: true }),
         supabase.from('tax_rates').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('employees').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+        supabase.from('employees').select('*, auth_user_id, role_id, can_login').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('project_tasks').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('recurring_invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
@@ -224,9 +224,12 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       }
 
       if (employeesRes.data) {
-        setEmployees(employeesRes.data.map(e => ({
+        setEmployees(employeesRes.data.map((e: any) => ({
           id: e.id,
           name: e.name,
+          authUserId: e.auth_user_id || undefined,
+          roleId: e.role_id || undefined,
+          canLogin: e.can_login || false,
           email: e.email || undefined,
           phone: e.phone || undefined,
           role: e.role || undefined,
@@ -1551,7 +1554,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
   };
 
   // Employees Management
-  const addEmployee = async (employee: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addEmployee = async (employee: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'> & { authUserId?: string; roleId?: string; canLogin?: boolean }) => {
     if (!userId || !business?.id) throw new Error('User or business not found');
 
     try {
@@ -1570,6 +1573,9 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           currency: employee.currency || null,
           is_active: employee.isActive,
           notes: employee.notes || null,
+          auth_user_id: employee.authUserId || null,
+          role_id: employee.roleId || null,
+          can_login: employee.canLogin || false,
         })
         .select()
         .single();
@@ -1599,7 +1605,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     }
   };
 
-  const updateEmployee = async (id: string, updates: Partial<Employee>) => {
+  const updateEmployee = async (id: string, updates: Partial<Employee> & { authUserId?: string; roleId?: string; canLogin?: boolean }) => {
     try {
       const updateData: any = {};
       if (updates.name !== undefined) updateData.name = updates.name;
@@ -1612,6 +1618,9 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       if (updates.currency !== undefined) updateData.currency = updates.currency || null;
       if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
       if (updates.notes !== undefined) updateData.notes = updates.notes || null;
+      if (updates.authUserId !== undefined) updateData.auth_user_id = updates.authUserId || null;
+      if (updates.roleId !== undefined) updateData.role_id = updates.roleId || null;
+      if (updates.canLogin !== undefined) updateData.can_login = updates.canLogin;
 
       const { error } = await supabase
         .from('employees')

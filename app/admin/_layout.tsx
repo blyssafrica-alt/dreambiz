@@ -15,9 +15,11 @@ export default function AdminLayout() {
 
     const currentPath = segments.join('/');
     const inAdmin = currentPath.includes('admin');
+    const isEmployeeRoles = currentPath.includes('employee-roles');
 
-    // Redirect non-super-admins away from admin
-    if (!isSuperAdmin && inAdmin) {
+    // Allow business owners to access employee-roles (for managing their employees)
+    // Redirect non-super-admins away from admin (except employee-roles)
+    if (!isSuperAdmin && inAdmin && !isEmployeeRoles) {
       router.replace('/(tabs)' as any);
       return;
     }
@@ -39,7 +41,12 @@ export default function AdminLayout() {
     );
   }
 
-  if (!isSuperAdmin) {
+  // Allow business owners to access employee-roles
+  const segments = useSegments();
+  const currentPath = segments.join('/');
+  const isEmployeeRoles = currentPath.includes('employee-roles');
+
+  if (!isSuperAdmin && !isEmployeeRoles) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
         <Text style={[styles.errorText, { color: theme.accent.danger }]}>
@@ -150,6 +157,13 @@ export default function AdminLayout() {
         name="product-categories" 
         options={{ 
           title: 'Product Categories',
+          headerShown: true,
+        }} 
+      />
+      <Stack.Screen 
+        name="employee-roles" 
+        options={{ 
+          title: 'Employee Roles',
           headerShown: true,
         }} 
       />

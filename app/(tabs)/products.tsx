@@ -28,9 +28,12 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import PageHeader from '@/components/PageHeader';
+import { supabase } from '@/lib/supabase';
+import { decode } from 'base64-arraybuffer';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Product } from '@/types/business';
+import { useEmployeePermissions } from '@/hooks/useEmployeePermissions';
 
 const PRODUCT_CATEGORIES = [
   'Electronics',
@@ -48,6 +51,7 @@ const PRODUCT_CATEGORIES = [
 export default function ProductsScreen() {
   const { business, products, addProduct, updateProduct, deleteProduct } = useBusiness();
   const { theme } = useTheme();
+  const { hasPermission, isOwner, loading: permissionsLoading } = useEmployeePermissions();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
@@ -162,6 +166,19 @@ export default function ProductsScreen() {
   }, [products, lowStockProducts]);
 
   const handleSave = async () => {
+    // Check permissions
+    if (editingId) {
+      if (!isOwner && !hasPermission('products:edit')) {
+        RNAlert.alert('Permission Denied', 'You do not have permission to edit products');
+        return;
+      }
+    } else {
+      if (!isOwner && !hasPermission('products:create')) {
+        RNAlert.alert('Permission Denied', 'You do not have permission to create products');
+        return;
+      }
+    }
+
     if (!name || !costPrice || !sellingPrice) {
       RNAlert.alert('Missing Fields', 'Please fill in name, cost price, and selling price');
       return;
@@ -235,6 +252,11 @@ export default function ProductsScreen() {
   };
 
   const handleDelete = (id: string) => {
+    if (!isOwner && !hasPermission('products:delete')) {
+      RNAlert.alert('Permission Denied', 'You do not have permission to delete products');
+      return;
+    }
+
     RNAlert.alert(
       'Delete Product',
       'Are you sure you want to delete this product?',
@@ -298,12 +320,20 @@ export default function ProductsScreen() {
                 Manage your product catalog
               </Text>
             </View>
-            <TouchableOpacity
-              style={styles.headerAddButton}
-              onPress={() => setShowModal(true)}
-            >
-              <Plus size={20} color="#FFF" strokeWidth={2.5} />
-            </TouchableOpacity>
+            {(isOwner || hasPermission('products:create')) && (
+              <TouchableOpacity
+                style={styles.headerAddButton}
+                onPress={() => {
+                  if (!isOwner && !hasPermission('products:create')) {
+                    RNAlert.alert('Permission Denied', 'You do not have permission to create products');
+                    return;
+                  }
+                  setShowModal(true);
+                }}
+              >
+                <Plus size={20} color="#FFF" strokeWidth={2.5} />
+              </TouchableOpacity>
+            )}
           </View>
         </LinearGradient>
 
@@ -411,10 +441,16 @@ export default function ProductsScreen() {
             <Text style={[styles.emptyText, { color: theme.text.tertiary }]}>
               {safeProducts.length === 0 ? 'No products yet' : 'No products match your search'}
             </Text>
-            {safeProducts.length === 0 && (
+            {safeProducts.length === 0 && (isOwner || hasPermission('products:create')) && (
               <TouchableOpacity
                 style={[styles.emptyButton, { backgroundColor: theme.accent.primary }]}
-                onPress={() => setShowModal(true)}
+                onPress={() => {
+                  if (!isOwner && !hasPermission('products:create')) {
+                    RNAlert.alert('Permission Denied', 'You do not have permission to create products');
+                    return;
+                  }
+                  setShowModal(true);
+                }}
               >
                 <Text style={styles.emptyButtonText}>Add Your First Product</Text>
               </TouchableOpacity>
@@ -451,20 +487,26 @@ export default function ProductsScreen() {
                       </Text>
                     )}
                   </View>
-                  <View style={styles.productActions}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => handleEdit(product)}
-                    >
-                      <Edit2 size={18} color={theme.accent.primary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => handleDelete(product.id)}
-                    >
-                      <Trash2 size={18} color={theme.accent.danger} />
-                    </TouchableOpacity>
-                  </View>
+                  {(isOwner || hasPermission('products:edit') || hasPermission('products:delete')) && (
+                    <View style={styles.productActions}>
+                      {(isOwner || hasPermission('products:edit')) && (
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={() => handleEdit(product)}
+                        >
+                          <Edit2 size={18} color={theme.accent.primary} />
+                        </TouchableOpacity>
+                      )}
+                      {(isOwner || hasPermission('products:delete')) && (
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={() => handleDelete(product.id)}
+                        >
+                          <Trash2 size={18} color={theme.accent.danger} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
                 </View>
 
                 {product.description && (
@@ -575,19 +617,57 @@ export default function ProductsScreen() {
                   <TouchableOpacity
                     style={[styles.imageUploadButton, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}
                     onPress={async () => {
-                      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-                      if (status !== 'granted') {
-                        RNAlert.alert('Permission Required', 'Please grant camera roll access to upload images');
-                        return;
-                      }
-                      const result = await ImagePicker.launchImageLibraryAsync({
-                        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                        allowsEditing: true,
-                        aspect: [1, 1],
-                        quality: 0.8,
-                      });
-                      if (!result.canceled && result.assets[0]) {
-                        setFeaturedImage(result.assets[0].uri);
+                      try {
+                        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                        if (status !== 'granted') {
+                          RNAlert.alert('Permission Required', 'Please grant camera roll access to upload images');
+                          return;
+                        }
+                        const result = await ImagePicker.launchImageLibraryAsync({
+                          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                          allowsEditing: true,
+                          aspect: [1, 1],
+                          quality: 0.8,
+                          base64: true,
+                        });
+                        if (!result.canceled && result.assets[0]) {
+                          const asset = result.assets[0];
+                          if (asset.base64) {
+                            // Upload to Supabase Storage
+                            const fileExt = asset.uri.split('.').pop() || 'jpg';
+                            const fileName = `product-${Date.now()}.${fileExt}`;
+                            const filePath = `product_images/${fileName}`;
+
+                            const { error: uploadError } = await supabase.storage
+                              .from('product_images')
+                              .upload(filePath, decode(asset.base64), {
+                                contentType: asset.mimeType || 'image/jpeg',
+                                upsert: false,
+                              });
+
+                            if (uploadError) {
+                              console.error('Upload error:', uploadError);
+                              RNAlert.alert('Upload Error', 'Failed to upload image. Using local image instead.');
+                              setFeaturedImage(asset.uri);
+                              return;
+                            }
+
+                            const { data: publicUrlData } = supabase.storage
+                              .from('product_images')
+                              .getPublicUrl(filePath);
+
+                            if (publicUrlData?.publicUrl) {
+                              setFeaturedImage(publicUrlData.publicUrl);
+                            } else {
+                              setFeaturedImage(asset.uri);
+                            }
+                          } else {
+                            setFeaturedImage(asset.uri);
+                          }
+                        }
+                      } catch (error: any) {
+                        console.error('Error picking image:', error);
+                        RNAlert.alert('Error', 'Failed to pick image');
                       }
                     }}
                   >
@@ -618,19 +698,57 @@ export default function ProductsScreen() {
                     <TouchableOpacity
                       style={[styles.addImageButton, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}
                       onPress={async () => {
-                        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-                        if (status !== 'granted') {
-                          RNAlert.alert('Permission Required', 'Please grant camera roll access to upload images');
-                          return;
-                        }
-                        const result = await ImagePicker.launchImageLibraryAsync({
-                          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                          allowsEditing: true,
-                          aspect: [1, 1],
-                          quality: 0.8,
-                        });
-                        if (!result.canceled && result.assets[0]) {
-                          setAdditionalImages([...additionalImages, result.assets[0].uri]);
+                        try {
+                          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                          if (status !== 'granted') {
+                            RNAlert.alert('Permission Required', 'Please grant camera roll access to upload images');
+                            return;
+                          }
+                          const result = await ImagePicker.launchImageLibraryAsync({
+                            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                            allowsEditing: true,
+                            aspect: [1, 1],
+                            quality: 0.8,
+                            base64: true,
+                          });
+                          if (!result.canceled && result.assets[0]) {
+                            const asset = result.assets[0];
+                            if (asset.base64) {
+                              // Upload to Supabase Storage
+                              const fileExt = asset.uri.split('.').pop() || 'jpg';
+                              const fileName = `product-${Date.now()}.${fileExt}`;
+                              const filePath = `product_images/${fileName}`;
+
+                              const { error: uploadError } = await supabase.storage
+                                .from('product_images')
+                                .upload(filePath, decode(asset.base64), {
+                                  contentType: asset.mimeType || 'image/jpeg',
+                                  upsert: false,
+                                });
+
+                              if (uploadError) {
+                                console.error('Upload error:', uploadError);
+                                RNAlert.alert('Upload Error', 'Failed to upload image. Using local image instead.');
+                                setAdditionalImages([...additionalImages, asset.uri]);
+                                return;
+                              }
+
+                              const { data: publicUrlData } = supabase.storage
+                                .from('product_images')
+                                .getPublicUrl(filePath);
+
+                              if (publicUrlData?.publicUrl) {
+                                setAdditionalImages([...additionalImages, publicUrlData.publicUrl]);
+                              } else {
+                                setAdditionalImages([...additionalImages, asset.uri]);
+                              }
+                            } else {
+                              setAdditionalImages([...additionalImages, asset.uri]);
+                            }
+                          }
+                        } catch (error: any) {
+                          console.error('Error picking image:', error);
+                          RNAlert.alert('Error', 'Failed to pick image');
                         }
                       }}
                     >
