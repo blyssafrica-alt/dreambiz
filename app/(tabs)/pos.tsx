@@ -58,7 +58,7 @@ interface CartItem {
 type PaymentMethod = 'cash' | 'card' | 'mobile_money' | 'bank_transfer';
 
 export default function POSScreen() {
-  const { business, products = [], customers = [], addDocument, updateProduct, addTransaction, addCustomer } = useBusiness();
+  const { business, products = [], customers = [], addDocument, updateProduct, addTransaction, addCustomer, taxRates = [] } = useBusiness();
   const { theme } = useTheme();
   const { hasPermission, isOwner, loading: permissionsLoading } = useEmployeePermissions();
   const [searchQuery, setSearchQuery] = useState('');
@@ -173,9 +173,13 @@ export default function POSScreen() {
   }, [discount, discountType, cartSubtotal]);
 
   const taxAmount = useMemo(() => {
-    // TODO: Get tax rate from business settings
+    // Get default tax rate from business settings
+    const defaultTaxRate = taxRates.find(tr => tr.isDefault && tr.isActive);
+    if (defaultTaxRate && defaultTaxRate.rate > 0) {
+      return (cartSubtotal - discountAmount) * (defaultTaxRate.rate / 100);
+    }
     return 0;
-  }, []);
+  }, [taxRates, cartSubtotal, discountAmount]);
 
   const cartTotal = useMemo(() => {
     return cartSubtotal - discountAmount + taxAmount;

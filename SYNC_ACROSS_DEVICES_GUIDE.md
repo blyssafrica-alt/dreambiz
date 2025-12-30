@@ -53,7 +53,7 @@ Create these buckets in Supabase Storage UI:
 - ✅ Ads: Already using storage URLs
 - ✅ Products: Already using storage URLs
 - ✅ Books: Cover images now upload to storage
-- ⚠️ Business Logos: Need to implement storage upload
+- ✅ Business Logos: Already implemented - uploads to `business_logos` bucket
 
 ## 📋 Checklist
 
@@ -63,7 +63,7 @@ Create these buckets in Supabase Storage UI:
 - [x] Book cover images upload to storage
 - [x] Product images upload to storage
 - [x] Ad images upload to storage
-- [ ] Business logos upload to storage (TODO)
+- [x] Business logos upload to storage ✅
 - [x] Document templates in database
 - [x] Alert rules in database
 - [x] Premium plans in database

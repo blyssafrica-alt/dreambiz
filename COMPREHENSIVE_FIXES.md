@@ -4,13 +4,13 @@
 - ✅ Added: editCustomerAddress, editDate, editDueDate, editTax state
 - ✅ Updated: enterEditMode to initialize all fields
 - ✅ Updated: handleSaveDocument to save all fields
-- ⏳ TODO: Add UI inputs for these fields in edit mode
+- ✅ Completed: UI inputs for all fields in edit mode (customer address, date, due date, tax)
 
 ## 2. Transaction Auto-Creation ✅
 - ✅ Added: addTransaction to useBusiness destructuring
 - ✅ Added: Logic to create transaction when document marked as paid
 - ✅ Added: Logic in handleMarkAsPaid
-- ⏳ TODO: Test transaction creation
+- ✅ Verified: Transaction creation working correctly in handleMarkAsPaid
 
 ## 3. Transaction Logic Verification
 - Sales add to finances (positive amounts) ✅
