@@ -145,7 +145,7 @@ export function generateBusinessPlanPDF(
     <head>
       <meta charset="UTF-8">
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         * {
           margin: 0;
           padding: 0;
@@ -153,18 +153,20 @@ export function generateBusinessPlanPDF(
         }
         body {
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-          padding: 40px 20px;
-          color: #1a1a1a;
-          background: #f5f7fa;
-          line-height: 1.7;
+          padding: 0;
+          color: #0f172a;
+          background: #f8fafc;
+          line-height: 1.8;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
         }
         .page {
           max-width: 210mm;
           min-height: 297mm;
           margin: 0 auto;
           background: #ffffff;
-          padding: 50px;
-          box-shadow: 0 0 20px rgba(0,0,0,0.1);
+          padding: 0;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.08);
         }
         .cover-page {
           display: flex;
@@ -173,177 +175,239 @@ export function generateBusinessPlanPDF(
           align-items: center;
           min-height: 100%;
           text-align: center;
-          border-bottom: 4px solid #0066CC;
-          padding-bottom: 40px;
-          margin-bottom: 40px;
+          padding: 80px 60px;
+          background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+          position: relative;
+          overflow: hidden;
+        }
+        .cover-page::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 400px;
+          height: 400px;
+          background: radial-gradient(circle, rgba(0,102,204,0.05) 0%, transparent 70%);
+          border-radius: 50%;
+          transform: translate(30%, -30%);
         }
         .cover-logo {
-          margin-bottom: 30px;
+          margin-bottom: 40px;
+          position: relative;
+          z-index: 1;
         }
         .cover-logo img {
-          max-height: 120px;
-          max-width: 300px;
+          max-height: 140px;
+          max-width: 320px;
+          background: white;
+          padding: 20px;
+          border-radius: 16px;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.1);
         }
         .cover-title {
-          font-size: 42px;
-          font-weight: 800;
+          font-size: 56px;
+          font-weight: 900;
           color: #0066CC;
-          margin-bottom: 20px;
-          line-height: 1.2;
+          margin-bottom: 24px;
+          line-height: 1.1;
+          letter-spacing: -1px;
+          text-shadow: 0 2px 8px rgba(0,102,204,0.1);
+          position: relative;
+          z-index: 1;
         }
         .cover-subtitle {
-          font-size: 24px;
-          font-weight: 600;
-          color: #64748B;
-          margin-bottom: 40px;
+          font-size: 28px;
+          font-weight: 700;
+          color: #1e293b;
+          margin-bottom: 48px;
+          letter-spacing: -0.5px;
+          position: relative;
+          z-index: 1;
         }
         .cover-info {
-          font-size: 16px;
+          font-size: 17px;
           color: #475569;
-          line-height: 2;
+          line-height: 2.2;
+          font-weight: 500;
+          position: relative;
+          z-index: 1;
+        }
+        .cover-info strong {
+          color: #0f172a;
+          font-weight: 700;
         }
         .cover-date {
-          margin-top: 60px;
+          margin-top: 80px;
           font-size: 14px;
           color: #94a3b8;
+          font-weight: 500;
+          position: relative;
+          z-index: 1;
         }
         .header {
           background: linear-gradient(135deg, #0066CC 0%, #004499 100%);
           color: white;
-          padding: 30px;
-          border-radius: 12px;
-          margin-bottom: 30px;
+          padding: 40px 56px;
+          border-radius: 0;
+          margin-bottom: 0;
+          position: relative;
+          overflow: hidden;
+        }
+        .header::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 300px;
+          height: 300px;
+          background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+          border-radius: 50%;
+          transform: translate(30%, -30%);
         }
         .header-content {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
+          position: relative;
+          z-index: 1;
         }
         .logo-section {
           flex: 1;
         }
         .logo-section img {
-          max-height: 70px;
-          max-width: 180px;
+          max-height: 80px;
+          max-width: 200px;
           background: white;
-          padding: 10px;
-          border-radius: 8px;
+          padding: 14px;
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
         .business-info {
           flex: 1;
           text-align: right;
         }
         .business-name {
-          font-size: 28px;
-          font-weight: 800;
+          font-size: 32px;
+          font-weight: 900;
           color: white;
-          margin-bottom: 8px;
+          margin-bottom: 12px;
+          letter-spacing: -0.5px;
         }
         .document-type {
-          font-size: 20px;
-          font-weight: 600;
+          font-size: 18px;
+          font-weight: 700;
           color: rgba(255,255,255,0.95);
           text-transform: uppercase;
-          letter-spacing: 1px;
+          letter-spacing: 1.5px;
         }
         .content-section {
-          padding: 0;
+          padding: 56px;
         }
         .section {
-          margin-bottom: 50px;
+          margin-bottom: 60px;
           page-break-inside: avoid;
         }
         .section-title {
-          font-size: 28px;
-          font-weight: 800;
+          font-size: 32px;
+          font-weight: 900;
           color: #0066CC;
-          margin-bottom: 20px;
-          padding-bottom: 12px;
+          margin-bottom: 28px;
+          padding-bottom: 16px;
           border-bottom: 4px solid #0066CC;
+          letter-spacing: -0.5px;
         }
         .section-subtitle {
-          font-size: 20px;
-          font-weight: 700;
+          font-size: 22px;
+          font-weight: 800;
           color: #1e293b;
-          margin-top: 24px;
-          margin-bottom: 12px;
+          margin-top: 32px;
+          margin-bottom: 16px;
+          letter-spacing: -0.3px;
         }
         .section-content {
-          font-size: 15px;
+          font-size: 16px;
           color: #334155;
-          line-height: 1.8;
+          line-height: 1.9;
+          font-weight: 400;
         }
         .section-content p {
-          margin-bottom: 16px;
+          margin-bottom: 20px;
           text-align: justify;
         }
         .section-content ul, .section-content ol {
-          margin-left: 24px;
-          margin-bottom: 16px;
+          margin-left: 28px;
+          margin-bottom: 20px;
         }
         .section-content li {
-          margin-bottom: 10px;
+          margin-bottom: 12px;
         }
         .highlight-box {
           background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
           border-left: 5px solid #0066CC;
-          padding: 20px;
-          border-radius: 8px;
-          margin: 20px 0;
+          padding: 28px;
+          border-radius: 12px;
+          margin: 28px 0;
+          box-shadow: 0 4px 12px rgba(0,102,204,0.1);
         }
         .highlight-box strong {
           color: #0066CC;
-          font-size: 16px;
+          font-size: 17px;
+          font-weight: 800;
         }
         .info-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
-          gap: 16px;
-          margin-bottom: 30px;
+          gap: 20px;
+          margin-bottom: 36px;
         }
         .info-item {
-          background: #f8f9fa;
-          padding: 20px;
-          border-radius: 10px;
-          border-left: 4px solid #0066CC;
+          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+          padding: 24px;
+          border-radius: 12px;
+          border-left: 5px solid #0066CC;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+          border: 1px solid #e2e8f0;
         }
         .info-label {
           font-size: 11px;
-          font-weight: 700;
-          color: #0066CC;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          margin-bottom: 8px;
-        }
-        .info-value {
-          font-size: 18px;
-          font-weight: 700;
-          color: #1e293b;
-        }
-        .metric-card {
-          background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-          border: 2px solid #e2e8f0;
-          border-radius: 12px;
-          padding: 24px;
-          margin-bottom: 20px;
-        }
-        .metric-label {
-          font-size: 13px;
-          font-weight: 600;
-          color: #64748B;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          margin-bottom: 8px;
-        }
-        .metric-value {
-          font-size: 32px;
           font-weight: 800;
           color: #0066CC;
-          margin-bottom: 8px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 10px;
+        }
+        .info-value {
+          font-size: 20px;
+          font-weight: 800;
+          color: #1e293b;
+          letter-spacing: -0.3px;
+        }
+        .metric-card {
+          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+          border: 2px solid #e2e8f0;
+          border-radius: 16px;
+          padding: 32px;
+          margin-bottom: 24px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        }
+        .metric-label {
+          font-size: 12px;
+          font-weight: 700;
+          color: #64748B;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 12px;
+        }
+        .metric-value {
+          font-size: 40px;
+          font-weight: 900;
+          color: #0066CC;
+          margin-bottom: 10px;
+          letter-spacing: -1px;
         }
         .metric-change {
-          font-size: 14px;
-          font-weight: 600;
+          font-size: 15px;
+          font-weight: 700;
         }
         .metric-change.positive {
           color: #10B981;
@@ -353,86 +417,111 @@ export function generateBusinessPlanPDF(
         }
         .financial-table {
           width: 100%;
-          border-collapse: collapse;
-          margin: 24px 0;
-          border-radius: 8px;
+          border-collapse: separate;
+          border-spacing: 0;
+          margin: 32px 0;
+          border-radius: 12px;
           overflow: hidden;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+          box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+          border: 1px solid #e2e8f0;
         }
         .financial-table thead {
           background: linear-gradient(135deg, #0066CC 0%, #004499 100%);
           color: white;
         }
         .financial-table th {
-          padding: 16px;
+          padding: 20px;
           text-align: left;
-          font-weight: 700;
-          font-size: 13px;
+          font-weight: 800;
+          font-size: 12px;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 1px;
+        }
+        .financial-table th:first-child {
+          padding-left: 24px;
+        }
+        .financial-table th:last-child {
+          padding-right: 24px;
+          text-align: right;
         }
         .financial-table tbody tr {
-          border-bottom: 1px solid #f0f0f0;
+          border-bottom: 1px solid #f1f5f9;
+          background: white;
         }
         .financial-table tbody tr:last-child {
           border-bottom: none;
         }
-        .financial-table tbody tr:hover {
-          background: #f8f9fa;
+        .financial-table tbody tr:nth-child(even) {
+          background: #fafbfc;
         }
         .financial-table td {
-          padding: 16px;
+          padding: 20px;
           font-size: 15px;
           color: #334155;
+          font-weight: 500;
+        }
+        .financial-table td:first-child {
+          padding-left: 24px;
+          font-weight: 600;
         }
         .financial-table td:last-child {
+          padding-right: 24px;
           font-weight: 700;
           color: #0066CC;
           text-align: right;
+          font-size: 16px;
         }
         .insight-box {
-          background: #fff9e6;
+          background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
           border-left: 5px solid #f59e0b;
-          padding: 20px;
-          border-radius: 8px;
-          margin: 20px 0;
+          padding: 28px;
+          border-radius: 12px;
+          margin: 28px 0;
+          box-shadow: 0 4px 12px rgba(245, 158, 11, 0.1);
         }
         .insight-title {
-          font-weight: 700;
+          font-weight: 800;
           color: #92400E;
-          margin-bottom: 8px;
-          font-size: 16px;
+          margin-bottom: 12px;
+          font-size: 17px;
+          letter-spacing: -0.3px;
         }
         .insight-content {
           color: #78350F;
-          line-height: 1.8;
+          line-height: 1.9;
+          font-weight: 500;
         }
         .alert-item {
-          background: #fef2f2;
+          background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
           border-left: 5px solid #EF4444;
-          padding: 16px;
-          border-radius: 8px;
-          margin-bottom: 12px;
+          padding: 20px;
+          border-radius: 12px;
+          margin-bottom: 16px;
+          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
         }
         .alert-message {
-          font-weight: 600;
+          font-weight: 700;
           color: #991B1B;
-          margin-bottom: 4px;
+          margin-bottom: 6px;
+          font-size: 15px;
         }
         .alert-action {
-          font-size: 13px;
+          font-size: 14px;
           color: #B91C1C;
+          font-weight: 500;
         }
         .footer {
-          margin-top: 60px;
-          padding-top: 30px;
+          margin-top: 80px;
+          padding: 48px 56px;
+          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
           border-top: 3px solid #e2e8f0;
           text-align: center;
-          color: #64748B;
-          font-size: 12px;
         }
         .footer-text {
-          margin-bottom: 6px;
+          margin-bottom: 8px;
+          color: #64748B;
+          font-size: 14px;
+          font-weight: 500;
         }
         @media print {
           body {
@@ -441,7 +530,19 @@ export function generateBusinessPlanPDF(
           }
           .page {
             box-shadow: none;
-            padding: 30px;
+            padding: 0;
+          }
+          .cover-page {
+            padding: 60px 48px;
+          }
+          .content-section {
+            padding: 48px;
+          }
+          .header {
+            padding: 40px 48px;
+          }
+          .footer {
+            padding: 40px 48px;
           }
           .section {
             page-break-inside: avoid;
