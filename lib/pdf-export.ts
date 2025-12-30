@@ -17,10 +17,6 @@ export async function generatePDF(
   // Get template for document
   const template = await getDocumentTemplate(document.type, business.type);
   
-  // For now, return formatted text content
-  // In production, use expo-print or react-native-pdf to generate actual PDF
-  // This is a placeholder that formats the content for PDF generation
-  
   const formatCurrency = (amount: number) => {
     const symbol = document.currency === 'USD' ? '$' : 'ZWL';
     return `${symbol}${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
@@ -35,23 +31,42 @@ export async function generatePDF(
     });
   };
 
-  // Generate HTML for PDF (can be converted to PDF using expo-print)
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-ZW', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   // Handle logo - convert base64 or use URL directly
   let logoHtml = '';
   if (business.logo) {
     // If it's already a URL (http/https), use it directly
     if (business.logo.startsWith('http://') || business.logo.startsWith('https://')) {
-      logoHtml = `<img src="${business.logo}" alt="Logo" style="max-height: 80px; max-width: 200px; margin-bottom: 20px; object-fit: contain;" />`;
+      logoHtml = `<img src="${business.logo}" alt="${business.name} Logo" style="max-height: 90px; max-width: 220px; object-fit: contain; display: block;" />`;
     } 
     // If it's base64, use it directly
     else if (business.logo.startsWith('data:image')) {
-      logoHtml = `<img src="${business.logo}" alt="Logo" style="max-height: 80px; max-width: 200px; margin-bottom: 20px; object-fit: contain;" />`;
+      logoHtml = `<img src="${business.logo}" alt="${business.name} Logo" style="max-height: 90px; max-width: 220px; object-fit: contain; display: block;" />`;
     }
     // Otherwise, assume it's a base64 string without prefix
     else {
-      logoHtml = `<img src="data:image/png;base64,${business.logo}" alt="Logo" style="max-height: 80px; max-width: 200px; margin-bottom: 20px; object-fit: contain;" />`;
+      logoHtml = `<img src="data:image/png;base64,${business.logo}" alt="${business.name} Logo" style="max-height: 90px; max-width: 220px; object-fit: contain; display: block;" />`;
     }
   }
+
+  // Build company details section
+  const companyDetails = [];
+  if (business.name) companyDetails.push(`<div><strong>${business.name}</strong></div>`);
+  if (business.owner) companyDetails.push(`<div style="color: #64748B; font-size: 13px;">Owner: ${business.owner}</div>`);
+  if (business.address) companyDetails.push(`<div>${business.address}</div>`);
+  if (business.location) companyDetails.push(`<div>${business.location}, Zimbabwe</div>`);
+  if (business.phone) companyDetails.push(`<div>📞 ${business.phone}</div>`);
+  if (business.email) companyDetails.push(`<div>✉️ ${business.email}</div>`);
 
   const html = `
     <!DOCTYPE html>
@@ -67,16 +82,18 @@ export async function generatePDF(
         }
         body {
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-          padding: 50px;
+          padding: 40px 20px;
           color: #1a1a1a;
-          background: #ffffff;
+          background: #f5f7fa;
           line-height: 1.6;
         }
-        .document-container {
-          max-width: 800px;
+        .page {
+          max-width: 210mm;
+          min-height: 297mm;
           margin: 0 auto;
           background: #ffffff;
-          box-shadow: 0 0 30px rgba(0,0,0,0.1);
+          padding: 50px;
+          box-shadow: 0 0 20px rgba(0,0,0,0.1);
         }
         .header {
           background: linear-gradient(135deg, ${template.styling.primaryColor} 0%, ${template.styling.secondaryColor || template.styling.primaryColor} 100%);
@@ -85,45 +102,65 @@ export async function generatePDF(
           border-radius: 12px 12px 0 0;
           margin-bottom: 0;
         }
-        .header-content {
+        .header-top {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
+          margin-bottom: 30px;
         }
         .logo-section {
           flex: 1;
         }
         .logo-section img {
-          max-height: 70px;
-          max-width: 180px;
-          margin-bottom: 20px;
+          max-height: 90px;
+          max-width: 220px;
           background: white;
-          padding: 10px;
+          padding: 12px;
           border-radius: 8px;
+          object-fit: contain;
         }
-        .business-info {
+        .document-meta {
           flex: 1;
           text-align: right;
         }
-        .business-name {
-          font-size: 32px;
+        .document-type {
+          font-size: 28px;
           font-weight: 800;
           color: white;
           margin-bottom: 8px;
-          letter-spacing: -0.5px;
-        }
-        .document-type {
-          font-size: 24px;
-          font-weight: 600;
-          color: rgba(255,255,255,0.95);
-          margin-bottom: 12px;
           text-transform: uppercase;
           letter-spacing: 1px;
         }
         .document-number {
+          font-size: 16px;
+          color: rgba(255,255,255,0.9);
+          font-weight: 600;
+          margin-bottom: 8px;
+        }
+        .document-date {
           font-size: 14px;
           color: rgba(255,255,255,0.8);
           font-weight: 500;
+        }
+        .company-info-section {
+          background: rgba(255,255,255,0.15);
+          padding: 20px;
+          border-radius: 8px;
+          margin-top: 20px;
+        }
+        .company-name {
+          font-size: 24px;
+          font-weight: 800;
+          color: white;
+          margin-bottom: 12px;
+        }
+        .company-details {
+          font-size: 14px;
+          color: rgba(255,255,255,0.95);
+          line-height: 1.8;
+        }
+        .company-details div {
+          margin-bottom: 4px;
         }
         .content-section {
           padding: 40px;
@@ -144,7 +181,7 @@ export async function generatePDF(
         }
         .section-title {
           font-weight: 700;
-          font-size: 14px;
+          font-size: 13px;
           margin-bottom: 12px;
           color: ${template.styling.primaryColor};
           text-transform: uppercase;
@@ -152,11 +189,11 @@ export async function generatePDF(
         }
         .section-content {
           font-size: 15px;
-          color: #333;
+          color: #334155;
           line-height: 1.8;
         }
         .section-content div {
-          margin-bottom: 6px;
+          margin-bottom: 8px;
         }
         .items-table {
           width: 100%;
@@ -173,14 +210,13 @@ export async function generatePDF(
         .items-table th {
           padding: 16px;
           text-align: left;
-          font-weight: 600;
+          font-weight: 700;
           font-size: 13px;
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
         .items-table tbody tr {
           border-bottom: 1px solid #f0f0f0;
-          transition: background 0.2s;
         }
         .items-table tbody tr:hover {
           background: #f8f9fa;
@@ -191,10 +227,10 @@ export async function generatePDF(
         .items-table td {
           padding: 16px;
           font-size: 15px;
-          color: #333;
+          color: #334155;
         }
         .items-table td:last-child {
-          font-weight: 600;
+          font-weight: 700;
           color: ${template.styling.primaryColor};
         }
         .totals {
@@ -220,12 +256,12 @@ export async function generatePDF(
         .total-label {
           font-size: 15px;
           font-weight: 500;
-          color: #666;
+          color: #64748B;
         }
         .total-value {
           font-size: 15px;
           font-weight: 600;
-          color: #333;
+          color: #1e293b;
         }
         .grand-total {
           font-size: 28px;
@@ -259,7 +295,7 @@ export async function generatePDF(
           letter-spacing: 0.5px;
         }
         .notes-content {
-          color: #333;
+          color: #334155;
           line-height: 1.8;
         }
         .due-date-section {
@@ -282,33 +318,103 @@ export async function generatePDF(
           font-weight: 700;
           color: ${template.styling.primaryColor};
         }
+        .payment-section {
+          background: #f0f9ff;
+          padding: 20px;
+          border-radius: 8px;
+          margin-top: 30px;
+          border-left: 4px solid ${template.styling.primaryColor};
+        }
+        .payment-title {
+          font-weight: 700;
+          color: ${template.styling.primaryColor};
+          margin-bottom: 8px;
+          font-size: 14px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .payment-content {
+          color: #334155;
+          line-height: 1.8;
+        }
+        .status-section {
+          padding: 16px;
+          border-radius: 8px;
+          margin-top: 20px;
+          text-align: center;
+          border-left: 4px solid;
+        }
+        .status-text {
+          font-weight: 700;
+          font-size: 14px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
         .footer {
           margin-top: 50px;
           padding-top: 30px;
-          border-top: 2px solid #f0f0f0;
+          border-top: 3px solid #e2e8f0;
           text-align: center;
-          color: #999;
+          color: #64748B;
           font-size: 12px;
           background: #fafafa;
           padding: 30px;
           border-radius: 0 0 12px 12px;
         }
-        .footer-text {
+        .footer-company {
+          font-weight: 700;
+          color: #1e293b;
+          font-size: 14px;
+          margin-bottom: 8px;
+        }
+        .footer-details {
+          color: #64748B;
+          line-height: 1.8;
+          margin-bottom: 12px;
+        }
+        .footer-details div {
           margin-bottom: 4px;
+        }
+        .footer-text {
+          margin-bottom: 6px;
+          color: #94a3b8;
+        }
+        .footer-generated {
+          margin-top: 16px;
+          padding-top: 16px;
+          border-top: 1px solid #e2e8f0;
+          font-size: 11px;
+          color: #cbd5e1;
+        }
+        @media print {
+          body {
+            padding: 0;
+            background: white;
+          }
+          .page {
+            box-shadow: none;
+            padding: 30px;
+          }
         }
       </style>
     </head>
     <body>
-      <div class="document-container">
+      <div class="page">
         <div class="header">
-          <div class="header-content">
+          <div class="header-top">
             <div class="logo-section">
-              ${logoHtml}
+              ${logoHtml || `<div style="font-size: 36px; font-weight: 800; color: white; padding: 20px;">${business.name.charAt(0).toUpperCase()}</div>`}
             </div>
-            <div class="business-info">
-              ${!business.logo ? `<div class="business-name">${business.name}</div>` : ''}
+            <div class="document-meta">
               <div class="document-type">${document.type.charAt(0).toUpperCase() + document.type.slice(1).replace('_', ' ')}</div>
-              <div class="document-number">${document.documentNumber}</div>
+              <div class="document-number">#${document.documentNumber}</div>
+              <div class="document-date">Date: ${formatDate(document.date)}</div>
+            </div>
+          </div>
+          <div class="company-info-section">
+            <div class="company-name">${business.name}</div>
+            <div class="company-details">
+              ${companyDetails.join('')}
             </div>
           </div>
         </div>
@@ -319,10 +425,11 @@ export async function generatePDF(
               <div class="section-title">From</div>
               <div class="section-content">
                 <div><strong>${business.name}</strong></div>
-                ${business.phone ? `<div>📞 ${business.phone}</div>` : ''}
-                ${business.location ? `<div>📍 ${business.location}</div>` : ''}
-                ${business.email ? `<div>✉️ ${business.email}</div>` : ''}
+                ${business.owner ? `<div style="color: #64748B; font-size: 13px;">Owner: ${business.owner}</div>` : ''}
                 ${business.address ? `<div>${business.address}</div>` : ''}
+                ${business.location ? `<div>${business.location}, Zimbabwe</div>` : ''}
+                ${business.phone ? `<div>📞 ${business.phone}</div>` : ''}
+                ${business.email ? `<div>✉️ ${business.email}</div>` : ''}
               </div>
             </div>
             <div class="from-to">
@@ -404,14 +511,12 @@ export async function generatePDF(
           </div>
           
           ${document.paymentMethod ? `
-            <div class="payment-section" style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin-top: 30px; border-left: 4px solid ${template.styling.primaryColor};">
-              <div style="font-weight: 700; color: ${template.styling.primaryColor}; margin-bottom: 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">
-                Payment Information
-              </div>
-              <div style="color: #333; line-height: 1.8;">
+            <div class="payment-section">
+              <div class="payment-title">Payment Information</div>
+              <div class="payment-content">
                 <div><strong>Payment Method:</strong> ${document.paymentMethod.replace('_', ' ').toUpperCase()}</div>
                 ${document.paymentMethod === 'card' || document.paymentMethod === 'bank_transfer' || document.paymentMethod === 'mobile_money' ? `
-                  <div style="margin-top: 8px; font-size: 13px; color: #666;">
+                  <div style="margin-top: 8px; font-size: 13px; color: #64748B;">
                     ${document.status === 'paid' ? '✓ Payment Completed' : 'Payment Pending'}
                   </div>
                 ` : ''}
@@ -420,8 +525,8 @@ export async function generatePDF(
           ` : ''}
           
           ${document.status ? `
-            <div class="status-section" style="background: ${document.status === 'paid' ? '#10B98115' : document.status === 'cancelled' ? '#EF444415' : '#F59E0B15'}; padding: 16px; border-radius: 8px; margin-top: 20px; text-align: center; border-left: 4px solid ${document.status === 'paid' ? '#10B981' : document.status === 'cancelled' ? '#EF4444' : '#F59E0B'};">
-              <div style="font-weight: 700; color: ${document.status === 'paid' ? '#10B981' : document.status === 'cancelled' ? '#EF4444' : '#F59E0B'}; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">
+            <div class="status-section" style="background: ${document.status === 'paid' ? '#10B98115' : document.status === 'cancelled' ? '#EF444415' : '#F59E0B15'}; border-left-color: ${document.status === 'paid' ? '#10B981' : document.status === 'cancelled' ? '#EF4444' : '#F59E0B'};">
+              <div class="status-text" style="color: ${document.status === 'paid' ? '#10B981' : document.status === 'cancelled' ? '#EF4444' : '#F59E0B'};">
                 Status: ${document.status.toUpperCase()}
               </div>
             </div>
@@ -443,15 +548,23 @@ export async function generatePDF(
         </div>
         
         <div class="footer">
-          <div class="footer-text"><strong>Generated by DreamBig Business OS</strong></div>
+          <div class="footer-company">${business.name}</div>
+          <div class="footer-details">
+            ${business.address ? `<div>${business.address}</div>` : ''}
+            ${business.location ? `<div>${business.location}, Zimbabwe</div>` : ''}
+            ${business.phone ? `<div>Phone: ${business.phone}</div>` : ''}
+            ${business.email ? `<div>Email: ${business.email}</div>` : ''}
+            ${business.owner ? `<div>Owner: ${business.owner}</div>` : ''}
+          </div>
+          <div class="footer-text">Thank you for your business! 🙏</div>
           ${document.employeeName ? `
-            <div class="footer-text" style="margin-top: 8px; font-size: 13px; color: #666;">
+            <div class="footer-text" style="margin-top: 8px; font-size: 13px; color: #64748B;">
               Served by: <strong>${document.employeeName}</strong>
             </div>
           ` : ''}
-          <div class="footer-text">Thank you for your business! 🙏</div>
-          <div class="footer-text" style="margin-top: 8px; font-size: 11px; color: #bbb;">
-            Document Date: ${formatDate(document.date)}
+          <div class="footer-generated">
+            <div>Document #${document.documentNumber} | Date: ${formatDate(document.date)}</div>
+            <div style="margin-top: 4px;">Generated by DreamBig Business OS</div>
           </div>
         </div>
       </div>
@@ -535,4 +648,3 @@ export async function exportToPDF(
     }
   }
 }
-
