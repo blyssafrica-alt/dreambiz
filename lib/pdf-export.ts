@@ -46,28 +46,27 @@ export async function generatePDF(
   // Handle logo - convert base64 or use URL directly
   let logoHtml = '';
   if (business.logo) {
-    // If it's already a URL (http/https), use it directly
     if (business.logo.startsWith('http://') || business.logo.startsWith('https://')) {
-      logoHtml = `<img src="${business.logo}" alt="${business.name} Logo" style="max-height: 90px; max-width: 220px; object-fit: contain; display: block;" />`;
-    } 
-    // If it's base64, use it directly
-    else if (business.logo.startsWith('data:image')) {
-      logoHtml = `<img src="${business.logo}" alt="${business.name} Logo" style="max-height: 90px; max-width: 220px; object-fit: contain; display: block;" />`;
-    }
-    // Otherwise, assume it's a base64 string without prefix
-    else {
-      logoHtml = `<img src="data:image/png;base64,${business.logo}" alt="${business.name} Logo" style="max-height: 90px; max-width: 220px; object-fit: contain; display: block;" />`;
+      logoHtml = `<img src="${business.logo}" alt="${business.name} Logo" style="max-height: 80px; max-width: 200px; object-fit: contain; display: block;" />`;
+    } else if (business.logo.startsWith('data:image')) {
+      logoHtml = `<img src="${business.logo}" alt="${business.name} Logo" style="max-height: 80px; max-width: 200px; object-fit: contain; display: block;" />`;
+    } else {
+      logoHtml = `<img src="data:image/png;base64,${business.logo}" alt="${business.name} Logo" style="max-height: 80px; max-width: 200px; object-fit: contain; display: block;" />`;
     }
   }
 
   // Build company details section
   const companyDetails = [];
   if (business.name) companyDetails.push(`<div><strong>${business.name}</strong></div>`);
-  if (business.owner) companyDetails.push(`<div style="color: rgba(255,255,255,0.9); font-size: 13px;">Owner: ${business.owner}</div>`);
+  if (business.owner) companyDetails.push(`<div style="color: #666; font-size: 13px;">Owner: ${business.owner}</div>`);
   if (business.address) companyDetails.push(`<div>${business.address}</div>`);
   if (business.location) companyDetails.push(`<div>${business.location}, Zimbabwe</div>`);
   if (business.phone) companyDetails.push(`<div>📞 ${business.phone}</div>`);
   if (business.email) companyDetails.push(`<div>✉️ ${business.email}</div>`);
+
+  // Use solid colors for PDF compatibility
+  const primaryColor = template.styling.primaryColor || '#0066CC';
+  const accentColor = '#8B0000'; // Dark red accent bars
 
   const html = `
     <!DOCTYPE html>
@@ -76,20 +75,18 @@ export async function generatePDF(
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         * {
           margin: 0;
           padding: 0;
           box-sizing: border-box;
         }
         body {
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+          font-family: Arial, Helvetica, sans-serif;
           padding: 0;
-          color: #0f172a;
-          background: #f8fafc;
-          line-height: 1.7;
-          -webkit-font-smoothing: antialiased;
-          -moz-osx-font-smoothing: grayscale;
+          margin: 0;
+          color: #1a1a1a;
+          background: #ffffff;
+          line-height: 1.5;
         }
         .page {
           max-width: 210mm;
@@ -97,215 +94,176 @@ export async function generatePDF(
           margin: 0 auto;
           background: #ffffff;
           padding: 0;
-          box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        }
+        .accent-bar {
+          width: 100%;
+          height: 10px;
+          background-color: ${accentColor};
         }
         .header {
-          background: linear-gradient(135deg, ${template.styling.primaryColor} 0%, ${template.styling.secondaryColor || template.styling.primaryColor} 100%);
-          color: white;
-          padding: 48px 56px;
-          position: relative;
-          overflow: hidden;
-        }
-        .header::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          right: 0;
-          width: 300px;
-          height: 300px;
-          background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-          border-radius: 50%;
-          transform: translate(30%, -30%);
+          background-color: #ffffff;
+          padding: 35px 50px 25px 50px;
         }
         .header-top {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          margin-bottom: 36px;
-          position: relative;
-          z-index: 1;
+          margin-bottom: 25px;
         }
         .logo-section {
           flex: 1;
         }
         .logo-section img {
-          max-height: 100px;
-          max-width: 240px;
-          background: white;
-          padding: 16px;
-          border-radius: 12px;
+          max-height: 80px;
+          max-width: 200px;
           object-fit: contain;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          display: block;
         }
         .document-meta {
           flex: 1;
           text-align: right;
         }
         .document-type {
-          font-size: 32px;
-          font-weight: 900;
-          color: white;
-          margin-bottom: 12px;
+          font-size: 36px;
+          font-weight: bold;
+          color: #333333;
+          margin-bottom: 8px;
           text-transform: uppercase;
-          letter-spacing: 2px;
-          text-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          letter-spacing: 1px;
         }
         .document-number {
-          font-size: 18px;
-          color: rgba(255,255,255,0.95);
-          font-weight: 600;
-          margin-bottom: 8px;
-          letter-spacing: 0.5px;
+          font-size: 14px;
+          color: #666666;
+          font-weight: normal;
+          margin-bottom: 5px;
         }
         .document-date {
-          font-size: 15px;
-          color: rgba(255,255,255,0.85);
-          font-weight: 500;
+          font-size: 13px;
+          color: #666666;
+          font-weight: normal;
         }
-        .company-info-section {
-          background: rgba(255,255,255,0.18);
-          backdrop-filter: blur(10px);
-          padding: 28px;
-          border-radius: 16px;
-          margin-top: 32px;
-          border: 1px solid rgba(255,255,255,0.2);
-          position: relative;
-          z-index: 1;
+        .company-info {
+          margin-top: 20px;
+          font-size: 14px;
+          color: #333333;
+          line-height: 1.8;
         }
-        .company-name {
-          font-size: 28px;
-          font-weight: 800;
-          color: white;
-          margin-bottom: 16px;
-          letter-spacing: -0.5px;
-        }
-        .company-details {
-          font-size: 15px;
-          color: rgba(255,255,255,0.98);
-          line-height: 2;
-          font-weight: 500;
-        }
-        .company-details div {
-          margin-bottom: 6px;
+        .company-info div {
+          margin-bottom: 4px;
         }
         .content-section {
-          padding: 56px;
+          padding: 0 50px 30px 50px;
           background: #ffffff;
         }
         .info-section {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 32px;
-          margin-bottom: 48px;
+          display: table;
+          width: 100%;
+          margin-bottom: 35px;
+          border-collapse: separate;
+          border-spacing: 0;
         }
         .from-to {
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-          padding: 32px;
-          border-radius: 16px;
-          border: 1px solid #e2e8f0;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-          transition: all 0.3s ease;
+          display: table-cell;
+          width: 50%;
+          vertical-align: top;
+          padding: 20px;
+          background-color: #f9f9f9;
+          border: 1px solid #e0e0e0;
+        }
+        .from-to:first-child {
+          border-right: none;
         }
         .section-title {
-          font-weight: 700;
+          font-weight: bold;
           font-size: 11px;
-          margin-bottom: 16px;
-          color: ${template.styling.primaryColor};
+          margin-bottom: 12px;
+          color: ${primaryColor};
           text-transform: uppercase;
-          letter-spacing: 1.5px;
-          font-weight: 800;
+          letter-spacing: 1px;
+          border-bottom: 1px solid #d0d0d0;
+          padding-bottom: 5px;
         }
         .section-content {
-          font-size: 15px;
-          color: #1e293b;
-          line-height: 1.9;
+          font-size: 14px;
+          color: #333333;
+          line-height: 1.8;
         }
         .section-content div {
-          margin-bottom: 10px;
-          font-weight: 500;
+          margin-bottom: 6px;
         }
         .section-content strong {
-          font-weight: 700;
-          color: #0f172a;
-          font-size: 16px;
+          font-weight: bold;
+          color: #1a1a1a;
         }
         .items-table {
           width: 100%;
-          border-collapse: separate;
-          border-spacing: 0;
-          margin-bottom: 40px;
-          border-radius: 12px;
-          overflow: hidden;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-          border: 1px solid #e2e8f0;
+          border-collapse: collapse;
+          margin-bottom: 30px;
+          border: 1px solid #d0d0d0;
         }
         .items-table thead {
-          background: linear-gradient(135deg, ${template.styling.primaryColor} 0%, ${template.styling.secondaryColor || template.styling.primaryColor} 100%);
-          color: white;
+          background-color: ${accentColor};
+          color: #ffffff;
         }
         .items-table th {
-          padding: 20px;
+          padding: 12px 15px;
           text-align: left;
-          font-weight: 700;
-          font-size: 12px;
+          font-weight: bold;
+          font-size: 11px;
           text-transform: uppercase;
-          letter-spacing: 1px;
-          font-weight: 800;
+          letter-spacing: 0.5px;
         }
-        .items-table th:first-child {
-          padding-left: 24px;
+        .items-table th:nth-child(2),
+        .items-table th:nth-child(3),
+        .items-table th:nth-child(4) {
+          text-align: center;
         }
         .items-table th:last-child {
-          padding-right: 24px;
           text-align: right;
         }
         .items-table tbody tr {
-          border-bottom: 1px solid #f1f5f9;
-          background: white;
+          border-bottom: 1px solid #e8e8e8;
+          background-color: #ffffff;
+        }
+        .items-table tbody tr:nth-child(even) {
+          background-color: #f9f9f9;
         }
         .items-table tbody tr:last-child {
           border-bottom: none;
         }
-        .items-table tbody tr:nth-child(even) {
-          background: #fafbfc;
-        }
         .items-table td {
-          padding: 20px;
-          font-size: 15px;
-          color: #334155;
-          font-weight: 500;
+          padding: 12px 15px;
+          font-size: 14px;
+          color: #333333;
         }
         .items-table td:first-child {
-          padding-left: 24px;
-          font-weight: 600;
-          color: #0f172a;
+          font-weight: bold;
+        }
+        .items-table td:nth-child(2),
+        .items-table td:nth-child(3) {
+          text-align: center;
         }
         .items-table td:last-child {
-          padding-right: 24px;
           text-align: right;
-          font-weight: 700;
-          color: ${template.styling.primaryColor};
-          font-size: 16px;
+          font-weight: bold;
+          color: ${primaryColor};
         }
         .totals {
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-          padding: 32px;
-          border-radius: 16px;
-          margin-top: 40px;
-          border: 1px solid #e2e8f0;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+          background-color: #f9f9f9;
+          padding: 25px;
+          margin-top: 30px;
+          border: 1px solid #e0e0e0;
         }
         .totals-inner {
-          max-width: 420px;
+          max-width: 400px;
           margin-left: auto;
         }
         .total-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 16px;
-          padding-bottom: 16px;
-          border-bottom: 1px solid #e2e8f0;
+          display: table;
+          width: 100%;
+          margin-bottom: 10px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid #e0e0e0;
         }
         .total-row:last-child {
           border-bottom: none;
@@ -313,158 +271,140 @@ export async function generatePDF(
           padding-bottom: 0;
         }
         .total-label {
-          font-size: 16px;
-          font-weight: 600;
-          color: #64748b;
-          letter-spacing: 0.3px;
+          display: table-cell;
+          font-size: 14px;
+          font-weight: normal;
+          color: #666666;
+          text-align: left;
         }
         .total-value {
-          font-size: 16px;
-          font-weight: 700;
-          color: #1e293b;
+          display: table-cell;
+          font-size: 14px;
+          font-weight: bold;
+          color: #333333;
+          text-align: right;
         }
         .grand-total {
-          margin-top: 20px;
-          padding-top: 24px;
-          border-top: 3px solid ${template.styling.primaryColor};
+          margin-top: 15px;
+          padding-top: 15px;
+          border-top: 2px solid ${primaryColor};
         }
         .grand-total .total-label {
-          font-size: 22px;
-          font-weight: 800;
-          color: ${template.styling.primaryColor};
-          letter-spacing: 0.5px;
+          font-size: 18px;
+          font-weight: bold;
+          color: ${primaryColor};
         }
         .grand-total .total-value {
-          font-size: 32px;
-          font-weight: 900;
-          color: ${template.styling.primaryColor};
-          letter-spacing: -0.5px;
+          font-size: 24px;
+          font-weight: bold;
+          color: ${primaryColor};
         }
         .notes-section {
-          background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-          border-left: 5px solid #f59e0b;
-          padding: 24px;
-          border-radius: 12px;
-          margin-top: 40px;
-          box-shadow: 0 2px 8px rgba(245, 158, 11, 0.1);
+          background-color: #fff9e6;
+          border-left: 4px solid #f59e0b;
+          padding: 20px;
+          margin-top: 30px;
         }
         .notes-title {
-          font-weight: 800;
+          font-weight: bold;
           color: #92400e;
-          margin-bottom: 12px;
-          font-size: 13px;
+          margin-bottom: 8px;
+          font-size: 12px;
           text-transform: uppercase;
-          letter-spacing: 1px;
         }
         .notes-content {
           color: #78350f;
-          line-height: 1.9;
-          font-weight: 500;
+          line-height: 1.7;
+          font-size: 14px;
         }
         .due-date-section {
-          background: linear-gradient(135deg, ${template.styling.primaryColor}08 0%, ${template.styling.primaryColor}15 100%);
-          padding: 28px;
-          border-radius: 12px;
-          margin-top: 40px;
+          background-color: #f0f8ff;
+          padding: 20px;
+          margin-top: 30px;
           text-align: center;
-          border: 2px solid ${template.styling.primaryColor}30;
+          border: 1px solid ${primaryColor};
         }
         .due-date-label {
-          font-size: 12px;
-          font-weight: 700;
-          color: ${template.styling.primaryColor};
+          font-size: 11px;
+          font-weight: bold;
+          color: ${primaryColor};
           text-transform: uppercase;
-          letter-spacing: 1.5px;
-          margin-bottom: 12px;
+          margin-bottom: 8px;
         }
         .due-date-value {
-          font-size: 24px;
-          font-weight: 800;
-          color: ${template.styling.primaryColor};
-          letter-spacing: -0.5px;
+          font-size: 18px;
+          font-weight: bold;
+          color: ${primaryColor};
         }
         .payment-section {
-          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-          padding: 24px;
-          border-radius: 12px;
-          margin-top: 40px;
-          border-left: 5px solid ${template.styling.primaryColor};
-          box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+          background-color: #f0f8ff;
+          padding: 20px;
+          margin-top: 30px;
+          border-left: 4px solid ${primaryColor};
         }
         .payment-title {
-          font-weight: 800;
-          color: ${template.styling.primaryColor};
-          margin-bottom: 12px;
-          font-size: 13px;
+          font-weight: bold;
+          color: ${primaryColor};
+          margin-bottom: 8px;
+          font-size: 12px;
           text-transform: uppercase;
-          letter-spacing: 1px;
         }
         .payment-content {
-          color: #1e293b;
-          line-height: 1.9;
-          font-weight: 500;
+          color: #333333;
+          line-height: 1.7;
+          font-size: 14px;
         }
         .status-badge {
           display: inline-block;
-          padding: 12px 24px;
-          border-radius: 50px;
-          font-weight: 800;
-          font-size: 13px;
+          padding: 10px 20px;
+          font-weight: bold;
+          font-size: 12px;
           text-transform: uppercase;
-          letter-spacing: 1px;
-          margin-top: 32px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+          margin-top: 25px;
+          color: #ffffff;
         }
         .status-paid {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          color: white;
+          background-color: #10b981;
         }
         .status-pending {
-          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-          color: white;
+          background-color: #f59e0b;
         }
         .status-cancelled {
-          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-          color: white;
+          background-color: #ef4444;
         }
         .footer {
-          margin-top: 60px;
-          padding: 48px 56px;
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-          border-top: 3px solid #e2e8f0;
+          margin-top: 50px;
+          padding: 30px 50px;
+          background-color: #f9f9f9;
+          border-top: 1px solid #e0e0e0;
           text-align: center;
         }
         .footer-company {
-          font-weight: 800;
-          color: #0f172a;
-          font-size: 18px;
-          margin-bottom: 16px;
-          letter-spacing: -0.3px;
+          font-weight: bold;
+          color: #333333;
+          font-size: 16px;
+          margin-bottom: 12px;
         }
         .footer-details {
-          color: #64748b;
-          line-height: 2;
-          margin-bottom: 20px;
-          font-weight: 500;
-          font-size: 14px;
+          color: #666666;
+          line-height: 1.8;
+          margin-bottom: 15px;
+          font-size: 13px;
         }
         .footer-details div {
-          margin-bottom: 6px;
+          margin-bottom: 4px;
         }
         .footer-text {
-          margin-bottom: 8px;
-          color: #94a3b8;
-          font-size: 14px;
-          font-weight: 500;
+          margin-bottom: 6px;
+          color: #999999;
+          font-size: 13px;
         }
         .footer-generated {
-          margin-top: 24px;
-          padding-top: 24px;
-          border-top: 1px solid #e2e8f0;
-          font-size: 11px;
-          color: #cbd5e1;
-          font-weight: 500;
-          letter-spacing: 0.3px;
+          margin-top: 20px;
+          padding-top: 15px;
+          border-top: 1px solid #e0e0e0;
+          font-size: 10px;
+          color: #999999;
         }
         @media print {
           body {
@@ -472,27 +412,21 @@ export async function generatePDF(
             background: white;
           }
           .page {
-            box-shadow: none;
             padding: 0;
-          }
-          .header {
-            padding: 40px 48px;
-          }
-          .content-section {
-            padding: 48px;
-          }
-          .footer {
-            padding: 40px 48px;
           }
         }
       </style>
     </head>
     <body>
       <div class="page">
+        <!-- Top Accent Bar -->
+        <div class="accent-bar"></div>
+        
+        <!-- Header Section -->
         <div class="header">
           <div class="header-top">
             <div class="logo-section">
-              ${logoHtml || `<div style="font-size: 48px; font-weight: 900; color: white; padding: 24px; background: rgba(255,255,255,0.2); border-radius: 12px; display: inline-block; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">${business.name.charAt(0).toUpperCase()}</div>`}
+              ${logoHtml || `<div style="font-size: 40px; font-weight: bold; color: #333; display: inline-block; width: 80px; height: 80px; line-height: 80px; text-align: center; background-color: #f0f0f0; border-radius: 50%;">${business.name.charAt(0).toUpperCase()}</div>`}
             </div>
             <div class="document-meta">
               <div class="document-type">${document.type.charAt(0).toUpperCase() + document.type.slice(1).replace('_', ' ')}</div>
@@ -500,21 +434,20 @@ export async function generatePDF(
               <div class="document-date">${formatDate(document.date)}</div>
             </div>
           </div>
-          <div class="company-info-section">
-            <div class="company-name">${business.name}</div>
-            <div class="company-details">
-              ${companyDetails.join('')}
-            </div>
+          <div class="company-info">
+            ${companyDetails.join('')}
           </div>
         </div>
         
+        <!-- Content Section -->
         <div class="content-section">
+          <!-- Billing Information -->
           <div class="info-section">
             <div class="from-to">
               <div class="section-title">From</div>
               <div class="section-content">
                 <div><strong>${business.name}</strong></div>
-                ${business.owner ? `<div style="color: #64748b; font-size: 14px; margin-top: 4px;">Owner: ${business.owner}</div>` : ''}
+                ${business.owner ? `<div style="color: #666; font-size: 13px;">Owner: ${business.owner}</div>` : ''}
                 ${business.address ? `<div>${business.address}</div>` : ''}
                 ${business.location ? `<div>${business.location}, Zimbabwe</div>` : ''}
                 ${business.phone ? `<div>📞 ${business.phone}</div>` : ''}
@@ -531,6 +464,7 @@ export async function generatePDF(
             </div>
           </div>
       
+          <!-- Items Table -->
           <table class="items-table">
             <thead>
               <tr>
@@ -552,6 +486,7 @@ export async function generatePDF(
             </tbody>
           </table>
           
+          <!-- Totals Section -->
           <div class="totals">
             <div class="totals-inner">
               <div class="total-row">
@@ -575,7 +510,7 @@ export async function generatePDF(
                 <span class="total-value">${formatCurrency(document.total)}</span>
               </div>
               ${(document as any).amountReceived ? `
-                <div class="total-row" style="margin-top: 24px; padding-top: 24px; border-top: 2px solid #e2e8f0;">
+                <div class="total-row" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
                   <span class="total-label">Amount Received</span>
                   <span class="total-value">${formatCurrency((document as any).amountReceived)}</span>
                 </div>
@@ -587,7 +522,7 @@ export async function generatePDF(
                 ` : ''}
               ` : ''}
               ${document.paidAmount && document.paidAmount < document.total ? `
-                <div class="total-row" style="margin-top: 24px; padding-top: 24px; border-top: 2px solid #e2e8f0;">
+                <div class="total-row" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
                   <span class="total-label">Paid Amount</span>
                   <span class="total-value">${formatCurrency(document.paidAmount)}</span>
                 </div>
@@ -605,7 +540,7 @@ export async function generatePDF(
               <div class="payment-content">
                 <div><strong>Payment Method:</strong> ${document.paymentMethod.replace('_', ' ').toUpperCase()}</div>
                 ${document.paymentMethod === 'card' || document.paymentMethod === 'bank_transfer' || document.paymentMethod === 'mobile_money' ? `
-                  <div style="margin-top: 10px; font-size: 14px; color: #64748b;">
+                  <div style="margin-top: 8px; font-size: 13px; color: #666;">
                     ${document.status === 'paid' ? '✓ Payment Completed' : 'Payment Pending'}
                   </div>
                 ` : ''}
@@ -636,6 +571,7 @@ export async function generatePDF(
           ` : ''}
         </div>
         
+        <!-- Footer -->
         <div class="footer">
           <div class="footer-company">${business.name}</div>
           <div class="footer-details">
@@ -647,15 +583,18 @@ export async function generatePDF(
           </div>
           <div class="footer-text">Thank you for your business! 🙏</div>
           ${document.employeeName ? `
-            <div class="footer-text" style="margin-top: 10px; font-size: 14px; color: #64748b; font-weight: 600;">
-              Served by: <strong style="color: #0f172a;">${document.employeeName}</strong>
+            <div class="footer-text" style="margin-top: 8px; font-size: 13px; color: #666; font-weight: bold;">
+              Served by: ${document.employeeName}
             </div>
           ` : ''}
           <div class="footer-generated">
             <div>Document #${document.documentNumber} | Date: ${formatDate(document.date)}</div>
-            <div style="margin-top: 6px;">Generated by DreamBig Business OS</div>
+            <div style="margin-top: 4px;">Generated by DreamBig Business OS</div>
           </div>
         </div>
+        
+        <!-- Bottom Accent Bar -->
+        <div class="accent-bar"></div>
       </div>
     </body>
     </html>
