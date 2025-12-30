@@ -50,6 +50,41 @@ export default function LineChart({
   const gridLines = 5;
   const gridStep = chartHeight / gridLines;
 
+  // Format Y-axis values with abbreviations for large numbers
+  const formatYAxisValue = (value: number): string => {
+    if (value >= 1000000) {
+      return `${(value / 1000000).toFixed(1)}M`;
+    } else if (value >= 1000) {
+      return `${(value / 1000).toFixed(1)}K`;
+    }
+    return value.toFixed(0);
+  };
+
+  // Calculate which X-axis labels to show (show max 8 labels to avoid clustering)
+  const getVisibleXLabels = () => {
+    if (!labels || labels.length === 0) return [];
+    const maxLabels = 8;
+    const step = Math.max(1, Math.floor(labels.length / maxLabels));
+    const visibleIndices: number[] = [];
+    
+    // Always show first label
+    visibleIndices.push(0);
+    
+    // Show labels at intervals
+    for (let i = step; i < labels.length - 1; i += step) {
+      visibleIndices.push(i);
+    }
+    
+    // Always show last label if not already included
+    if (visibleIndices[visibleIndices.length - 1] !== labels.length - 1) {
+      visibleIndices.push(labels.length - 1);
+    }
+    
+    return visibleIndices;
+  };
+
+  const visibleXLabels = getVisibleXLabels();
+
   return (
     <View style={[styles.container, { height }]}>
       <Svg width={CHART_WIDTH} height={height}>
@@ -70,13 +105,14 @@ export default function LineChart({
                   strokeDasharray="4,4"
                 />
                 <SvgText
-                  x={PADDING - 10}
-                  y={y + 4}
-                  fontSize="10"
+                  x={PADDING - 12}
+                  y={y + 5}
+                  fontSize="11"
                   fill="#64748B"
                   textAnchor="end"
+                  fontWeight="500"
                 >
-                  {value.toFixed(0)}
+                  {formatYAxisValue(value)}
                 </SvgText>
               </React.Fragment>
             );
@@ -102,19 +138,27 @@ export default function LineChart({
                 stroke="#FFF"
                 strokeWidth="2"
               />
-              {labels && labels[index] && (
-                <SvgText
-                  x={point.x}
-                  y={height - 5}
-                  fontSize="10"
-                  fill="#64748B"
-                  textAnchor="middle"
-                >
-                  {labels[index]}
-                </SvgText>
-              )}
             </React.Fragment>
           ))}
+
+        {/* X-axis labels - only show visible ones */}
+        {labels && visibleXLabels.map((index) => {
+          const point = points[index];
+          if (!point) return null;
+          return (
+            <SvgText
+              key={`label-${index}`}
+              x={point.x}
+              y={height - 8}
+              fontSize="10"
+              fill="#64748B"
+              textAnchor="middle"
+              fontWeight="500"
+            >
+              {labels[index]}
+            </SvgText>
+          );
+        })}
       </Svg>
     </View>
   );

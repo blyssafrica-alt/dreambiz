@@ -80,43 +80,67 @@ export default function ReceiptScanScreen() {
   const processReceipt = async (imageUri: string) => {
     setProcessing(true);
     try {
-      // Import OCR utility
-      const { processReceiptImage } = await import('@/lib/receipt-ocr');
+      // Import OCR utility with error handling
+      let processReceiptImage;
+      try {
+        const receiptOCR = await import('@/lib/receipt-ocr');
+        processReceiptImage = receiptOCR.processReceiptImage;
+      } catch (importError: any) {
+        console.error('Failed to import receipt OCR:', importError);
+        throw new Error('Receipt processing module could not be loaded. Please try again.');
+      }
+      
+      if (!processReceiptImage || typeof processReceiptImage !== 'function') {
+        throw new Error('Receipt processing function is not available.');
+      }
       
       // Extract and parse receipt data
       const receiptData = await processReceiptImage(imageUri, business?.currency || 'USD');
       
       // Pre-fill form with extracted data
-      if (receiptData.amount) {
-        setAmount(receiptData.amount.toString());
-      }
-      if (receiptData.merchant) {
-        setMerchant(receiptData.merchant);
-      }
-      if (receiptData.category) {
-        setCategory(receiptData.category);
-      }
-      if (receiptData.date) {
-        setDate(receiptData.date);
-      }
-      
-      // Create description from items if available
-      if (receiptData.items && receiptData.items.length > 0) {
-        setDescription(receiptData.items.join('\n'));
-      } else if (receiptData.merchant) {
-        setDescription(`Receipt from ${receiptData.merchant}`);
+      if (receiptData && typeof receiptData === 'object') {
+        if (receiptData.amount && typeof receiptData.amount === 'number' && receiptData.amount > 0) {
+          setAmount(receiptData.amount.toString());
+        }
+        if (receiptData.merchant && typeof receiptData.merchant === 'string') {
+          setMerchant(receiptData.merchant);
+        }
+        if (receiptData.category && typeof receiptData.category === 'string') {
+          setCategory(receiptData.category);
+        }
+        if (receiptData.date && typeof receiptData.date === 'string') {
+          setDate(receiptData.date);
+        }
+        
+        // Create description from items if available
+        if (receiptData.items && Array.isArray(receiptData.items) && receiptData.items.length > 0) {
+          setDescription(receiptData.items.join('\n'));
+        } else if (receiptData.merchant) {
+          setDescription(`Receipt from ${receiptData.merchant}`);
+        }
       }
       
       setProcessing(false);
       setShowManualForm(true);
       
       // Show success message with extracted info
-      if (receiptData.amount || receiptData.merchant) {
+      if (receiptData && (receiptData.amount || receiptData.merchant)) {
         const itemsCount = receiptData.items?.length || 0;
         const itemsInfo = itemsCount > 0 ? `\nItems: ${itemsCount} found` : '';
+        const merchantInfo = receiptData.merchant ? `Merchant: ${receiptData.merchant}\n` : '';
+        const amountInfo = receiptData.amount ? `Total: ${business?.currency || 'USD'} ${receiptData.amount.toFixed(2)}\n` : '';
+        const dateInfo = receiptData.date ? `Date: ${receiptData.date}\n` : '';
+        
         RNAlert.alert(
           'Receipt Scanned Successfully',
-          `Extracted Information:\n${receiptData.merchant ? `Merchant: ${receiptData.merchant}\n` : ''}${receiptData.amount ? `Total: ${business?.currency || 'USD'} ${receiptData.amount.toFixed(2)}\n` : ''}${receiptData.date ? `Date: ${receiptData.date}\n` : ''}${itemsInfo}\n\nPlease review and confirm the details.`,
+          `Extracted Information:\n${merchantInfo}${amountInfo}${dateInfo}${itemsInfo}\n\nPlease review and confirm the details.`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        // No data extracted, but still show form
+        RNAlert.alert(
+          'Receipt Processed',
+          'Please review and enter the receipt details manually.',
           [{ text: 'OK' }]
         );
       }
@@ -125,9 +149,10 @@ export default function ReceiptScanScreen() {
       setProcessing(false);
       
       // Show manual entry form even if OCR fails
+      const errorMessage = error?.message || 'Unable to extract receipt information automatically.';
       RNAlert.alert(
-        'Scanning Complete',
-        'Please manually enter the receipt details.',
+        'Manual Entry Required',
+        `${errorMessage}\n\nPlease enter the receipt details manually.`,
         [{ text: 'OK', onPress: () => setShowManualForm(true) }]
       );
     }

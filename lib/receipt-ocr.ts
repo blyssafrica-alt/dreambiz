@@ -3,6 +3,8 @@
  * Extracts structured data from receipt images using OCR
  */
 
+import * as FileSystem from 'expo-file-system';
+
 export interface ReceiptData {
   merchant?: string;
   amount?: number;
@@ -14,70 +16,144 @@ export interface ReceiptData {
 }
 
 /**
- * Extract text from image using OCR
- * This uses Google Cloud Vision API or a fallback method
+ * Convert image URI to base64 string
  */
-export async function extractTextFromImage(imageUri: string): Promise<string> {
+async function imageUriToBase64(uri: string): Promise<string> {
   try {
-    // Option 1: Use Google Cloud Vision API (requires API key)
-    // Uncomment and configure if you have a Google Cloud Vision API key
-    /*
-    const response = await fetch(
-      `https://vision.googleapis.com/v1/images:annotate?key=YOUR_API_KEY`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          requests: [
-            {
-              image: {
-                source: {
-                  imageUri: imageUri,
-                },
-              },
-              features: [
-                {
-                  type: 'TEXT_DETECTION',
-                  maxResults: 1,
-                },
-              ],
-            },
-          ],
-        }),
-      }
-    );
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    return base64;
+  } catch (error) {
+    console.error('Error converting image to base64:', error);
+    throw new Error('Failed to convert image to base64');
+  }
+}
+
+/**
+ * Extract text from image using OCR.space API
+ * Free tier: 25,000 requests/month
+ * Get API key from: https://ocr.space/ocrapi/freekey
+ */
+async function extractTextWithOCRSpace(imageUri: string, apiKey?: string): Promise<string> {
+  try {
+    // Convert image to base64
+    const base64Image = await imageUriToBase64(imageUri);
+    
+    // Use free API key if provided, otherwise use demo key (limited)
+    const ocrApiKey = apiKey || 'helloworld'; // Free demo key (limited requests)
+    const ocrApiUrl = 'https://api.ocr.space/parse/image';
+    
+    // Create form data for React Native
+    const formData = new FormData();
+    formData.append('base64Image', `data:image/jpeg;base64,${base64Image}`);
+    formData.append('language', 'eng');
+    formData.append('isOverlayRequired', 'false');
+    formData.append('detectOrientation', 'true');
+    formData.append('scale', 'true');
+    formData.append('OCREngine', '2'); // Engine 2 is better for receipts
+    
+    // If API key is provided, add it
+    if (apiKey && apiKey !== 'helloworld') {
+      formData.append('apikey', apiKey);
+    }
+    
+    const response = await fetch(ocrApiUrl, {
+      method: 'POST',
+      body: formData,
+      // Don't set Content-Type header - let fetch set it with boundary
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OCR API error: ${response.status} ${response.statusText} - ${errorText}`);
+    }
     
     const data = await response.json();
-    if (data.responses && data.responses[0] && data.responses[0].textAnnotations) {
-      return data.responses[0].textAnnotations[0].description;
+    
+    // Check for API errors
+    if (data.ErrorMessage && data.ErrorMessage.length > 0) {
+      const errorMsg = Array.isArray(data.ErrorMessage) 
+        ? data.ErrorMessage.join(', ') 
+        : data.ErrorMessage;
+      throw new Error(`OCR API error: ${errorMsg}`);
     }
-    */
+    
+    if (data.OCRExitCode === 1 && data.ParsedResults && data.ParsedResults.length > 0) {
+      // Success - extract text from all parsed results
+      const allText = data.ParsedResults
+        .map((result: any) => result.ParsedText || '')
+        .join('\n')
+        .trim();
+      
+      if (allText) {
+        return allText;
+      }
+    }
+    
+    // Check exit codes
+    if (data.OCRExitCode === 2) {
+      throw new Error('OCR processing failed - image may be corrupted');
+    }
+    if (data.OCRExitCode === 3 || data.OCRExitCode === 4) {
+      throw new Error('OCR processing failed - no text detected in image');
+    }
+    
+    throw new Error('No text found in image');
+  } catch (error: any) {
+    console.error('OCR.space API error:', error);
+    throw error;
+  }
+}
 
-    // Option 2: Use Tesseract.js (client-side OCR)
-    // This requires installing: npm install tesseract.js
-    /*
-    const Tesseract = require('tesseract.js');
-    const { data: { text } } = await Tesseract.recognize(imageUri, 'eng', {
-      logger: (m) => console.log(m),
-    });
-    return text;
-    */
+/**
+ * Extract text from image using Tesseract.js (client-side OCR)
+ * Fallback option - works offline, no API key needed
+ */
+async function extractTextWithTesseract(imageUri: string): Promise<string> {
+  try {
+    // Dynamic import to avoid loading Tesseract if not installed
+    const Tesseract = await import('tesseract.js');
+    const { createWorker } = Tesseract.default || Tesseract;
+    
+    const worker = await createWorker('eng');
+    const { data: { text } } = await worker.recognize(imageUri);
+    await worker.terminate();
+    
+    return text.trim();
+  } catch (error: any) {
+    console.error('Tesseract.js error:', error);
+    throw new Error('Tesseract OCR failed. Please install: bun add tesseract.js');
+  }
+}
 
-    // Option 3: Use a local OCR service endpoint
-    // You can set up your own OCR service or use services like:
-    // - AWS Textract
-    // - Azure Computer Vision
-    // - OCR.space API
-    // - Abbyy FineReader
-
-    // For now, we'll use a mock implementation that simulates OCR
-    // In production, replace this with actual OCR service
-    return await mockOCR(imageUri);
-  } catch (error) {
-    console.error('OCR Error:', error);
-    throw new Error('Failed to extract text from image');
+/**
+ * Extract text from image using OCR
+ * Tries OCR.space API first, falls back to Tesseract.js, then mock OCR
+ */
+export async function extractTextFromImage(imageUri: string): Promise<string> {
+  // Get API key from environment or use free tier
+  // To use your own API key, set EXPO_PUBLIC_OCR_SPACE_API_KEY in your .env file
+  const apiKey = process.env.EXPO_PUBLIC_OCR_SPACE_API_KEY;
+  
+  try {
+    // Try OCR.space API first (best for receipts)
+    console.log('Attempting OCR with OCR.space API...');
+    return await extractTextWithOCRSpace(imageUri, apiKey);
+  } catch (ocrSpaceError) {
+    console.warn('OCR.space failed, trying Tesseract.js...', ocrSpaceError);
+    
+    try {
+      // Fallback to Tesseract.js if available
+      return await extractTextWithTesseract(imageUri);
+    } catch (tesseractError) {
+      console.warn('Tesseract.js failed, using mock OCR...', tesseractError);
+      
+      // Final fallback: mock OCR for development/testing
+      // In production, you should handle this error properly
+      console.warn('Using mock OCR - install tesseract.js or configure OCR.space API key for real OCR');
+      return await mockOCR(imageUri);
+    }
   }
 }
 
@@ -119,7 +195,7 @@ Visit us again soon.`;
 /**
  * Parse receipt text and extract structured data
  */
-export function parseReceiptText(text: string): ReceiptData {
+export function parseReceiptText(text: string, businessCurrency: string = 'USD'): ReceiptData {
   const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
   
   const receiptData: ReceiptData = {};
@@ -364,7 +440,7 @@ export function parseReceiptText(text: string): ReceiptData {
           if (quantity) {
             itemString += ` (Qty: ${quantity})`;
           }
-          itemString += ` - ${business?.currency || 'USD'} ${price.toFixed(2)}`;
+          itemString += ` - ${businessCurrency} ${price.toFixed(2)}`;
           
           receiptData.items.push(itemString);
           matched = true;
@@ -382,7 +458,7 @@ export function parseReceiptText(text: string): ReceiptData {
         if (price > 0 && price < 100000 && price !== receiptData.amount) {
           const itemName = line.replace(priceMatch[0], '').trim();
           if (itemName.length > 2) {
-            receiptData.items.push(`${itemName} - ${business?.currency || 'USD'} ${price.toFixed(2)}`);
+            receiptData.items.push(`${itemName} - ${businessCurrency} ${price.toFixed(2)}`);
           }
         }
       }

@@ -43,6 +43,16 @@ export default function BarChart({
   const gridLines = 5;
   const gridStep = chartHeight / gridLines;
 
+  // Format Y-axis values with abbreviations for large numbers
+  const formatYAxisValue = (value: number): string => {
+    if (value >= 1000000) {
+      return `${(value / 1000000).toFixed(1)}M`;
+    } else if (value >= 1000) {
+      return `${(value / 1000).toFixed(1)}K`;
+    }
+    return value.toFixed(0);
+  };
+
   return (
     <View style={[styles.container, { height }]}>
       <Svg width={CHART_WIDTH} height={height}>
@@ -63,13 +73,14 @@ export default function BarChart({
                   strokeDasharray="4,4"
                 />
                 <SvgText
-                  x={PADDING - 10}
-                  y={y + 4}
-                  fontSize="10"
+                  x={PADDING - 12}
+                  y={y + 5}
+                  fontSize="11"
                   fill="#64748B"
                   textAnchor="end"
+                  fontWeight="500"
                 >
-                  {value.toFixed(0)}
+                  {formatYAxisValue(value)}
                 </SvgText>
               </React.Fragment>
             );
@@ -92,7 +103,7 @@ export default function BarChart({
                 fill={color}
                 rx={4}
               />
-              {showValues && (
+              {showValues && item.value > 0 && (
                 <SvgText
                   x={x + barWidth / 2}
                   y={y - 5}
@@ -101,7 +112,7 @@ export default function BarChart({
                   fontWeight="600"
                   textAnchor="middle"
                 >
-                  {item.value.toFixed(0)}
+                  {formatYAxisValue(item.value)}
                 </SvgText>
               )}
               <SvgText
@@ -110,8 +121,9 @@ export default function BarChart({
                 fontSize="10"
                 fill="#64748B"
                 textAnchor="middle"
+                fontWeight="500"
               >
-                {item.label}
+                {item.label.length > 8 ? item.label.substring(0, 7) + '...' : item.label}
               </SvgText>
             </React.Fragment>
           );
