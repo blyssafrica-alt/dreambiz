@@ -9,20 +9,48 @@ import {
   Alert as RNAlert,
   Platform,
   Share,
+  ActivityIndicator,
 } from 'react-native';
+import { useState, useEffect } from 'react';
 import { useBusiness } from '@/contexts/BusinessContext';
 
 export default function BusinessPlanScreen() {
   const { business, getDashboardMetrics } = useBusiness();
-  const metrics = getDashboardMetrics();
+  const [metrics, setMetrics] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const formatCurrency = (amount: number) => {
+  useEffect(() => {
+    const loadMetrics = async () => {
+      try {
+        const data = await getDashboardMetrics();
+        setMetrics(data);
+      } catch (error) {
+        console.error('Failed to load metrics:', error);
+        setMetrics({
+          monthSales: 0,
+          monthExpenses: 0,
+          monthProfit: 0,
+          cashPosition: 0,
+          topCategories: [],
+          alerts: [],
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadMetrics();
+  }, [getDashboardMetrics]);
+
+  const formatCurrency = (amount: number | undefined | null) => {
+    if (amount === undefined || amount === null || isNaN(amount)) {
+      return business?.currency === 'USD' ? '$0.00' : 'ZWL0.00';
+    }
     const symbol = business?.currency === 'USD' ? '$' : 'ZWL';
-    return `${symbol}${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+    return `${symbol}${Number(amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
   };
 
   const generateBusinessPlan = () => {
-    if (!business) return '';
+    if (!business || !metrics) return '';
 
     let plan = `BUSINESS PLAN\n${'='.repeat(60)}\n\n`;
     
@@ -63,9 +91,9 @@ export default function BusinessPlanScreen() {
     plan += `- Monthly Profit: ${formatCurrency(metrics.monthProfit)}\n`;
     plan += `- Cash Position: ${formatCurrency(metrics.cashPosition)}\n\n`;
 
-    if (metrics.topCategories.length > 0) {
+    if (metrics.topCategories && metrics.topCategories.length > 0) {
       plan += `Revenue Sources:\n`;
-      metrics.topCategories.forEach((cat, index) => {
+      metrics.topCategories.forEach((cat: any, index: number) => {
         plan += `${index + 1}. ${cat.category}: ${formatCurrency(cat.amount)}\n`;
       });
       plan += `\n`;
@@ -130,9 +158,9 @@ export default function BusinessPlanScreen() {
     plan += `- Cash flow positivity\n`;
     plan += `- Break-even achievement\n\n`;
 
-    if (metrics.alerts.length > 0) {
+    if (metrics.alerts && metrics.alerts.length > 0) {
       plan += `10. CURRENT ALERTS & ACTION ITEMS\n${'-'.repeat(60)}\n\n`;
-      metrics.alerts.forEach((alert, index) => {
+      metrics.alerts.forEach((alert: any, index: number) => {
         plan += `${index + 1}. ${alert.message}\n`;
         if (alert.action) {
           plan += `   Action: ${alert.action}\n`;
@@ -156,7 +184,17 @@ export default function BusinessPlanScreen() {
   };
 
   const handleShare = async () => {
+    if (!business || !metrics) {
+      RNAlert.alert('Error', 'Business data is not loaded yet. Please wait a moment and try again.');
+      return;
+    }
+    
     const plan = generateBusinessPlan();
+    
+    if (!plan) {
+      RNAlert.alert('Error', 'Failed to generate business plan');
+      return;
+    }
     
     try {
       if (Platform.OS === 'web') {
@@ -194,13 +232,20 @@ export default function BusinessPlanScreen() {
         }} 
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <FileText size={48} color="#0066CC" />
-          <Text style={styles.title}>Business Plan Generator</Text>
-          <Text style={styles.subtitle}>
-            A comprehensive business plan based on your data
-          </Text>
-        </View>
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#0066CC" />
+            <Text style={styles.loadingText}>Loading business data...</Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.header}>
+              <FileText size={48} color="#0066CC" />
+              <Text style={styles.title}>Business Plan Generator</Text>
+              <Text style={styles.subtitle}>
+                A comprehensive business plan based on your data
+              </Text>
+            </View>
 
         <View style={styles.infoCard}>
           <Text style={styles.infoText}>
@@ -253,18 +298,20 @@ export default function BusinessPlanScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.generateButton} onPress={handleShare}>
-          <Download size={20} color="#FFF" />
-          <Text style={styles.generateButtonText}>Download Business Plan</Text>
-        </TouchableOpacity>
+            <TouchableOpacity style={styles.generateButton} onPress={handleShare} disabled={isLoading || !metrics}>
+              <Download size={20} color="#FFF" />
+              <Text style={styles.generateButtonText}>Download Business Plan</Text>
+            </TouchableOpacity>
 
-        <View style={styles.noteCard}>
-          <Text style={styles.noteTitle}>📝 Note</Text>
-          <Text style={styles.noteText}>
-            Update your business profile and keep your financial records current to ensure 
-            your business plan reflects accurate information.
-          </Text>
-        </View>
+            <View style={styles.noteCard}>
+              <Text style={styles.noteTitle}>📝 Note</Text>
+              <Text style={styles.noteText}>
+                Update your business profile and keep your financial records current to ensure 
+                your business plan reflects accurate information.
+              </Text>
+            </View>
+          </>
+        )}
       </ScrollView>
     </>
   );
@@ -387,5 +434,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#78350F',
     lineHeight: 18,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#64748B',
   },
 });
