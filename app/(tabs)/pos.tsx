@@ -105,6 +105,28 @@ export default function POSScreen() {
     }).start();
   }, [cartOpen]);
 
+  // Auto-print receipt when sale completes
+  useEffect(() => {
+    if (showReceiptModal && createdReceipt && business) {
+      // Automatically generate and print receipt after a short delay
+      const timer = setTimeout(async () => {
+        try {
+          setIsProcessing(true);
+          await exportToPDF(createdReceipt, business);
+          // Silently generate PDF - user can manually print if needed
+          console.log('Receipt PDF generated automatically');
+        } catch (error: any) {
+          console.error('Auto-print failed:', error);
+          // Don't show alert for auto-print failures, user can manually print
+        } finally {
+          setIsProcessing(false);
+        }
+      }, 500); // Small delay to ensure modal is fully rendered
+
+      return () => clearTimeout(timer);
+    }
+  }, [showReceiptModal, createdReceipt, business]);
+
   // Don't early return - handle undefined theme gracefully
   // Theme should always be available from ThemeContext, but if not, use defaults
   // Get unique categories
@@ -1096,71 +1118,73 @@ export default function POSScreen() {
                 </TouchableOpacity>
               </View>
               
-              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-                {createdReceipt && business && (
-                  <>
-                    {/* Receipt Summary */}
-                    <View style={[styles.receiptSummary, { backgroundColor: '#F0FDF420' }]}>
-                      <View style={styles.receiptSummaryRow}>
-                        <Text style={[styles.receiptSummaryLabel, { color: theme.text.secondary }]}>Total</Text>
-                        <Text style={[styles.receiptSummaryValue, { color: theme.accent.primary }]}>
-                          {formatCurrency(createdReceipt.total)}
-                        </Text>
-                      </View>
-                      <View style={styles.receiptSummaryRow}>
-                        <Text style={[styles.receiptSummaryLabel, { color: theme.text.secondary }]}>Payment</Text>
-                        <Text style={[styles.receiptSummaryValue, { color: theme.text.primary }]}>
-                          {createdReceipt.paymentMethod?.replace('_', ' ').toUpperCase() || 'CASH'}
-                        </Text>
-                      </View>
-                      {paymentMethod === 'cash' && changeAmount > 0 && (
+              <View style={styles.receiptContentWrapper}>
+                <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent} showsVerticalScrollIndicator={false}>
+                  {createdReceipt && business && (
+                    <>
+                      {/* Receipt Summary */}
+                      <View style={[styles.receiptSummary, { backgroundColor: '#F0FDF420' }]}>
                         <View style={styles.receiptSummaryRow}>
-                          <Text style={[styles.receiptSummaryLabel, { color: theme.text.secondary }]}>Change</Text>
-                          <Text style={[styles.receiptSummaryValue, { color: '#10B981' }]}>
-                            {formatCurrency(changeAmount)}
+                          <Text style={[styles.receiptSummaryLabel, { color: theme.text.secondary }]}>Total</Text>
+                          <Text style={[styles.receiptSummaryValue, { color: theme.accent.primary }]}>
+                            {formatCurrency(createdReceipt.total)}
                           </Text>
                         </View>
-                      )}
-                    </View>
+                        <View style={styles.receiptSummaryRow}>
+                          <Text style={[styles.receiptSummaryLabel, { color: theme.text.secondary }]}>Payment</Text>
+                          <Text style={[styles.receiptSummaryValue, { color: theme.text.primary }]}>
+                            {createdReceipt.paymentMethod?.replace('_', ' ').toUpperCase() || 'CASH'}
+                          </Text>
+                        </View>
+                        {paymentMethod === 'cash' && changeAmount > 0 && (
+                          <View style={styles.receiptSummaryRow}>
+                            <Text style={[styles.receiptSummaryLabel, { color: theme.text.secondary }]}>Change</Text>
+                            <Text style={[styles.receiptSummaryValue, { color: '#10B981' }]}>
+                              {formatCurrency(changeAmount)}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
 
-                    {/* Receipt Actions */}
-                    <View style={styles.receiptActions}>
-                      <TouchableOpacity
-                        style={[styles.receiptActionButton, { backgroundColor: theme.accent.primary }]}
-                        onPress={handlePrintReceipt}
-                      >
-                        <Printer size={20} color="#FFF" />
-                        <Text style={styles.receiptActionText}>Print Receipt</Text>
-                      </TouchableOpacity>
+                      {/* Receipt Actions */}
+                      <View style={styles.receiptActions}>
+                        <TouchableOpacity
+                          style={[styles.receiptActionButton, { backgroundColor: theme.accent.primary }]}
+                          onPress={handlePrintReceipt}
+                        >
+                          <Printer size={20} color="#FFF" />
+                          <Text style={styles.receiptActionText}>Print Receipt</Text>
+                        </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={[styles.receiptActionButton, { backgroundColor: theme.accent.success }]}
-                        onPress={handleEmailReceipt}
-                        disabled={!selectedCustomer?.email && !newCustomerPhone}
-                      >
-                        <Mail size={20} color="#FFF" />
-                        <Text style={styles.receiptActionText}>Email Receipt</Text>
-                      </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.receiptActionButton, { backgroundColor: theme.accent.success }]}
+                          onPress={handleEmailReceipt}
+                          disabled={!selectedCustomer?.email && !newCustomerPhone}
+                        >
+                          <Mail size={20} color="#FFF" />
+                          <Text style={styles.receiptActionText}>Email Receipt</Text>
+                        </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={[styles.receiptActionButton, { backgroundColor: theme.background.secondary, borderWidth: 1, borderColor: theme.border.light }]}
-                        onPress={handleShareReceipt}
-                      >
-                        <Share2 size={20} color={theme.text.primary} />
-                        <Text style={[styles.receiptActionText, { color: theme.text.primary }]}>Share</Text>
-                      </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.receiptActionButton, { backgroundColor: theme.background.secondary, borderWidth: 1, borderColor: theme.border.light }]}
+                          onPress={handleShareReceipt}
+                        >
+                          <Share2 size={20} color={theme.text.primary} />
+                          <Text style={[styles.receiptActionText, { color: theme.text.primary }]}>Share</Text>
+                        </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={[styles.receiptActionButton, { backgroundColor: theme.background.secondary, borderWidth: 1, borderColor: theme.border.light }]}
-                        onPress={handleViewReceipt}
-                      >
-                        <FileText size={20} color={theme.text.primary} />
-                        <Text style={[styles.receiptActionText, { color: theme.text.primary }]}>View Details</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </>
-                )}
-              </ScrollView>
+                        <TouchableOpacity
+                          style={[styles.receiptActionButton, { backgroundColor: theme.background.secondary, borderWidth: 1, borderColor: theme.border.light }]}
+                          onPress={handleViewReceipt}
+                        >
+                          <FileText size={20} color={theme.text.primary} />
+                          <Text style={[styles.receiptActionText, { color: theme.text.primary }]}>View Details</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  )}
+                </ScrollView>
+              </View>
 
               {/* New Sale Button */}
               <View style={styles.receiptFooter}>
@@ -1616,8 +1640,16 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800' as const,
   },
+  receiptContentWrapper: {
+    flex: 1,
+    minHeight: 300,
+  },
   modalBody: {
+    flex: 1,
+  },
+  modalBodyContent: {
     padding: 20,
+    paddingBottom: 40,
   },
   customerOption: {
     flexDirection: 'row',
@@ -1764,7 +1796,9 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
   },
   receiptModal: {
-    maxHeight: '85%',
+    maxHeight: '90%',
+    minHeight: '70%',
+    flex: 1,
   },
   receiptHeaderLeft: {
     flexDirection: 'row',
