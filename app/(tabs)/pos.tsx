@@ -38,6 +38,7 @@ import {
   Dimensions,
   Share,
   Linking,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import PageHeader from '@/components/PageHeader';
@@ -292,8 +293,8 @@ export default function POSScreen() {
 
       setIsProcessing(true);
 
-      // Create invoice/receipt
-      const newReceipt: Document = await addDocument({
+      // Create invoice/receipt with all payment details
+      const newReceipt: any = await addDocument({
         type: 'receipt', // POS sales are receipts
         customerName,
         customerPhone,
@@ -309,6 +310,12 @@ export default function POSScreen() {
           ? `Discount: ${discountType === 'percent' ? `${discount}%` : formatCurrency(discountAmount)}`
           : undefined,
       });
+      
+      // Add additional fields for PDF export
+      newReceipt.discountAmount = discountAmount;
+      newReceipt.discountType = discountType;
+      newReceipt.amountReceived = paymentMethod === 'cash' ? parseFloat(amountReceived) || 0 : cartTotal;
+      newReceipt.changeAmount = changeAmount;
 
       // Create transaction for the sale
       try {
@@ -552,9 +559,17 @@ export default function POSScreen() {
                         {product.quantity}
                       </Text>
                     </View>
-                    <View style={styles.productImagePlaceholder}>
-                      <Package size={32} color={theme.text.tertiary} />
-                    </View>
+                    {product.featuredImage || (product.images && product.images.length > 0) ? (
+                      <Image 
+                        source={{ uri: product.featuredImage || product.images?.[0] }} 
+                        style={styles.productImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={styles.productImagePlaceholder}>
+                        <Package size={32} color={theme.text.tertiary} />
+                      </View>
+                    )}
                     <View style={styles.productInfo}>
                       <Text 
                         style={[styles.productName, { color: theme.text.primary }]}
@@ -1287,6 +1302,13 @@ const styles = StyleSheet.create({
   stockBadgeText: {
     fontSize: 11,
     fontWeight: '700' as const,
+  },
+  productImage: {
+    width: '100%',
+    height: 100,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    marginBottom: 12,
   },
   productImagePlaceholder: {
     width: '100%',

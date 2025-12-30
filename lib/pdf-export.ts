@@ -36,9 +36,22 @@ export async function generatePDF(
   };
 
   // Generate HTML for PDF (can be converted to PDF using expo-print)
-  const logoHtml = business.logo 
-    ? `<img src="${business.logo}" alt="Logo" style="max-height: 80px; max-width: 200px; margin-bottom: 20px;" />`
-    : '';
+  // Handle logo - convert base64 or use URL directly
+  let logoHtml = '';
+  if (business.logo) {
+    // If it's already a URL (http/https), use it directly
+    if (business.logo.startsWith('http://') || business.logo.startsWith('https://')) {
+      logoHtml = `<img src="${business.logo}" alt="Logo" style="max-height: 80px; max-width: 200px; margin-bottom: 20px; object-fit: contain;" />`;
+    } 
+    // If it's base64, use it directly
+    else if (business.logo.startsWith('data:image')) {
+      logoHtml = `<img src="${business.logo}" alt="Logo" style="max-height: 80px; max-width: 200px; margin-bottom: 20px; object-fit: contain;" />`;
+    }
+    // Otherwise, assume it's a base64 string without prefix
+    else {
+      logoHtml = `<img src="data:image/png;base64,${business.logo}" alt="Logo" style="max-height: 80px; max-width: 200px; margin-bottom: 20px; object-fit: contain;" />`;
+    }
+  }
 
   const html = `
     <!DOCTYPE html>
@@ -349,6 +362,12 @@ export async function generatePDF(
                 <span class="total-label">Subtotal</span>
                 <span class="total-value">${formatCurrency(document.subtotal)}</span>
               </div>
+              ${(document as any).discountAmount ? `
+                <div class="total-row" style="color: #10B981;">
+                  <span class="total-label">Discount</span>
+                  <span class="total-value">-${formatCurrency((document as any).discountAmount)}</span>
+                </div>
+              ` : ''}
               ${document.tax ? `
                 <div class="total-row">
                   <span class="total-label">Tax</span>
@@ -359,8 +378,54 @@ export async function generatePDF(
                 <span class="total-label">Total</span>
                 <span class="total-value">${formatCurrency(document.total)}</span>
               </div>
+              ${(document as any).amountReceived ? `
+                <div class="total-row" style="margin-top: 16px; padding-top: 16px; border-top: 2px solid #e0e0e0;">
+                  <span class="total-label">Amount Received</span>
+                  <span class="total-value">${formatCurrency((document as any).amountReceived)}</span>
+                </div>
+                ${(document as any).changeAmount > 0 ? `
+                  <div class="total-row" style="color: #10B981;">
+                    <span class="total-label">Change</span>
+                    <span class="total-value">${formatCurrency((document as any).changeAmount)}</span>
+                  </div>
+                ` : ''}
+              ` : ''}
+              ${document.paidAmount && document.paidAmount < document.total ? `
+                <div class="total-row" style="margin-top: 16px; padding-top: 16px; border-top: 2px solid #e0e0e0;">
+                  <span class="total-label">Paid Amount</span>
+                  <span class="total-value">${formatCurrency(document.paidAmount)}</span>
+                </div>
+                <div class="total-row" style="color: #F59E0B;">
+                  <span class="total-label">Balance Due</span>
+                  <span class="total-value">${formatCurrency(document.total - document.paidAmount)}</span>
+                </div>
+              ` : ''}
             </div>
           </div>
+          
+          ${document.paymentMethod ? `
+            <div class="payment-section" style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin-top: 30px; border-left: 4px solid ${template.styling.primaryColor};">
+              <div style="font-weight: 700; color: ${template.styling.primaryColor}; margin-bottom: 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">
+                Payment Information
+              </div>
+              <div style="color: #333; line-height: 1.8;">
+                <div><strong>Payment Method:</strong> ${document.paymentMethod.replace('_', ' ').toUpperCase()}</div>
+                ${document.paymentMethod === 'card' || document.paymentMethod === 'bank_transfer' || document.paymentMethod === 'mobile_money' ? `
+                  <div style="margin-top: 8px; font-size: 13px; color: #666;">
+                    ${document.status === 'paid' ? '✓ Payment Completed' : 'Payment Pending'}
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          ` : ''}
+          
+          ${document.status ? `
+            <div class="status-section" style="background: ${document.status === 'paid' ? '#10B98115' : document.status === 'cancelled' ? '#EF444415' : '#F59E0B15'}; padding: 16px; border-radius: 8px; margin-top: 20px; text-align: center; border-left: 4px solid ${document.status === 'paid' ? '#10B981' : document.status === 'cancelled' ? '#EF4444' : '#F59E0B'};">
+              <div style="font-weight: 700; color: ${document.status === 'paid' ? '#10B981' : document.status === 'cancelled' ? '#EF4444' : '#F59E0B'}; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">
+                Status: ${document.status.toUpperCase()}
+              </div>
+            </div>
+          ` : ''}
           
           ${document.dueDate ? `
             <div class="due-date-section">
@@ -394,7 +459,7 @@ export async function generatePDF(
 
 // Export as PDF using expo-print (requires expo-print package)
 export async function exportToPDF(
-  document: Document,
+  document: Document | any, // Allow extended document with additional fields
   business: BusinessProfile,
   options: PDFOptions = {}
 ): Promise<void> {
@@ -407,20 +472,55 @@ export async function exportToPDF(
     const { uri } = await (Print as any).printToFileAsync({
       html,
       base64: false,
+      width: 612, // A4 width in points
+      height: 792, // A4 height in points
     });
     
     if ((Sharing as any).isAvailableAsync && await (Sharing as any).isAvailableAsync()) {
       await (Sharing as any).shareAsync(uri);
+    } else {
+      // If sharing is not available, try to open the file
+      const { Alert, Platform } = await import('react-native');
+      if (Platform.OS === 'web') {
+        // For web, create a download link
+        const doc = (typeof globalThis !== 'undefined' && (globalThis as any).document) as any;
+        if (doc) {
+          const link = doc.createElement('a');
+          link.href = uri;
+          link.download = `${document.documentNumber || 'document'}.pdf`;
+          link.click();
+        }
+      } else {
+        Alert.alert('PDF Generated', `PDF saved to: ${uri}`);
+      }
     }
-  } catch (error) {
-    console.warn('PDF export not available, using text format', error);
-    const template = await getDocumentTemplate(document.type, business.type);
-    const content = generateDocumentContent(document, business, template);
-    const { Share } = await import('react-native');
-    await Share.share({
-      message: content,
-      title: `${document.documentNumber}`,
-    });
+  } catch (error: any) {
+    console.error('PDF export error:', error);
+    // Fallback to text sharing
+    try {
+      const template = await getDocumentTemplate(document.type, business.type);
+      const content = generateDocumentContent(document, business, template);
+      const { Share, Platform } = await import('react-native');
+      
+      if (Platform.OS === 'web') {
+        // For web, create a text file download
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${document.documentNumber || 'document'}.txt`;
+        link.click();
+        URL.revokeObjectURL(url);
+      } else {
+        await Share.share({
+          message: content,
+          title: `${document.documentNumber || 'Document'}`,
+        });
+      }
+    } catch (fallbackError: any) {
+      console.error('Fallback share also failed:', fallbackError);
+      throw new Error('Failed to export PDF. Please ensure expo-print is installed and try again.');
+    }
   }
 }
 

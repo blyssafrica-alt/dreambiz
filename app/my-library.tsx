@@ -11,11 +11,12 @@ import {
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, BookOpen, Download, CheckCircle } from 'lucide-react-native';
+import { ArrowLeft, BookOpen, Download, CheckCircle, Eye } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import type { Book } from '@/types/books';
 import * as Linking from 'expo-linking';
+import { Alert as RNAlert } from 'react-native';
 
 interface PurchasedBook {
   id: string;
@@ -105,9 +106,79 @@ export default function MyLibraryScreen() {
     router.push(`/books/${book.id}` as any);
   };
 
-  const handleDownloadBook = (book: Book) => {
-    if (book.documentFileUrl) {
-      Linking.openURL(book.documentFileUrl);
+  const handleReadBook = (book: Book) => {
+    if (!book.documentFileUrl) {
+      RNAlert.alert('Book Not Available', 'This book does not have a document file yet.');
+      return;
+    }
+    router.push(`/books/read/${book.id}` as any);
+  };
+
+  const handleDownloadBook = async (book: Book) => {
+    if (!book.documentFileUrl) {
+      RNAlert.alert('Book Not Available', 'This book does not have a document file yet.');
+      return;
+    }
+
+    try {
+      // Get signed URL if it's a Supabase storage URL
+      let fileUrl = book.documentFileUrl;
+      
+      if (fileUrl.includes('supabase.co/storage')) {
+        try {
+          const urlParts = fileUrl.split('/storage/v1/object/public/');
+          if (urlParts.length === 2) {
+            const [bucket, ...pathParts] = urlParts[1].split('/');
+            const filePath = pathParts.join('/');
+            
+            const { data: signedData, error: signedError } = await supabase
+              .storage
+              .from(bucket)
+              .createSignedUrl(filePath, 3600);
+
+            if (!signedError && signedData) {
+              fileUrl = signedData.signedUrl;
+            }
+          }
+        } catch (urlError) {
+          console.warn('Could not create signed URL:', urlError);
+        }
+      }
+
+      // Download file
+      const FileSystem = await import('expo-file-system');
+      const Sharing = await import('expo-sharing');
+      
+      const sanitizedTitle = book.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const filename = `${sanitizedTitle}.pdf`;
+      const fileUri = `${FileSystem.documentDirectory}${filename}`;
+
+      const downloadResumable = FileSystem.createDownloadResumable(
+        fileUrl,
+        fileUri,
+        {}
+      );
+
+      const result = await downloadResumable.downloadAsync();
+      
+      if (!result) {
+        throw new Error('Download failed');
+      }
+
+      // Share/download the file
+      const isAvailable = await Sharing.isAvailableAsync();
+      
+      if (isAvailable) {
+        await Sharing.shareAsync(result.uri);
+        RNAlert.alert('Success', 'Book downloaded successfully!');
+      } else {
+        // Fallback: open in browser
+        await Linking.openURL(fileUrl);
+        RNAlert.alert('Download Started', 'The book will open in your browser for download.');
+      }
+    } catch (error: any) {
+      console.error('Download error:', error);
+      RNAlert.alert('Download Failed', error.message || 'Failed to download book. Please try again.');
     }
   };
 
@@ -189,13 +260,22 @@ export default function MyLibraryScreen() {
                     Purchased {new Date(purchasedBook.purchasedAt).toLocaleDateString()}
                   </Text>
                   {purchasedBook.book.documentFileUrl && (
-                    <TouchableOpacity
-                      style={[styles.downloadButton, { backgroundColor: theme.accent.primary + '20' }]}
-                      onPress={() => handleDownloadBook(purchasedBook.book)}
-                    >
-                      <Download size={14} color={theme.accent.primary} />
-                      <Text style={[styles.downloadText, { color: theme.accent.primary }]}>Download</Text>
-                    </TouchableOpacity>
+                    <View style={styles.actionButtons}>
+                      <TouchableOpacity
+                        style={[styles.actionButton, styles.readButton, { backgroundColor: theme.accent.primary }]}
+                        onPress={() => handleReadBook(purchasedBook.book)}
+                      >
+                        <Eye size={14} color="#FFF" />
+                        <Text style={styles.readButtonText}>Read</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.actionButton, styles.downloadButton, { backgroundColor: theme.accent.primary + '20' }]}
+                        onPress={() => handleDownloadBook(purchasedBook.book)}
+                      >
+                        <Download size={14} color={theme.accent.primary} />
+                        <Text style={[styles.downloadText, { color: theme.accent.primary }]}>Download</Text>
+                      </TouchableOpacity>
+                    </View>
                   )}
                 </View>
               </TouchableOpacity>
@@ -342,13 +422,30 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginBottom: 8,
   },
-  downloadButton: {
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  actionButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 8,
     borderRadius: 6,
     gap: 4,
+  },
+  readButton: {
+    backgroundColor: '#0066CC',
+  },
+  readButtonText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  downloadButton: {
+    backgroundColor: 'rgba(0, 102, 204, 0.1)',
   },
   downloadText: {
     fontSize: 12,

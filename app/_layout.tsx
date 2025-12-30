@@ -75,6 +75,7 @@ function RootLayoutNav() {
         <Stack.Screen name="business-plan" options={{ title: 'Business Plan' }} />
         <Stack.Screen name="help" options={{ title: 'Help & Support' }} />
         <Stack.Screen name="books" options={{ headerShown: false }} />
+        <Stack.Screen name="books/read/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="my-library" options={{ title: 'My Library' }} />
         <Stack.Screen name="receipt-scan" options={{ title: 'Scan Receipt' }} />
         <Stack.Screen name="payments" options={{ headerShown: false }} />
