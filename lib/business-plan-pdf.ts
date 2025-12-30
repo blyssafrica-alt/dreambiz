@@ -872,43 +872,132 @@ export async function exportBusinessPlanToPDF(
   extendedData?: Partial<ExtendedBusinessPlanData>
 ): Promise<void> {
   try {
-    const Print = await import('expo-print');
+    // Check if expo-print is available
+    let Print: any;
+    try {
+      Print = await import('expo-print');
+      if (!Print || !Print.printToFileAsync) {
+        throw new Error('expo-print module not properly loaded');
+      }
+    } catch (importError: any) {
+      console.error('Failed to import expo-print:', importError);
+      throw new Error('expo-print is not installed or not available. Please install it using: npm install expo-print');
+    }
+
     const Sharing = await import('expo-sharing');
+    const { Platform } = await import('react-native');
     
     const html = generateBusinessPlanPDF(business, metrics, extendedData);
     
-    const result = await (Print as any).printToFileAsync({
-      html,
-      base64: false,
-      width: 612, // A4 width in points
-      height: 792, // A4 height in points
-    });
-    
-    // Check if result exists and has uri property
-    if (!result || !result.uri) {
-      throw new Error('PDF generation failed: No file URI returned');
+    // Validate HTML before attempting to generate PDF
+    if (!html || html.trim().length === 0) {
+      throw new Error('Failed to generate PDF content');
     }
+
+    console.log('Generating Business Plan PDF with HTML length:', html.length);
     
-    const { uri } = result;
+    // Try different approaches based on platform
+    let result: any;
     
-    if ((Sharing as any).isAvailableAsync && await (Sharing as any).isAvailableAsync()) {
-      await (Sharing as any).shareAsync(uri);
-    } else {
-      const { Alert, Platform } = await import('react-native');
-      if (Platform.OS === 'web') {
+    if (Platform.OS === 'web') {
+      // For web, use browser's print functionality
+      try {
         const doc = (typeof globalThis !== 'undefined' && (globalThis as any).document) as any;
         if (doc) {
-          const link = doc.createElement('a');
-          link.href = uri;
-          link.download = `${business.name.replace(/[^a-z0-9]/gi, '_')}-Business-Plan.pdf`;
-          link.click();
+          const printWindow = doc.open();
+          printWindow.document.write(html);
+          printWindow.document.close();
+          printWindow.print();
+          return;
         }
-      } else {
-        Alert.alert('PDF Generated', `PDF saved to: ${uri}`);
+      } catch (webError: any) {
+        console.log('Web print failed, trying PDF generation:', webError);
       }
+    }
+
+    // Try with base64 encoding first
+    try {
+      result = await Print.printToFileAsync({
+        html,
+        base64: false,
+        width: 612, // A4 width in points
+        height: 792, // A4 height in points
+      });
+      console.log('PDF generation result:', result);
+    } catch (base64Error: any) {
+      console.log('Base64 false failed, trying with base64 true:', base64Error);
+      // Try with base64 encoding
+      try {
+        result = await Print.printToFileAsync({
+          html,
+          base64: true,
+          width: 612,
+          height: 792,
+        });
+        console.log('PDF generation with base64 result:', result);
+        
+        // If base64 is returned, convert to blob
+        if (result && result.base64) {
+          const { FileSystem } = await import('expo-file-system');
+          const base64Data = result.base64;
+          const filename = `${FileSystem.documentDirectory}${business.name.replace(/[^a-z0-9]/gi, '_')}-Business-Plan.pdf`;
+          
+          await FileSystem.writeAsStringAsync(filename, base64Data, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          
+          result = { uri: filename };
+        }
+      } catch (base64TrueError: any) {
+        console.error('Both PDF generation methods failed:', base64TrueError);
+        throw base64TrueError;
+      }
+    }
+    
+    // Check if result exists and has uri property
+    if (!result) {
+      throw new Error('PDF generation failed: No result returned from printToFileAsync');
+    }
+    
+    if (!result.uri && !result.base64) {
+      console.error('PDF generation result:', result);
+      throw new Error('PDF generation failed: No file URI or base64 data returned from printToFileAsync');
+    }
+    
+    const uri = result.uri;
+    
+    if (!uri) {
+      throw new Error('PDF generation failed: URI is null or undefined');
+    }
+
+    console.log('Business Plan PDF generated successfully at:', uri);
+    
+    // Share the PDF
+    try {
+      if ((Sharing as any).isAvailableAsync && await (Sharing as any).isAvailableAsync()) {
+        await (Sharing as any).shareAsync(uri);
+      } else {
+        const { Alert } = await import('react-native');
+        if (Platform.OS === 'web') {
+          const doc = (typeof globalThis !== 'undefined' && (globalThis as any).document) as any;
+          if (doc) {
+            const link = doc.createElement('a');
+            link.href = uri;
+            link.download = `${business.name.replace(/[^a-z0-9]/gi, '_')}-Business-Plan.pdf`;
+            link.click();
+          }
+        } else {
+          Alert.alert('PDF Generated', `PDF saved to: ${uri}`);
+        }
+      }
+    } catch (shareError: any) {
+      console.error('Sharing failed:', shareError);
+      const { Alert } = await import('react-native');
+      Alert.alert('PDF Generated', `PDF saved to: ${uri}. You can find it in your device's file system.`);
     }
   } catch (error: any) {
     console.error('PDF export error:', error);
+    console.error('Error stack:', error.stack);
     throw new Error(error.message || 'Failed to export PDF. Please ensure expo-print is installed and try again.');
   }
 }
