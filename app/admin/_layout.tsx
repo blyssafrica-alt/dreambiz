@@ -42,7 +42,6 @@ export default function AdminLayout() {
   }
 
   // Allow business owners to access employee-roles
-  const segments = useSegments();
   const currentPath = segments.join('/');
   const isEmployeeRoles = currentPath.includes('employee-roles');
 
