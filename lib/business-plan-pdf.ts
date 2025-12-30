@@ -145,20 +145,17 @@ export function generateBusinessPlanPDF(
     <head>
       <meta charset="UTF-8">
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         * {
           margin: 0;
           padding: 0;
           box-sizing: border-box;
         }
         body {
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+          font-family: Arial, Helvetica, sans-serif;
           padding: 0;
-          color: #0f172a;
-          background: #f8fafc;
-          line-height: 1.8;
-          -webkit-font-smoothing: antialiased;
-          -moz-osx-font-smoothing: grayscale;
+          color: #1a1a1a;
+          background: #ffffff;
+          line-height: 1.6;
         }
         .page {
           max-width: 210mm;
@@ -166,7 +163,6 @@ export function generateBusinessPlanPDF(
           margin: 0 auto;
           background: #ffffff;
           padding: 0;
-          box-shadow: 0 4px 24px rgba(0,0,0,0.08);
         }
         .cover-page {
           display: flex;
@@ -176,20 +172,8 @@ export function generateBusinessPlanPDF(
           min-height: 100%;
           text-align: center;
           padding: 80px 60px;
-          background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+          background-color: #ffffff;
           position: relative;
-          overflow: hidden;
-        }
-        .cover-page::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          right: 0;
-          width: 400px;
-          height: 400px;
-          background: radial-gradient(circle, rgba(0,102,204,0.05) 0%, transparent 70%);
-          border-radius: 50%;
-          transform: translate(30%, -30%);
         }
         .cover-logo {
           margin-bottom: 40px;
@@ -204,21 +188,19 @@ export function generateBusinessPlanPDF(
           border-radius: 16px;
           box-shadow: 0 8px 24px rgba(0,0,0,0.1);
         }
+        /* Cover page styles - colors now use inline styles for better PDF compatibility */
         .cover-title {
           font-size: 56px;
           font-weight: 900;
-          color: #0066CC;
           margin-bottom: 24px;
           line-height: 1.1;
           letter-spacing: -1px;
-          text-shadow: 0 2px 8px rgba(0,102,204,0.1);
           position: relative;
           z-index: 1;
         }
         .cover-subtitle {
           font-size: 28px;
           font-weight: 700;
-          color: #1e293b;
           margin-bottom: 48px;
           letter-spacing: -0.5px;
           position: relative;
@@ -226,43 +208,28 @@ export function generateBusinessPlanPDF(
         }
         .cover-info {
           font-size: 17px;
-          color: #475569;
           line-height: 2.2;
           font-weight: 500;
           position: relative;
           z-index: 1;
         }
         .cover-info strong {
-          color: #0f172a;
           font-weight: 700;
         }
         .cover-date {
           margin-top: 80px;
           font-size: 14px;
-          color: #94a3b8;
           font-weight: 500;
           position: relative;
           z-index: 1;
         }
         .header {
-          background: linear-gradient(135deg, #0066CC 0%, #004499 100%);
+          background-color: #0066CC;
           color: white;
           padding: 40px 56px;
           border-radius: 0;
           margin-bottom: 0;
           position: relative;
-          overflow: hidden;
-        }
-        .header::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          right: 0;
-          width: 300px;
-          height: 300px;
-          background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-          border-radius: 50%;
-          transform: translate(30%, -30%);
         }
         .header-content {
           display: flex;
@@ -341,33 +308,14 @@ export function generateBusinessPlanPDF(
         .section-content li {
           margin-bottom: 12px;
         }
-        .highlight-box {
-          background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
-          border-left: 5px solid #0066CC;
-          padding: 28px;
-          border-radius: 12px;
-          margin: 28px 0;
-          box-shadow: 0 4px 12px rgba(0,102,204,0.1);
-        }
-        .highlight-box strong {
-          color: #0066CC;
-          font-size: 17px;
-          font-weight: 800;
-        }
+        /* Highlight boxes now use inline styles for better PDF compatibility */
         .info-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
           gap: 20px;
           margin-bottom: 36px;
         }
-        .info-item {
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-          padding: 24px;
-          border-radius: 12px;
-          border-left: 5px solid #0066CC;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-          border: 1px solid #e2e8f0;
-        }
+        /* Info items now use inline styles for better PDF compatibility */
         .info-label {
           font-size: 11px;
           font-weight: 800;
@@ -425,10 +373,7 @@ export function generateBusinessPlanPDF(
           box-shadow: 0 4px 16px rgba(0,0,0,0.06);
           border: 1px solid #e2e8f0;
         }
-        .financial-table thead {
-          background: linear-gradient(135deg, #0066CC 0%, #004499 100%);
-          color: white;
-        }
+        /* Financial table header now uses inline styles for better PDF compatibility */
         .financial-table th {
           padding: 20px;
           text-align: left;
@@ -471,52 +416,7 @@ export function generateBusinessPlanPDF(
           text-align: right;
           font-size: 16px;
         }
-        .insight-box {
-          background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-          border-left: 5px solid #f59e0b;
-          padding: 28px;
-          border-radius: 12px;
-          margin: 28px 0;
-          box-shadow: 0 4px 12px rgba(245, 158, 11, 0.1);
-        }
-        .insight-title {
-          font-weight: 800;
-          color: #92400E;
-          margin-bottom: 12px;
-          font-size: 17px;
-          letter-spacing: -0.3px;
-        }
-        .insight-content {
-          color: #78350F;
-          line-height: 1.9;
-          font-weight: 500;
-        }
-        .alert-item {
-          background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-          border-left: 5px solid #EF4444;
-          padding: 20px;
-          border-radius: 12px;
-          margin-bottom: 16px;
-          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
-        }
-        .alert-message {
-          font-weight: 700;
-          color: #991B1B;
-          margin-bottom: 6px;
-          font-size: 15px;
-        }
-        .alert-action {
-          font-size: 14px;
-          color: #B91C1C;
-          font-weight: 500;
-        }
-        .footer {
-          margin-top: 80px;
-          padding: 48px 56px;
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-          border-top: 3px solid #e2e8f0;
-          text-align: center;
-        }
+        /* Insight boxes, alert items, and footer now use inline styles for better PDF compatibility */
         .footer-text {
           margin-bottom: 8px;
           color: #64748B;
@@ -552,23 +452,29 @@ export function generateBusinessPlanPDF(
     </head>
     <body>
       <div class="page">
+        <!-- Top Accent Bar -->
+        <div style="width: 100%; height: 10px; background-color: #8B0000;"></div>
+        
         <!-- Cover Page -->
-        <div class="cover-page">
+        <div class="cover-page" style="background-color: #ffffff; padding: 80px 60px;">
           <div class="cover-logo">
-            ${logoHtml || `<div style="font-size: 48px; font-weight: 800; color: #0066CC;">${business.name.charAt(0)}</div>`}
+            ${logoHtml || `<div style="font-size: 48px; font-weight: 800; color: #0066CC; display: inline-block; width: 100px; height: 100px; line-height: 100px; text-align: center; background-color: #f0f0f0; border-radius: 50%;">${business.name.charAt(0).toUpperCase()}</div>`}
           </div>
-          <div class="cover-title">BUSINESS PLAN</div>
-          <div class="cover-subtitle">${business.name}</div>
-          <div class="cover-info">
-            <div><strong>Owner:</strong> ${business.owner}</div>
-            <div><strong>Location:</strong> ${business.location}, Zimbabwe</div>
-            <div><strong>Industry:</strong> ${business.type.charAt(0).toUpperCase() + business.type.slice(1)}</div>
-            <div><strong>Stage:</strong> ${business.stage.charAt(0).toUpperCase() + business.stage.slice(1)}</div>
+          <div class="cover-title" style="color: #0066CC; font-size: 56px; font-weight: 900; margin-bottom: 24px;">BUSINESS PLAN</div>
+          <div class="cover-subtitle" style="color: #1e293b; font-size: 28px; font-weight: 700; margin-bottom: 48px;">${business.name}</div>
+          <div class="cover-info" style="color: #475569; font-size: 17px; line-height: 2.2;">
+            <div><strong style="color: #1a1a1a;">Owner:</strong> ${business.owner}</div>
+            <div><strong style="color: #1a1a1a;">Location:</strong> ${business.location}, Zimbabwe</div>
+            <div><strong style="color: #1a1a1a;">Industry:</strong> ${business.type.charAt(0).toUpperCase() + business.type.slice(1)}</div>
+            <div><strong style="color: #1a1a1a;">Stage:</strong> ${business.stage.charAt(0).toUpperCase() + business.stage.slice(1)}</div>
           </div>
-          <div class="cover-date">
+          <div class="cover-date" style="margin-top: 80px; font-size: 14px; color: #94a3b8; font-weight: 500;">
             Generated on ${formatDate(new Date().toISOString())}
           </div>
         </div>
+        
+        <!-- Bottom Accent Bar -->
+        <div style="width: 100%; height: 10px; background-color: #8B0000;"></div>
 
         <!-- Executive Summary -->
         <div class="section">
@@ -576,9 +482,9 @@ export function generateBusinessPlanPDF(
           <div class="section-content">
             <p><strong>${business.name}</strong> is a ${business.stage} ${business.type} business operating in ${business.location}, Zimbabwe. Founded and managed by ${business.owner}, the business is positioned to capitalize on market opportunities while maintaining financial discipline and operational excellence.</p>
             
-            <div class="highlight-box">
-              <strong>Key Highlights:</strong>
-              <ul style="margin-top: 12px;">
+            <div class="highlight-box" style="background-color: #EFF6FF; border-left: 5px solid #0066CC; padding: 28px; margin: 28px 0; border-radius: 5px;">
+              <strong style="color: #0066CC; font-size: 17px; font-weight: 800;">Key Highlights:</strong>
+              <ul style="margin-top: 12px; color: #333333;">
                 <li>Current monthly revenue: <strong>${formatCurrency(metrics.monthSales)}</strong></li>
                 <li>Monthly profit margin: <strong>${formatPercent(profitMargin)}</strong></li>
                 <li>Cash position: <strong>${formatCurrency(metrics.cashPosition)}</strong> ${cashGrowth > 0 ? `(${formatPercent(cashGrowthPercent)} growth from initial capital)` : ''}</li>
@@ -713,10 +619,10 @@ export function generateBusinessPlanPDF(
 
             <div class="section-subtitle">4.2 Financial Performance Analysis</div>
             <table class="financial-table">
-              <thead>
+              <thead style="background-color: #0066CC; color: #ffffff;">
                 <tr>
-                  <th>Financial Metric</th>
-                  <th>Value</th>
+                  <th style="background-color: #0066CC; color: #ffffff; padding: 20px; text-align: left; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Financial Metric</th>
+                  <th style="background-color: #0066CC; color: #ffffff; padding: 20px; text-align: right; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Value</th>
                 </tr>
               </thead>
               <tbody>
@@ -759,10 +665,10 @@ export function generateBusinessPlanPDF(
             <div class="section-subtitle">4.3 Revenue Sources</div>
             <p>Current revenue is generated from the following categories:</p>
             <table class="financial-table">
-              <thead>
+              <thead style="background-color: #0066CC; color: #ffffff;">
                 <tr>
-                  <th>Category</th>
-                  <th>Monthly Revenue</th>
+                  <th style="background-color: #0066CC; color: #ffffff; padding: 20px; text-align: left; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Category</th>
+                  <th style="background-color: #0066CC; color: #ffffff; padding: 20px; text-align: right; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Monthly Revenue</th>
                 </tr>
               </thead>
               <tbody>
@@ -776,9 +682,9 @@ export function generateBusinessPlanPDF(
             </table>
             ` : ''}
 
-            <div class="insight-box">
-              <div class="insight-title">Financial Health Assessment</div>
-              <div class="insight-content">
+            <div class="insight-box" style="background-color: #fffbeb; border-left: 5px solid #f59e0b; padding: 28px; margin: 28px 0; border-radius: 5px;">
+              <div class="insight-title" style="font-weight: 800; color: #92400E; margin-bottom: 12px; font-size: 17px;">Financial Health Assessment</div>
+              <div class="insight-content" style="color: #78350F; line-height: 1.9; font-weight: 500;">
                 ${isProfitable 
                   ? `<p><strong>✓ Positive Performance:</strong> The business is generating profit with a ${formatPercent(profitMargin)} margin. This indicates healthy operations and good cost management.</p>`
                   : `<p><strong>⚠ Attention Required:</strong> The business is currently operating at a loss. Focus on increasing revenue or reducing expenses to achieve profitability.</p>`
@@ -939,9 +845,9 @@ export function generateBusinessPlanPDF(
 
             <p>This business plan reflects the current state of operations and provides a roadmap for future development. It will be reviewed and updated quarterly to reflect changing market conditions, business performance, and strategic priorities.</p>
 
-            <div class="highlight-box">
-              <strong>Key Success Factors:</strong>
-              <ul style="margin-top: 12px;">
+            <div class="highlight-box" style="background-color: #EFF6FF; border-left: 5px solid #0066CC; padding: 28px; margin: 28px 0; border-radius: 5px;">
+              <strong style="color: #0066CC; font-size: 17px; font-weight: 800;">Key Success Factors:</strong>
+              <ul style="margin-top: 12px; color: #333333;">
                 <li>Maintaining financial discipline and positive cash flow</li>
                 <li>Delivering consistent quality to customers</li>
                 <li>Adapting to market opportunities and challenges</li>
@@ -952,13 +858,16 @@ export function generateBusinessPlanPDF(
           </div>
         </div>
 
-        <div class="footer">
-          <div class="footer-text"><strong>Generated by DreamBig Business OS</strong></div>
-          <div class="footer-text">Comprehensive Business Management Platform</div>
+        <div class="footer" style="margin-top: 80px; padding: 48px 56px; background-color: #f8fafc; border-top: 3px solid #e2e8f0; text-align: center;">
+          <div class="footer-text" style="margin-bottom: 8px; color: #64748B; font-size: 14px; font-weight: 500;"><strong>Generated by DreamBig Business OS</strong></div>
+          <div class="footer-text" style="margin-bottom: 8px; color: #64748B; font-size: 14px; font-weight: 500;">Comprehensive Business Management Platform</div>
           <div class="footer-text" style="margin-top: 12px; font-size: 11px; color: #94a3b8;">
             Generated on ${formatDate(new Date().toISOString())} | ${business.name} | ${business.location}, Zimbabwe
           </div>
         </div>
+        
+        <!-- Bottom Accent Bar -->
+        <div style="width: 100%; height: 10px; background-color: #8B0000;"></div>
       </div>
     </body>
     </html>

@@ -203,54 +203,14 @@ export default function ReportsScreen() {
 
   const handleExport = async (type: 'summary' | 'detailed') => {
     const { start, end } = getDateRange(period);
-    let content = '';
-
-    if (type === 'summary') {
-      content = `FINANCIAL REPORT - ${period.toUpperCase()}\n`;
-      content += `Period: ${start} to ${end}\n\n`;
-      content += `SUMMARY\n`;
-      content += `Total Sales: ${formatCurrency(reportData.totalSales)}\n`;
-      content += `Total Expenses: ${formatCurrency(reportData.totalExpenses)}\n`;
-      content += `Profit: ${formatCurrency(reportData.profit)}\n`;
-      content += `Profit Margin: ${reportData.profitMargin.toFixed(2)}%\n\n`;
-      content += `TOP SALES CATEGORIES\n`;
-      reportData.topSalesCategories.forEach((cat, i) => {
-        content += `${i + 1}. ${cat.category}: ${formatCurrency(cat.amount)}\n`;
-      });
-      content += `\nTOP EXPENSE CATEGORIES\n`;
-      reportData.topExpenseCategories.forEach((cat, i) => {
-        content += `${i + 1}. ${cat.category}: ${formatCurrency(cat.amount)}\n`;
-      });
-    } else {
-      content = `DETAILED TRANSACTION REPORT - ${period.toUpperCase()}\n`;
-      content += `Period: ${start} to ${end}\n\n`;
-      content += `Date,Type,Category,Description,Amount,Currency\n`;
-      const filtered = transactions.filter(t => t.date >= start && t.date <= end);
-      filtered.forEach(t => {
-        content += `${t.date},${t.type},${t.category},"${t.description}",${t.amount},${t.currency}\n`;
-      });
-    }
 
     try {
-      if (Platform.OS === 'web') {
-        const blob = new Blob([content], { type: 'text/plain' } as any);
-        const url = URL.createObjectURL(blob);
-        const doc = (typeof globalThis !== 'undefined' && (globalThis as any).document) as any;
-        if (!doc) throw new Error('Document not available');
-        const a = doc.createElement('a');
-        a.href = url;
-        a.download = `report-${period}-${new Date().toISOString().split('T')[0]}.txt`;
-        a.click();
-        URL.revokeObjectURL(url);
-      } else {
-        await Share.share({
-          message: content,
-          title: `Financial Report - ${period}`,
-        });
-      }
-    } catch (error) {
+      const { exportReportToPDF } = await import('@/lib/report-pdf');
+      await exportReportToPDF(reportData, transactions, business!, period, start, end, type);
+      RNAlert.alert('Success', 'Report PDF exported successfully!');
+    } catch (error: any) {
       console.error('Export failed:', error);
-      RNAlert.alert('Export Failed', 'Could not export report');
+      RNAlert.alert('Export Failed', error.message || 'Could not export report as PDF');
     }
   };
 
