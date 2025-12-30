@@ -38,6 +38,7 @@ import {
   Dimensions,
   Linking,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import PageHeader from '@/components/PageHeader';
@@ -279,6 +280,11 @@ export default function POSScreen() {
   };
 
   const handleCheckout = async () => {
+    // Prevent multiple submissions
+    if (isProcessing) {
+      return;
+    }
+
     if (cart.length === 0) {
       RNAlert.alert('Empty Cart', 'Please add products to cart');
       return;
@@ -293,6 +299,9 @@ export default function POSScreen() {
       RNAlert.alert('Insufficient Payment', `Amount received (${formatCurrency(parseFloat(amountReceived) || 0)}) is less than total (${formatCurrency(cartTotal)})`);
       return;
     }
+
+    // Set processing state immediately to prevent duplicate submissions
+    setIsProcessing(true);
 
     try {
       const customerName = selectedCustomer?.name || newCustomerName.trim();
@@ -311,8 +320,6 @@ export default function POSScreen() {
         const newStock = item.product.quantity - item.quantity;
         await updateProduct(item.product.id, { quantity: newStock });
       }
-
-      setIsProcessing(true);
 
       // Get current employee name if logged in as employee
       const currentEmployee = await getCurrentEmployee();
@@ -359,14 +366,17 @@ export default function POSScreen() {
         // Don't fail the checkout if transaction creation fails
       }
 
-      setIsProcessing(false);
-
       // Store receipt and show receipt modal
       setCreatedReceipt(newReceipt);
       setShowReceiptModal(true);
       setCartOpen(false);
+      setShowPaymentModal(false);
     } catch (error: any) {
+      console.error('Checkout error:', error);
       RNAlert.alert('Error', error.message || 'Failed to complete sale');
+    } finally {
+      // Always reset processing state, even if there's an error
+      setIsProcessing(false);
     }
   };
 
@@ -1103,16 +1113,27 @@ export default function POSScreen() {
                     styles.completePaymentButton,
                     { 
                       backgroundColor: theme.accent.primary,
-                      opacity: paymentMethod === 'cash' && (!amountReceived || parseFloat(amountReceived) < cartTotal) ? 0.5 : 1,
+                      opacity: (isProcessing || (paymentMethod === 'cash' && (!amountReceived || parseFloat(amountReceived) < cartTotal))) ? 0.5 : 1,
                     }
                   ]}
                   onPress={handleCheckout}
-                  disabled={paymentMethod === 'cash' && (!amountReceived || parseFloat(amountReceived) < cartTotal)}
+                  disabled={isProcessing || (paymentMethod === 'cash' && (!amountReceived || parseFloat(amountReceived) < cartTotal))}
                 >
-                  <Check size={24} color="#FFF" />
-                  <Text style={styles.completePaymentButtonText}>
-                    Complete Payment
-                  </Text>
+                  {isProcessing ? (
+                    <>
+                      <ActivityIndicator size="small" color="#FFF" />
+                      <Text style={styles.completePaymentButtonText}>
+                        Processing...
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={24} color="#FFF" />
+                      <Text style={styles.completePaymentButtonText}>
+                        Complete Payment
+                      </Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </ScrollView>
             </View>
