@@ -29,7 +29,7 @@ import {
   BookOpen,
   Camera,
   Zap,
-  ShoppingBag
+  Store
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -244,7 +244,7 @@ export default function MoreScreen() {
           id: 'store',
           title: 'Store',
           description: 'Browse DreamBig products & resources',
-          icon: ShoppingBag,
+          icon: Store,
           route: '/(tabs)/store',
           color: '#8B5CF6',
           gradient: ['#8B5CF6', '#7C3AED'],
