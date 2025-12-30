@@ -1,9 +1,97 @@
 import { Tabs } from "expo-router";
-import { Home, DollarSign, FileText, MoreHorizontal } from "lucide-react-native";
-import React from "react";
-import { Platform, View, ActivityIndicator } from "react-native";
+import { 
+  LayoutDashboard, 
+  TrendingUp, 
+  FileCheck, 
+  CreditCard, 
+  Grid3x3 
+} from "lucide-react-native";
+import React, { useEffect, useRef } from "react";
+import { Platform, View, ActivityIndicator, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
+import { LinearGradient } from "expo-linear-gradient";
+
+// Animated Tab Icon Component
+function AnimatedTabIcon({ 
+  Icon, 
+  color, 
+  focused, 
+  gradientColors 
+}: { 
+  Icon: any; 
+  color: string; 
+  focused: boolean; 
+  gradientColors?: string[];
+}) {
+  const scaleAnim = useRef(new Animated.Value(focused ? 1.1 : 1)).current;
+  const opacityAnim = useRef(new Animated.Value(focused ? 1 : 0.6)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: focused ? 1.15 : 1,
+        useNativeDriver: true,
+        tension: 100,
+        friction: 8,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: focused ? 1 : 0.65,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [focused]);
+
+  if (focused && gradientColors) {
+    return (
+      <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+        <Animated.View
+          style={{
+            transform: [{ scale: scaleAnim }],
+            opacity: opacityAnim,
+          }}
+        >
+          <LinearGradient
+            colors={gradientColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Icon 
+              size={22} 
+              color="#FFFFFF" 
+              strokeWidth={2.5}
+            />
+          </LinearGradient>
+        </Animated.View>
+      </View>
+    );
+  }
+
+  return (
+    <Animated.View
+      style={{
+        transform: [{ scale: scaleAnim }],
+        opacity: opacityAnim,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Icon 
+        size={focused ? 24 : 22} 
+        color={color} 
+        strokeWidth={focused ? 2.5 : 2}
+      />
+    </Animated.View>
+  );
+}
 
 export default function TabLayout() {
   const { theme, isLoading } = useTheme();
@@ -21,7 +109,7 @@ export default function TabLayout() {
   // Calculate tab bar bottom padding to ensure it's above phone navigation
   const tabBarBottomPadding = Platform.OS === 'ios' 
     ? Math.max(24, insets.bottom) 
-    : Math.max(12, insets.bottom); // Android: ensure minimum 12px, or use safe area inset
+    : Math.max(12, insets.bottom);
 
   return (
     <Tabs
@@ -30,20 +118,25 @@ export default function TabLayout() {
         tabBarInactiveTintColor: theme.text.tertiary,
         headerShown: false,
         tabBarStyle: {
-          height: Platform.OS === 'ios' ? 88 : 64,
+          height: Platform.OS === 'ios' ? 88 : 70,
           paddingBottom: tabBarBottomPadding,
-          paddingTop: 8,
+          paddingTop: 10,
           borderTopWidth: 0,
           backgroundColor: theme.background.card,
-          shadowColor: theme.shadow.color,
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: theme.shadow.opacity,
-          shadowRadius: 12,
-          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.1,
+          shadowRadius: 16,
+          elevation: 12,
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '600',
+          fontWeight: '700',
+          marginTop: 4,
+          letterSpacing: 0.3,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 4,
         },
       }}
     >
@@ -51,11 +144,12 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "Dashboard",
-          tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <Home 
-              size={focused ? 26 : 24} 
-              color={color} 
-              strokeWidth={focused ? 2.5 : 2}
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon
+              Icon={LayoutDashboard}
+              color={color}
+              focused={focused}
+              gradientColors={['#6366F1', '#8B5CF6']}
             />
           ),
         }}
@@ -64,11 +158,12 @@ export default function TabLayout() {
         name="finances"
         options={{
           title: "Finances",
-          tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <DollarSign 
-              size={focused ? 26 : 24} 
-              color={color} 
-              strokeWidth={focused ? 2.5 : 2}
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon
+              Icon={TrendingUp}
+              color={color}
+              focused={focused}
+              gradientColors={['#10B981', '#059669']}
             />
           ),
         }}
@@ -77,11 +172,12 @@ export default function TabLayout() {
         name="documents"
         options={{
           title: "Documents",
-          tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <FileText 
-              size={focused ? 26 : 24} 
-              color={color} 
-              strokeWidth={focused ? 2.5 : 2}
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon
+              Icon={FileCheck}
+              color={color}
+              focused={focused}
+              gradientColors={['#3B82F6', '#2563EB']}
             />
           ),
         }}
@@ -90,11 +186,12 @@ export default function TabLayout() {
         name="payments"
         options={{
           title: "Payments",
-          tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <DollarSign 
-              size={focused ? 26 : 24} 
-              color={color} 
-              strokeWidth={focused ? 2.5 : 2}
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon
+              Icon={CreditCard}
+              color={color}
+              focused={focused}
+              gradientColors={['#F59E0B', '#D97706']}
             />
           ),
         }}
@@ -103,11 +200,12 @@ export default function TabLayout() {
         name="more"
         options={{
           title: "More",
-          tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <MoreHorizontal 
-              size={focused ? 26 : 24} 
-              color={color} 
-              strokeWidth={focused ? 2.5 : 2}
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon
+              Icon={Grid3x3}
+              color={color}
+              focused={focused}
+              gradientColors={['#EC4899', '#DB2777']}
             />
           ),
         }}
