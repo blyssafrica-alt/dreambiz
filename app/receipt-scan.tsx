@@ -82,6 +82,8 @@ export default function ReceiptScanScreen() {
     try {
       // Import OCR utility with robust error handling
       let processReceiptImage;
+      let importError: any = null;
+      
       try {
         // Use dynamic import with proper error handling
         const receiptOCRModule = await import('@/lib/receipt-ocr');
@@ -101,18 +103,37 @@ export default function ReceiptScanScreen() {
         if (typeof processReceiptImage !== 'function') {
           throw new Error('processReceiptImage is not a function');
         }
-      } catch (importError: any) {
-        console.error('Failed to import receipt OCR:', importError);
-        const errorMessage = importError?.message || 'Unknown import error';
+      } catch (err: any) {
+        importError = err;
+        console.error('Failed to import receipt OCR:', err);
         
-        // Provide more helpful error message
+        // If it's a syntax error, provide helpful message and fallback to manual entry
+        const errorMessage = err?.message || String(err) || 'Unknown import error';
+        
         if (errorMessage.includes('SyntaxError') || errorMessage.includes(';')) {
-          throw new Error('Receipt OCR module has a syntax error. Please check the module file.');
-        } else if (errorMessage.includes('Cannot find module')) {
-          throw new Error('Receipt OCR module not found. Please ensure the file exists.');
+          console.warn('Receipt OCR module has a syntax error. Falling back to manual entry.');
+          // Don't throw - just skip OCR and show manual form
+          processReceiptImage = null;
+        } else if (errorMessage.includes('Cannot find module') || errorMessage.includes('not found')) {
+          console.warn('Receipt OCR module not found. Falling back to manual entry.');
+          processReceiptImage = null;
         } else {
-          throw new Error(`Receipt processing module could not be loaded: ${errorMessage}`);
+          // For other errors, still try to proceed with manual entry
+          console.warn('Receipt OCR import failed. Falling back to manual entry:', errorMessage);
+          processReceiptImage = null;
         }
+      }
+      
+      // If OCR import failed, skip OCR and go straight to manual entry
+      if (!processReceiptImage) {
+        setProcessing(false);
+        setShowManualForm(true);
+        RNAlert.alert(
+          'Manual Entry Required',
+          'Receipt OCR is currently unavailable. Please enter the receipt details manually.',
+          [{ text: 'OK' }]
+        );
+        return;
       }
       
       // Extract and parse receipt data
