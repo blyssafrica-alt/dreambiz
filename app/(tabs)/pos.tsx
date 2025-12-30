@@ -46,6 +46,7 @@ import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Product, DocumentItem, Customer, Document } from '@/types/business';
 import { exportToPDF } from '@/lib/pdf-export';
+import { getCurrentEmployee } from '@/lib/get-current-employee';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -57,7 +58,7 @@ interface CartItem {
 type PaymentMethod = 'cash' | 'card' | 'mobile_money' | 'bank_transfer';
 
 export default function POSScreen() {
-  const { business, products = [], customers = [], addDocument, updateProduct, addTransaction } = useBusiness();
+  const { business, products = [], customers = [], addDocument, updateProduct, addTransaction, addCustomer } = useBusiness();
   const { theme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -252,9 +253,24 @@ export default function POSScreen() {
       RNAlert.alert('Required', 'Please enter customer name');
       return;
     }
-    // TODO: Implement addCustomer from context
-    RNAlert.alert('Info', 'Customer creation will be implemented');
-    setShowCustomerModal(false);
+    
+    try {
+      const newCustomer = await addCustomer({
+        name: newCustomerName.trim(),
+        phone: newCustomerPhone.trim() || undefined,
+        email: undefined,
+        address: undefined,
+        notes: undefined,
+      });
+      
+      setSelectedCustomer(newCustomer);
+      setNewCustomerName('');
+      setNewCustomerPhone('');
+      setShowCustomerModal(false);
+      RNAlert.alert('Success', 'Customer added successfully');
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to add customer');
+    }
   };
 
   const handleCheckout = async () => {
@@ -293,6 +309,10 @@ export default function POSScreen() {
 
       setIsProcessing(true);
 
+      // Get current employee name if logged in as employee
+      const currentEmployee = await getCurrentEmployee();
+      const employeeName = currentEmployee?.name || undefined;
+
       // Create invoice/receipt with all payment details
       const newReceipt: any = await addDocument({
         type: 'receipt', // POS sales are receipts
@@ -306,6 +326,7 @@ export default function POSScreen() {
         date: new Date().toISOString().split('T')[0],
         status: 'paid',
         paymentMethod: paymentMethod,
+        employeeName: employeeName, // Add employee name to receipt
         notes: discountAmount > 0 
           ? `Discount: ${discountType === 'percent' ? `${discount}%` : formatCurrency(discountAmount)}`
           : undefined,
@@ -316,6 +337,7 @@ export default function POSScreen() {
       newReceipt.discountType = discountType;
       newReceipt.amountReceived = paymentMethod === 'cash' ? parseFloat(amountReceived) || 0 : cartTotal;
       newReceipt.changeAmount = changeAmount;
+      newReceipt.employeeName = employeeName; // Ensure employee name is available for PDF
 
       // Create transaction for the sale
       try {
@@ -1285,10 +1307,10 @@ const styles = StyleSheet.create({
     padding: 16,
     position: 'relative',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
   },
   stockBadge: {
     position: 'absolute',

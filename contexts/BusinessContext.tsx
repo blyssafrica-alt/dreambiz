@@ -712,6 +712,12 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       }
       const documentNumber = `${prefix}-${String(count).padStart(4, '0')}`;
 
+      // Include employee name in notes if provided
+      let notes = document.notes || '';
+      if (document.employeeName) {
+        notes = notes ? `${notes}\n\nServed by: ${document.employeeName}` : `Served by: ${document.employeeName}`;
+      }
+
       const { data, error } = await supabase
         .from('documents')
         .insert({
@@ -730,12 +736,21 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           date: document.date,
           due_date: document.dueDate || null,
           status: document.status || 'draft',
-          notes: document.notes || null,
+          notes: notes || null,
         })
         .select()
         .single();
 
       if (error) throw error;
+
+      // Extract employee name from notes if present
+      let employeeName: string | undefined = undefined;
+      if (data.notes && data.notes.includes('Served by:')) {
+        const match = data.notes.match(/Served by:\s*(.+)/);
+        if (match) {
+          employeeName = match[1].trim();
+        }
+      }
 
       const newDocument: Document = {
         id: data.id,
@@ -754,6 +769,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         status: (data.status as any) || 'draft',
         createdAt: data.created_at,
         notes: data.notes || undefined,
+        employeeName: employeeName,
       };
 
       setDocuments([newDocument, ...documents]);

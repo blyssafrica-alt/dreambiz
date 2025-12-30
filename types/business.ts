@@ -73,6 +73,7 @@ export interface Document {
   notes?: string;
   paidAmount?: number; // For partial payments
   paymentMethod?: 'cash' | 'bank_transfer' | 'mobile_money' | 'card' | 'other';
+  employeeName?: string; // Name of employee who created the sale
 }
 
 export interface Budget {
