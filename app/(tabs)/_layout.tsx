@@ -107,9 +107,10 @@ export default function TabLayout() {
   }
 
   // Calculate tab bar bottom padding to ensure it's above phone navigation
+  // Increased padding for better clickability and to avoid phone navigation
   const tabBarBottomPadding = Platform.OS === 'ios' 
-    ? Math.max(24, insets.bottom) 
-    : Math.max(12, insets.bottom);
+    ? Math.max(32, insets.bottom + 8) // iOS: extra padding above safe area
+    : Math.max(24, insets.bottom + 12); // Android: more padding to avoid gesture navigation
 
   return (
     <Tabs
@@ -118,9 +119,9 @@ export default function TabLayout() {
         tabBarInactiveTintColor: theme.text.tertiary,
         headerShown: false,
         tabBarStyle: {
-          height: Platform.OS === 'ios' ? 88 : 70,
+          height: Platform.OS === 'ios' ? 95 : 80,
           paddingBottom: tabBarBottomPadding,
-          paddingTop: 10,
+          paddingTop: 12,
           borderTopWidth: 0,
           backgroundColor: theme.background.card,
           shadowColor: '#000',
