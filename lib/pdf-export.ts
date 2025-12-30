@@ -1,6 +1,7 @@
 import type { Document, BusinessProfile } from '@/types/business';
 import { getDocumentTemplate } from '@/lib/document-templates-db';
 import { generateDocumentContent } from '@/lib/document-templates';
+import { Platform } from 'react-native';
 
 export interface PDFOptions {
   includeLogo?: boolean;
@@ -62,7 +63,7 @@ export async function generatePDF(
   // Build company details section
   const companyDetails = [];
   if (business.name) companyDetails.push(`<div><strong>${business.name}</strong></div>`);
-  if (business.owner) companyDetails.push(`<div style="color: #64748B; font-size: 13px;">Owner: ${business.owner}</div>`);
+  if (business.owner) companyDetails.push(`<div style="color: rgba(255,255,255,0.9); font-size: 13px;">Owner: ${business.owner}</div>`);
   if (business.address) companyDetails.push(`<div>${business.address}</div>`);
   if (business.location) companyDetails.push(`<div>${business.location}, Zimbabwe</div>`);
   if (business.phone) companyDetails.push(`<div>📞 ${business.phone}</div>`);
@@ -73,6 +74,7 @@ export async function generatePDF(
     <html>
     <head>
       <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
         * {
@@ -602,41 +604,117 @@ export async function exportToPDF(
     if (!html || html.trim().length === 0) {
       throw new Error('Failed to generate PDF content');
     }
+
+    console.log('Generating PDF with HTML length:', html.length);
     
-    const result = await Print.printToFileAsync({
-      html,
-      base64: false,
-      width: 612, // A4 width in points
-      height: 792, // A4 height in points
-    });
+    // Try different approaches based on platform
+    let result: any;
     
-    // Check if result exists and has uri property
-    if (!result || !result.uri) {
-      throw new Error('PDF generation failed: No file URI returned from printToFileAsync');
-    }
-    
-    const { uri } = result;
-    
-    if ((Sharing as any).isAvailableAsync && await (Sharing as any).isAvailableAsync()) {
-      await (Sharing as any).shareAsync(uri);
-    } else {
-      // If sharing is not available, try to open the file
-      const { Alert, Platform } = await import('react-native');
-      if (Platform.OS === 'web') {
-        // For web, create a download link
+    if (Platform.OS === 'web') {
+      // For web, use a different approach - create blob and download
+      try {
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
         const doc = (typeof globalThis !== 'undefined' && (globalThis as any).document) as any;
         if (doc) {
-          const link = doc.createElement('a');
-          link.href = uri;
-          link.download = `${document.documentNumber || 'document'}.pdf`;
-          link.click();
+          // Try to use browser's print functionality
+          const printWindow = doc.open();
+          printWindow.document.write(html);
+          printWindow.document.close();
+          printWindow.print();
+          URL.revokeObjectURL(url);
+          return;
         }
-      } else {
-        Alert.alert('PDF Generated', `PDF saved to: ${uri}`);
+      } catch (webError: any) {
+        console.log('Web print failed, trying PDF generation:', webError);
       }
+    }
+
+    // Try with base64 encoding first
+    try {
+      result = await Print.printToFileAsync({
+        html,
+        base64: false,
+        width: 612, // A4 width in points
+        height: 792, // A4 height in points
+      });
+      console.log('PDF generation result:', result);
+    } catch (base64Error: any) {
+      console.log('Base64 false failed, trying with base64 true:', base64Error);
+      // Try with base64 encoding
+      try {
+        result = await Print.printToFileAsync({
+          html,
+          base64: true,
+          width: 612,
+          height: 792,
+        });
+        console.log('PDF generation with base64 result:', result);
+        
+        // If base64 is returned, convert to blob
+        if (result && result.base64) {
+          const { FileSystem } = await import('expo-file-system');
+          const base64Data = result.base64;
+          const filename = `${FileSystem.documentDirectory}${document.documentNumber || 'document'}.pdf`;
+          
+          await FileSystem.writeAsStringAsync(filename, base64Data, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          
+          result = { uri: filename };
+        }
+      } catch (base64TrueError: any) {
+        console.error('Both PDF generation methods failed:', base64TrueError);
+        throw base64TrueError;
+      }
+    }
+    
+    // Check if result exists and has uri property
+    if (!result) {
+      throw new Error('PDF generation failed: No result returned from printToFileAsync');
+    }
+    
+    if (!result.uri && !result.base64) {
+      console.error('PDF generation result:', result);
+      throw new Error('PDF generation failed: No file URI or base64 data returned from printToFileAsync');
+    }
+    
+    const uri = result.uri;
+    
+    if (!uri) {
+      throw new Error('PDF generation failed: URI is null or undefined');
+    }
+
+    console.log('PDF generated successfully at:', uri);
+    
+    // Share the PDF
+    try {
+      if ((Sharing as any).isAvailableAsync && await (Sharing as any).isAvailableAsync()) {
+        await (Sharing as any).shareAsync(uri);
+      } else {
+        // If sharing is not available, try to open the file
+        const { Alert } = await import('react-native');
+        if (Platform.OS === 'web') {
+          // For web, create a download link
+          const doc = (typeof globalThis !== 'undefined' && (globalThis as any).document) as any;
+          if (doc) {
+            const link = doc.createElement('a');
+            link.href = uri;
+            link.download = `${document.documentNumber || 'document'}.pdf`;
+            link.click();
+          }
+        } else {
+          Alert.alert('PDF Generated', `PDF saved to: ${uri}`);
+        }
+      }
+    } catch (shareError: any) {
+      console.error('Sharing failed:', shareError);
+      const { Alert } = await import('react-native');
+      Alert.alert('PDF Generated', `PDF saved to: ${uri}. You can find it in your device's file system.`);
     }
   } catch (error: any) {
     console.error('PDF export error:', error);
+    console.error('Error stack:', error.stack);
     
     // Create a simple text fallback without using generateDocumentContent
     try {
@@ -706,9 +784,9 @@ export async function exportToPDF(
       textContent += `\nThank you for your business!\n`;
       textContent += `Generated by DreamBig Business OS\n`;
 
-      const { Share, Platform } = await import('react-native');
+      const { Share, Platform: RNPlatform } = await import('react-native');
       
-      if (Platform.OS === 'web') {
+      if (RNPlatform.OS === 'web') {
         // For web, create a text file download
         const blob = new Blob([textContent], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
@@ -732,10 +810,10 @@ export async function exportToPDF(
       const { Alert } = await import('react-native');
       Alert.alert(
         'Export Failed',
-        'Unable to export document. Please check that:\n\n1. expo-print is properly installed\n2. Your device has sufficient storage\n3. Try again later',
+        `Unable to export document. Error: ${error.message || 'Unknown error'}\n\nPlease try:\n1. Restarting the app\n2. Checking device storage\n3. Contacting support if the issue persists`,
         [{ text: 'OK' }]
       );
-      throw new Error('Failed to export document. Please try again or contact support.');
+      throw new Error(`Failed to export document: ${error.message || 'Unknown error'}`);
     }
   }
 }
