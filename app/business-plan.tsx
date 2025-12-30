@@ -7,12 +7,11 @@ import {
   ScrollView, 
   TouchableOpacity,
   Alert as RNAlert,
-  Platform,
-  Share,
   ActivityIndicator,
 } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { exportBusinessPlanToPDF } from '@/lib/business-plan-pdf';
 
 export default function BusinessPlanScreen() {
   const { business, getDashboardMetrics } = useBusiness();
@@ -189,33 +188,12 @@ export default function BusinessPlanScreen() {
       return;
     }
     
-    const plan = generateBusinessPlan();
-    
-    if (!plan) {
-      RNAlert.alert('Error', 'Failed to generate business plan');
-      return;
-    }
-    
     try {
-      if (Platform.OS === 'web') {
-        const blob = new Blob([plan], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const doc = (typeof globalThis !== 'undefined' && (globalThis as any).document) as any;
-        if (!doc) throw new Error('Document not available');
-        const a = doc.createElement('a');
-        a.href = url;
-        a.download = `${business?.name}-Business-Plan.txt`;
-        a.click();
-        URL.revokeObjectURL(url);
-      } else {
-        await Share.share({
-          message: plan,
-          title: `${business?.name} - Business Plan`,
-        });
-      }
-    } catch (error) {
-      console.error('Share failed:', error);
-      RNAlert.alert('Error', 'Failed to share business plan');
+      await exportBusinessPlanToPDF(business, metrics);
+      RNAlert.alert('Success', 'Business plan PDF generated successfully!');
+    } catch (error: any) {
+      console.error('PDF export failed:', error);
+      RNAlert.alert('Error', error.message || 'Failed to export business plan as PDF. Please ensure expo-print is installed.');
     }
   };
 

@@ -36,7 +36,6 @@ import {
   Modal,
   Platform,
   Dimensions,
-  Share,
   Linking,
   Image,
 } from 'react-native';
@@ -455,26 +454,11 @@ export default function POSScreen() {
     if (!createdReceipt || !business) return;
 
     try {
-      const receiptText = 
-        `Receipt ${createdReceipt.documentNumber}\n` +
-        `${business.name}\n` +
-        `Date: ${new Date(createdReceipt.date).toLocaleDateString()}\n\n` +
-        `Customer: ${createdReceipt.customerName}\n` +
-        `Payment: ${createdReceipt.paymentMethod?.replace('_', ' ').toUpperCase() || 'CASH'}\n\n` +
-        `Items:\n${createdReceipt.items.map(item => 
-          `${item.description} - ${item.quantity}x ${formatCurrency(item.unitPrice)} = ${formatCurrency(item.total)}`
-        ).join('\n')}\n\n` +
-        `Subtotal: ${formatCurrency(createdReceipt.subtotal)}\n` +
-        `${createdReceipt.tax ? `Tax: ${formatCurrency(createdReceipt.tax)}\n` : ''}` +
-        `Total: ${formatCurrency(createdReceipt.total)}\n\n` +
-        `Thank you for your business!`;
-
-      await Share.share({
-        message: receiptText,
-        title: `Receipt ${createdReceipt.documentNumber}`,
-      });
+      await exportToPDF(createdReceipt, business);
+      RNAlert.alert('Success', 'Receipt PDF exported successfully!');
     } catch (error: any) {
-      RNAlert.alert('Error', 'Failed to share receipt');
+      console.error('PDF export failed:', error);
+      RNAlert.alert('Error', error.message || 'Failed to export receipt as PDF. Please ensure expo-print is installed.');
     }
   };
 

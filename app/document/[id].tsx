@@ -281,44 +281,17 @@ export default function DocumentDetailScreen() {
   const handleShare = async () => {
     if (!document || !business) return;
     
-    const content = template
-      ? generateDocumentContent(document, business, template)
-      : generateDocumentContent(document, business, getDocumentTemplate(document.type, 'other'));
-
-    try {
-      if (Platform.OS === 'web') {
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const doc = (typeof globalThis !== 'undefined' && (globalThis as any).document) as any;
-        if (!doc) throw new Error('Document not available');
-        const a = doc.createElement('a');
-        a.href = url;
-        a.download = `${document.documentNumber}-${document.customerName}.txt`;
-        a.click();
-        URL.revokeObjectURL(url);
-      } else {
-        await Share.share({
-          message: content,
-          title: `${document.type.charAt(0).toUpperCase() + document.type.slice(1)} ${document.documentNumber}`,
-        });
-      }
-    } catch (error) {
-      console.error('Share failed:', error);
-      RNAlert.alert('Error', 'Failed to share document');
-    }
-  };
-
-  const handleExportPDF = async () => {
-    if (!document || !business) return;
-    
     try {
       await exportToPDF(document, business);
-      RNAlert.alert('Success', 'PDF exported successfully');
+      RNAlert.alert('Success', 'Document PDF exported successfully!');
     } catch (error: any) {
       console.error('PDF export failed:', error);
-      RNAlert.alert('Error', error.message || 'Failed to export PDF. Make sure expo-print is installed.');
+      RNAlert.alert('Error', error.message || 'Failed to export document as PDF. Please ensure expo-print is installed.');
     }
   };
+
+  // handleExportPDF is now the same as handleShare (both export as PDF)
+  const handleExportPDF = handleShare;
 
   const handleEmail = () => {
     if (!document.customerEmail) {
