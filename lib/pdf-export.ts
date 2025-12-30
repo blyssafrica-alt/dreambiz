@@ -474,12 +474,19 @@ export async function exportToPDF(
     
     const html = await generatePDF(document, business, options);
     
-    const { uri } = await (Print as any).printToFileAsync({
+    const result = await (Print as any).printToFileAsync({
       html,
       base64: false,
       width: 612, // A4 width in points
       height: 792, // A4 height in points
     });
+    
+    // Check if result exists and has uri property
+    if (!result || !result.uri) {
+      throw new Error('PDF generation failed: No file URI returned');
+    }
+    
+    const { uri } = result;
     
     if ((Sharing as any).isAvailableAsync && await (Sharing as any).isAvailableAsync()) {
       await (Sharing as any).shareAsync(uri);
