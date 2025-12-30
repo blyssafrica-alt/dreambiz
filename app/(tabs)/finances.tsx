@@ -220,37 +220,54 @@ export default function FinancesScreen() {
       return;
     }
 
-    const csvHeader = 'Date,Type,Category,Description,Amount,Currency\n';
-    const csvRows = safeTransactions.map(t => 
-      `${t.date},${t.type},${t.category},"${t.description}",${t.amount},${t.currency}`
-    ).join('\n');
-    const csvContent = csvHeader + csvRows;
-
-    const summary = `\n\nSUMMARY\n` +
-      `Total Transactions: ${safeTransactions.length}\n` +
-      `Total Sales: ${formatCurrency(safeTransactions.filter(t => t.type === 'sale').reduce((sum, t) => sum + t.amount, 0))}\n` +
-      `Total Expenses: ${formatCurrency(safeTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0))}`;
-
     try {
-      if (Platform.OS === 'web') {
-        const blob = new Blob([csvContent], { type: 'text/csv' } as any);
-        const url = URL.createObjectURL(blob);
-        const doc = (typeof globalThis !== 'undefined' && (globalThis as any).document) as any;
-        if (!doc) throw new Error('Document not available');
-        const a = doc.createElement('a');
-        a.href = url;
-        a.download = `dreambig-transactions-${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
+      const { exportTransactionsToPDF } = await import('@/lib/transactions-pdf');
+      
+      // Determine period and dates based on filters
+      const now = new Date();
+      let startDate = new Date();
+      let endDate = new Date();
+      let period = 'all';
+      
+      if (dateFilter !== 'all') {
+        switch (dateFilter) {
+          case 'today':
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            period = 'today';
+            break;
+          case 'week':
+            startDate = new Date(now);
+            startDate.setDate(now.getDate() - 7);
+            endDate = new Date(now);
+            period = 'week';
+            break;
+          case 'month':
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            period = 'month';
+            break;
+        }
       } else {
-        await Share.share({
-          message: csvContent + summary,
-          title: 'DreamBig Transactions Export',
-        });
+        // If no date filter, use all transactions date range
+        if (safeTransactions.length > 0) {
+          const dates = safeTransactions.map(t => new Date(t.date)).sort((a, b) => a.getTime() - b.getTime());
+          startDate = dates[0];
+          endDate = dates[dates.length - 1];
+        }
       }
-    } catch (error) {
+      
+      await exportTransactionsToPDF(
+        safeTransactions, 
+        business!, 
+        period, 
+        startDate.toISOString().split('T')[0], 
+        endDate.toISOString().split('T')[0]
+      );
+      RNAlert.alert('Success', 'Transactions PDF exported successfully!');
+    } catch (error: any) {
       console.error('Export failed:', error);
-      RNAlert.alert('Export Failed', 'Could not export transactions');
+      RNAlert.alert('Export Failed', error.message || 'Could not export transactions as PDF');
     }
   };
 

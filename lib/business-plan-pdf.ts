@@ -277,10 +277,8 @@ export function generateBusinessPlanPDF(
         .section-title {
           font-size: 32px;
           font-weight: 900;
-          color: #0066CC;
           margin-bottom: 28px;
           padding-bottom: 16px;
-          border-bottom: 4px solid #0066CC;
           letter-spacing: -0.5px;
         }
         .section-subtitle {
@@ -319,7 +317,6 @@ export function generateBusinessPlanPDF(
         .info-label {
           font-size: 11px;
           font-weight: 800;
-          color: #0066CC;
           text-transform: uppercase;
           letter-spacing: 1px;
           margin-bottom: 10px;
@@ -327,21 +324,18 @@ export function generateBusinessPlanPDF(
         .info-value {
           font-size: 20px;
           font-weight: 800;
-          color: #1e293b;
           letter-spacing: -0.3px;
         }
         .metric-card {
-          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+          background-color: #ffffff;
           border: 2px solid #e2e8f0;
-          border-radius: 16px;
+          border-radius: 8px;
           padding: 32px;
           margin-bottom: 24px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.06);
         }
         .metric-label {
           font-size: 12px;
           font-weight: 700;
-          color: #64748B;
           text-transform: uppercase;
           letter-spacing: 1px;
           margin-bottom: 12px;
@@ -349,19 +343,12 @@ export function generateBusinessPlanPDF(
         .metric-value {
           font-size: 40px;
           font-weight: 900;
-          color: #0066CC;
           margin-bottom: 10px;
           letter-spacing: -1px;
         }
         .metric-change {
           font-size: 15px;
           font-weight: 700;
-        }
-        .metric-change.positive {
-          color: #10B981;
-        }
-        .metric-change.negative {
-          color: #EF4444;
         }
         .financial-table {
           width: 100%;
@@ -412,7 +399,6 @@ export function generateBusinessPlanPDF(
         .financial-table td:last-child {
           padding-right: 24px;
           font-weight: 700;
-          color: #0066CC;
           text-align: right;
           font-size: 16px;
         }
@@ -478,7 +464,7 @@ export function generateBusinessPlanPDF(
 
         <!-- Executive Summary -->
         <div class="section">
-          <div class="section-title">1. EXECUTIVE SUMMARY</div>
+          <div class="section-title" style="color: #0066CC; border-bottom: 4px solid #0066CC;">1. EXECUTIVE SUMMARY</div>
           <div class="section-content">
             <p><strong>${business.name}</strong> is a ${business.stage} ${business.type} business operating in ${business.location}, Zimbabwe. Founded and managed by ${business.owner}, the business is positioned to capitalize on market opportunities while maintaining financial discipline and operational excellence.</p>
             
@@ -502,28 +488,28 @@ export function generateBusinessPlanPDF(
 
         <!-- Company Description -->
         <div class="section">
-          <div class="section-title">2. COMPANY DESCRIPTION</div>
+          <div class="section-title" style="color: #0066CC; border-bottom: 4px solid #0066CC;">2. COMPANY DESCRIPTION</div>
           <div class="section-content">
             <div class="section-subtitle">2.1 Business Overview</div>
             <p><strong>${business.name}</strong> operates as a ${business.type} business in ${business.location}, Zimbabwe. The business was established with an initial capital investment of ${formatCurrency(business.capital)} and is currently in the ${business.stage} stage of development.</p>
 
             <div class="section-subtitle">2.2 Legal Structure & Ownership</div>
             <div class="info-grid">
-              <div class="info-item">
-                <div class="info-label">Business Name</div>
-                <div class="info-value">${business.name}</div>
+              <div class="info-item" style="background-color: #f9f9f9; padding: 24px; border-left: 5px solid #0066CC; border: 1px solid #e2e8f0;">
+                <div class="info-label" style="color: #0066CC;">Business Name</div>
+                <div class="info-value" style="color: #1e293b;">${business.name}</div>
               </div>
-              <div class="info-item">
-                <div class="info-label">Owner/Founder</div>
-                <div class="info-value">${business.owner}</div>
+              <div class="info-item" style="background-color: #f9f9f9; padding: 24px; border-left: 5px solid #0066CC; border: 1px solid #e2e8f0;">
+                <div class="info-label" style="color: #0066CC;">Owner/Founder</div>
+                <div class="info-value" style="color: #1e293b;">${business.owner}</div>
               </div>
-              <div class="info-item">
-                <div class="info-label">Location</div>
-                <div class="info-value">${business.location}, Zimbabwe</div>
+              <div class="info-item" style="background-color: #f9f9f9; padding: 24px; border-left: 5px solid #0066CC; border: 1px solid #e2e8f0;">
+                <div class="info-label" style="color: #0066CC;">Location</div>
+                <div class="info-value" style="color: #1e293b;">${business.location}, Zimbabwe</div>
               </div>
-              <div class="info-item">
-                <div class="info-label">Currency</div>
-                <div class="info-value">${business.currency}</div>
+              <div class="info-item" style="background-color: #f9f9f9; padding: 24px; border-left: 5px solid #0066CC; border: 1px solid #e2e8f0;">
+                <div class="info-label" style="color: #0066CC;">Currency</div>
+                <div class="info-value" style="color: #1e293b;">${business.currency}</div>
               </div>
             </div>
 
@@ -539,7 +525,7 @@ export function generateBusinessPlanPDF(
 
         <!-- Market Analysis -->
         <div class="section">
-          <div class="section-title">3. MARKET ANALYSIS</div>
+          <div class="section-title" style="color: #0066CC; border-bottom: 4px solid #0066CC;">3. MARKET ANALYSIS</div>
           <div class="section-content">
             <div class="section-subtitle">3.1 Industry Overview</div>
             <p>${industryInsights.market}</p>
@@ -555,15 +541,15 @@ export function generateBusinessPlanPDF(
             <div class="section-subtitle">3.3 Competitive Analysis</div>
             <p>The ${business.type} sector in ${business.location} presents both opportunities and challenges:</p>
             <div class="info-grid">
-              <div class="metric-card">
-                <div class="metric-label">Market Opportunities</div>
-                <ul style="margin-top: 12px; font-size: 14px;">
+              <div class="metric-card" style="background-color: #ffffff; border: 2px solid #e2e8f0; border-radius: 8px; padding: 32px;">
+                <div class="metric-label" style="color: #64748B;">Market Opportunities</div>
+                <ul style="margin-top: 12px; font-size: 14px; color: #333333;">
                   ${industryInsights.opportunities.map(opp => `<li>${opp}</li>`).join('')}
                 </ul>
               </div>
-              <div class="metric-card">
-                <div class="metric-label">Market Challenges</div>
-                <ul style="margin-top: 12px; font-size: 14px;">
+              <div class="metric-card" style="background-color: #ffffff; border: 2px solid #e2e8f0; border-radius: 8px; padding: 32px;">
+                <div class="metric-label" style="color: #64748B;">Market Challenges</div>
+                <ul style="margin-top: 12px; font-size: 14px; color: #333333;">
                   ${industryInsights.challenges.map(ch => `<li>${ch}</li>`).join('')}
                 </ul>
               </div>
@@ -582,61 +568,61 @@ export function generateBusinessPlanPDF(
 
         <!-- Financial Analysis -->
         <div class="section">
-          <div class="section-title">4. FINANCIAL ANALYSIS</div>
+          <div class="section-title" style="color: #0066CC; border-bottom: 4px solid #0066CC;">4. FINANCIAL ANALYSIS</div>
           <div class="section-content">
             <div class="section-subtitle">4.1 Current Financial Position</div>
             
             <div class="info-grid">
-              <div class="metric-card">
-                <div class="metric-label">Monthly Revenue</div>
-                <div class="metric-value">${formatCurrency(metrics.monthSales)}</div>
-                <div class="metric-change ${isProfitable ? 'positive' : 'negative'}">
+              <div class="metric-card" style="background-color: #ffffff; border: 2px solid #e2e8f0; border-radius: 8px; padding: 32px;">
+                <div class="metric-label" style="color: #64748B;">Monthly Revenue</div>
+                <div class="metric-value" style="color: #0066CC;">${formatCurrency(metrics.monthSales)}</div>
+                <div class="metric-change" style="color: ${isProfitable ? '#10B981' : '#EF4444'};">
                   ${isProfitable ? '✓ Profitable Operations' : '⚠ Needs Attention'}
                 </div>
               </div>
-              <div class="metric-card">
-                <div class="metric-label">Monthly Expenses</div>
-                <div class="metric-value">${formatCurrency(metrics.monthExpenses)}</div>
-                <div class="metric-change">
+              <div class="metric-card" style="background-color: #ffffff; border: 2px solid #e2e8f0; border-radius: 8px; padding: 32px;">
+                <div class="metric-label" style="color: #64748B;">Monthly Expenses</div>
+                <div class="metric-value" style="color: #0066CC;">${formatCurrency(metrics.monthExpenses)}</div>
+                <div class="metric-change" style="color: #64748B;">
                   ${expenseRatio.toFixed(1)}% of revenue
                 </div>
               </div>
-              <div class="metric-card">
-                <div class="metric-label">Monthly Profit</div>
-                <div class="metric-value">${formatCurrency(metrics.monthProfit)}</div>
-                <div class="metric-change ${isProfitable ? 'positive' : 'negative'}">
+              <div class="metric-card" style="background-color: #ffffff; border: 2px solid #e2e8f0; border-radius: 8px; padding: 32px;">
+                <div class="metric-label" style="color: #64748B;">Monthly Profit</div>
+                <div class="metric-value" style="color: #0066CC;">${formatCurrency(metrics.monthProfit)}</div>
+                <div class="metric-change" style="color: ${isProfitable ? '#10B981' : '#EF4444'};">
                   ${formatPercent(profitMargin)} margin
                 </div>
               </div>
-              <div class="metric-card">
-                <div class="metric-label">Cash Position</div>
-                <div class="metric-value">${formatCurrency(metrics.cashPosition)}</div>
-                <div class="metric-change ${hasPositiveCashFlow ? 'positive' : 'negative'}">
+              <div class="metric-card" style="background-color: #ffffff; border: 2px solid #e2e8f0; border-radius: 8px; padding: 32px;">
+                <div class="metric-label" style="color: #64748B;">Cash Position</div>
+                <div class="metric-value" style="color: #0066CC;">${formatCurrency(metrics.cashPosition)}</div>
+                <div class="metric-change" style="color: ${hasPositiveCashFlow ? '#10B981' : '#EF4444'};">
                   ${hasPositiveCashFlow ? `+${formatCurrency(cashGrowth)} growth` : 'Below initial capital'}
                 </div>
               </div>
             </div>
 
             <div class="section-subtitle">4.2 Financial Performance Analysis</div>
-            <table class="financial-table">
-              <thead style="background-color: #0066CC; color: #ffffff;">
+            <table class="financial-table" style="width: 100%; border-collapse: collapse; margin: 32px 0; border: 1px solid #e2e8f0;">
+              <thead>
                 <tr>
                   <th style="background-color: #0066CC; color: #ffffff; padding: 20px; text-align: left; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Financial Metric</th>
                   <th style="background-color: #0066CC; color: #ffffff; padding: 20px; text-align: right; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Value</th>
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>Initial Capital Investment</td>
-                  <td>${formatCurrency(business.capital)}</td>
+                <tr style="background-color: #ffffff; border-bottom: 1px solid #f1f5f9;">
+                  <td style="padding: 20px; font-size: 15px; color: #334155; font-weight: 500;">Initial Capital Investment</td>
+                  <td style="padding: 20px; font-size: 15px; color: #0066CC; font-weight: 700; text-align: right;">${formatCurrency(business.capital)}</td>
                 </tr>
-                <tr>
-                  <td>Current Cash Position</td>
-                  <td>${formatCurrency(metrics.cashPosition)}</td>
+                <tr style="background-color: #fafbfc; border-bottom: 1px solid #f1f5f9;">
+                  <td style="padding: 20px; font-size: 15px; color: #334155; font-weight: 500;">Current Cash Position</td>
+                  <td style="padding: 20px; font-size: 15px; color: #0066CC; font-weight: 700; text-align: right;">${formatCurrency(metrics.cashPosition)}</td>
                 </tr>
-                <tr>
-                  <td>Cash Growth</td>
-                  <td>${formatCurrency(cashGrowth)} (${formatPercent(cashGrowthPercent)})</td>
+                <tr style="background-color: #ffffff; border-bottom: 1px solid #f1f5f9;">
+                  <td style="padding: 20px; font-size: 15px; color: #334155; font-weight: 500;">Cash Growth</td>
+                  <td style="padding: 20px; font-size: 15px; color: #0066CC; font-weight: 700; text-align: right;">${formatCurrency(cashGrowth)} (${formatPercent(cashGrowthPercent)})</td>
                 </tr>
                 <tr>
                   <td>Monthly Revenue</td>
@@ -704,7 +690,7 @@ export function generateBusinessPlanPDF(
 
         <!-- Operations Plan -->
         <div class="section">
-          <div class="section-title">5. OPERATIONS PLAN</div>
+          <div class="section-title" style="color: #0066CC; border-bottom: 4px solid #0066CC;">5. OPERATIONS PLAN</div>
           <div class="section-content">
             <div class="section-subtitle">5.1 Operational Structure</div>
             <p>Our operations are designed to deliver consistent quality while maintaining efficiency and cost-effectiveness.</p>
@@ -730,7 +716,7 @@ export function generateBusinessPlanPDF(
 
         <!-- Marketing Strategy -->
         <div class="section">
-          <div class="section-title">6. MARKETING & SALES STRATEGY</div>
+          <div class="section-title" style="color: #0066CC; border-bottom: 4px solid #0066CC;">6. MARKETING & SALES STRATEGY</div>
           <div class="section-content">
             <div class="section-subtitle">6.1 Marketing Channels</div>
             <p>Our marketing strategy focuses on multiple channels to reach our target market:</p>
@@ -763,7 +749,7 @@ export function generateBusinessPlanPDF(
 
         <!-- Growth Strategy -->
         <div class="section">
-          <div class="section-title">7. GROWTH STRATEGY</div>
+          <div class="section-title" style="color: #0066CC; border-bottom: 4px solid #0066CC;">7. GROWTH STRATEGY</div>
           <div class="section-content">
             <div class="section-subtitle">7.1 Short-term Goals (6-12 months)</div>
             <p>Our immediate priorities focus on:</p>
@@ -798,7 +784,7 @@ export function generateBusinessPlanPDF(
 
         <!-- Risk Management -->
         <div class="section">
-          <div class="section-title">8. RISK MANAGEMENT</div>
+          <div class="section-title" style="color: #0066CC; border-bottom: 4px solid #0066CC;">8. RISK MANAGEMENT</div>
           <div class="section-content">
             <div class="section-subtitle">8.1 Identified Risks</div>
             <p>Key risks facing the business include:</p>
@@ -824,7 +810,7 @@ export function generateBusinessPlanPDF(
         <!-- Action Items & Alerts -->
         ${metrics.alerts && metrics.alerts.length > 0 ? `
         <div class="section">
-          <div class="section-title">9. CURRENT ALERTS & ACTION ITEMS</div>
+          <div class="section-title" style="color: #0066CC; border-bottom: 4px solid #0066CC;">9. CURRENT ALERTS & ACTION ITEMS</div>
           <div class="section-content">
             <p>The following items require attention to ensure continued business success:</p>
             ${metrics.alerts.map((alert: any, index: number) => `
@@ -839,7 +825,7 @@ export function generateBusinessPlanPDF(
 
         <!-- Conclusion -->
         <div class="section">
-          <div class="section-title">${metrics.alerts && metrics.alerts.length > 0 ? '10. CONCLUSION' : '9. CONCLUSION'}</div>
+          <div class="section-title" style="color: #0066CC; border-bottom: 4px solid #0066CC;">${metrics.alerts && metrics.alerts.length > 0 ? '10. CONCLUSION' : '9. CONCLUSION'}</div>
           <div class="section-content">
             <p><strong>${business.name}</strong> is positioned for growth in the ${business.location} market. With a focus on quality, customer service, and financial discipline, the business aims to build a sustainable and profitable enterprise that serves the community while creating value for all stakeholders.</p>
 

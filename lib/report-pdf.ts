@@ -140,11 +140,9 @@ export function generateReportPDF(
         .summary-title {
           font-weight: bold;
           font-size: 18px;
-          color: ${primaryColor};
           margin-bottom: 20px;
           text-transform: uppercase;
           letter-spacing: 1px;
-          border-bottom: 2px solid ${primaryColor};
           padding-bottom: 10px;
         }
         .summary-row {
@@ -172,23 +170,15 @@ export function generateReportPDF(
           color: #333333;
           text-align: right;
         }
-        .summary-value.positive {
-          color: #10b981;
-        }
-        .summary-value.negative {
-          color: #ef4444;
-        }
         .categories-section {
           margin-bottom: 30px;
         }
         .section-title {
           font-weight: bold;
           font-size: 16px;
-          color: ${primaryColor};
           margin-bottom: 15px;
           text-transform: uppercase;
           letter-spacing: 1px;
-          border-bottom: 2px solid ${primaryColor};
           padding-bottom: 8px;
         }
         .category-table {
@@ -198,8 +188,7 @@ export function generateReportPDF(
           border: 1px solid #d0d0d0;
         }
         .category-table thead {
-          background-color: ${accentColor};
-          color: #ffffff;
+          /* Colors now use inline styles */
         }
         .category-table th {
           padding: 12px 15px;
@@ -230,7 +219,6 @@ export function generateReportPDF(
         .category-table td:last-child {
           text-align: right;
           font-weight: bold;
-          color: ${primaryColor};
         }
         .transactions-table {
           width: 100%;
@@ -239,8 +227,7 @@ export function generateReportPDF(
           border: 1px solid #d0d0d0;
         }
         .transactions-table thead {
-          background-color: ${accentColor};
-          color: #ffffff;
+          /* Colors now use inline styles */
         }
         .transactions-table th {
           padding: 12px 10px;
