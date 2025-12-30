@@ -95,11 +95,7 @@ export async function generatePDF(
           background: #ffffff;
           padding: 0;
         }
-        .accent-bar {
-          width: 100%;
-          height: 10px;
-          background-color: ${accentColor};
-        }
+        /* Accent bars now use inline styles for better PDF compatibility */
         .header {
           background-color: #ffffff;
           padding: 35px 50px 25px 50px;
@@ -177,7 +173,6 @@ export async function generatePDF(
           font-weight: bold;
           font-size: 11px;
           margin-bottom: 12px;
-          color: ${primaryColor};
           text-transform: uppercase;
           letter-spacing: 1px;
           border-bottom: 1px solid #d0d0d0;
@@ -201,10 +196,7 @@ export async function generatePDF(
           margin-bottom: 30px;
           border: 1px solid #d0d0d0;
         }
-        .items-table thead {
-          background-color: ${accentColor};
-          color: #ffffff;
-        }
+        /* Table header colors now use inline styles for better PDF compatibility */
         .items-table th {
           padding: 12px 15px;
           text-align: left;
@@ -246,7 +238,6 @@ export async function generatePDF(
         .items-table td:last-child {
           text-align: right;
           font-weight: bold;
-          color: ${primaryColor};
         }
         .totals {
           background-color: #f9f9f9;
@@ -292,86 +283,14 @@ export async function generatePDF(
         .grand-total .total-label {
           font-size: 18px;
           font-weight: bold;
-          color: ${primaryColor};
         }
         .grand-total .total-value {
           font-size: 24px;
           font-weight: bold;
-          color: ${primaryColor};
         }
-        .notes-section {
-          background-color: #fff9e6;
-          border-left: 4px solid #f59e0b;
-          padding: 20px;
-          margin-top: 30px;
-        }
-        .notes-title {
-          font-weight: bold;
-          color: #92400e;
-          margin-bottom: 8px;
-          font-size: 12px;
-          text-transform: uppercase;
-        }
-        .notes-content {
-          color: #78350f;
-          line-height: 1.7;
-          font-size: 14px;
-        }
-        .due-date-section {
-          background-color: #f0f8ff;
-          padding: 20px;
-          margin-top: 30px;
-          text-align: center;
-          border: 1px solid ${primaryColor};
-        }
-        .due-date-label {
-          font-size: 11px;
-          font-weight: bold;
-          color: ${primaryColor};
-          text-transform: uppercase;
-          margin-bottom: 8px;
-        }
-        .due-date-value {
-          font-size: 18px;
-          font-weight: bold;
-          color: ${primaryColor};
-        }
-        .payment-section {
-          background-color: #f0f8ff;
-          padding: 20px;
-          margin-top: 30px;
-          border-left: 4px solid ${primaryColor};
-        }
-        .payment-title {
-          font-weight: bold;
-          color: ${primaryColor};
-          margin-bottom: 8px;
-          font-size: 12px;
-          text-transform: uppercase;
-        }
-        .payment-content {
-          color: #333333;
-          line-height: 1.7;
-          font-size: 14px;
-        }
-        .status-badge {
-          display: inline-block;
-          padding: 10px 20px;
-          font-weight: bold;
-          font-size: 12px;
-          text-transform: uppercase;
-          margin-top: 25px;
-          color: #ffffff;
-        }
-        .status-paid {
-          background-color: #10b981;
-        }
-        .status-pending {
-          background-color: #f59e0b;
-        }
-        .status-cancelled {
-          background-color: #ef4444;
-        }
+        /* Notes section now uses inline styles for better PDF compatibility */
+        /* Due date and payment sections now use inline styles for better PDF compatibility */
+        /* Status badges now use inline styles for better PDF compatibility */
         .footer {
           margin-top: 50px;
           padding: 30px 50px;
@@ -419,8 +338,8 @@ export async function generatePDF(
     </head>
     <body>
       <div class="page">
-        <!-- Top Accent Bar -->
-        <div class="accent-bar"></div>
+        <!-- Top Accent Bar - INLINE STYLE FOR RELIABILITY -->
+        <div style="width: 100%; height: 10px; background-color: ${accentColor};"></div>
         
         <!-- Header Section -->
         <div class="header">
@@ -444,7 +363,7 @@ export async function generatePDF(
           <!-- Billing Information -->
           <div class="info-section">
             <div class="from-to">
-              <div class="section-title">From</div>
+              <div class="section-title" style="color: ${primaryColor};">From</div>
               <div class="section-content">
                 <div><strong>${business.name}</strong></div>
                 ${business.owner ? `<div style="color: #666; font-size: 13px;">Owner: ${business.owner}</div>` : ''}
@@ -455,7 +374,7 @@ export async function generatePDF(
               </div>
             </div>
             <div class="from-to">
-              <div class="section-title">${document.type === 'purchase_order' || document.type === 'supplier_agreement' ? 'Supplier' : 'Bill To'}</div>
+              <div class="section-title" style="color: ${primaryColor};">${document.type === 'purchase_order' || document.type === 'supplier_agreement' ? 'Supplier' : 'Bill To'}</div>
               <div class="section-content">
                 <div><strong>${document.customerName}</strong></div>
                 ${document.customerPhone ? `<div>📞 ${document.customerPhone}</div>` : ''}
@@ -464,23 +383,23 @@ export async function generatePDF(
             </div>
           </div>
       
-          <!-- Items Table -->
+          <!-- Items Table - INLINE STYLES FOR COLORS -->
           <table class="items-table">
-            <thead>
+            <thead style="background-color: ${accentColor}; color: #ffffff;">
               <tr>
-                <th>Description</th>
-                <th>Qty</th>
-                <th>Unit Price</th>
-                <th>Total</th>
+                <th style="background-color: ${accentColor}; color: #ffffff;">Description</th>
+                <th style="background-color: ${accentColor}; color: #ffffff;">Qty</th>
+                <th style="background-color: ${accentColor}; color: #ffffff;">Unit Price</th>
+                <th style="background-color: ${accentColor}; color: #ffffff;">Total</th>
               </tr>
             </thead>
             <tbody>
-              ${document.items.map(item => `
-                <tr>
+              ${document.items.map((item, index) => `
+                <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f9f9f9'};">
                   <td><strong>${item.description}</strong></td>
                   <td>${item.quantity}</td>
                   <td>${formatCurrency(item.unitPrice)}</td>
-                  <td>${formatCurrency(item.total)}</td>
+                  <td style="color: ${primaryColor}; font-weight: bold;">${formatCurrency(item.total)}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -506,8 +425,8 @@ export async function generatePDF(
                 </div>
               ` : ''}
               <div class="total-row grand-total">
-                <span class="total-label">Total</span>
-                <span class="total-value">${formatCurrency(document.total)}</span>
+                <span class="total-label" style="color: ${primaryColor}; font-size: 18px; font-weight: bold;">Total</span>
+                <span class="total-value" style="color: ${primaryColor}; font-size: 24px; font-weight: bold;">${formatCurrency(document.total)}</span>
               </div>
               ${(document as any).amountReceived ? `
                 <div class="total-row" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
@@ -535,9 +454,9 @@ export async function generatePDF(
           </div>
           
           ${document.paymentMethod ? `
-            <div class="payment-section">
-              <div class="payment-title">Payment Information</div>
-              <div class="payment-content">
+            <div class="payment-section" style="background-color: #f0f8ff; padding: 20px; margin-top: 30px; border-left: 4px solid ${primaryColor};">
+              <div class="payment-title" style="font-weight: bold; color: ${primaryColor}; margin-bottom: 8px; font-size: 12px; text-transform: uppercase;">Payment Information</div>
+              <div class="payment-content" style="color: #333333; line-height: 1.7; font-size: 14px;">
                 <div><strong>Payment Method:</strong> ${document.paymentMethod.replace('_', ' ').toUpperCase()}</div>
                 ${document.paymentMethod === 'card' || document.paymentMethod === 'bank_transfer' || document.paymentMethod === 'mobile_money' ? `
                   <div style="margin-top: 8px; font-size: 13px; color: #666;">
@@ -549,24 +468,24 @@ export async function generatePDF(
           ` : ''}
           
           ${document.status ? `
-            <div style="text-align: center;">
-              <span class="status-badge status-${document.status}">
+            <div style="text-align: center; margin-top: 25px;">
+              <span style="display: inline-block; padding: 10px 20px; font-weight: bold; font-size: 12px; text-transform: uppercase; color: #ffffff; background-color: ${document.status === 'paid' ? '#10b981' : document.status === 'pending' ? '#f59e0b' : '#ef4444'};">
                 Status: ${document.status.toUpperCase()}
               </span>
             </div>
           ` : ''}
           
           ${document.dueDate ? `
-            <div class="due-date-section">
-              <div class="due-date-label">Payment Due Date</div>
-              <div class="due-date-value">${formatDate(document.dueDate)}</div>
+            <div class="due-date-section" style="background-color: #f0f8ff; padding: 20px; margin-top: 30px; text-align: center; border: 1px solid ${primaryColor};">
+              <div class="due-date-label" style="font-size: 11px; font-weight: bold; color: ${primaryColor}; text-transform: uppercase; margin-bottom: 8px;">Payment Due Date</div>
+              <div class="due-date-value" style="font-size: 18px; font-weight: bold; color: ${primaryColor};">${formatDate(document.dueDate)}</div>
             </div>
           ` : ''}
           
           ${document.notes ? `
-            <div class="notes-section">
-              <div class="notes-title">Notes & Terms</div>
-              <div class="notes-content">${document.notes}</div>
+            <div class="notes-section" style="background-color: #fff9e6; border-left: 4px solid #f59e0b; padding: 20px; margin-top: 30px;">
+              <div class="notes-title" style="font-weight: bold; color: #92400e; margin-bottom: 8px; font-size: 12px; text-transform: uppercase;">Notes & Terms</div>
+              <div class="notes-content" style="color: #78350f; line-height: 1.7; font-size: 14px;">${document.notes}</div>
             </div>
           ` : ''}
         </div>
@@ -593,8 +512,8 @@ export async function generatePDF(
           </div>
         </div>
         
-        <!-- Bottom Accent Bar -->
-        <div class="accent-bar"></div>
+        <!-- Bottom Accent Bar - INLINE STYLE FOR RELIABILITY -->
+        <div style="width: 100%; height: 10px; background-color: ${accentColor};"></div>
       </div>
     </body>
     </html>
