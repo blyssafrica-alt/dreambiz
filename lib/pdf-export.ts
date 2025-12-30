@@ -582,12 +582,28 @@ export async function exportToPDF(
   options: PDFOptions = {}
 ): Promise<void> {
   try {
-    const Print = await import('expo-print');
+    // Check if expo-print is available
+    let Print: any;
+    try {
+      Print = await import('expo-print');
+      if (!Print || !Print.printToFileAsync) {
+        throw new Error('expo-print module not properly loaded');
+      }
+    } catch (importError: any) {
+      console.error('Failed to import expo-print:', importError);
+      throw new Error('expo-print is not installed or not available. Please install it using: npm install expo-print');
+    }
+
     const Sharing = await import('expo-sharing');
     
     const html = await generatePDF(document, business, options);
     
-    const result = await (Print as any).printToFileAsync({
+    // Validate HTML before attempting to generate PDF
+    if (!html || html.trim().length === 0) {
+      throw new Error('Failed to generate PDF content');
+    }
+    
+    const result = await Print.printToFileAsync({
       html,
       base64: false,
       width: 612, // A4 width in points
@@ -596,7 +612,7 @@ export async function exportToPDF(
     
     // Check if result exists and has uri property
     if (!result || !result.uri) {
-      throw new Error('PDF generation failed: No file URI returned');
+      throw new Error('PDF generation failed: No file URI returned from printToFileAsync');
     }
     
     const { uri } = result;
