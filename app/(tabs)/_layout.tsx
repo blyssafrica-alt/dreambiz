@@ -2,10 +2,12 @@ import { Tabs } from "expo-router";
 import { Home, DollarSign, FileText, MoreHorizontal } from "lucide-react-native";
 import React from "react";
 import { Platform, View, ActivityIndicator } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
 
 export default function TabLayout() {
   const { theme, isLoading } = useTheme();
+  const insets = useSafeAreaInsets();
   
   // Show loading indicator while theme is loading
   if (isLoading || !theme) {
@@ -16,6 +18,11 @@ export default function TabLayout() {
     );
   }
 
+  // Calculate tab bar bottom padding to ensure it's above phone navigation
+  const tabBarBottomPadding = Platform.OS === 'ios' 
+    ? Math.max(24, insets.bottom) 
+    : Math.max(12, insets.bottom); // Android: ensure minimum 12px, or use safe area inset
+
   return (
     <Tabs
       screenOptions={{
@@ -24,7 +31,7 @@ export default function TabLayout() {
         headerShown: false,
         tabBarStyle: {
           height: Platform.OS === 'ios' ? 88 : 64,
-          paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+          paddingBottom: tabBarBottomPadding,
           paddingTop: 8,
           borderTopWidth: 0,
           backgroundColor: theme.background.card,

@@ -884,10 +884,10 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingTop: 0,
+    paddingTop: 20,
   },
   todaySection: {
-    marginTop: -20,
+    marginTop: 0,
     marginBottom: 24,
   },
   sectionHeader: {
