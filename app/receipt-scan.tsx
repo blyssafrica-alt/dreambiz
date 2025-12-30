@@ -19,6 +19,7 @@ import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { EXPENSE_CATEGORIES } from '@/constants/categories';
 import PageHeader from '@/components/PageHeader';
+import { processReceiptImage } from '@/lib/receipt-ocr';
 
 export default function ReceiptScanScreen() {
   const { business, addTransaction } = useBusiness();
@@ -80,63 +81,8 @@ export default function ReceiptScanScreen() {
   const processReceipt = async (imageUri: string) => {
     setProcessing(true);
     try {
-      // Import OCR utility with robust error handling
-      let processReceiptImage;
-      let importError: any = null;
-      
-      try {
-        // Use dynamic import with proper error handling
-        const receiptOCRModule = await import('@/lib/receipt-ocr');
-        
-        // Check if module and function exist
-        if (!receiptOCRModule) {
-          throw new Error('Receipt OCR module not found');
-        }
-        
-        if (!receiptOCRModule.processReceiptImage) {
-          throw new Error('processReceiptImage function not exported from receipt-ocr module');
-        }
-        
-        processReceiptImage = receiptOCRModule.processReceiptImage;
-        
-        // Validate it's a function
-        if (typeof processReceiptImage !== 'function') {
-          throw new Error('processReceiptImage is not a function');
-        }
-      } catch (err: any) {
-        importError = err;
-        console.error('Failed to import receipt OCR:', err);
-        
-        // If it's a syntax error, provide helpful message and fallback to manual entry
-        const errorMessage = err?.message || String(err) || 'Unknown import error';
-        
-        if (errorMessage.includes('SyntaxError') || errorMessage.includes(';')) {
-          console.warn('Receipt OCR module has a syntax error. Falling back to manual entry.');
-          // Don't throw - just skip OCR and show manual form
-          processReceiptImage = null;
-        } else if (errorMessage.includes('Cannot find module') || errorMessage.includes('not found')) {
-          console.warn('Receipt OCR module not found. Falling back to manual entry.');
-          processReceiptImage = null;
-        } else {
-          // For other errors, still try to proceed with manual entry
-          console.warn('Receipt OCR import failed. Falling back to manual entry:', errorMessage);
-          processReceiptImage = null;
-        }
-      }
-      
-      // If OCR import failed, skip OCR and go straight to manual entry
-      if (!processReceiptImage) {
-        setProcessing(false);
-        setShowManualForm(true);
-        RNAlert.alert(
-          'Manual Entry Required',
-          'Receipt OCR is currently unavailable. Please enter the receipt details manually.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-      
-      // Extract and parse receipt data
+      // Extract and parse receipt data using static import
+      // Error handling is done within the OCR function itself
       const receiptData = await processReceiptImage(imageUri, business?.currency || 'USD');
       
       // Pre-fill form with extracted data
