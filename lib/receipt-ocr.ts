@@ -113,8 +113,14 @@ async function extractTextWithOCRSpace(imageUri: string, apiKey?: string): Promi
 async function extractTextWithTesseract(imageUri: string): Promise<string> {
   try {
     // Dynamic import to avoid loading Tesseract if not installed
-    const Tesseract = await import('tesseract.js');
-    const { createWorker } = Tesseract.default || Tesseract;
+    const TesseractModule = await import('tesseract.js');
+    // Handle both default and named exports
+    const Tesseract = (TesseractModule as any).default || TesseractModule;
+    const { createWorker } = Tesseract;
+    
+    if (!createWorker || typeof createWorker !== 'function') {
+      throw new Error('Tesseract createWorker function not available');
+    }
     
     const worker = await createWorker('eng');
     const { data: { text } } = await worker.recognize(imageUri);
@@ -123,7 +129,7 @@ async function extractTextWithTesseract(imageUri: string): Promise<string> {
     return text.trim();
   } catch (error: any) {
     console.error('Tesseract.js error:', error);
-    throw new Error('Tesseract OCR failed. Please install: bun add tesseract.js');
+    throw new Error('Tesseract OCR failed. Please install: npm install tesseract.js');
   }
 }
 

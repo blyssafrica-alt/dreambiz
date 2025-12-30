@@ -80,18 +80,39 @@ export default function ReceiptScanScreen() {
   const processReceipt = async (imageUri: string) => {
     setProcessing(true);
     try {
-      // Import OCR utility with error handling
+      // Import OCR utility with robust error handling
       let processReceiptImage;
       try {
-        const receiptOCR = await import('@/lib/receipt-ocr');
-        processReceiptImage = receiptOCR.processReceiptImage;
+        // Use dynamic import with proper error handling
+        const receiptOCRModule = await import('@/lib/receipt-ocr');
+        
+        // Check if module and function exist
+        if (!receiptOCRModule) {
+          throw new Error('Receipt OCR module not found');
+        }
+        
+        if (!receiptOCRModule.processReceiptImage) {
+          throw new Error('processReceiptImage function not exported from receipt-ocr module');
+        }
+        
+        processReceiptImage = receiptOCRModule.processReceiptImage;
+        
+        // Validate it's a function
+        if (typeof processReceiptImage !== 'function') {
+          throw new Error('processReceiptImage is not a function');
+        }
       } catch (importError: any) {
         console.error('Failed to import receipt OCR:', importError);
-        throw new Error('Receipt processing module could not be loaded. Please try again.');
-      }
-      
-      if (!processReceiptImage || typeof processReceiptImage !== 'function') {
-        throw new Error('Receipt processing function is not available.');
+        const errorMessage = importError?.message || 'Unknown import error';
+        
+        // Provide more helpful error message
+        if (errorMessage.includes('SyntaxError') || errorMessage.includes(';')) {
+          throw new Error('Receipt OCR module has a syntax error. Please check the module file.');
+        } else if (errorMessage.includes('Cannot find module')) {
+          throw new Error('Receipt OCR module not found. Please ensure the file exists.');
+        } else {
+          throw new Error(`Receipt processing module could not be loaded: ${errorMessage}`);
+        }
       }
       
       // Extract and parse receipt data
