@@ -348,7 +348,9 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         let profileExists = false;
         
         // Step 1: Try RPC function first (most reliable - uses SECURITY DEFINER)
+        // This should work even if the trigger isn't set up
         try {
+          console.log('🔄 Attempting to sync user profile via RPC function...');
           const { data: rpcData, error: rpcError } = await supabase.rpc('sync_user_profile', { 
             user_id_param: authUser.id 
           });
@@ -357,17 +359,23 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
             console.log('✅ User profile synced via RPC:', (rpcData as any).message);
             profileExists = true;
             // Wait a moment for the insert to complete
-            await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
+            await new Promise<void>(resolve => setTimeout(() => resolve(), 500));
           } else if (rpcError) {
             const rpcErrorCode = (rpcError as any)?.code || '';
             const rpcErrorMessage = rpcError?.message || String(rpcError);
             // 406/42883 means function doesn't exist - that's okay, try other methods
             if (rpcErrorCode !== '406' && rpcErrorCode !== '42883' && !rpcErrorMessage.includes('function')) {
               console.log('⚠️ RPC sync had an issue:', rpcErrorMessage);
+            } else {
+              console.log('⚠️ RPC function not available - trigger may not be set up');
             }
           }
-        } catch {
-          // RPC might not be available - that's okay, try other methods
+        } catch (rpcException: any) {
+          const rpcExceptionMsg = rpcException?.message || String(rpcException);
+          // If function doesn't exist, that's okay - we'll try other methods
+          if (!rpcExceptionMsg.includes('function') && !rpcExceptionMsg.includes('does not exist')) {
+            console.log('⚠️ RPC exception:', rpcExceptionMsg);
+          }
         }
         
         // Step 2: Try to read the profile (to verify it exists)
@@ -423,50 +431,64 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           }
         }
         
-        // Step 4: Final verification - check directly in database
+        // Step 4: Final verification - check directly in database with retries
         if (!profileExists) {
-          try {
-            const { data: directCheck, error: directError } = await supabase
-              .from('users')
-              .select('id')
-              .eq('id', authUser.id)
-              .single();
-            
-            if (directCheck && !directError) {
-              console.log('✅ Profile exists in database (verified directly)');
-              profileExists = true;
-            } else {
-              // Profile truly doesn't exist - we cannot proceed
-              // Provide clear instructions with the exact SQL to run
-              const errorMessage = 
-                '❌ CRITICAL: User profile does not exist in database.\n\n' +
-                'The user profile must exist before creating a business profile.\n\n' +
-                'QUICK FIX - Run this in Supabase SQL Editor (select "No limit"):\n\n' +
-                'Option 1 - Use RPC function:\n' +
-                `SELECT public.sync_user_profile('${authUser.id}'::UUID);\n\n` +
-                'Option 2 - Sync all users:\n' +
-                'SELECT public.sync_existing_users();\n\n' +
-                'Option 3 - Manual insert (if above don\'t work):\n' +
-                'See database/emergency_create_user_profile.sql\n\n' +
-                'After running one of these, refresh the app and try again.';
+          console.log('🔄 Final verification - checking if profile exists in database...');
+          let verified = false;
+          
+          // Retry checking multiple times (trigger might be creating it asynchronously)
+          for (let retry = 0; retry < 5; retry++) {
+            try {
+              const { data: directCheck, error: directError } = await supabase
+                .from('users')
+                .select('id')
+                .eq('id', authUser.id)
+                .single();
               
-              console.error(errorMessage);
-              throw new Error(errorMessage);
+              if (directCheck && !directError) {
+                console.log('✅ Profile exists in database (verified directly)');
+                profileExists = true;
+                verified = true;
+                break;
+              }
+              
+              // If not found, wait a bit and try again (trigger might still be processing)
+              if (retry < 4) {
+                console.log(`⏳ Profile not found yet, retrying in 1 second... (attempt ${retry + 1}/5)`);
+                await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
+              }
+            } catch (verifyError: any) {
+              const verifyMsg = verifyError?.message || String(verifyError);
+              // If it's a "not found" error, continue retrying
+              if (verifyMsg.includes('PGRST116') || verifyMsg.includes('No rows returned')) {
+                if (retry < 4) {
+                  console.log(`⏳ Profile not found, retrying... (attempt ${retry + 1}/5)`);
+                  await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
+                  continue;
+                }
+              } else {
+                // Other error - log and continue
+                console.log('⚠️ Verification error:', verifyMsg);
+              }
             }
-          } catch (verifyError: any) {
-            const verifyMsg = verifyError?.message || String(verifyError);
-            // If it's a "not found" error, profile doesn't exist
-            if (verifyMsg.includes('PGRST116') || verifyMsg.includes('No rows returned') || verifyMsg.includes('does not exist')) {
-              throw new Error(
-                'User profile does not exist in database and could not be created.\n\n' +
-                'SOLUTION:\n' +
-                '1. Run the SQL in database/create_user_profile_trigger.sql in Supabase SQL Editor\n' +
-                '2. Then run: SELECT public.sync_user_profile(\'' + authUser.id + '\'::UUID);\n' +
-                '3. Or run: SELECT public.sync_existing_users();'
-              );
-            }
-            // Re-throw other errors
-            throw verifyError;
+          }
+          
+          // If still not found after all retries, provide clear error
+          if (!verified && !profileExists) {
+            const errorMessage = 
+              'User profile does not exist in database and could not be created automatically.\n\n' +
+              'This usually means the database trigger is not set up.\n\n' +
+              'QUICK FIX:\n' +
+              '1. Go to Supabase Dashboard > SQL Editor\n' +
+              '2. Select "No limit" from the dropdown (important!)\n' +
+              '3. Copy and paste the ENTIRE contents of database/create_user_profile_trigger.sql\n' +
+              '4. Click "Run"\n' +
+              '5. Then run this to sync your user:\n' +
+              `   SELECT public.sync_user_profile('${authUser.id}'::UUID);\n\n` +
+              'After running these, refresh the app and try again.';
+            
+            console.error('❌', errorMessage);
+            throw new Error(errorMessage);
           }
         }
         
@@ -2175,3 +2197,4 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     refreshData,
   };
 });
+
