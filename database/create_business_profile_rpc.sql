@@ -26,6 +26,7 @@ AS $$
 DECLARE
   v_business_id UUID;
   v_result JSONB;
+  v_count INTEGER;
 BEGIN
   -- Verify the user_id matches the authenticated user
   IF p_user_id IS NULL OR p_user_id != auth.uid() THEN
@@ -47,12 +48,21 @@ BEGIN
   );
 
   -- Check if business profile already exists for this user
-  -- After cleanup, there should be at most one
-  SELECT id INTO v_business_id
+  -- Count first to avoid "more than one row" error
+  SELECT COUNT(*) INTO v_count
   FROM public.business_profiles
-  WHERE user_id = p_user_id
-  ORDER BY created_at DESC
-  LIMIT 1;
+  WHERE user_id = p_user_id;
+
+  IF v_count > 0 THEN
+    -- Get the most recent business profile ID
+    SELECT id INTO v_business_id
+    FROM public.business_profiles
+    WHERE user_id = p_user_id
+    ORDER BY created_at DESC
+    LIMIT 1;
+  ELSE
+    v_business_id := NULL;
+  END IF;
 
   IF v_business_id IS NOT NULL THEN
     -- Update existing business profile

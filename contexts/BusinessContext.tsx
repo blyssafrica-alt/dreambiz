@@ -579,9 +579,9 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       console.log('✅ Proceeding with business profile creation for user:', userId);
 
       // STEP 3: Clean up any duplicate business profiles (automatic cleanup)
-      console.log('🧹 Step 3: Checking for duplicate business profiles...');
+      console.log('🧹 Step 3: Cleaning up duplicate business profiles...');
       try {
-        // Try using RPC function first (bypasses RLS)
+        // Try using cleanup RPC function first (bypasses RLS, most reliable)
         const { data: cleanupResult, error: cleanupError } = await supabase.rpc('cleanup_duplicate_business_profiles', {
           p_user_id: authUserId
         });
@@ -589,43 +589,17 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         if (!cleanupError && cleanupResult && (cleanupResult as any).success) {
           const result = cleanupResult as any;
           if (result.deleted_count > 0) {
-            console.log(`✅ Cleaned up ${result.deleted_count} duplicate(s) via RPC`);
+            console.log(`✅ Cleaned up ${result.deleted_count} duplicate(s) via cleanup RPC`);
           } else {
-            console.log('✅ No duplicates found via RPC');
+            console.log('✅ No duplicates found');
           }
-        } else if (cleanupError) {
-          // RPC might not exist, try direct cleanup
-          console.log('⚠️ Cleanup RPC not available, trying direct cleanup...');
-          
-          const { data: duplicates, error: dupError } = await supabase
-            .from('business_profiles')
-            .select('id, created_at')
-            .eq('user_id', authUserId)
-            .order('created_at', { ascending: false });
-
-          if (!dupError && duplicates && duplicates.length > 1) {
-            console.log(`⚠️ Found ${duplicates.length} business profiles, attempting cleanup...`);
-            
-            // Keep only the most recent one, delete the rest
-            const idsToDelete = duplicates.slice(1).map(bp => bp.id);
-            
-            if (idsToDelete.length > 0) {
-              const { error: deleteError } = await supabase
-                .from('business_profiles')
-                .delete()
-                .in('id', idsToDelete);
-              
-              if (deleteError) {
-                console.log('⚠️ Direct cleanup failed (RLS may block it, RPC function will handle):', deleteError.message);
-              } else {
-                console.log(`✅ Cleaned up ${idsToDelete.length} duplicate(s) via direct delete`);
-              }
-            }
-          }
+        } else {
+          // Cleanup RPC might not exist - that's okay, the create RPC will handle it
+          console.log('⚠️ Cleanup RPC not available (create RPC will handle duplicates)');
         }
       } catch (cleanupError: any) {
-        // If cleanup fails, that's okay - RPC function will handle it
-        console.log('⚠️ Duplicate cleanup check failed (this is okay, RPC will handle):', cleanupError?.message || 'Unknown error');
+        // If cleanup fails, that's okay - the create RPC function will handle duplicates automatically
+        console.log('⚠️ Pre-cleanup check failed (create RPC will handle):', cleanupError?.message || 'Unknown error');
       }
 
       // STEP 4: Prepare business data
@@ -691,126 +665,45 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           let rpcErrorCode = (rpcError as any)?.code || '';
           let rpcErrorMessage = rpcError?.message || String(rpcError);
           
-          // Check if it's a duplicate error - try automatic cleanup and retry
+          // Check if it's a duplicate error - the RPC function should handle this automatically
+          // But if it still fails, try cleanup and retry once
           if (rpcErrorCode === 'P0001' && rpcErrorMessage.includes('more than one row')) {
-            console.log('🔄 Duplicate detected, attempting automatic cleanup via RPC and retry...');
+            console.log('🔄 Duplicate detected by RPC, attempting cleanup and retry...');
             
-            // Try using the cleanup RPC function first (bypasses RLS)
+            // Try cleanup RPC function
             try {
               const { data: cleanupResult, error: cleanupRpcError } = await supabase.rpc('cleanup_duplicate_business_profiles', {
                 p_user_id: authUserId
               });
 
               if (!cleanupRpcError && cleanupResult && (cleanupResult as any).success) {
-                const result = cleanupResult as any;
-                console.log(`✅ Cleaned up ${result.deleted_count || 0} duplicate(s) via cleanup RPC, retrying...`);
+                console.log('✅ Cleanup successful, retrying business creation...');
                 
                 // Retry the RPC call after cleanup
                 const { data: retryRpcData, error: retryRpcError } = await supabase.rpc('create_or_update_business_profile', businessData);
                 
                 if (!retryRpcError && retryRpcData) {
-                  console.log('✅ RPC succeeded after duplicate cleanup!');
+                  console.log('✅ RPC succeeded after cleanup!');
                   data = typeof retryRpcData === 'string' ? JSON.parse(retryRpcData) : retryRpcData;
                   error = null;
                 } else {
-                  // If cleanup RPC doesn't exist, try direct cleanup
-                  console.log('⚠️ Cleanup RPC not available, trying direct cleanup...');
-                  const { data: allProfiles, error: fetchError } = await supabase
-                    .from('business_profiles')
-                    .select('id, created_at')
-                    .eq('user_id', authUserId)
-                    .order('created_at', { ascending: false });
-
-                  if (!fetchError && allProfiles && allProfiles.length > 1) {
-                    const idsToDelete = allProfiles.slice(1).map(bp => bp.id);
-                    const { error: deleteError } = await supabase
-                      .from('business_profiles')
-                      .delete()
-                      .in('id', idsToDelete);
-
-                    if (!deleteError) {
-                      console.log(`✅ Cleaned up ${idsToDelete.length} duplicate(s) directly, retrying RPC...`);
-                      
-                      // Retry again after direct cleanup
-                      const { data: retry2RpcData, error: retry2RpcError } = await supabase.rpc('create_or_update_business_profile', businessData);
-                      
-                      if (!retry2RpcError && retry2RpcData) {
-                        console.log('✅ RPC succeeded after direct cleanup!');
-                        data = typeof retry2RpcData === 'string' ? JSON.parse(retry2RpcData) : retry2RpcData;
-                        error = null;
-                      } else {
-                        throw new Error(
-                          'Multiple business profiles found. Cleanup was attempted but issue persists.\n\n' +
-                          'Please run database/cleanup_duplicate_business_profiles_rpc.sql and database/cleanup_duplicate_business_profiles.sql in Supabase SQL Editor.'
-                        );
-                      }
-                    } else {
-                      throw new Error(
-                        'Multiple business profiles found. Could not clean up duplicates (RLS may be blocking).\n\n' +
-                        'Please run database/cleanup_duplicate_business_profiles_rpc.sql in Supabase SQL Editor to enable automatic cleanup.'
-                      );
-                    }
-                  } else {
-                    throw new Error(
-                      'Multiple business profiles found. Please run database/cleanup_duplicate_business_profiles.sql in Supabase SQL Editor.'
-                    );
-                  }
-                }
-              } else {
-                // Cleanup RPC failed or doesn't exist, try direct cleanup
-                console.log('⚠️ Cleanup RPC failed or not available, trying direct cleanup...');
-                const { data: allProfiles, error: fetchError } = await supabase
-                  .from('business_profiles')
-                  .select('id, created_at')
-                  .eq('user_id', authUserId)
-                  .order('created_at', { ascending: false });
-
-                if (!fetchError && allProfiles && allProfiles.length > 1) {
-                  const idsToDelete = allProfiles.slice(1).map(bp => bp.id);
-                  const { error: deleteError } = await supabase
-                    .from('business_profiles')
-                    .delete()
-                    .in('id', idsToDelete);
-
-                  if (!deleteError) {
-                    console.log(`✅ Cleaned up ${idsToDelete.length} duplicate(s) directly, retrying RPC...`);
-                    
-                    // Retry after direct cleanup
-                    const { data: retryRpcData, error: retryRpcError } = await supabase.rpc('create_or_update_business_profile', businessData);
-                    
-                    if (!retryRpcError && retryRpcData) {
-                      console.log('✅ RPC succeeded after direct cleanup!');
-                      data = typeof retryRpcData === 'string' ? JSON.parse(retryRpcData) : retryRpcData;
-                      error = null;
-                    } else {
-                      throw new Error(
-                        'Multiple business profiles found. Direct cleanup was attempted but issue persists.\n\n' +
-                        'Please run database/cleanup_duplicate_business_profiles_rpc.sql in Supabase SQL Editor to enable automatic cleanup.'
-                      );
-                    }
-                  } else {
-                    throw new Error(
-                      'Multiple business profiles found. Could not clean up duplicates (RLS may be blocking).\n\n' +
-                      'Please run database/cleanup_duplicate_business_profiles_rpc.sql in Supabase SQL Editor to enable automatic cleanup.'
-                    );
-                  }
-                } else {
+                  // If retry still fails, the RPC function needs to be updated
                   throw new Error(
-                    'Multiple business profiles found. Please run database/cleanup_duplicate_business_profiles.sql in Supabase SQL Editor.'
+                    'Multiple business profiles found. Please run the updated database/create_business_profile_rpc.sql in Supabase SQL Editor.\n\n' +
+                    'The RPC function needs to be updated to handle duplicates automatically.'
                   );
                 }
+              } else {
+                throw new Error(
+                  'Multiple business profiles found. Please run database/cleanup_duplicate_business_profiles_rpc.sql in Supabase SQL Editor.'
+                );
               }
             } catch (cleanupException: any) {
-              const cleanupMsg = cleanupException?.message || String(cleanupException);
               throw new Error(
-                `Multiple business profiles found for this user.\n\n` +
-                `Automatic cleanup failed: ${cleanupMsg}\n\n` +
-                `SOLUTION:\n` +
-                `1. Go to Supabase Dashboard > SQL Editor\n` +
-                `2. Select "No limit" from the dropdown\n` +
-                `3. Run database/cleanup_duplicate_business_profiles_rpc.sql (for automatic cleanup)\n` +
-                `4. Or run database/cleanup_duplicate_business_profiles.sql (manual cleanup)\n` +
-                `5. Refresh the app and try again.`
+                'Multiple business profiles found. Please run these SQL files in Supabase:\n\n' +
+                '1. database/cleanup_duplicate_business_profiles_rpc.sql\n' +
+                '2. database/create_business_profile_rpc.sql (updated version)\n\n' +
+                'Then refresh the app and try again.'
               );
             }
           }
