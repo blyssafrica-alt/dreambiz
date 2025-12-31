@@ -762,14 +762,16 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
                   '1. Onboarding was attempted multiple times\n' +
                   '2. There are duplicate records in the database\n\n' +
                   'SOLUTION:\n' +
-                  '1. Go to Supabase Dashboard > Table Editor\n' +
-                  '2. Open the "business_profiles" table\n' +
-                  '3. Find and delete duplicate records (keep only one per user_id)\n' +
-                  '4. Or run this SQL to clean up:\n' +
+                  '1. Go to Supabase Dashboard > SQL Editor\n' +
+                  '2. Select "No limit" from the dropdown\n' +
+                  '3. Run the SQL file: database/cleanup_duplicate_business_profiles.sql\n' +
+                  '   Or manually run:\n' +
                   '   DELETE FROM business_profiles\n' +
-                  '   WHERE id NOT IN (\n' +
-                  '     SELECT MIN(id) FROM business_profiles\n' +
-                  '     GROUP BY user_id\n' +
+                  '   WHERE id IN (\n' +
+                  '     SELECT id FROM (\n' +
+                  '       SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) as rn\n' +
+                  '       FROM business_profiles\n' +
+                  '     ) ranked WHERE rn > 1\n' +
                   '   );\n\n' +
                   'After cleaning up, refresh the app and try again.'
                 );
