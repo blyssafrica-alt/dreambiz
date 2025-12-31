@@ -7,6 +7,11 @@ import { supabase } from '@/lib/supabase';
 import { Save, Settings, Eye, EyeOff, CheckCircle, XCircle, TestTube } from 'lucide-react-native';
 import PageHeader from '@/components/PageHeader';
 
+// Type declarations for browser APIs in React Native
+declare global {
+  function btoa(data: string): string;
+}
+
 interface IntegrationConfig {
   id: string;
   name: string;

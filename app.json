@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Dreambiz",
+    "name": "DreamBiz",
     "slug": "dreambiz",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "rork-app",
+    "scheme": "dreambiz",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -13,13 +13,17 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "app.dreambiz.com",
+      "buildNumber": "1",
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to access your photos",
-        "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera",
-        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone"
+        "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to access your photos to upload product images and receipts",
+        "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera to scan receipts and capture product images",
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone for voice notes"
       }
     },
     "android": {
@@ -28,30 +32,32 @@
         "backgroundColor": "#ffffff"
       },
       "package": "app.dreambiz.com",
+      "versionCode": 1,
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
-        "INTERNET"
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
       ]
     },
     "web": {
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "bundler": "metro"
     },
     "plugins": [
-      [
-        "expo-router",
-        {
-          "origin": "https://rork.com/"
-        }
-      ],
+      "expo-router",
       "expo-font",
       "expo-web-browser",
       [
         "expo-image-picker",
         {
-          "photosPermission": "The app accesses your photos to let you share them with your friends."
+          "photosPermission": "The app accesses your photos to upload product images and scan receipts."
         }
+      ],
+      [
+        "expo-print",
+        {}
       ]
     ],
     "experiments": {
@@ -59,7 +65,13 @@
     },
     "extra": {
       "EXPO_PUBLIC_SUPABASE_URL": "https://oqcgerfjjiozltkmmkxf.supabase.co",
-      "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_959ZId8aR4E5IjTNoyVsJQ_xt8pelvp"
+      "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_959ZId8aR4E5IjTNoyVsJQ_xt8pelvp",
+      "eas": {
+        "projectId": "your-project-id-here"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }

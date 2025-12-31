@@ -7,7 +7,13 @@
     "start-web": "bunx rork start -p l1akc9w0qq5qrzi6ksiej --web --tunnel",
     "start-web-dev": "DEBUG=expo* bunx rork start -p l1akc9w0qq5qrzi6ksiej --web --tunnel",
     "lint": "expo lint",
-    "create-super-admin": "node scripts/create-super-admin.js"
+    "create-super-admin": "node scripts/create-super-admin.js",
+    "build:ios": "eas build --platform ios --profile production",
+    "build:android": "eas build --platform android --profile production",
+    "build:all": "eas build --platform all --profile production",
+    "submit:ios": "eas submit --platform ios --profile production",
+    "submit:android": "eas submit --platform android --profile production",
+    "prebuild": "expo prebuild --clean"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

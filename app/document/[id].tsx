@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Share as ShareIcon, Mail, FileDown, Trash2, X, QrCode, Link as LinkIcon, Edit2, Save, Plus, Check, DollarSign, CreditCard, Smartphone, Building2 } from 'lucide-react-native';
 import { useState } from 'react';
 import { 
@@ -27,6 +27,7 @@ import type { Payment } from '@/types/payments';
 
 export default function DocumentDetailScreen() {
   const { id } = useLocalSearchParams();
+  const router = useRouter();
   const { documents, business, getDocumentPayments, getDocumentPaidAmount, deletePayment, updateDocument, deleteDocument, addPayment, addTransaction } = useBusiness();
   const { theme } = useTheme();
   const [showQRModal, setShowQRModal] = useState(false);
