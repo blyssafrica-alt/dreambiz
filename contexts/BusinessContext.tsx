@@ -397,9 +397,19 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         );
       }
 
+      // Get current user from session or authUser context
+      const currentUser = session?.user || authUser;
+      
+      if (!currentUser) {
+        console.error('❌ No user object available');
+        throw new Error(
+          'User information not available. Please sign out and sign in again.'
+        );
+      }
+
       console.log('✅ Session verified for user:', authUserId);
-      console.log('✅ Email:', currentUser?.email || authUser?.email || 'N/A');
-      console.log('✅ Email confirmed:', currentUser?.email_confirmed_at ? 'Yes' : 'No');
+      console.log('✅ Email:', currentUser.email || 'N/A');
+      console.log('✅ Email confirmed:', currentUser.email_confirmed_at ? 'Yes' : 'No');
 
       // STEP 2: Ensure user profile exists in the users table (CRITICAL for foreign key)
       console.log('👤 Step 2: Ensuring user profile exists...');
