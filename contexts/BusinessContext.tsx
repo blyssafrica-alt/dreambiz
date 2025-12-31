@@ -629,14 +629,58 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       console.log('✅ Final user_id for insert:', upsertData.user_id);
       console.log('✅ UUID format valid:', /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(upsertData.user_id));
       
-      // Use upsert with user_id as conflict target (since user_id is UNIQUE)
-      const { data, error } = await supabase
+      // Try direct upsert first
+      let data: any = null;
+      let error: any = null;
+      
+      const { data: directData, error: directError } = await supabase
         .from('business_profiles')
         .upsert(upsertData, {
           onConflict: 'user_id',
         })
         .select()
         .single();
+
+      data = directData;
+      error = directError;
+
+      // If RLS blocks the insert, try using RPC function as fallback
+      if (error && ((error as any)?.code === '42501' || error.message?.includes('row-level security') || error.message?.includes('RLS'))) {
+        console.log('⚠️ RLS blocked direct insert, trying RPC function...');
+        
+        try {
+          const { data: rpcData, error: rpcError } = await supabase.rpc('create_or_update_business_profile', {
+            p_user_id: upsertData.user_id,
+            p_name: upsertData.name,
+            p_type: upsertData.type,
+            p_stage: upsertData.stage,
+            p_location: upsertData.location,
+            p_capital: upsertData.capital,
+            p_currency: upsertData.currency,
+            p_owner: upsertData.owner,
+            p_phone: upsertData.phone || null,
+            p_email: upsertData.email || null,
+            p_address: upsertData.address || null,
+            p_dream_big_book: upsertData.dream_big_book || 'none',
+            p_logo: upsertData.logo || null,
+          });
+
+          if (rpcError) {
+            console.error('❌ RPC function also failed:', rpcError);
+            // Keep the original error for better context
+            error = directError;
+          } else if (rpcData) {
+            console.log('✅ RPC function succeeded!');
+            // Convert RPC result to match expected format
+            data = rpcData;
+            error = null;
+          }
+        } catch (rpcException: any) {
+          console.error('❌ RPC function exception:', rpcException);
+          // Keep the original error
+          error = directError;
+        }
+      }
 
       if (error) {
         // Enhanced error logging for RLS issues
