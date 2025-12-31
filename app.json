@@ -32,7 +32,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "app.dreambiz.com",
-      "versionCode": 5,
+      "versionCode": 6,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -64,7 +64,10 @@
       "EXPO_PUBLIC_SUPABASE_URL": "https://oqcgerfjjiozltkmmkxf.supabase.co",
       "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_959ZId8aR4E5IjTNoyVsJQ_xt8pelvp",
       "EXPO_PUBLIC_OCR_SPACE_API_KEY": "K82828017188957",
-      "router": {}
+      "router": {},
+      "eas": {
+        "projectId": "abd43cba-42c7-430f-8f2d-8326fea4ca5f"
+      }
     },
     "runtimeVersion": {
       "policy": "appVersion"
