@@ -142,11 +142,25 @@ export default function ReceiptScanScreen() {
       
       // Show manual entry form even if OCR fails
       const errorMessage = error?.message || 'Unable to extract receipt information automatically.';
-      RNAlert.alert(
-        'Manual Entry Required',
-        `${errorMessage}\n\nPlease enter the receipt details manually.`,
-        [{ text: 'OK', onPress: () => setShowManualForm(true) }]
-      );
+      
+      // Check if it's an OCR availability error
+      const isOCRError = errorMessage.includes('OCR services are not available') || 
+                        errorMessage.includes('not available') ||
+                        errorMessage.includes('quota exceeded');
+      
+      if (isOCRError) {
+        RNAlert.alert(
+          'OCR Not Available',
+          `${errorMessage}\n\nPlease enter the receipt details manually.`,
+          [{ text: 'OK', onPress: () => setShowManualForm(true) }]
+        );
+      } else {
+        RNAlert.alert(
+          'Manual Entry Required',
+          `${errorMessage}\n\nPlease enter the receipt details manually.`,
+          [{ text: 'OK', onPress: () => setShowManualForm(true) }]
+        );
+      }
     }
   };
 

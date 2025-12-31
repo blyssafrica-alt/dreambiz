@@ -41,8 +41,13 @@ async function extractTextWithOCRSpace(imageUri: string, apiKey?: string): Promi
     // Convert image to base64
     const base64Image = await imageUriToBase64(imageUri);
     
-    // Use free API key if provided, otherwise use demo key (limited)
-    const ocrApiKey = apiKey || 'helloworld'; // Free demo key (limited requests)
+    // Don't use demo key - require a real API key
+    if (!apiKey || apiKey === 'helloworld') {
+      throw new Error(
+        'OCR.space API key not configured. Please get a free API key from https://ocr.space/ocrapi/freekey and add it to .env as EXPO_PUBLIC_OCR_SPACE_API_KEY'
+      );
+    }
+    
     const ocrApiUrl = 'https://api.ocr.space/parse/image';
     
     // OCR.space API accepts base64 images via FormData
@@ -57,8 +62,8 @@ async function extractTextWithOCRSpace(imageUri: string, apiKey?: string): Promi
     formData.append('scale', 'true');
     formData.append('OCREngine', '2'); // Engine 2 is better for receipts
     
-    // Always add API key (even demo key)
-    formData.append('apikey', ocrApiKey);
+    // Add API key
+    formData.append('apikey', apiKey);
     
     console.log('Sending OCR request to OCR.space API...');
     
@@ -235,37 +240,19 @@ export async function extractTextFromImage(imageUri: string): Promise<string> {
 
 /**
  * Mock OCR - Simulates text extraction
- * Replace this with actual OCR service in production
+ * This should NOT be used in production - it returns dummy data
+ * Instead, throw an error to force manual entry
  */
 async function mockOCR(imageUri: string): Promise<string> {
-  // Simulate processing delay
-  await new Promise<void>(resolve => setTimeout(() => resolve(), 1500));
-  
-  // Return sample receipt text for demonstration
-  // In production, this would be replaced with actual OCR results
-  return `SHOPRITE SUPERMARKET
-123 Main Street, Harare
-Tel: +263 4 123 4567
-
-Date: 2024-01-15
-Time: 14:30
-Cashier: John
-
-BREAD WHITE LOAF        2.50
-MILK 2L                 3.75
-EGGS DOZEN              4.20
-SUGAR 1KG               2.10
-RICE 2KG                5.50
-
-SUBTOTAL               18.05
-TAX (15%)               2.71
-TOTAL                  20.76
-
-CASH                   25.00
-CHANGE                  4.24
-
-Thank you for shopping!
-Visit us again soon.`;
+  // In production, we should NOT use mock OCR
+  // Instead, throw an error to inform the user that OCR is not available
+  throw new Error(
+    'OCR services are not available. Please enter receipt details manually.\n\n' +
+    'To enable OCR:\n' +
+    '1. Get a free API key from https://ocr.space/ocrapi/freekey\n' +
+    '2. Add EXPO_PUBLIC_OCR_SPACE_API_KEY=your_key to .env file\n' +
+    '3. Restart the app'
+  );
 }
 
 /**
