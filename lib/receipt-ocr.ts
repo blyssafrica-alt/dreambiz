@@ -19,16 +19,60 @@ export interface ReceiptData {
 
 /**
  * Convert image URI to base64 string
+ * Uses fetch + blob approach for better React Native compatibility
  */
 async function imageUriToBase64(uri: string): Promise<string> {
   try {
-    const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: (FileSystem as any).EncodingType.Base64,
+    console.log('Converting image to base64, URI:', uri.substring(0, 50) + '...');
+    
+    // For React Native, use fetch + blob approach which is more reliable
+    const response = await fetch(uri);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
+    
+    // Convert blob to base64
+    const blob = await response.blob();
+    
+    // Use FileReader for base64 conversion (works in React Native)
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onloadend = () => {
+        try {
+          const result = reader.result as string;
+          // Remove data URL prefix if present (e.g., "data:image/jpeg;base64,")
+          const base64 = result.includes(',') ? result.split(',')[1] : result;
+          console.log('Image converted to base64 successfully, length:', base64.length);
+          resolve(base64);
+        } catch (error) {
+          reject(new Error('Failed to extract base64 from FileReader result'));
+        }
+      };
+      
+      reader.onerror = () => {
+        reject(new Error('FileReader failed to read blob'));
+      };
+      
+      reader.readAsDataURL(blob);
     });
-    return base64;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error converting image to base64:', error);
-    throw new Error('Failed to convert image to base64');
+    
+    // Try fallback method using FileSystem if fetch fails
+    try {
+      console.log('Trying FileSystem fallback method...');
+      // Use string literal 'base64' as encoding type
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: 'base64' as any,
+      });
+      console.log('FileSystem fallback succeeded');
+      return base64;
+    } catch (fallbackError: any) {
+      console.error('FileSystem fallback also failed:', fallbackError);
+      throw new Error(`Failed to convert image to base64: ${error.message || 'Unknown error'}`);
+    }
   }
 }
 
