@@ -677,27 +677,58 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           let rpcErrorCode = (rpcError as any)?.code || '';
           let rpcErrorMessage = rpcError?.message || String(rpcError);
           
-          // Check if it's a duplicate error
+          // Check if it's a duplicate error - try automatic cleanup and retry
           if (rpcErrorCode === 'P0001' && rpcErrorMessage.includes('more than one row')) {
-            throw new Error(
-              'Multiple business profiles found for this user.\n\n' +
-              'This usually happens when:\n' +
-              '1. Onboarding was attempted multiple times\n' +
-              '2. There are duplicate records in the database\n\n' +
-              'SOLUTION:\n' +
-              '1. Go to Supabase Dashboard > SQL Editor\n' +
-              '2. Select "No limit" from the dropdown\n' +
-              '3. Run the SQL file: database/cleanup_duplicate_business_profiles.sql\n' +
-              '   Or manually run:\n' +
-              '   DELETE FROM business_profiles\n' +
-              '   WHERE id IN (\n' +
-              '     SELECT id FROM (\n' +
-              '       SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) as rn\n' +
-              '       FROM business_profiles\n' +
-              '     ) ranked WHERE rn > 1\n' +
-              '   );\n\n' +
-              'After cleaning up, refresh the app and try again.'
-            );
+            console.log('🔄 Duplicate detected, attempting automatic cleanup and retry...');
+            
+            // Try to clean up duplicates automatically
+            try {
+              const { data: allProfiles, error: fetchError } = await supabase
+                .from('business_profiles')
+                .select('id, created_at')
+                .eq('user_id', authUserId)
+                .order('created_at', { ascending: false });
+
+              if (!fetchError && allProfiles && allProfiles.length > 1) {
+                const idsToDelete = allProfiles.slice(1).map(bp => bp.id);
+                const { error: deleteError } = await supabase
+                  .from('business_profiles')
+                  .delete()
+                  .in('id', idsToDelete);
+
+                if (!deleteError) {
+                  console.log(`✅ Cleaned up ${idsToDelete.length} duplicate(s), retrying RPC call...`);
+                  
+                  // Retry the RPC call after cleanup
+                  const { data: retryRpcData, error: retryRpcError } = await supabase.rpc('create_or_update_business_profile', businessData);
+                  
+                  if (!retryRpcError && retryRpcData) {
+                    console.log('✅ RPC succeeded after duplicate cleanup!');
+                    data = typeof retryRpcData === 'string' ? JSON.parse(retryRpcData) : retryRpcData;
+                    error = null;
+                  } else {
+                    throw new Error(
+                      'Multiple business profiles found. Automatic cleanup was attempted but the issue persists.\n\n' +
+                      'Please run database/cleanup_duplicate_business_profiles.sql in Supabase SQL Editor.'
+                    );
+                  }
+                } else {
+                  throw new Error(
+                    'Multiple business profiles found. Could not automatically clean up duplicates.\n\n' +
+                    'Please run database/cleanup_duplicate_business_profiles.sql in Supabase SQL Editor.'
+                  );
+                }
+              } else {
+                throw new Error(
+                  'Multiple business profiles found. Please run database/cleanup_duplicate_business_profiles.sql in Supabase SQL Editor.'
+                );
+              }
+            } catch (cleanupException: any) {
+              throw new Error(
+                'Multiple business profiles found for this user.\n\n' +
+                'Automatic cleanup failed. Please run database/cleanup_duplicate_business_profiles.sql in Supabase SQL Editor.'
+              );
+            }
           }
           
           // If RPC doesn't exist, mark for fallback
