@@ -146,6 +146,15 @@ export default function SignInScreen() {
                 Create Account
               </Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.employeeLink}
+              onPress={() => router.push('/employee-login' as any)}
+            >
+              <Text style={[styles.employeeLinkText, { color: theme.text.tertiary }]}>
+                Employee Login
+              </Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -253,5 +262,14 @@ const styles = StyleSheet.create({
   signUpLinkText: {
     fontSize: 16,
     fontWeight: '600' as const,
+  },
+  employeeLink: {
+    marginTop: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  employeeLinkText: {
+    fontSize: 14,
+    fontWeight: '500' as const,
   },
 });

@@ -174,8 +174,13 @@ export default function BusinessesScreen() {
         <Animated.View style={{
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
+          flex: 1,
         }}>
-          <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
+          <ScrollView 
+            style={styles.scrollView} 
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
         {businesses.length === 0 ? (
           <View style={styles.emptyState}>
             <Building2 size={48} color={theme.text.tertiary} />
@@ -382,7 +387,12 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    padding: 16,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 100,
+    flexGrow: 1,
   },
   emptyState: {
     alignItems: 'center',

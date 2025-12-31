@@ -886,7 +886,11 @@ export default function POSScreen() {
                 </TouchableOpacity>
               </View>
               
-              <ScrollView style={styles.modalBody}>
+              <ScrollView 
+                style={styles.modalBody}
+                contentContainerStyle={styles.modalBodyContent}
+                showsVerticalScrollIndicator={false}
+              >
                 <TouchableOpacity
                   style={[styles.customerOption, { backgroundColor: theme.background.secondary }]}
                   onPress={() => handleSelectCustomer(null)}
@@ -973,7 +977,11 @@ export default function POSScreen() {
                 </TouchableOpacity>
               </View>
               
-              <ScrollView style={styles.modalBody}>
+              <ScrollView 
+                style={styles.modalBody}
+                contentContainerStyle={styles.modalBodyContent}
+                showsVerticalScrollIndicator={false}
+              >
                 <View style={styles.paymentTotal}>
                   <Text style={[styles.paymentTotalLabel, { color: theme.text.secondary }]}>Total Amount</Text>
                   <Text style={[styles.paymentTotalValue, { color: theme.accent.primary }]}>
@@ -1687,6 +1695,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '90%',
+    minHeight: '60%',
     paddingBottom: Platform.OS === 'ios' ? 40 : 20,
   },
   modalHeader: {

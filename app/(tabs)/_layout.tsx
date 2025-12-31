@@ -22,7 +22,7 @@ function AnimatedTabIcon({
   Icon: any; 
   color: string; 
   focused: boolean; 
-  gradientColors?: string[];
+  gradientColors?: readonly [string, string, ...string[]];
 }) {
   const scaleAnim = useRef(new Animated.Value(focused ? 1.1 : 1)).current;
   const opacityAnim = useRef(new Animated.Value(focused ? 1 : 0.6)).current;

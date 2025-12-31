@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Activi
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProducts } from '@/contexts/ProductContext';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Edit, Trash2, Package, X, Save, ImageIcon } from 'lucide-react-native';
 import type { PlatformProduct, ProductType, ProductStatus, StockStatus } from '@/types/super-admin';
@@ -13,6 +14,7 @@ import { decode } from 'base64-arraybuffer';
 export default function ProductsManagementScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
+  const { refreshProducts } = useProducts();
   const router = useRouter();
   const [products, setProducts] = useState<PlatformProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -267,6 +269,8 @@ export default function ProductsManagementScreen() {
 
       setShowModal(false);
       loadProducts();
+      // Refresh ProductContext so store screen shows updated products
+      await refreshProducts();
     } catch (error) {
       console.error('Failed to save product:', error);
       Alert.alert('Error', 'Failed to save product');
@@ -289,6 +293,8 @@ export default function ProductsManagementScreen() {
             if (error) throw error;
             Alert.alert('Success', 'Product deleted successfully');
             loadProducts();
+            // Refresh ProductContext so store screen shows updated products
+            await refreshProducts();
           } catch (error) {
             console.error('Failed to delete product:', error);
             Alert.alert('Error', 'Failed to delete product');
@@ -360,6 +366,15 @@ export default function ProductsManagementScreen() {
         ) : (
           filteredProducts.map((product) => (
             <View key={product.id} style={[styles.productCard, { backgroundColor: theme.background.card }]}>
+              {/* Product Image */}
+              {product.images && product.images.length > 0 ? (
+                <Image source={{ uri: product.images[0] }} style={styles.productImage} />
+              ) : (
+                <View style={[styles.productImagePlaceholder, { backgroundColor: theme.background.secondary }]}>
+                  <Package size={32} color={theme.text.tertiary} />
+                </View>
+              )}
+              
               <View style={styles.productHeader}>
                 <View style={styles.productInfo}>
                   <Text style={[styles.productName, { color: theme.text.primary }]}>{product.name}</Text>
@@ -806,6 +821,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 12,
     resizeMode: 'cover',
+  },
+  productImagePlaceholder: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   productHeader: {
     flexDirection: 'row',

@@ -236,10 +236,11 @@ export default function IntegrationsScreen() {
         <Animated.View style={{
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
+          flex: 1,
         }}>
           <ScrollView 
             style={styles.scrollView} 
-            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
+            contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
         {Object.entries(groupedIntegrations).map(([category, items]) => (
@@ -341,7 +342,12 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    padding: 16,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 120,
+    flexGrow: 1,
   },
   section: {
     marginBottom: 24,
