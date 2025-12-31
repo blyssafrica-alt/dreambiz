@@ -728,13 +728,12 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
             console.error('  - Error details:', rpcErrorDetails || '(none)');
             console.error('  - Error hint:', rpcErrorHint || '(none)');
             
-            // Check if RPC function doesn't exist
+            // Check if RPC function doesn't exist (42883 = function does not exist)
+            // P0001 is a generic PostgreSQL error, not specifically "function not found"
             const errorMsgLower = rpcErrorMessage.toLowerCase();
             if (rpcErrorCode === '42883' || 
-                rpcErrorCode === 'P0001' ||
-                errorMsgLower.includes('function') || 
-                errorMsgLower.includes('does not exist') ||
-                errorMsgLower.includes('undefined function')) {
+                errorMsgLower.includes('function') && 
+                (errorMsgLower.includes('does not exist') || errorMsgLower.includes('undefined function'))) {
               console.error('❌ RPC function does not exist in Supabase!');
               console.error('   SOLUTION: Run database/create_business_profile_rpc.sql in Supabase SQL Editor');
               // Provide clear instructions instead of keeping original error
@@ -751,6 +750,31 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
               );
               throw rpcMissingError;
             } else {
+              // RPC function exists but failed for another reason
+              // P0001 with "more than one row" means there are duplicate business profiles
+              if (rpcErrorCode === 'P0001' && rpcErrorMessage.includes('more than one row')) {
+                console.error('❌ RPC function found duplicate business profiles!');
+                console.error('   This means there are multiple business profiles for the same user.');
+                console.error('   SOLUTION: Clean up duplicate records in Supabase, then try again.');
+                const duplicateError = new Error(
+                  'Multiple business profiles found for this user.\n\n' +
+                  'This usually happens when:\n' +
+                  '1. Onboarding was attempted multiple times\n' +
+                  '2. There are duplicate records in the database\n\n' +
+                  'SOLUTION:\n' +
+                  '1. Go to Supabase Dashboard > Table Editor\n' +
+                  '2. Open the "business_profiles" table\n' +
+                  '3. Find and delete duplicate records (keep only one per user_id)\n' +
+                  '4. Or run this SQL to clean up:\n' +
+                  '   DELETE FROM business_profiles\n' +
+                  '   WHERE id NOT IN (\n' +
+                  '     SELECT MIN(id) FROM business_profiles\n' +
+                  '     GROUP BY user_id\n' +
+                  '   );\n\n' +
+                  'After cleaning up, refresh the app and try again.'
+                );
+                throw duplicateError;
+              }
               // RPC function exists but failed for another reason - provide detailed error
               const rpcFailedError = new Error(
                 `RPC function failed: ${rpcErrorMessage}\n\n` +

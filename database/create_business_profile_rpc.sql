@@ -33,9 +33,11 @@ BEGIN
   END IF;
 
   -- Check if business profile already exists for this user
+  -- Use ORDER BY and LIMIT to handle potential duplicates
   SELECT id INTO v_business_id
   FROM public.business_profiles
   WHERE user_id = p_user_id
+  ORDER BY created_at DESC
   LIMIT 1;
 
   IF v_business_id IS NOT NULL THEN
