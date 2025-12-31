@@ -29,6 +29,7 @@ export default function ReceiptScanScreen() {
   const [showManualForm, setShowManualForm] = useState(false);
   const [amount, setAmount] = useState('');
   const [merchant, setMerchant] = useState('');
+  const [address, setAddress] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -92,6 +93,9 @@ export default function ReceiptScanScreen() {
         }
         if (receiptData.merchant && typeof receiptData.merchant === 'string') {
           setMerchant(receiptData.merchant);
+        }
+        if (receiptData.address && typeof receiptData.address === 'string') {
+          setAddress(receiptData.address);
         }
         if (receiptData.category && typeof receiptData.category === 'string') {
           setCategory(receiptData.category);
@@ -159,10 +163,23 @@ export default function ReceiptScanScreen() {
     }
 
     try {
+      // Build description with all receipt details
+      let fullDescription = description || '';
+      if (merchant) {
+        fullDescription = fullDescription ? `${fullDescription}\n\n` : '';
+        fullDescription += `Store: ${merchant}`;
+      }
+      if (address) {
+        fullDescription += fullDescription ? `\nAddress: ${address}` : `Address: ${address}`;
+      }
+      if (!fullDescription) {
+        fullDescription = `Receipt: ${merchant || 'Unknown Store'}`;
+      }
+
       await addTransaction({
         type: 'expense',
         amount: amountValue,
-        description: description || `Receipt: ${merchant}`,
+        description: fullDescription,
         category: category || 'Other Expenses',
         currency: business?.currency || 'USD',
         date: date,
@@ -185,6 +202,7 @@ export default function ReceiptScanScreen() {
     setShowManualForm(false);
     setAmount('');
     setMerchant('');
+    setAddress('');
     setCategory('');
     setDescription('');
     setDate(new Date().toISOString().split('T')[0]);
@@ -324,6 +342,23 @@ export default function ReceiptScanScreen() {
                     placeholderTextColor={theme.text.tertiary}
                     value={merchant}
                     onChangeText={setMerchant}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: theme.text.primary }]}>
+                    Store Address
+                  </Text>
+                  <TextInput
+                    style={[styles.input, { 
+                      backgroundColor: theme.background.secondary,
+                      color: theme.text.primary,
+                      borderColor: theme.border.light,
+                    }]}
+                    placeholder="e.g., 123 Main Street, Harare"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={address}
+                    onChangeText={setAddress}
                   />
                 </View>
 

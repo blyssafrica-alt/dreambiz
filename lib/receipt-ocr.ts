@@ -7,6 +7,7 @@ import * as FileSystem from 'expo-file-system';
 
 export interface ReceiptData {
   merchant?: string;
+  address?: string;
   amount?: number;
   date?: string;
   items?: string[];
@@ -44,32 +45,41 @@ async function extractTextWithOCRSpace(imageUri: string, apiKey?: string): Promi
     const ocrApiKey = apiKey || 'helloworld'; // Free demo key (limited requests)
     const ocrApiUrl = 'https://api.ocr.space/parse/image';
     
-    // Create form data for React Native
+    // OCR.space API accepts base64 images via FormData
+    // For React Native, we need to use the correct format
     const formData = new FormData();
-    formData.append('base64Image', `data:image/jpeg;base64,${base64Image}`);
+    
+    // Append base64 image with proper format
+    formData.append('base64Image', `data:image/jpeg;base64,${base64Image}` as any);
     formData.append('language', 'eng');
     formData.append('isOverlayRequired', 'false');
     formData.append('detectOrientation', 'true');
     formData.append('scale', 'true');
     formData.append('OCREngine', '2'); // Engine 2 is better for receipts
     
-    // If API key is provided, add it
-    if (apiKey && apiKey !== 'helloworld') {
-      formData.append('apikey', apiKey);
-    }
+    // Always add API key (even demo key)
+    formData.append('apikey', ocrApiKey);
+    
+    console.log('Sending OCR request to OCR.space API...');
     
     const response = await fetch(ocrApiUrl, {
       method: 'POST',
       body: formData,
-      // Don't set Content-Type header - let fetch set it with boundary
+      headers: {
+        // Don't set Content-Type - FormData will set it with boundary
+      },
     });
+    
+    console.log('OCR API response status:', response.status);
     
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`OCR API error: ${response.status} ${response.statusText} - ${errorText}`);
+      console.error('OCR API error response:', errorText);
+      throw new Error(`OCR API error: ${response.status} ${response.statusText} - ${errorText.substring(0, 200)}`);
     }
     
     const data = await response.json();
+    console.log('OCR API response data:', JSON.stringify(data).substring(0, 500));
     
     // Check for API errors
     if (data.ErrorMessage && data.ErrorMessage.length > 0) {
@@ -77,6 +87,11 @@ async function extractTextWithOCRSpace(imageUri: string, apiKey?: string): Promi
         ? data.ErrorMessage.join(', ') 
         : data.ErrorMessage;
       throw new Error(`OCR API error: ${errorMsg}`);
+    }
+    
+    // Check for rate limit or quota errors
+    if (data.OCRExitCode === 99) {
+      throw new Error('OCR API quota exceeded. Please get a free API key from https://ocr.space/ocrapi/freekey');
     }
     
     if (data.OCRExitCode === 1 && data.ParsedResults && data.ParsedResults.length > 0) {
@@ -87,6 +102,7 @@ async function extractTextWithOCRSpace(imageUri: string, apiKey?: string): Promi
         .trim();
       
       if (allText) {
+        console.log('OCR text extracted successfully, length:', allText.length);
         return allText;
       }
     }
@@ -99,9 +115,16 @@ async function extractTextWithOCRSpace(imageUri: string, apiKey?: string): Promi
       throw new Error('OCR processing failed - no text detected in image');
     }
     
-    throw new Error('No text found in image');
+    throw new Error(`No text found in image. Exit code: ${data.OCRExitCode}`);
   } catch (error: any) {
     console.error('OCR.space API error:', error);
+    // Provide more helpful error messages
+    if (error.message?.includes('quota') || error.message?.includes('rate limit')) {
+      throw new Error('OCR API quota exceeded. Please get a free API key from https://ocr.space/ocrapi/freekey or wait a few minutes.');
+    }
+    if (error.message?.includes('network') || error.message?.includes('fetch')) {
+      throw new Error('Network error: Please check your internet connection and try again.');
+    }
     throw error;
   }
 }
@@ -112,6 +135,8 @@ async function extractTextWithOCRSpace(imageUri: string, apiKey?: string): Promi
  */
 async function extractTextWithTesseract(imageUri: string): Promise<string> {
   try {
+    console.log('Attempting Tesseract.js OCR...');
+    
     // Dynamic import to avoid loading Tesseract if not installed
     const TesseractModule = await import('tesseract.js');
     // Handle both default and named exports
@@ -122,14 +147,38 @@ async function extractTextWithTesseract(imageUri: string): Promise<string> {
       throw new Error('Tesseract createWorker function not available');
     }
     
+    console.log('Creating Tesseract worker...');
     const worker = await createWorker('eng');
+    
+    console.log('Recognizing text from image...');
+    // For React Native, we need to handle the image URI differently
+    // Tesseract.js might not work directly with file:// URIs in React Native
+    // We'll try to use the URI directly, but it may need base64 conversion
     const { data: { text } } = await worker.recognize(imageUri);
+    
+    console.log('Terminating Tesseract worker...');
     await worker.terminate();
     
-    return text.trim();
+    const extractedText = text.trim();
+    console.log('Tesseract extracted text, length:', extractedText.length);
+    
+    if (!extractedText || extractedText.length < 10) {
+      throw new Error('Tesseract extracted very little or no text. Image quality may be too low.');
+    }
+    
+    return extractedText;
   } catch (error: any) {
     console.error('Tesseract.js error:', error);
-    throw new Error('Tesseract OCR failed. Please install: npm install tesseract.js');
+    
+    // Provide helpful error messages
+    if (error.message?.includes('Cannot find module') || error.message?.includes('require')) {
+      throw new Error('Tesseract.js is not properly installed. Run: bun add tesseract.js');
+    }
+    if (error.message?.includes('network') || error.message?.includes('fetch')) {
+      throw new Error('Tesseract.js requires network access to download language data. Please check your connection.');
+    }
+    
+    throw new Error(`Tesseract OCR failed: ${error.message || 'Unknown error'}`);
   }
 }
 
@@ -142,22 +191,43 @@ export async function extractTextFromImage(imageUri: string): Promise<string> {
   // To use your own API key, set EXPO_PUBLIC_OCR_SPACE_API_KEY in your .env file
   const apiKey = process.env.EXPO_PUBLIC_OCR_SPACE_API_KEY;
   
+  console.log('=== Starting OCR Process ===');
+  console.log('Image URI:', imageUri.substring(0, 50) + '...');
+  console.log('API Key provided:', !!apiKey);
+  
   try {
     // Try OCR.space API first (best for receipts)
-    console.log('Attempting OCR with OCR.space API...');
-    return await extractTextWithOCRSpace(imageUri, apiKey);
-  } catch (ocrSpaceError) {
-    console.warn('OCR.space failed, trying Tesseract.js...', ocrSpaceError);
+    console.log('[1/3] Attempting OCR with OCR.space API...');
+    const result = await extractTextWithOCRSpace(imageUri, apiKey);
+    console.log('✅ OCR.space API succeeded!');
+    return result;
+  } catch (ocrSpaceError: any) {
+    console.warn('❌ OCR.space failed:', ocrSpaceError.message);
+    console.warn('Error details:', ocrSpaceError);
+    
+    // If it's a quota/rate limit error, don't try Tesseract (it will also fail)
+    if (ocrSpaceError.message?.includes('quota') || ocrSpaceError.message?.includes('rate limit')) {
+      console.warn('⚠️ OCR.space quota exceeded. Trying Tesseract.js as fallback...');
+    }
     
     try {
       // Fallback to Tesseract.js if available
-      return await extractTextWithTesseract(imageUri);
-    } catch (tesseractError) {
-      console.warn('Tesseract.js failed, using mock OCR...', tesseractError);
+      console.log('[2/3] Trying Tesseract.js fallback...');
+      const result = await extractTextWithTesseract(imageUri);
+      console.log('✅ Tesseract.js succeeded!');
+      return result;
+    } catch (tesseractError: any) {
+      console.warn('❌ Tesseract.js failed:', tesseractError.message);
+      console.warn('Error details:', tesseractError);
       
       // Final fallback: mock OCR for development/testing
-      // In production, you should handle this error properly
-      console.warn('Using mock OCR - install tesseract.js or configure OCR.space API key for real OCR');
+      console.warn('[3/3] Using mock OCR as final fallback...');
+      console.warn('⚠️ WARNING: Using mock OCR - this is for development only!');
+      console.warn('To enable real OCR:');
+      console.warn('  1. Get a free API key from https://ocr.space/ocrapi/freekey');
+      console.warn('  2. Add EXPO_PUBLIC_OCR_SPACE_API_KEY=your_key to .env file');
+      console.warn('  3. Or ensure tesseract.js is properly installed: bun add tesseract.js');
+      
       return await mockOCR(imageUri);
     }
   }
@@ -268,7 +338,31 @@ export function parseReceiptText(text: string, businessCurrency: string = 'USD')
     receiptData.date = new Date().toISOString().split('T')[0];
   }
   
+  // Extract address (look for street addresses, usually after merchant name)
+  const addressPatterns = [
+    /\d+\s+[A-Za-z\s]+(?:Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Lane|Ln|Boulevard|Blvd|Way|Circle|Ct)[,\s]*[A-Za-z\s,]+/i,
+    /([A-Za-z\s]+,\s*[A-Za-z\s]+)/, // City, Country format
+  ];
+  
+  // Look for address after merchant name (usually within first 10 lines)
+  for (let i = 0; i < Math.min(10, lines.length); i++) {
+    const line = lines[i];
+    // Skip if it's the merchant name or date
+    if (line === receiptData.merchant || /Date|Time|Tel|Phone/i.test(line)) {
+      continue;
+    }
+    // Check if line looks like an address (has numbers and text, or city format)
+    if (/\d/.test(line) && /[A-Za-z]/.test(line) && line.length > 10) {
+      // Check for common address indicators
+      if (/Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Lane|Ln|Boulevard|Blvd|Way|Circle|Ct|Tel|Phone|Address/i.test(line)) {
+        receiptData.address = line;
+        break;
+      }
+    }
+  }
+  
   // Extract total amount (look for "TOTAL", "AMOUNT", "GRAND TOTAL", etc.)
+  // IMPORTANT: Skip "CHANGE" amounts - they're not the total!
   const totalPatterns = [
     /TOTAL[:\s]*([\d,]+\.?\d*)/i,
     /AMOUNT[:\s]*([\d,]+\.?\d*)/i,
@@ -280,8 +374,17 @@ export function parseReceiptText(text: string, businessCurrency: string = 'USD')
   // Also look for amounts at the end of lines (common receipt format)
   const amountAtEndPattern = /([\d,]+\.\d{2})\s*$/;
   
-  for (let i = lines.length - 1; i >= Math.max(0, lines.length - 10); i--) {
+  // Skip keywords that indicate this is NOT the total
+  const skipKeywords = ['CHANGE', 'CASH', 'CARD', 'DEBIT', 'CREDIT', 'BALANCE', 'REFUND', 'RETURN'];
+  
+  for (let i = lines.length - 1; i >= Math.max(0, lines.length - 15); i--) {
     const line = lines[i];
+    const upperLine = line.toUpperCase();
+    
+    // Skip lines with change, cash, card, etc. - these are NOT the total
+    if (skipKeywords.some(keyword => upperLine.includes(keyword))) {
+      continue;
+    }
     
     // Check for explicit total patterns
     for (const pattern of totalPatterns) {
@@ -297,12 +400,14 @@ export function parseReceiptText(text: string, businessCurrency: string = 'USD')
     }
     
     // Check for amount at end of line (common format: "TOTAL          20.76")
-    if (!receiptData.amount) {
+    // But only if it doesn't contain skip keywords
+    if (!receiptData.amount && !skipKeywords.some(keyword => upperLine.includes(keyword))) {
       const match = line.match(amountAtEndPattern);
       if (match) {
         const amountStr = match[1].replace(/,/g, '');
         const amount = parseFloat(amountStr);
-        if (!isNaN(amount) && amount > 0 && amount < 100000) { // Reasonable amount check
+        // Make sure it's a reasonable amount (not too small, not too large)
+        if (!isNaN(amount) && amount > 0 && amount < 100000 && amount >= 1) {
           receiptData.amount = amount;
           break;
         }
@@ -310,6 +415,25 @@ export function parseReceiptText(text: string, businessCurrency: string = 'USD')
     }
     
     if (receiptData.amount) break;
+  }
+  
+  // If no total found, try to calculate from items
+  if (!receiptData.amount && receiptData.items && receiptData.items.length > 0) {
+    let calculatedTotal = 0;
+    for (const item of receiptData.items) {
+      // Extract price from item string (format: "ITEM - USD 4.20" or "ITEM - 4.20")
+      const priceMatch = item.match(/-?\s*(?:USD\s*)?([\d,]+\.\d{2})\s*$/i) || item.match(/-?\s*USD\s*([\d,]+\.?\d*)/i);
+      if (priceMatch) {
+        const priceStr = (priceMatch[1] || priceMatch[2] || '').replace(/,/g, '');
+        const price = parseFloat(priceStr);
+        if (!isNaN(price) && price > 0 && price < 100000) {
+          calculatedTotal += price;
+        }
+      }
+    }
+    if (calculatedTotal > 0) {
+      receiptData.amount = calculatedTotal;
+    }
   }
   
   // Extract tax amount
@@ -362,6 +486,8 @@ export function parseReceiptText(text: string, businessCurrency: string = 'USD')
     /^(.+?)\s+x\s*(\d+)\s+@\s*([\d,]+\.\d{2})\s*$/,  // Quantity format: "ITEM x 2 @ 5.00"
     /^(.+?)\s+(\d+)\s+([\d,]+\.\d{2})\s*$/,  // Quantity and price: "ITEM 2 10.00"
     /^(.+?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s*$/,  // Price and total: "ITEM 5.00 10.00"
+    /(.+?)\s*-\s*USD\s*([\d,]+\.\d{2})/i,  // Format: "ITEM - USD 4.20"
+    /(.+?)\s*-\s*([\d,]+\.\d{2})/i,  // Format: "ITEM - 4.20"
   ];
   
   receiptData.items = [];
@@ -405,7 +531,29 @@ export function parseReceiptText(text: string, businessCurrency: string = 'USD')
       continue;
     }
     
-    // Try each pattern
+    // Handle multiple items in one line (e.g., "N - USD 4.20 SUGAR 1KG - USD 2.10 RICE 2KG - USD 5.50")
+    // Split by " - USD " or " - " followed by a price pattern
+    const multiItemPattern = /(.+?)\s*-\s*(?:USD\s*)?([\d,]+\.\d{2})/gi;
+    const multiItemMatches = [...line.matchAll(multiItemPattern)];
+    
+    if (multiItemMatches.length > 1) {
+      // Multiple items in one line
+      for (const match of multiItemMatches) {
+        const itemName = match[1].trim();
+        const itemPrice = match[2].replace(/,/g, '');
+        const price = parseFloat(itemPrice);
+        
+        if (itemName.length > 1 && !isNaN(price) && price > 0 && price < 100000) {
+          if (price === receiptData.amount || price === receiptData.subtotal) {
+            continue; // Skip if it matches total/subtotal
+          }
+          receiptData.items.push(`${itemName} - ${businessCurrency} ${price.toFixed(2)}`);
+        }
+      }
+      continue; // Skip to next line
+    }
+    
+    // Try each pattern for single item lines
     let matched = false;
     for (const pattern of itemPatterns) {
       const match = line.match(pattern);
@@ -432,6 +580,10 @@ export function parseReceiptText(text: string, businessCurrency: string = 'USD')
           // Price and total: "ITEM 5.00 10.00"
           itemName = match[1].trim();
           itemPrice = match[3].replace(/,/g, ''); // Use the last price as total
+        } else if (pattern === itemPatterns[4] || pattern === itemPatterns[5]) {
+          // Format: "ITEM - USD 4.20" or "ITEM - 4.20"
+          itemName = match[1].trim();
+          itemPrice = match[2].replace(/,/g, '');
         }
         
         // Validate it's a reasonable item
