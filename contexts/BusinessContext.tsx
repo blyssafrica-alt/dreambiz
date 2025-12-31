@@ -531,21 +531,39 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         upsertData.id = business.id;
       }
 
-      // Verify userId matches auth.uid() before attempting insert
-      // This helps debug RLS issues
-      const { data: { user: currentAuthUser } } = await supabase.auth.getUser();
-      if (currentAuthUser && currentAuthUser.id !== userId) {
-        console.warn('⚠️ User ID mismatch:', {
-          userId,
-          authUserId: currentAuthUser.id,
-          match: currentAuthUser.id === userId
-        });
-        // Use auth user ID instead if there's a mismatch
-        upsertData.user_id = currentAuthUser.id;
+      // CRITICAL: Verify userId matches auth.uid() before attempting insert
+      // RLS policies require auth.uid() to match user_id exactly
+      const { data: { user: currentAuthUser }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('❌ Failed to get auth user:', authError);
+        throw new Error('Authentication error: Please sign in again.');
       }
       
-      console.log('🔄 Saving business profile with user_id:', upsertData.user_id);
-      console.log('🔄 Current auth.uid():', currentAuthUser?.id);
+      if (!currentAuthUser) {
+        console.error('❌ No authenticated user found');
+        throw new Error('Not authenticated: Please sign in again.');
+      }
+      
+      // Always use the current auth user's ID to ensure it matches auth.uid()
+      const authUserId = currentAuthUser.id;
+      
+      if (authUserId !== userId) {
+        console.warn('⚠️ User ID mismatch detected:', {
+          providedUserId: userId,
+          authUserId: authUserId,
+          match: authUserId === userId
+        });
+        console.log('✅ Using auth.uid() instead to match RLS policy');
+      }
+      
+      // CRITICAL: Use auth.uid() to ensure RLS policy matches
+      upsertData.user_id = authUserId;
+      
+      console.log('🔄 Saving business profile:');
+      console.log('  - user_id (will be used):', upsertData.user_id);
+      console.log('  - auth.uid():', authUserId);
+      console.log('  - Match:', authUserId === upsertData.user_id ? '✅' : '❌');
       
       // Use upsert with user_id as conflict target (since user_id is UNIQUE)
       const { data, error } = await supabase

@@ -16,26 +16,30 @@ DROP POLICY IF EXISTS "Users can update own business" ON public.business_profile
 DROP POLICY IF EXISTS "Users can delete own business" ON public.business_profiles;
 
 -- Policy: Users can view their own business profiles
+-- Using text casting for reliable comparison
 CREATE POLICY "Users can view their own business" ON public.business_profiles
   FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (auth.uid()::text = user_id::text);
 
 -- Policy: Users can insert their own business profiles
 -- This is critical for onboarding - users must be able to create their first business
+-- Using text casting for reliable comparison
 CREATE POLICY "Users can insert their own business" ON public.business_profiles
   FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (auth.uid()::text = user_id::text);
 
 -- Policy: Users can update their own business profiles
+-- Using text casting for reliable comparison
 CREATE POLICY "Users can update their own business" ON public.business_profiles
   FOR UPDATE
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING (auth.uid()::text = user_id::text)
+  WITH CHECK (auth.uid()::text = user_id::text);
 
 -- Policy: Users can delete their own business profiles
+-- Using text casting for reliable comparison
 CREATE POLICY "Users can delete their own business" ON public.business_profiles
   FOR DELETE
-  USING (auth.uid() = user_id);
+  USING (auth.uid()::text = user_id::text);
 
 -- Verify policies were created
 SELECT 
