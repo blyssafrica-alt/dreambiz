@@ -594,8 +594,40 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       
       console.log('🔄 Saving business profile:');
       console.log('  - user_id (will be used):', upsertData.user_id);
-      console.log('  - auth.uid():', authUserId);
+      console.log('  - authUserId:', authUserId);
       console.log('  - Match:', authUserId === upsertData.user_id ? '✅' : '❌');
+      
+      // CRITICAL: Verify auth.uid() is available before attempting insert
+      // This is required for RLS policies to work
+      let verifiedAuthUid: string | null = null;
+      try {
+        // Try to get the current session to verify auth.uid() is available
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (session?.user && !sessionError) {
+          verifiedAuthUid = session.user.id;
+          console.log('✅ Verified auth.uid() from session:', verifiedAuthUid);
+        } else {
+          console.warn('⚠️ Could not verify session:', sessionError?.message || 'No session');
+        }
+      } catch (sessionException: any) {
+        console.warn('⚠️ Session verification exception:', sessionException?.message);
+      }
+      
+      // If verified auth.uid() doesn't match, use the verified one
+      if (verifiedAuthUid && verifiedAuthUid !== authUserId) {
+        console.warn('⚠️ Verified auth.uid() differs from authUserId, using verified:', verifiedAuthUid);
+        authUserId = verifiedAuthUid;
+        upsertData.user_id = verifiedAuthUid;
+      }
+      
+      // Final verification: ensure we have a valid UUID format
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(authUserId)) {
+        console.error('❌ Invalid UUID format for user_id:', authUserId);
+        throw new Error('Invalid user ID format. Please sign out and sign in again.');
+      }
+      
+      console.log('✅ Final user_id for insert:', upsertData.user_id);
+      console.log('✅ UUID format valid:', /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(upsertData.user_id));
       
       // Use upsert with user_id as conflict target (since user_id is UNIQUE)
       const { data, error } = await supabase
@@ -607,6 +639,41 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         .single();
 
       if (error) {
+        // Enhanced error logging for RLS issues
+        const errorCode = (error as any)?.code || '';
+        const errorMessage = error.message || String(error);
+        const errorDetails = (error as any)?.details || '';
+        const errorHint = (error as any)?.hint || '';
+        
+        console.error('❌ Failed to save business profile:');
+        console.error('  - Error code:', errorCode);
+        console.error('  - Error message:', errorMessage);
+        console.error('  - Error details:', errorDetails);
+        console.error('  - Error hint:', errorHint);
+        console.error('  - user_id used:', upsertData.user_id);
+        console.error('  - authUserId:', authUserId);
+        console.error('  - verifiedAuthUid:', verifiedAuthUid);
+        
+        // Check if this is an RLS error
+        if (errorCode === '42501' || errorMessage.includes('row-level security') || errorMessage.includes('RLS')) {
+          // Provide detailed instructions for fixing RLS
+          const rlsFixMessage = 
+            'Row Level Security (RLS) policy violation.\n\n' +
+            'This usually means:\n' +
+            '1. The RLS policies are not set up in Supabase\n' +
+            '2. The user_id does not match auth.uid()\n\n' +
+            'QUICK FIX:\n' +
+            '1. Go to Supabase Dashboard > SQL Editor\n' +
+            '2. Select "No limit" from the dropdown (important!)\n' +
+            '3. Copy and paste the ENTIRE contents of database/fix_business_profiles_rls.sql\n' +
+            '4. Click "Run"\n' +
+            '5. Verify policies were created\n\n' +
+            `Current user_id: ${upsertData.user_id}\n` +
+            `auth.uid() should match this exactly.\n\n` +
+            'After running the SQL, refresh the app and try again.';
+          
+          throw new Error(rlsFixMessage);
+        }
         // Better error message handling
         const errorMessage = error?.message || String(error);
         const errorCode = (error as any)?.code || '';
