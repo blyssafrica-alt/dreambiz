@@ -666,57 +666,70 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           });
 
           if (rpcError) {
-            // Enhanced RPC error logging with proper stringification
-            const rpcErrorCode = (rpcError as any)?.code || '';
+            // Enhanced RPC error logging - handle different error formats
+            let rpcErrorCode = '';
             let rpcErrorMessage = '';
-            try {
-              rpcErrorMessage = rpcError.message || JSON.stringify(rpcError) || String(rpcError);
-            } catch {
+            let rpcErrorDetails = '';
+            let rpcErrorHint = '';
+            
+            // Try to extract error information from different possible structures
+            if (typeof rpcError === 'string') {
+              rpcErrorMessage = rpcError;
+            } else if (rpcError && typeof rpcError === 'object') {
+              rpcErrorCode = (rpcError as any)?.code || (rpcError as any)?.error_code || '';
+              rpcErrorMessage = (rpcError as any)?.message || (rpcError as any)?.error || String(rpcError);
+              rpcErrorDetails = (rpcError as any)?.details || (rpcError as any)?.error_description || '';
+              rpcErrorHint = (rpcError as any)?.hint || '';
+              
+              // Try to stringify for better logging
+              try {
+                const errorString = JSON.stringify(rpcError, null, 2);
+                console.error('  - Full error JSON:', errorString);
+              } catch {
+                // If stringify fails, just log the object
+                console.error('  - Full error object:', rpcError);
+              }
+            } else {
               rpcErrorMessage = String(rpcError);
             }
-            const rpcErrorDetails = (rpcError as any)?.details || '';
-            const rpcErrorHint = (rpcError as any)?.hint || '';
             
             console.error('❌ RPC function also failed:');
-            console.error('  - Error code:', rpcErrorCode || 'N/A');
+            console.error('  - Error code:', rpcErrorCode || '(none)');
             console.error('  - Error message:', rpcErrorMessage);
-            console.error('  - Error details:', rpcErrorDetails || 'N/A');
-            console.error('  - Error hint:', rpcErrorHint || 'N/A');
-            
-            // Try to stringify the full error object safely
-            try {
-              console.error('  - Full error:', JSON.stringify(rpcError, Object.getOwnPropertyNames(rpcError), 2));
-            } catch {
-              console.error('  - Full error (stringified):', String(rpcError));
-            }
+            console.error('  - Error details:', rpcErrorDetails || '(none)');
+            console.error('  - Error hint:', rpcErrorHint || '(none)');
             
             // Check if RPC function doesn't exist
-            const errorStr = rpcErrorMessage.toLowerCase();
-            if (rpcErrorCode === '42883' || rpcErrorCode === '406' || 
-                errorStr.includes('function') || errorStr.includes('does not exist') ||
-                errorStr.includes('not found')) {
-              const rpcMissingMessage = 
-                'RPC function not found in Supabase database.\n\n' +
-                'SOLUTION:\n' +
+            const errorMsgLower = rpcErrorMessage.toLowerCase();
+            if (rpcErrorCode === '42883' || 
+                rpcErrorCode === 'P0001' ||
+                errorMsgLower.includes('function') || 
+                errorMsgLower.includes('does not exist') ||
+                errorMsgLower.includes('undefined function')) {
+              console.error('❌ RPC function does not exist in Supabase!');
+              console.error('   SOLUTION: Run database/create_business_profile_rpc.sql in Supabase SQL Editor');
+              // Provide clear instructions instead of keeping original error
+              const rpcMissingError = new Error(
+                'RPC function not found in Supabase.\n\n' +
+                'The fallback RPC function needs to be created:\n' +
                 '1. Go to Supabase Dashboard > SQL Editor\n' +
-                '2. Select "No limit" from the dropdown (important!)\n' +
-                '3. Open database/create_business_profile_rpc.sql\n' +
-                '4. Copy ALL contents and paste into SQL Editor\n' +
-                '5. Click "Run"\n' +
-                '6. Verify function was created\n\n' +
-                'After running the SQL, refresh the app and try again.';
-              
-              console.error('❌', rpcMissingMessage);
-              throw new Error(rpcMissingMessage);
+                '2. Select "No limit" from the dropdown\n' +
+                '3. Copy and paste ALL contents of database/create_business_profile_rpc.sql\n' +
+                '4. Click "Run"\n' +
+                '5. Refresh the app and try again\n\n' +
+                'Also ensure RLS policies are set up:\n' +
+                'Run database/fix_business_profiles_rls.sql in the same way.'
+              );
+              throw rpcMissingError;
             } else {
-              // RPC function exists but failed - provide detailed error
-              const rpcFailedMessage = 
+              // RPC function exists but failed for another reason - provide detailed error
+              const rpcFailedError = new Error(
                 `RPC function failed: ${rpcErrorMessage}\n\n` +
-                `Error code: ${rpcErrorCode || 'N/A'}\n` +
+                (rpcErrorCode ? `Error code: ${rpcErrorCode}\n` : '') +
                 (rpcErrorDetails ? `Details: ${rpcErrorDetails}\n` : '') +
-                (rpcErrorHint ? `Hint: ${rpcErrorHint}` : '');
-              
-              throw new Error(rpcFailedMessage);
+                (rpcErrorHint ? `Hint: ${rpcErrorHint}` : '')
+              );
+              throw rpcFailedError;
             }
           } else if (rpcData) {
             console.log('✅ RPC function succeeded!');
