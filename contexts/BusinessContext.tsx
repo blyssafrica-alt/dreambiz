@@ -578,31 +578,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       
       console.log('✅ Proceeding with business profile creation for user:', userId);
 
-      // STEP 3: Clean up any duplicate business profiles (automatic cleanup)
-      console.log('🧹 Step 3: Cleaning up duplicate business profiles...');
-      try {
-        // Try using cleanup RPC function first (bypasses RLS, most reliable)
-        const { data: cleanupResult, error: cleanupError } = await supabase.rpc('cleanup_duplicate_business_profiles', {
-          p_user_id: authUserId
-        });
-
-        if (!cleanupError && cleanupResult && (cleanupResult as any).success) {
-          const result = cleanupResult as any;
-          if (result.deleted_count > 0) {
-            console.log(`✅ Cleaned up ${result.deleted_count} duplicate(s) via cleanup RPC`);
-          } else {
-            console.log('✅ No duplicates found');
-          }
-        } else {
-          // Cleanup RPC might not exist - that's okay, the create RPC will handle it
-          console.log('⚠️ Cleanup RPC not available (create RPC will handle duplicates)');
-        }
-      } catch (cleanupError: any) {
-        // If cleanup fails, that's okay - the create RPC function will handle duplicates automatically
-        console.log('⚠️ Pre-cleanup check failed (create RPC will handle):', cleanupError?.message || 'Unknown error');
-      }
-
-      // STEP 4: Prepare business data
+      // STEP 3: Prepare business data
       console.log('💼 Step 4: Preparing business data...');
       const isExistingBusiness = business?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(business.id);
       
@@ -649,130 +625,29 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       console.log('  - authUserId:', authUserId);
       console.log('  - Match:', authUserId === upsertData.user_id ? '✅' : '❌');
 
-      // STEP 5: Try RPC function first (bypasses RLS, most reliable)
-      console.log('📤 Step 5: Creating business profile via RPC function...');
+      // STEP 4: Call RPC function (handles everything automatically with UPSERT)
+      console.log('📤 Step 4: Creating/updating business profile via RPC function...');
       
-      let data: any = null;
-      let error: any = null;
-      
-      try {
-        const { data: rpcData, error: rpcError } = await supabase.rpc('create_or_update_business_profile', businessData);
+      const { data: rpcData, error: rpcError } = await supabase.rpc('create_or_update_business_profile', businessData);
 
-        if (rpcError) {
-          console.error('❌ RPC function failed:', rpcError);
-          
-          // Enhanced RPC error logging
-          let rpcErrorCode = (rpcError as any)?.code || '';
-          let rpcErrorMessage = rpcError?.message || String(rpcError);
-          
-          // Check if it's a duplicate error - the RPC function should handle this automatically
-          // But if it still fails, try cleanup and retry once
-          if (rpcErrorCode === 'P0001' && rpcErrorMessage.includes('more than one row')) {
-            console.log('🔄 Duplicate detected by RPC, attempting cleanup and retry...');
-            
-            // Try cleanup RPC function
-            try {
-              const { data: cleanupResult, error: cleanupRpcError } = await supabase.rpc('cleanup_duplicate_business_profiles', {
-                p_user_id: authUserId
-              });
-
-              if (!cleanupRpcError && cleanupResult && (cleanupResult as any).success) {
-                console.log('✅ Cleanup successful, retrying business creation...');
-                
-                // Retry the RPC call after cleanup
-                const { data: retryRpcData, error: retryRpcError } = await supabase.rpc('create_or_update_business_profile', businessData);
-                
-                if (!retryRpcError && retryRpcData) {
-                  console.log('✅ RPC succeeded after cleanup!');
-                  data = typeof retryRpcData === 'string' ? JSON.parse(retryRpcData) : retryRpcData;
-                  error = null;
-                } else {
-                  // If retry still fails, the RPC function needs to be updated
-                  throw new Error(
-                    'Multiple business profiles found. Please run the updated database/create_business_profile_rpc.sql in Supabase SQL Editor.\n\n' +
-                    'The RPC function needs to be updated to handle duplicates automatically.'
-                  );
-                }
-              } else {
-                throw new Error(
-                  'Multiple business profiles found. Please run database/cleanup_duplicate_business_profiles_rpc.sql in Supabase SQL Editor.'
-                );
-              }
-            } catch (cleanupException: any) {
-              throw new Error(
-                'Multiple business profiles found. Please run these SQL files in Supabase:\n\n' +
-                '1. database/cleanup_duplicate_business_profiles_rpc.sql\n' +
-                '2. database/create_business_profile_rpc.sql (updated version)\n\n' +
-                'Then refresh the app and try again.'
-              );
-            }
-          }
-          
-          // If RPC doesn't exist, mark for fallback
-          if (rpcErrorCode === '42883' || rpcErrorMessage.includes('does not exist')) {
-            console.log('⚠️ RPC function not found, will try direct insert...');
-            error = { code: 'RPC_NOT_FOUND', message: 'RPC function does not exist' };
-          } else {
-            error = rpcError;
-          }
-        } else if (rpcData) {
-          console.log('✅ RPC function succeeded!');
-          data = typeof rpcData === 'string' ? JSON.parse(rpcData) : rpcData;
-        }
-      } catch (rpcException: any) {
-        console.error('❌ RPC function exception:', rpcException);
-        // If it's a "function not found" error, try direct insert
-        if (rpcException.code === '42883' || rpcException.message?.includes('does not exist')) {
-          error = { code: 'RPC_NOT_FOUND', message: 'RPC function does not exist' };
-        } else {
-          error = rpcException;
-        }
-      }
-
-      // STEP 6: If RPC failed or doesn't exist, try direct insert
-      if (error && (error.code === 'RPC_NOT_FOUND' || error.code === '42883' || error.message?.includes('does not exist'))) {
-        console.log('📤 Step 6: Trying direct insert (RPC not available)...');
+      if (rpcError) {
+        console.error('❌ RPC function failed:', rpcError);
         
-        const { data: directData, error: directError } = await supabase
-          .from('business_profiles')
-          .upsert(upsertData, {
-            onConflict: 'user_id',
-          })
-          .select()
-          .single();
-
-        if (directError) {
-          console.error('❌ Direct insert also failed:', directError);
-          
-          if (directError.code === '42501' || directError.message?.includes('row-level security')) {
-            throw new Error(
-              'Row Level Security (RLS) is blocking the insert.\n\n' +
-              'SETUP REQUIRED:\n' +
-              '1. Go to Supabase Dashboard > SQL Editor\n' +
-              '2. Select "No limit" from dropdown\n' +
-              '3. Run database/fix_business_profiles_rls.sql\n' +
-              '4. Run database/create_business_profile_rpc.sql\n' +
-              '5. Refresh app and try again'
-            );
-          }
-          
-          throw directError;
+        // Provide helpful error messages
+        if (rpcError.code === '42883' || rpcError.message?.includes('does not exist')) {
+          throw new Error(
+            'Database function not found. Please run database/create_business_profile_rpc_FINAL.sql in Supabase SQL Editor.'
+          );
         }
-
-        if (directData) {
-          console.log('✅ Direct insert succeeded!');
-          data = directData;
-          error = null;
-        }
-      } else if (error) {
-        // RPC failed for another reason - throw the error
-        throw error;
+        
+        throw new Error(rpcError.message || 'Failed to save business profile');
       }
 
-      // STEP 7: Process the result
-      if (!data) {
+      if (!rpcData) {
         throw new Error('No data returned from database');
       }
+
+      // STEP 5: Process the result
 
       // Convert result to BusinessProfile format
       const businessResult = typeof data === 'string' ? JSON.parse(data) : data;
@@ -793,8 +668,8 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         createdAt: businessResult.created_at || businessResult.createdAt,
       };
 
-      // STEP 8: Update state
-      console.log('💾 Step 8: Updating app state...');
+      // STEP 6: Update state
+      console.log('💾 Step 6: Updating app state...');
       setBusiness(savedBusiness);
       setHasOnboarded(true);
       
