@@ -337,21 +337,69 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     if (!userId) throw new Error('User not authenticated');
 
     try {
-      // STEP 1: Verify authentication and get fresh session
+      // STEP 1: Verify authentication and get fresh session (with retries)
       console.log('🔐 Step 1: Verifying authentication...');
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (sessionError || !session?.user) {
-        console.error('❌ No valid session found:', sessionError?.message);
-        throw new Error('Your session has expired. Please sign out and sign in again.');
+      let session: any = null;
+      let sessionError: any = null;
+      let authUserId: string | null = null;
+      
+      // Retry getting session up to 5 times (session might not be established immediately after signup)
+      for (let retry = 0; retry < 5; retry++) {
+        const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+        
+        if (sessionData?.session?.user && !sessionErr) {
+          session = sessionData.session;
+          authUserId = session.user.id;
+          console.log(`✅ Session verified on attempt ${retry + 1}`);
+          break;
+        } else {
+          sessionError = sessionErr || new Error('No session found');
+          console.log(`⚠️ Session not available (attempt ${retry + 1}/5), waiting...`);
+          
+          // Wait before retrying (exponential backoff: 500ms, 1s, 2s, 3s, 4s)
+          if (retry < 4) {
+            await new Promise<void>(resolve => setTimeout(() => resolve(), 500 * (retry + 1)));
+          }
+        }
+      }
+      
+      // If still no session, try refreshing it
+      if (!session || !authUserId) {
+        console.log('🔄 Attempting to refresh session...');
+        try {
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+          if (refreshData?.session?.user && !refreshError) {
+            session = refreshData.session;
+            authUserId = session.user.id;
+            console.log('✅ Session refreshed successfully');
+          }
+        } catch (refreshException) {
+          console.log('⚠️ Session refresh failed:', refreshException);
+        }
+      }
+      
+      // If still no session, try using authUser from context
+      if (!authUserId && authUser?.id) {
+        console.log('⚠️ Using authUser from context as fallback');
+        authUserId = authUser.id;
+      }
+      
+      // Final check - if we still don't have a user ID, throw error
+      if (!authUserId) {
+        console.error('❌ No valid session found after all retries:', sessionError?.message);
+        throw new Error(
+          'Unable to verify your session. This usually happens right after signup.\n\n' +
+          'SOLUTION:\n' +
+          '1. Wait a few seconds and try again\n' +
+          '2. Or sign out and sign in again\n' +
+          '3. If the problem persists, contact support'
+        );
       }
 
-      const currentUser = session.user;
-      const authUserId = currentUser.id;
-      
       console.log('✅ Session verified for user:', authUserId);
-      console.log('✅ Email:', currentUser.email);
-      console.log('✅ Email confirmed:', currentUser.email_confirmed_at ? 'Yes' : 'No');
+      console.log('✅ Email:', currentUser?.email || authUser?.email || 'N/A');
+      console.log('✅ Email confirmed:', currentUser?.email_confirmed_at ? 'Yes' : 'No');
 
       // STEP 2: Ensure user profile exists in the users table (CRITICAL for foreign key)
       console.log('👤 Step 2: Ensuring user profile exists...');

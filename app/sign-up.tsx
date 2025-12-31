@@ -45,9 +45,14 @@ export default function SignUpScreen() {
     setIsLoading(true);
     try {
       await signUp(name, email, password);
+      
+      // Wait a moment to ensure session is established before redirecting
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
       router.replace('/onboarding');
-    } catch {
-      RNAlert.alert('Error', 'Failed to create account');
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Failed to create account';
+      RNAlert.alert('Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
