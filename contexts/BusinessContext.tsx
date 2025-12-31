@@ -531,33 +531,65 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         upsertData.id = business.id;
       }
 
-      // CRITICAL: Verify userId matches auth.uid() before attempting insert
-      // RLS policies require auth.uid() to match user_id exactly
-      const { data: { user: currentAuthUser }, error: authError } = await supabase.auth.getUser();
+      // CRITICAL: Get the authenticated user ID for RLS policy matching
+      // Use authUser from context first (most reliable), then try session, then getUser
+      let authUserId: string | null = null;
       
-      if (authError) {
-        console.error('❌ Failed to get auth user:', authError);
-        throw new Error('Authentication error: Please sign in again.');
+      // Method 1: Use authUser from context (most reliable - already loaded)
+      if (authUser?.id) {
+        authUserId = authUser.id;
+        console.log('✅ Using authUser.id from context:', authUserId);
+      } else {
+        // Method 2: Try to get session (more reliable than getUser)
+        try {
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          if (session?.user && !sessionError) {
+            authUserId = session.user.id;
+            console.log('✅ Using session.user.id:', authUserId);
+          }
+        } catch (sessionException: any) {
+          console.warn('⚠️ Failed to get session:', sessionException?.message);
+        }
+        
+        // Method 3: Fallback to getUser (may fail if session missing)
+        if (!authUserId) {
+          try {
+            const { data: { user: currentAuthUser }, error: authError } = await supabase.auth.getUser();
+            if (currentAuthUser && !authError) {
+              authUserId = currentAuthUser.id;
+              console.log('✅ Using getUser().user.id:', authUserId);
+            } else if (authError) {
+              console.warn('⚠️ getUser() failed:', authError.message);
+            }
+          } catch (getUserException: any) {
+            console.warn('⚠️ getUser() exception:', getUserException?.message);
+          }
+        }
       }
       
-      if (!currentAuthUser) {
-        console.error('❌ No authenticated user found');
-        throw new Error('Not authenticated: Please sign in again.');
+      // If we still don't have an auth user ID, use the userId from context
+      // This should work if the user is authenticated (userId comes from authUser or user)
+      if (!authUserId) {
+        if (userId) {
+          console.warn('⚠️ Could not get auth.uid(), using userId from context:', userId);
+          authUserId = userId;
+        } else {
+          console.error('❌ No authenticated user ID available');
+          throw new Error('Authentication error: Please sign in again. If you just signed up, please wait a moment and try again.');
+        }
       }
       
-      // Always use the current auth user's ID to ensure it matches auth.uid()
-      const authUserId = currentAuthUser.id;
-      
-      if (authUserId !== userId) {
+      // Verify the IDs match (for debugging)
+      if (authUserId !== userId && userId) {
         console.warn('⚠️ User ID mismatch detected:', {
           providedUserId: userId,
           authUserId: authUserId,
           match: authUserId === userId
         });
-        console.log('✅ Using auth.uid() instead to match RLS policy');
+        console.log('✅ Using authUserId to match RLS policy');
       }
       
-      // CRITICAL: Use auth.uid() to ensure RLS policy matches
+      // CRITICAL: Use the authenticated user ID to ensure RLS policy matches
       upsertData.user_id = authUserId;
       
       console.log('🔄 Saving business profile:');
