@@ -666,17 +666,50 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           });
 
           if (rpcError) {
-            console.error('❌ RPC function also failed:', rpcError);
-            // Keep the original error for better context
-            error = directError;
+            // Enhanced RPC error logging
+            const rpcErrorCode = (rpcError as any)?.code || '';
+            const rpcErrorMessage = rpcError.message || String(rpcError);
+            const rpcErrorDetails = (rpcError as any)?.details || '';
+            const rpcErrorHint = (rpcError as any)?.hint || '';
+            
+            console.error('❌ RPC function failed:');
+            console.error('  - Error code:', rpcErrorCode);
+            console.error('  - Error message:', rpcErrorMessage);
+            console.error('  - Error details:', rpcErrorDetails);
+            console.error('  - Error hint:', rpcErrorHint);
+            console.error('  - Full error object:', JSON.stringify(rpcError, null, 2));
+            
+            // Check if RPC function doesn't exist
+            if (rpcErrorCode === '42883' || rpcErrorMessage.includes('function') || rpcErrorMessage.includes('does not exist')) {
+              console.error('❌ RPC function does not exist in Supabase!');
+              console.error('   Please run database/create_business_profile_rpc.sql in Supabase SQL Editor');
+              // Keep the original RLS error with instructions
+              error = directError;
+            } else {
+              // Keep the original error for better context
+              error = directError;
+            }
           } else if (rpcData) {
             console.log('✅ RPC function succeeded!');
+            console.log('✅ RPC returned data:', rpcData);
             // Convert RPC result to match expected format
-            data = rpcData;
-            error = null;
+            // RPC returns JSONB, so we need to extract the fields
+            if (typeof rpcData === 'object' && rpcData !== null) {
+              data = rpcData;
+              error = null;
+            } else {
+              console.error('❌ RPC returned unexpected data format:', typeof rpcData);
+              error = directError;
+            }
+          } else {
+            console.error('❌ RPC function returned no data and no error');
+            error = directError;
           }
         } catch (rpcException: any) {
-          console.error('❌ RPC function exception:', rpcException);
+          console.error('❌ RPC function exception:');
+          console.error('  - Exception message:', rpcException?.message || String(rpcException));
+          console.error('  - Exception stack:', rpcException?.stack);
+          console.error('  - Full exception:', JSON.stringify(rpcException, null, 2));
           // Keep the original error
           error = directError;
         }
@@ -700,21 +733,42 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         
         // Check if this is an RLS error
         if (errorCode === '42501' || errorMessage.includes('row-level security') || errorMessage.includes('RLS')) {
+          // Check if RPC was attempted and also failed
+          const rpcWasAttempted = error === directError && directError && 
+            ((directError as any)?.code === '42501' || directError.message?.includes('row-level security'));
+          
           // Provide detailed instructions for fixing RLS
-          const rlsFixMessage = 
-            'Row Level Security (RLS) policy violation.\n\n' +
-            'This usually means:\n' +
-            '1. The RLS policies are not set up in Supabase\n' +
-            '2. The user_id does not match auth.uid()\n\n' +
-            'QUICK FIX:\n' +
-            '1. Go to Supabase Dashboard > SQL Editor\n' +
-            '2. Select "No limit" from the dropdown (important!)\n' +
-            '3. Copy and paste the ENTIRE contents of database/fix_business_profiles_rls.sql\n' +
-            '4. Click "Run"\n' +
-            '5. Verify policies were created\n\n' +
-            `Current user_id: ${upsertData.user_id}\n` +
-            `auth.uid() should match this exactly.\n\n` +
-            'After running the SQL, refresh the app and try again.';
+          let rlsFixMessage: string;
+          
+          if (rpcWasAttempted) {
+            rlsFixMessage = 
+              'Row Level Security (RLS) policy violation.\n\n' +
+              'Both direct insert and RPC function failed.\n\n' +
+              'SETUP REQUIRED:\n' +
+              '1. Go to Supabase Dashboard > SQL Editor\n' +
+              '2. Select "No limit" from the dropdown (important!)\n' +
+              '3. Run database/fix_business_profiles_rls.sql\n' +
+              '4. Run database/create_business_profile_rpc.sql\n' +
+              '5. Verify both were created successfully\n\n' +
+              `Current user_id: ${upsertData.user_id}\n` +
+              `auth.uid() should match this exactly.\n\n` +
+              'After running both SQL files, refresh the app and try again.';
+          } else {
+            rlsFixMessage = 
+              'Row Level Security (RLS) policy violation.\n\n' +
+              'This usually means:\n' +
+              '1. The RLS policies are not set up in Supabase\n' +
+              '2. The user_id does not match auth.uid()\n\n' +
+              'QUICK FIX:\n' +
+              '1. Go to Supabase Dashboard > SQL Editor\n' +
+              '2. Select "No limit" from the dropdown (important!)\n' +
+              '3. Copy and paste the ENTIRE contents of database/fix_business_profiles_rls.sql\n' +
+              '4. Click "Run"\n' +
+              '5. Verify policies were created\n\n' +
+              `Current user_id: ${upsertData.user_id}\n` +
+              `auth.uid() should match this exactly.\n\n` +
+              'After running the SQL, refresh the app and try again.';
+          }
           
           throw new Error(rlsFixMessage);
         }
@@ -732,20 +786,27 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       }
 
       // Use the data returned from the database (includes the generated UUID if it was new)
-      const savedBusiness: BusinessProfile = {
-        id: data.id,
-        name: data.name,
-        type: data.type as any,
-        stage: data.stage as any,
-        location: data.location,
-        capital: Number(data.capital),
-        currency: data.currency as any,
-        owner: data.owner,
-        phone: data.phone || undefined,
-        email: data.email || undefined,
-        address: data.address || undefined,
-        dreamBigBook: data.dream_big_book as any,
-        createdAt: data.created_at,
+      // Handle both direct insert result and RPC function result
+      let savedBusiness: BusinessProfile;
+      
+      if (data) {
+        // RPC function returns JSONB which might need parsing, or direct insert returns object
+        const businessData = typeof data === 'string' ? JSON.parse(data) : data;
+        
+        savedBusiness = {
+          id: businessData.id,
+          name: businessData.name,
+          type: businessData.type as any,
+          stage: businessData.stage as any,
+          location: businessData.location,
+          capital: Number(businessData.capital),
+          currency: businessData.currency as any,
+          owner: businessData.owner,
+          phone: businessData.phone || undefined,
+          email: businessData.email || undefined,
+          address: businessData.address || undefined,
+          dreamBigBook: businessData.dream_big_book || businessData.dreamBigBook || 'none' as any,
+          createdAt: businessData.created_at || businessData.createdAt,
       };
 
       // Update business state - this will trigger re-renders in all components using business context
