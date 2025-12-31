@@ -401,7 +401,7 @@ export function parseReceiptText(text: string, businessCurrency: string = 'USD')
     
     // Check for amount at end of line (common format: "TOTAL          20.76")
     // But only if it doesn't contain skip keywords
-    if (!receiptData.amount && !skipKeywords.some(keyword => upperLine.includes(keyword))) {
+    if (!receiptData.amount && !totalSkipKeywords.some(keyword => upperLine.includes(keyword))) {
       const match = line.match(amountAtEndPattern);
       if (match) {
         const amountStr = match[1].replace(/,/g, '');
