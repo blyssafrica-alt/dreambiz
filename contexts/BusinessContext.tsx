@@ -334,125 +334,303 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
   }, [userId, loadData]);
 
   const saveBusiness = async (newBusiness: BusinessProfile) => {
-    console.log('🚀 Starting business profile save...');
-    
-    // STEP 1: Verify authentication and get fresh session
-    console.log('🔐 Step 1: Verifying authentication...');
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError || !session?.user) {
-      const errorMsg = sessionError?.message || 'No active session';
-      console.error('❌ Authentication failed:', errorMsg);
-      throw new Error('Your session has expired. Please sign out and sign in again.');
-    }
+    if (!userId) throw new Error('User not authenticated');
 
-    const currentUser = session.user;
-    const authUserId = currentUser.id;
-    
-    console.log('✅ Authenticated user:', authUserId);
-    console.log('✅ Email:', currentUser.email);
-    console.log('✅ Email confirmed:', currentUser.email_confirmed_at ? 'Yes' : 'No');
-
-    // STEP 2: Ensure user profile exists (try sync, but don't block if it fails)
-    console.log('👤 Step 2: Ensuring user profile exists...');
-    
     try {
-      const { data: syncResult } = await supabase.rpc('sync_user_profile', { 
-        user_id_param: authUserId 
-      });
-      if (syncResult) {
-        console.log('✅ User profile synced');
+      // STEP 1: Verify authentication and get fresh session
+      console.log('🔐 Step 1: Verifying authentication...');
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.user) {
+        console.error('❌ No valid session found:', sessionError?.message);
+        throw new Error('Your session has expired. Please sign out and sign in again.');
       }
-    } catch (syncError) {
-      // RPC might not exist - that's okay, trigger may handle it
-      console.log('⚠️ Sync RPC not available (this is okay if trigger is set up)');
-    }
 
-    // STEP 3: Prepare business data
-    console.log('💼 Step 3: Preparing business data...');
-    const businessData = {
-      p_user_id: authUserId,
-      p_name: newBusiness.name,
-      p_type: newBusiness.type,
-      p_stage: newBusiness.stage,
-      p_location: newBusiness.location,
-      p_capital: newBusiness.capital,
-      p_currency: newBusiness.currency,
-      p_owner: newBusiness.owner,
-      p_phone: newBusiness.phone || null,
-      p_email: newBusiness.email || null,
-      p_address: newBusiness.address || null,
-      p_dream_big_book: newBusiness.dreamBigBook || 'none',
-      p_logo: newBusiness.logo || null,
-    };
+      const currentUser = session.user;
+      const authUserId = currentUser.id;
+      
+      console.log('✅ Session verified for user:', authUserId);
+      console.log('✅ Email:', currentUser.email);
+      console.log('✅ Email confirmed:', currentUser.email_confirmed_at ? 'Yes' : 'No');
 
-    // STEP 4: Try RPC function first (bypasses RLS, most reliable)
-    console.log('📤 Step 4: Creating business profile via RPC function...');
-    
-    let savedBusiness: BusinessProfile | null = null;
-
-    try {
-      const { data: rpcData, error: rpcError } = await supabase.rpc('create_or_update_business_profile', businessData);
-
-      if (rpcError) {
-        console.error('❌ RPC function failed:', rpcError);
+      // STEP 2: Ensure user profile exists in the users table (CRITICAL for foreign key)
+      console.log('👤 Step 2: Ensuring user profile exists...');
+      
+      if (!user && authUser) {
+        const provider = getProvider();
+        let profileExists = false;
         
-        // Check if it's a duplicate error
-        if (rpcError.code === 'P0001' && rpcError.message?.includes('more than one row')) {
-          throw new Error(
-            'Multiple business profiles found. Please clean up duplicates:\n\n' +
-            'Run database/cleanup_duplicate_business_profiles.sql in Supabase SQL Editor.'
-          );
+        // Method 1: Try RPC function first (most reliable - uses SECURITY DEFINER)
+        try {
+          console.log('🔄 [2.1] Attempting to sync user profile via RPC function...');
+          const { data: rpcData, error: rpcError } = await supabase.rpc('sync_user_profile', { 
+            user_id_param: authUserId 
+          });
+          
+          if (rpcData && (rpcData as any).success) {
+            console.log('✅ User profile synced via RPC:', (rpcData as any).message);
+            profileExists = true;
+            // Wait a moment for the insert to complete
+            await new Promise<void>(resolve => setTimeout(() => resolve(), 500));
+          } else if (rpcError) {
+            const rpcErrorCode = (rpcError as any)?.code || '';
+            const rpcErrorMessage = rpcError?.message || String(rpcError);
+            // 406/42883 means function doesn't exist - that's okay, try other methods
+            if (rpcErrorCode !== '406' && rpcErrorCode !== '42883' && !rpcErrorMessage.includes('function')) {
+              console.log('⚠️ RPC sync had an issue:', rpcErrorMessage);
+            } else {
+              console.log('⚠️ RPC function not available - trigger may not be set up');
+            }
+          }
+        } catch (rpcException: any) {
+          const rpcExceptionMsg = rpcException?.message || String(rpcException);
+          // If function doesn't exist, that's okay - we'll try other methods
+          if (!rpcExceptionMsg.includes('function') && !rpcExceptionMsg.includes('does not exist')) {
+            console.log('⚠️ RPC exception:', rpcExceptionMsg);
+          }
         }
         
-        // If RPC doesn't exist, try direct insert
-        if (rpcError.code === '42883' || rpcError.message?.includes('does not exist')) {
-          console.log('⚠️ RPC function not found, trying direct insert...');
-          // Fall through to direct insert below
+        // Method 2: Try to read the profile (to verify it exists)
+        if (!profileExists) {
+          try {
+            const profile = await provider.getUserProfile(authUserId);
+            if (profile) {
+              console.log('✅ [2.2] User profile found via provider');
+              profileExists = true;
+            }
+          } catch {
+            // Can't read - might not exist or RLS blocking
+            console.log('⚠️ [2.2] Could not read profile via provider');
+          }
+        }
+        
+        // Method 3: If still not found, try to create it via provider
+        if (!profileExists) {
+          try {
+            console.log('🔄 [2.3] Attempting to create user profile via provider...');
+            await provider.createUserProfile(authUserId, {
+              email: authUser.email,
+              name: authUser.metadata?.name || authUser.email.split('@')[0] || 'User',
+              isSuperAdmin: false,
+            });
+            console.log('✅ [2.3] User profile created successfully via provider');
+            profileExists = true;
+          } catch (createError: any) {
+            const createErrorMessage = createError?.message || String(createError);
+            const createErrorCode = (createError as any)?.code || '';
+            
+            // Duplicate key means profile EXISTS - that's success!
+            if (createErrorMessage.includes('duplicate key') || 
+                createErrorMessage.includes('already exists') ||
+                createErrorCode === '23505' ||
+                createErrorMessage.includes('users_email_key') ||
+                createErrorMessage.includes('users_pkey')) {
+              console.log('✅ [2.3] Profile already exists (duplicate key detected)');
+              profileExists = true;
+            } else if (createErrorMessage.includes('RLS') || 
+                       createErrorMessage.includes('row-level security') ||
+                       createErrorCode === '42501') {
+              // RLS blocks creation - wait for trigger/RPC, then verify
+              console.log('⚠️ [2.3] RLS prevents creation - waiting for trigger/RPC...');
+              for (let i = 0; i < 3; i++) {
+                await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
+                const checkProfile = await provider.getUserProfile(authUserId);
+                if (checkProfile) {
+                  console.log('✅ [2.3] Profile created by trigger/RPC');
+                  profileExists = true;
+                  break;
+                }
+              }
+            } else {
+              console.log('⚠️ [2.3] Profile creation failed:', createErrorMessage);
+            }
+          }
+        }
+        
+        // Method 4: Final verification - check directly in database with retries
+        if (!profileExists) {
+          console.log('🔄 [2.4] Final verification - checking if profile exists in database...');
+          let verified = false;
+          
+          // Retry checking multiple times (trigger might be creating it asynchronously)
+          for (let retry = 0; retry < 5; retry++) {
+            try {
+              const { data: directCheck, error: directError } = await supabase
+                .from('users')
+                .select('id')
+                .eq('id', authUserId)
+                .single();
+              
+              if (directCheck && !directError) {
+                console.log('✅ [2.4] Profile exists in database (verified directly)');
+                profileExists = true;
+                verified = true;
+                break;
+              }
+              
+              // If not found, wait a bit and try again (trigger might still be processing)
+              if (retry < 4) {
+                console.log(`⏳ [2.4] Profile not found yet, retrying in 1 second... (attempt ${retry + 1}/5)`);
+                await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
+              }
+            } catch (verifyError: any) {
+              const verifyMsg = verifyError?.message || String(verifyError);
+              // If it's a "not found" error, continue retrying
+              if (verifyMsg.includes('PGRST116') || verifyMsg.includes('No rows returned')) {
+                if (retry < 4) {
+                  console.log(`⏳ [2.4] Profile not found, retrying... (attempt ${retry + 1}/5)`);
+                  await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
+                  continue;
+                }
+              } else {
+                // Other error - log and continue
+                console.log('⚠️ [2.4] Verification error:', verifyMsg);
+              }
+            }
+          }
+          
+          // If still not found after all retries, provide clear error
+          if (!verified && !profileExists) {
+            const errorMessage = 
+              'User profile does not exist in database and could not be created automatically.\n\n' +
+              'This usually means the database trigger is not set up.\n\n' +
+              'QUICK FIX:\n' +
+              '1. Go to Supabase Dashboard > SQL Editor\n' +
+              '2. Select "No limit" from the dropdown (important!)\n' +
+              '3. Copy and paste the ENTIRE contents of database/create_user_profile_trigger.sql\n' +
+              '4. Click "Run"\n' +
+              '5. Then run this to sync your user:\n' +
+              `   SELECT public.sync_user_profile('${authUserId}'::UUID);\n\n` +
+              'After running these, refresh the app and try again.';
+            
+            console.error('❌', errorMessage);
+            throw new Error(errorMessage);
+          }
+        }
+        
+        if (!profileExists) {
+          throw new Error('User profile verification failed. Please ensure the database trigger is set up.');
+        }
+      }
+      
+      // Verify user_id exists before proceeding
+      if (!userId) {
+        throw new Error('User authentication required to save business profile');
+      }
+      
+      console.log('✅ Proceeding with business profile creation for user:', userId);
+
+      // STEP 3: Prepare business data
+      console.log('💼 Step 3: Preparing business data...');
+      const isExistingBusiness = business?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(business.id);
+      
+      const upsertData: any = {
+        user_id: authUserId, // Use verified authUserId from session
+        name: newBusiness.name,
+        type: newBusiness.type,
+        stage: newBusiness.stage,
+        location: newBusiness.location,
+        capital: newBusiness.capital,
+        currency: newBusiness.currency,
+        owner: newBusiness.owner,
+        phone: newBusiness.phone || null,
+        email: newBusiness.email || null,
+        address: newBusiness.address || null,
+        dream_big_book: newBusiness.dreamBigBook || 'none',
+        logo: newBusiness.logo || null,
+      };
+
+      // Only include id if we have an existing business with a valid UUID
+      if (isExistingBusiness) {
+        upsertData.id = business.id;
+      }
+
+      // Prepare RPC function parameters
+      const businessData = {
+        p_user_id: authUserId,
+        p_name: upsertData.name,
+        p_type: upsertData.type,
+        p_stage: upsertData.stage,
+        p_location: upsertData.location,
+        p_capital: upsertData.capital,
+        p_currency: upsertData.currency,
+        p_owner: upsertData.owner,
+        p_phone: upsertData.phone || null,
+        p_email: upsertData.email || null,
+        p_address: upsertData.address || null,
+        p_dream_big_book: upsertData.dream_big_book || 'none',
+        p_logo: upsertData.logo || null,
+      };
+
+      console.log('🔄 Saving business profile:');
+      console.log('  - user_id (will be used):', upsertData.user_id);
+      console.log('  - authUserId:', authUserId);
+      console.log('  - Match:', authUserId === upsertData.user_id ? '✅' : '❌');
+
+      // STEP 4: Try RPC function first (bypasses RLS, most reliable)
+      console.log('📤 Step 4: Creating business profile via RPC function...');
+      
+      let data: any = null;
+      let error: any = null;
+      
+      try {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('create_or_update_business_profile', businessData);
+
+        if (rpcError) {
+          console.error('❌ RPC function failed:', rpcError);
+          
+          // Enhanced RPC error logging
+          let rpcErrorCode = (rpcError as any)?.code || '';
+          let rpcErrorMessage = rpcError?.message || String(rpcError);
+          
+          // Check if it's a duplicate error
+          if (rpcErrorCode === 'P0001' && rpcErrorMessage.includes('more than one row')) {
+            throw new Error(
+              'Multiple business profiles found for this user.\n\n' +
+              'This usually happens when:\n' +
+              '1. Onboarding was attempted multiple times\n' +
+              '2. There are duplicate records in the database\n\n' +
+              'SOLUTION:\n' +
+              '1. Go to Supabase Dashboard > SQL Editor\n' +
+              '2. Select "No limit" from the dropdown\n' +
+              '3. Run the SQL file: database/cleanup_duplicate_business_profiles.sql\n' +
+              '   Or manually run:\n' +
+              '   DELETE FROM business_profiles\n' +
+              '   WHERE id IN (\n' +
+              '     SELECT id FROM (\n' +
+              '       SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) as rn\n' +
+              '       FROM business_profiles\n' +
+              '     ) ranked WHERE rn > 1\n' +
+              '   );\n\n' +
+              'After cleaning up, refresh the app and try again.'
+            );
+          }
+          
+          // If RPC doesn't exist, mark for fallback
+          if (rpcErrorCode === '42883' || rpcErrorMessage.includes('does not exist')) {
+            console.log('⚠️ RPC function not found, will try direct insert...');
+            error = { code: 'RPC_NOT_FOUND', message: 'RPC function does not exist' };
+          } else {
+            error = rpcError;
+          }
+        } else if (rpcData) {
+          console.log('✅ RPC function succeeded!');
+          data = typeof rpcData === 'string' ? JSON.parse(rpcData) : rpcData;
+        }
+      } catch (rpcException: any) {
+        console.error('❌ RPC function exception:', rpcException);
+        // If it's a "function not found" error, try direct insert
+        if (rpcException.code === '42883' || rpcException.message?.includes('does not exist')) {
+          error = { code: 'RPC_NOT_FOUND', message: 'RPC function does not exist' };
         } else {
-          throw rpcError;
+          error = rpcException;
         }
-      } else if (rpcData) {
-        console.log('✅ RPC function succeeded!');
-        const businessResult = typeof rpcData === 'string' ? JSON.parse(rpcData) : rpcData;
-        
-        savedBusiness = {
-          id: businessResult.id,
-          name: businessResult.name,
-          type: businessResult.type as any,
-          stage: businessResult.stage as any,
-          location: businessResult.location,
-          capital: Number(businessResult.capital),
-          currency: businessResult.currency as any,
-          owner: businessResult.owner,
-          phone: businessResult.phone || undefined,
-          email: businessResult.email || undefined,
-          address: businessResult.address || undefined,
-          dreamBigBook: businessResult.dream_big_book || 'none' as any,
-          createdAt: businessResult.created_at,
-        };
       }
-    } catch (rpcException: any) {
-      // If RPC doesn't exist or failed, try direct insert
-      if (rpcException.code === '42883' || rpcException.message?.includes('does not exist') || rpcException.message?.includes('RPC_FUNCTION_NOT_FOUND')) {
-        console.log('📤 Step 4b: Trying direct insert (RPC not available)...');
-        
-        const upsertData: any = {
-          user_id: authUserId,
-          name: newBusiness.name,
-          type: newBusiness.type,
-          stage: newBusiness.stage,
-          location: newBusiness.location,
-          capital: newBusiness.capital,
-          currency: newBusiness.currency,
-          owner: newBusiness.owner,
-          phone: newBusiness.phone || null,
-          email: newBusiness.email || null,
-          address: newBusiness.address || null,
-          dream_big_book: newBusiness.dreamBigBook || 'none',
-          logo: newBusiness.logo || null,
-        };
 
+      // STEP 5: If RPC failed or doesn't exist, try direct insert
+      if (error && (error.code === 'RPC_NOT_FOUND' || error.code === '42883' || error.message?.includes('does not exist'))) {
+        console.log('📤 Step 5: Trying direct insert (RPC not available)...');
+        
         const { data: directData, error: directError } = await supabase
           .from('business_profiles')
           .upsert(upsertData, {
@@ -481,39 +659,79 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
 
         if (directData) {
           console.log('✅ Direct insert succeeded!');
-          savedBusiness = {
-            id: directData.id,
-            name: directData.name,
-            type: directData.type as any,
-            stage: directData.stage as any,
-            location: directData.location,
-            capital: Number(directData.capital),
-            currency: directData.currency as any,
-            owner: directData.owner,
-            phone: directData.phone || undefined,
-            email: directData.email || undefined,
-            address: directData.address || undefined,
-            dreamBigBook: directData.dream_big_book || 'none' as any,
-            createdAt: directData.created_at,
-          };
+          data = directData;
+          error = null;
         }
-      } else {
-        // Re-throw if it's not a "function not found" error
-        throw rpcException;
+      } else if (error) {
+        // RPC failed for another reason - throw the error
+        throw error;
       }
-    }
 
-    if (!savedBusiness) {
-      throw new Error('Failed to save business profile. Please try again.');
-    }
+      // STEP 6: Process the result
+      if (!data) {
+        throw new Error('No data returned from database');
+      }
 
-    // STEP 5: Update state
-    console.log('💾 Step 5: Updating app state...');
-    setBusiness(savedBusiness);
-    setHasOnboarded(true);
-    
-    console.log('✅ Business profile saved successfully!');
-    return savedBusiness;
+      // Convert result to BusinessProfile format
+      const businessResult = typeof data === 'string' ? JSON.parse(data) : data;
+      
+      const savedBusiness: BusinessProfile = {
+        id: businessResult.id,
+        name: businessResult.name,
+        type: businessResult.type as any,
+        stage: businessResult.stage as any,
+        location: businessResult.location,
+        capital: Number(businessResult.capital),
+        currency: businessResult.currency as any,
+        owner: businessResult.owner,
+        phone: businessResult.phone || undefined,
+        email: businessResult.email || undefined,
+        address: businessResult.address || undefined,
+        dreamBigBook: businessResult.dream_big_book || businessResult.dreamBigBook || 'none' as any,
+        createdAt: businessResult.created_at || businessResult.createdAt,
+      };
+
+      // STEP 7: Update state
+      console.log('💾 Step 7: Updating app state...');
+      setBusiness(savedBusiness);
+      setHasOnboarded(true);
+      
+      console.log('✅ Business profile saved successfully!');
+      return savedBusiness;
+    } catch (error: any) {
+      // Enhanced error logging
+      let errorMessage = '';
+      if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.toString && typeof error.toString === 'function') {
+        errorMessage = error.toString();
+      } else {
+        try {
+          errorMessage = JSON.stringify(error, null, 2);
+        } catch {
+          errorMessage = 'Unknown error occurred while saving business profile';
+        }
+      }
+      
+      const errorCode = error?.code || '';
+      const errorDetails = error?.details || '';
+      const errorHint = error?.hint || '';
+      
+      console.error('❌ Failed to save business profile:');
+      console.error('  - Error message:', errorMessage);
+      console.error('  - Error code:', errorCode || '(none)');
+      console.error('  - Error details:', errorDetails || '(none)');
+      console.error('  - Error hint:', errorHint || '(none)');
+      
+      // Create enhanced error with all details
+      const enhancedError = new Error(errorMessage);
+      (enhancedError as any).code = errorCode;
+      (enhancedError as any).details = errorDetails;
+      (enhancedError as any).hint = errorHint;
+      throw enhancedError;
+    }
   };
 
   const addTransaction = async (transaction: Transaction) => {
