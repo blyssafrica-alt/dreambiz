@@ -531,6 +531,22 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         upsertData.id = business.id;
       }
 
+      // Verify userId matches auth.uid() before attempting insert
+      // This helps debug RLS issues
+      const { data: { user: currentAuthUser } } = await supabase.auth.getUser();
+      if (currentAuthUser && currentAuthUser.id !== userId) {
+        console.warn('⚠️ User ID mismatch:', {
+          userId,
+          authUserId: currentAuthUser.id,
+          match: currentAuthUser.id === userId
+        });
+        // Use auth user ID instead if there's a mismatch
+        upsertData.user_id = currentAuthUser.id;
+      }
+      
+      console.log('🔄 Saving business profile with user_id:', upsertData.user_id);
+      console.log('🔄 Current auth.uid():', currentAuthUser?.id);
+      
       // Use upsert with user_id as conflict target (since user_id is UNIQUE)
       const { data, error } = await supabase
         .from('business_profiles')
