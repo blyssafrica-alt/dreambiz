@@ -672,22 +672,51 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
             let rpcErrorDetails = '';
             let rpcErrorHint = '';
             
+            // Log the raw error first to see its structure
+            console.error('🔍 Raw RPC error:', rpcError);
+            console.error('🔍 RPC error type:', typeof rpcError);
+            console.error('🔍 RPC error keys:', rpcError && typeof rpcError === 'object' ? Object.keys(rpcError) : 'N/A');
+            
             // Try to extract error information from different possible structures
             if (typeof rpcError === 'string') {
               rpcErrorMessage = rpcError;
             } else if (rpcError && typeof rpcError === 'object') {
-              rpcErrorCode = (rpcError as any)?.code || (rpcError as any)?.error_code || '';
-              rpcErrorMessage = (rpcError as any)?.message || (rpcError as any)?.error || String(rpcError);
-              rpcErrorDetails = (rpcError as any)?.details || (rpcError as any)?.error_description || '';
-              rpcErrorHint = (rpcError as any)?.hint || '';
+              // Try multiple possible property names
+              rpcErrorCode = (rpcError as any)?.code || 
+                            (rpcError as any)?.error_code || 
+                            (rpcError as any)?.statusCode ||
+                            (rpcError as any)?.status ||
+                            '';
+              
+              rpcErrorMessage = (rpcError as any)?.message || 
+                                (rpcError as any)?.error || 
+                                (rpcError as any)?.error_description ||
+                                (rpcError as any)?.msg ||
+                                String(rpcError);
+              
+              rpcErrorDetails = (rpcError as any)?.details || 
+                               (rpcError as any)?.error_description || 
+                               (rpcError as any)?.detail ||
+                               '';
+              
+              rpcErrorHint = (rpcError as any)?.hint || 
+                            (rpcError as any)?.hint_message ||
+                            '';
               
               // Try to stringify for better logging
               try {
                 const errorString = JSON.stringify(rpcError, null, 2);
                 console.error('  - Full error JSON:', errorString);
-              } catch {
-                // If stringify fails, just log the object
-                console.error('  - Full error object:', rpcError);
+              } catch (stringifyError) {
+                // If stringify fails, try to log properties individually
+                console.error('  - Could not stringify error, logging properties:');
+                for (const key in rpcError) {
+                  try {
+                    console.error(`    ${key}:`, (rpcError as any)[key]);
+                  } catch {
+                    console.error(`    ${key}: [could not log]`);
+                  }
+                }
               }
             } else {
               rpcErrorMessage = String(rpcError);
