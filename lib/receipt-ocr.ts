@@ -137,10 +137,34 @@ async function extractTextWithOCRSpace(imageUri: string, apiKey?: string): Promi
 /**
  * Extract text from image using Tesseract.js (client-side OCR)
  * Fallback option - works offline, no API key needed
+ * NOTE: Tesseract.js has limited support in React Native/Expo environments
+ * It works best in web environments. For React Native, OCR.space API is recommended.
  */
 async function extractTextWithTesseract(imageUri: string): Promise<string> {
   try {
     console.log('Attempting Tesseract.js OCR...');
+    
+    // Check if we're in React Native environment
+    const isReactNative = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
+    const isExpo = typeof (global as any).__expo !== 'undefined';
+    
+    if (isReactNative || isExpo) {
+      console.warn('⚠️ Tesseract.js has limited support in React Native/Expo. Converting image to base64...');
+    }
+    
+    // Convert image to base64 for better compatibility
+    // Tesseract.js works better with base64 data URIs than file:// URIs
+    let imageData: string;
+    try {
+      const base64Image = await imageUriToBase64(imageUri);
+      // Create data URI for Tesseract
+      imageData = `data:image/jpeg;base64,${base64Image}`;
+      console.log('Image converted to base64, size:', base64Image.length, 'chars');
+    } catch (base64Error: any) {
+      console.warn('Failed to convert image to base64, trying direct URI:', base64Error.message);
+      // Fallback to direct URI (may not work in React Native)
+      imageData = imageUri;
+    }
     
     // Dynamic import to avoid loading Tesseract if not installed
     const TesseractModule = await import('tesseract.js');
@@ -153,13 +177,22 @@ async function extractTextWithTesseract(imageUri: string): Promise<string> {
     }
     
     console.log('Creating Tesseract worker...');
-    const worker = await createWorker('eng');
+    const worker = await createWorker('eng', 1, {
+      logger: (m: any) => {
+        // Log progress for debugging
+        if (m.status === 'recognizing text') {
+          console.log(`Tesseract progress: ${Math.round(m.progress * 100)}%`);
+        }
+      },
+    });
+    
+    // Set page segmentation mode for receipts (PSM 6 = uniform block of text)
+    await worker.setParameters({
+      tessedit_pageseg_mode: '6', // Uniform block of text
+    });
     
     console.log('Recognizing text from image...');
-    // For React Native, we need to handle the image URI differently
-    // Tesseract.js might not work directly with file:// URIs in React Native
-    // We'll try to use the URI directly, but it may need base64 conversion
-    const { data: { text } } = await worker.recognize(imageUri);
+    const { data: { text } } = await worker.recognize(imageData);
     
     console.log('Terminating Tesseract worker...');
     await worker.terminate();
@@ -182,8 +215,17 @@ async function extractTextWithTesseract(imageUri: string): Promise<string> {
     if (error.message?.includes('network') || error.message?.includes('fetch')) {
       throw new Error('Tesseract.js requires network access to download language data. Please check your connection.');
     }
+    if (error.message?.includes('Worker') || error.message?.includes('worker')) {
+      throw new Error('Tesseract.js Web Workers are not supported in React Native. Please use OCR.space API instead.');
+    }
     
-    throw new Error(`Tesseract OCR failed: ${error.message || 'Unknown error'}`);
+    // Check if it's a React Native specific error
+    const isReactNative = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
+    if (isReactNative && (error.message?.includes('file://') || error.message?.includes('URI'))) {
+      throw new Error('Tesseract.js has limited support in React Native. Please configure OCR.space API key for better results.');
+    }
+    
+    throw new Error(`Tesseract OCR failed: ${error.message || 'Unknown error'}. For React Native, use OCR.space API instead.`);
   }
 }
 
@@ -217,7 +259,10 @@ export async function extractTextFromImage(imageUri: string): Promise<string> {
     
     try {
       // Fallback to Tesseract.js if available
+      // NOTE: Tesseract.js has limited support in React Native/Expo
       console.log('[2/3] Trying Tesseract.js fallback...');
+      console.log('⚠️ Note: Tesseract.js works best in web environments. For React Native, OCR.space API is recommended.');
+      
       const result = await extractTextWithTesseract(imageUri);
       console.log('✅ Tesseract.js succeeded!');
       return result;
@@ -225,15 +270,26 @@ export async function extractTextFromImage(imageUri: string): Promise<string> {
       console.warn('❌ Tesseract.js failed:', tesseractError.message);
       console.warn('Error details:', tesseractError);
       
-      // Final fallback: mock OCR for development/testing
-      console.warn('[3/3] Using mock OCR as final fallback...');
-      console.warn('⚠️ WARNING: Using mock OCR - this is for development only!');
-      console.warn('To enable real OCR:');
-      console.warn('  1. Get a free API key from https://ocr.space/ocrapi/freekey');
-      console.warn('  2. Add EXPO_PUBLIC_OCR_SPACE_API_KEY=your_key to .env file');
-      console.warn('  3. Or ensure tesseract.js is properly installed: bun add tesseract.js');
+      // Check if it's a React Native compatibility issue
+      const isReactNative = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
+      if (isReactNative || tesseractError.message?.includes('React Native') || tesseractError.message?.includes('Worker')) {
+        console.warn('⚠️ Tesseract.js is not fully supported in React Native/Expo.');
+        console.warn('💡 Solution: Configure OCR.space API key for reliable OCR in React Native:');
+        console.warn('  1. Get a free API key from https://ocr.space/ocrapi/freekey');
+        console.warn('  2. Add EXPO_PUBLIC_OCR_SPACE_API_KEY=your_key to .env file');
+        console.warn('  3. Restart the app');
+      }
       
-      return await mockOCR(imageUri);
+      // Final fallback: throw error to force manual entry (no mock data)
+      console.warn('[3/3] OCR services unavailable. Manual entry required.');
+      throw new Error(
+        'OCR services are not available. Please enter receipt details manually.\n\n' +
+        'To enable OCR:\n' +
+        '1. Get a free API key from https://ocr.space/ocrapi/freekey\n' +
+        '2. Add EXPO_PUBLIC_OCR_SPACE_API_KEY=your_key to .env file\n' +
+        '3. Restart the app\n\n' +
+        `Error: ${tesseractError.message}`
+      );
     }
   }
 }
