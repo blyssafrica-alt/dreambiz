@@ -20,30 +20,19 @@ CREATE OR REPLACE FUNCTION public.create_or_update_business_profile(
 )
 RETURNS JSONB
 LANGUAGE plpgsql
-SECURITY DEFINER -- This allows bypassing RLS
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
   v_business_id UUID;
   v_result JSONB;
-  v_auth_uid UUID;
 BEGIN
-  -- Get the authenticated user ID
-  v_auth_uid := auth.uid();
-  
-  -- Verify the user_id matches the authenticated user (if auth.uid() is available)
-  IF v_auth_uid IS NOT NULL AND p_user_id IS NOT NULL AND p_user_id != v_auth_uid THEN
-    RAISE EXCEPTION 'User ID does not match authenticated user. Expected: %, Got: %', v_auth_uid, p_user_id;
-  END IF;
-  
-  -- If auth.uid() is NULL, we can't verify, but we'll proceed anyway since SECURITY DEFINER
-  -- allows us to bypass RLS. The caller should have verified the user_id before calling.
-  IF p_user_id IS NULL THEN
-    RAISE EXCEPTION 'User ID cannot be NULL';
+  -- Verify the user_id matches the authenticated user
+  IF p_user_id IS NULL OR p_user_id != auth.uid() THEN
+    RAISE EXCEPTION 'User ID does not match authenticated user';
   END IF;
 
   -- Check if business profile already exists for this user
-  -- This SELECT will work because we're using SECURITY DEFINER
   SELECT id INTO v_business_id
   FROM public.business_profiles
   WHERE user_id = p_user_id
@@ -131,4 +120,3 @@ SELECT
   proargnames as argument_names
 FROM pg_proc
 WHERE proname = 'create_or_update_business_profile';
-
