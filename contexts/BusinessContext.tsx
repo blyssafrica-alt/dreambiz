@@ -718,24 +718,17 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           
           throw new Error(rlsFixMessage);
         }
-        // Better error message handling
-        const errorMessage = error?.message || String(error);
-        const errorCode = (error as any)?.code || '';
-        const errorDetails = (error as any)?.details || '';
-        const errorHint = (error as any)?.hint || '';
         
-        // Log with proper stringification (avoid [object Object])
-        console.error('Failed to save business:', errorMessage);
-        if (errorCode) console.error('Error code:', errorCode);
-        if (errorDetails) console.error('Error details:', errorDetails);
-        if (errorHint) console.error('Error hint:', errorHint);
+        // For other errors, provide a clear message
+        let displayMessage = errorMessage;
+        if (errorDetails) {
+          displayMessage += `\n\nDetails: ${errorDetails}`;
+        }
+        if (errorHint) {
+          displayMessage += `\n\nHint: ${errorHint}`;
+        }
         
-        // Create a more descriptive error
-        const enhancedError = new Error(errorMessage);
-        (enhancedError as any).code = errorCode;
-        (enhancedError as any).details = errorDetails;
-        (enhancedError as any).hint = errorHint;
-        throw enhancedError;
+        throw new Error(displayMessage);
       }
 
       // Use the data returned from the database (includes the generated UUID if it was new)
