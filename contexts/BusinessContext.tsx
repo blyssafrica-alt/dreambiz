@@ -878,20 +878,23 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           address: businessData.address || undefined,
           dreamBigBook: businessData.dream_big_book || businessData.dreamBigBook || 'none' as any,
           createdAt: businessData.created_at || businessData.createdAt,
-      };
+        };
 
-      // Update business state - this will trigger re-renders in all components using business context
-      setBusiness(savedBusiness);
-      setHasOnboarded(true);
-      
-      // Log update for debugging
-      console.log('✅ Business profile updated:', {
-        name: savedBusiness.name,
-        phone: savedBusiness.phone,
-        email: savedBusiness.email,
-        address: savedBusiness.address,
-        logo: savedBusiness.logo ? 'Updated' : 'Not set',
-      });
+        // Update business state - this will trigger re-renders in all components using business context
+        setBusiness(savedBusiness);
+        setHasOnboarded(true);
+        
+        // Log update for debugging
+        console.log('✅ Business profile updated:', {
+          name: savedBusiness.name,
+          phone: savedBusiness.phone,
+          email: savedBusiness.email,
+          address: savedBusiness.address,
+          logo: savedBusiness.logo ? 'Updated' : 'Not set',
+        });
+      } else {
+        throw new Error('No data returned from database');
+      }
     } catch (error: any) {
       // Better error logging - extract message properly
       let errorMessage = '';
