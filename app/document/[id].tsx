@@ -27,7 +27,7 @@ import type { Payment } from '@/types/payments';
 
 export default function DocumentDetailScreen() {
   const { id } = useLocalSearchParams();
-  const { documents, business, getDocumentPayments, getDocumentPaidAmount, deletePayment, updateDocument, addPayment, addTransaction } = useBusiness();
+  const { documents, business, getDocumentPayments, getDocumentPaidAmount, deletePayment, updateDocument, deleteDocument, addPayment, addTransaction } = useBusiness();
   const { theme } = useTheme();
   const [showQRModal, setShowQRModal] = useState(false);
   const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
@@ -333,6 +333,32 @@ export default function DocumentDetailScreen() {
     );
   };
 
+  const handleDeleteDocument = () => {
+    if (!document) return;
+
+    RNAlert.alert(
+      'Delete Document',
+      `Are you sure you want to delete ${document.documentNumber}? This action cannot be undone and will also delete all associated payments.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteDocument(document.id);
+              RNAlert.alert('Success', 'Document deleted successfully', [
+                { text: 'OK', onPress: () => router.back() }
+              ]);
+            } catch (error: any) {
+              RNAlert.alert('Error', error.message || 'Failed to delete document');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const docTypeLabel = document.type.charAt(0).toUpperCase() + document.type.slice(1).replace('_', ' ');
 
   // Parse template fields from notes
@@ -382,6 +408,9 @@ export default function DocumentDetailScreen() {
                   )}
                   <TouchableOpacity onPress={handleShare}>
                     <ShareIcon size={22} color={theme.accent.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleDeleteDocument}>
+                    <Trash2 size={22} color={theme.accent.danger} />
                   </TouchableOpacity>
                 </>
               )}

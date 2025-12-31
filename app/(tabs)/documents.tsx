@@ -1,5 +1,5 @@
 import { Stack, router } from 'expo-router';
-import { FileText, Plus, Receipt, FileCheck, CheckCircle, Clock, XCircle, Send, ShoppingCart, FileSignature, Handshake, AlertCircle, Filter, X } from 'lucide-react-native';
+import { FileText, Plus, Receipt, FileCheck, CheckCircle, Clock, XCircle, Send, ShoppingCart, FileSignature, Handshake, AlertCircle, Filter, X, Trash2 } from 'lucide-react-native';
 import { useState, useMemo, useEffect } from 'react';
 import {
   View,
@@ -23,7 +23,7 @@ import type { FilterPreset } from '@/lib/filter-presets';
 import DocumentWizard from '@/components/DocumentWizard';
 
 export default function DocumentsScreen() {
-  const { business, documents = [], addDocument, updateDocument } = useBusiness();
+  const { business, documents = [], addDocument, updateDocument, deleteDocument } = useBusiness();
   const { theme } = useTheme();
   const [showWizard, setShowWizard] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -295,6 +295,28 @@ export default function DocumentsScreen() {
     }
   };
 
+  const handleDeleteDocument = (docId: string, docNumber: string) => {
+    RNAlert.alert(
+      'Delete Document',
+      `Are you sure you want to delete ${docNumber}? This action cannot be undone and will also delete all associated payments.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteDocument(docId);
+              RNAlert.alert('Success', 'Document deleted successfully');
+            } catch (error: any) {
+              RNAlert.alert('Error', error.message || 'Failed to delete document');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
@@ -379,38 +401,48 @@ export default function DocumentsScreen() {
             filteredDocuments.map((doc) => {
               const overdue = isOverdue(doc);
               return (
-                <TouchableOpacity 
+                <View 
                   key={doc.id} 
                   style={[styles.docCard, overdue && { borderLeftWidth: 4, borderLeftColor: '#EF4444' }]}
-                  onPress={() => router.push(`/document/${doc.id}` as any)}
                 >
-                  <View style={styles.docHeader}>
-                    <View style={styles.docLeft}>
-                      <View style={styles.docIcon}>{getIcon(doc.type)}</View>
-                      <View>
-                        <Text style={styles.docNumber}>{doc.documentNumber}</Text>
-                        <Text style={styles.docCustomer}>{doc.customerName}</Text>
-                        {doc.dueDate && (
-                          <Text style={[styles.docDueDate, { color: overdue ? '#EF4444' : '#64748B' }]}>
-                            Due: {formatDate(doc.dueDate)} {overdue && '⚠️'}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                    <View style={styles.docRight}>
-                      <Text style={styles.docAmount}>{formatCurrency(doc.total)}</Text>
-                      <View style={styles.statusRow}>
-                        <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(doc.status)}20` }]}>
-                          {getStatusIcon(doc.status)}
-                          <Text style={[styles.statusText, { color: getStatusColor(doc.status) }]}>
-                            {getStatusLabel(doc.status)}
-                          </Text>
+                  <TouchableOpacity 
+                    style={styles.docCardContent}
+                    onPress={() => router.push(`/document/${doc.id}` as any)}
+                  >
+                    <View style={styles.docHeader}>
+                      <View style={styles.docLeft}>
+                        <View style={styles.docIcon}>{getIcon(doc.type)}</View>
+                        <View>
+                          <Text style={styles.docNumber}>{doc.documentNumber}</Text>
+                          <Text style={styles.docCustomer}>{doc.customerName}</Text>
+                          {doc.dueDate && (
+                            <Text style={[styles.docDueDate, { color: overdue ? '#EF4444' : '#64748B' }]}>
+                              Due: {formatDate(doc.dueDate)} {overdue && '⚠️'}
+                            </Text>
+                          )}
                         </View>
                       </View>
-                      <Text style={styles.docDate}>{formatDate(doc.date)}</Text>
+                      <View style={styles.docRight}>
+                        <Text style={styles.docAmount}>{formatCurrency(doc.total)}</Text>
+                        <View style={styles.statusRow}>
+                          <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(doc.status)}20` }]}>
+                            {getStatusIcon(doc.status)}
+                            <Text style={[styles.statusText, { color: getStatusColor(doc.status) }]}>
+                              {getStatusLabel(doc.status)}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={styles.docDate}>{formatDate(doc.date)}</Text>
+                      </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDeleteDocument(doc.id, doc.documentNumber)}
+                  >
+                    <Trash2 size={18} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
               );
             })
           )}
@@ -460,10 +492,23 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   docCard: {
-    padding: 16,
+    flexDirection: 'row',
     borderRadius: 12,
     backgroundColor: '#FFF',
     marginBottom: 12,
+    overflow: 'hidden',
+  },
+  docCardContent: {
+    flex: 1,
+    padding: 16,
+  },
+  deleteButton: {
+    width: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FEE2E2',
+    borderLeftWidth: 1,
+    borderLeftColor: '#FECACA',
   },
   docHeader: {
     flexDirection: 'row',

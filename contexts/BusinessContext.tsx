@@ -868,6 +868,36 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     }
   };
 
+  const deleteDocument = async (id: string) => {
+    try {
+      // First, delete all payments associated with this document
+      const { error: paymentsError } = await supabase
+        .from('payments')
+        .delete()
+        .eq('document_id', id);
+
+      if (paymentsError) {
+        console.warn('Failed to delete associated payments:', paymentsError);
+        // Continue with document deletion even if payment deletion fails
+      }
+
+      // Delete the document
+      const { error } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Remove from local state
+      const updated = documents.filter(d => d.id !== id);
+      setDocuments(updated);
+    } catch (error) {
+      console.error('Failed to delete document:', error);
+      throw error;
+    }
+  };
+
   const updateExchangeRate = async (rate: number) => {
     if (!userId) throw new Error('User not authenticated');
 
@@ -2104,6 +2134,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     deleteTransaction,
     addDocument,
     updateDocument,
+    deleteDocument,
     addProduct,
     updateProduct,
     deleteProduct,
