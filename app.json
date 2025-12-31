@@ -32,13 +32,14 @@
         "backgroundColor": "#ffffff"
       },
       "package": "app.dreambiz.com",
-      "versionCode": 1,
+      "versionCode": 2,
       "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "INTERNET",
-        "ACCESS_NETWORK_STATE"
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -54,10 +55,6 @@
         {
           "photosPermission": "The app accesses your photos to upload product images and scan receipts."
         }
-      ],
-      [
-        "expo-print",
-        {}
       ]
     ],
     "experiments": {
@@ -66,8 +63,9 @@
     "extra": {
       "EXPO_PUBLIC_SUPABASE_URL": "https://oqcgerfjjiozltkmmkxf.supabase.co",
       "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_959ZId8aR4E5IjTNoyVsJQ_xt8pelvp",
+      "router": {},
       "eas": {
-        "projectId": "your-project-id-here"
+        "projectId": "6c333a04-5ae3-4d2e-849f-5021b8b56e0f"
       }
     },
     "runtimeVersion": {
