@@ -31,6 +31,20 @@ BEGIN
     RAISE EXCEPTION 'User ID does not match authenticated user';
   END IF;
 
+  -- CRITICAL: Clean up any existing duplicates FIRST
+  -- This ensures ON CONFLICT will work properly
+  DELETE FROM public.business_profiles
+  WHERE user_id = p_user_id
+  AND id NOT IN (
+    SELECT id
+    FROM (
+      SELECT id, ROW_NUMBER() OVER (ORDER BY created_at DESC) as rn
+      FROM public.business_profiles
+      WHERE user_id = p_user_id
+    ) ranked
+    WHERE rn = 1
+  );
+
   -- Use UPSERT: If business profile exists for this user_id, UPDATE it; otherwise, INSERT new
   -- The UNIQUE constraint on user_id ensures only one business profile per user
   INSERT INTO public.business_profiles (
