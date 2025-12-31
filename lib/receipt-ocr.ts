@@ -4,6 +4,7 @@
  */
 
 import * as FileSystem from 'expo-file-system';
+import Constants from 'expo-constants';
 
 export interface ReceiptData {
   merchant?: string;
@@ -231,64 +232,81 @@ async function extractTextWithTesseract(imageUri: string): Promise<string> {
 
 /**
  * Extract text from image using OCR
- * Tries OCR.space API first, falls back to Tesseract.js, then mock OCR
+ * Tries OCR.space API first, falls back to Tesseract.js (web only), then throws error
  */
 export async function extractTextFromImage(imageUri: string): Promise<string> {
-  // Get API key from environment or use free tier
-  // To use your own API key, set EXPO_PUBLIC_OCR_SPACE_API_KEY in your .env file
-  const apiKey = process.env.EXPO_PUBLIC_OCR_SPACE_API_KEY;
+  // Get API key from environment - try multiple sources like Supabase does
+  const apiKey = 
+    Constants.expoConfig?.extra?.EXPO_PUBLIC_OCR_SPACE_API_KEY ||
+    Constants.manifest?.extra?.EXPO_PUBLIC_OCR_SPACE_API_KEY ||
+    process.env.EXPO_PUBLIC_OCR_SPACE_API_KEY ||
+    'K82828017188957'; // Fallback to the provided key
   
   console.log('=== Starting OCR Process ===');
   console.log('Image URI:', imageUri.substring(0, 50) + '...');
   console.log('API Key provided:', !!apiKey);
+  console.log('API Key value:', apiKey ? `${apiKey.substring(0, 5)}...` : 'none');
+  
+  // Check if we're in React Native - if so, skip Tesseract entirely
+  const isReactNative = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
+  const isExpo = typeof (global as any).__expo !== 'undefined';
   
   try {
     // Try OCR.space API first (best for receipts)
-    console.log('[1/3] Attempting OCR with OCR.space API...');
+    console.log('[1/2] Attempting OCR with OCR.space API...');
     const result = await extractTextWithOCRSpace(imageUri, apiKey);
     console.log('✅ OCR.space API succeeded!');
     return result;
   } catch (ocrSpaceError: any) {
-    console.warn('❌ OCR.space failed:', ocrSpaceError.message);
-    console.warn('Error details:', ocrSpaceError);
+    console.error('❌ OCR.space API failed:', ocrSpaceError.message);
+    console.error('Error details:', ocrSpaceError);
     
-    // If it's a quota/rate limit error, don't try Tesseract (it will also fail)
-    if (ocrSpaceError.message?.includes('quota') || ocrSpaceError.message?.includes('rate limit')) {
-      console.warn('⚠️ OCR.space quota exceeded. Trying Tesseract.js as fallback...');
+    // In React Native, skip Tesseract entirely since it doesn't work
+    if (isReactNative || isExpo) {
+      console.error('⚠️ Running in React Native/Expo - Tesseract.js is not supported.');
+      console.error('💡 OCR.space API is the only supported OCR method in React Native.');
+      
+      // Provide detailed error message
+      let errorMessage = 'OCR.space API failed. Please check your API key and try again.\n\n';
+      errorMessage += `Error: ${ocrSpaceError.message}\n\n`;
+      
+      if (ocrSpaceError.message?.includes('quota') || ocrSpaceError.message?.includes('rate limit')) {
+        errorMessage += 'Your OCR.space API quota may have been exceeded.\n';
+        errorMessage += 'Please wait a few minutes or upgrade your plan.\n\n';
+      } else if (ocrSpaceError.message?.includes('not configured') || ocrSpaceError.message?.includes('API key')) {
+        errorMessage += 'The OCR.space API key is not properly configured.\n';
+        errorMessage += 'Please ensure EXPO_PUBLIC_OCR_SPACE_API_KEY is set in app.json.\n\n';
+      } else if (ocrSpaceError.message?.includes('network') || ocrSpaceError.message?.includes('fetch')) {
+        errorMessage += 'Network error. Please check your internet connection.\n\n';
+      }
+      
+      errorMessage += 'To fix this:\n';
+      errorMessage += '1. Verify your API key is correct in app.json\n';
+      errorMessage += '2. Check your internet connection\n';
+      errorMessage += '3. Try again in a few moments\n';
+      errorMessage += '4. If the problem persists, enter receipt details manually';
+      
+      throw new Error(errorMessage);
     }
     
+    // For web environments only, try Tesseract as fallback
     try {
-      // Fallback to Tesseract.js if available
-      // NOTE: Tesseract.js has limited support in React Native/Expo
-      console.log('[2/3] Trying Tesseract.js fallback...');
-      console.log('⚠️ Note: Tesseract.js works best in web environments. For React Native, OCR.space API is recommended.');
-      
+      console.log('[2/2] Trying Tesseract.js fallback (web only)...');
       const result = await extractTextWithTesseract(imageUri);
       console.log('✅ Tesseract.js succeeded!');
       return result;
     } catch (tesseractError: any) {
-      console.warn('❌ Tesseract.js failed:', tesseractError.message);
-      console.warn('Error details:', tesseractError);
+      console.error('❌ Tesseract.js also failed:', tesseractError.message);
       
-      // Check if it's a React Native compatibility issue
-      const isReactNative = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
-      if (isReactNative || tesseractError.message?.includes('React Native') || tesseractError.message?.includes('Worker')) {
-        console.warn('⚠️ Tesseract.js is not fully supported in React Native/Expo.');
-        console.warn('💡 Solution: Configure OCR.space API key for reliable OCR in React Native:');
-        console.warn('  1. Get a free API key from https://ocr.space/ocrapi/freekey');
-        console.warn('  2. Add EXPO_PUBLIC_OCR_SPACE_API_KEY=your_key to .env file');
-        console.warn('  3. Restart the app');
-      }
-      
-      // Final fallback: throw error to force manual entry (no mock data)
-      console.warn('[3/3] OCR services unavailable. Manual entry required.');
+      // Final error with both failures
       throw new Error(
-        'OCR services are not available. Please enter receipt details manually.\n\n' +
+        'All OCR services failed. Please enter receipt details manually.\n\n' +
+        `OCR.space Error: ${ocrSpaceError.message}\n` +
+        `Tesseract Error: ${tesseractError.message}\n\n` +
         'To enable OCR:\n' +
         '1. Get a free API key from https://ocr.space/ocrapi/freekey\n' +
-        '2. Add EXPO_PUBLIC_OCR_SPACE_API_KEY=your_key to .env file\n' +
-        '3. Restart the app\n\n' +
-        `Error: ${tesseractError.message}`
+        '2. Add EXPO_PUBLIC_OCR_SPACE_API_KEY=your_key to app.json\n' +
+        '3. Restart the app'
       );
     }
   }
