@@ -578,8 +578,44 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       
       console.log('✅ Proceeding with business profile creation for user:', userId);
 
-      // STEP 3: Prepare business data
-      console.log('💼 Step 3: Preparing business data...');
+      // STEP 3: Clean up any duplicate business profiles (automatic cleanup)
+      console.log('🧹 Step 3: Checking for duplicate business profiles...');
+      try {
+        // Check if there are duplicates
+        const { data: duplicates, error: dupError } = await supabase
+          .from('business_profiles')
+          .select('id, created_at')
+          .eq('user_id', authUserId)
+          .order('created_at', { ascending: false });
+
+        if (!dupError && duplicates && duplicates.length > 1) {
+          console.log(`⚠️ Found ${duplicates.length} business profiles for this user, cleaning up duplicates...`);
+          
+          // Keep only the most recent one, delete the rest
+          const idsToDelete = duplicates.slice(1).map(bp => bp.id);
+          
+          if (idsToDelete.length > 0) {
+            const { error: deleteError } = await supabase
+              .from('business_profiles')
+              .delete()
+              .in('id', idsToDelete);
+            
+            if (deleteError) {
+              console.log('⚠️ Could not auto-delete duplicates (this is okay, RPC will handle it):', deleteError.message);
+            } else {
+              console.log(`✅ Cleaned up ${idsToDelete.length} duplicate business profile(s)`);
+            }
+          }
+        } else if (!dupError && duplicates && duplicates.length === 1) {
+          console.log('✅ No duplicates found, proceeding...');
+        }
+      } catch (cleanupError: any) {
+        // If cleanup fails, that's okay - RPC function will handle it
+        console.log('⚠️ Duplicate cleanup check failed (this is okay):', cleanupError?.message || 'Unknown error');
+      }
+
+      // STEP 4: Prepare business data
+      console.log('💼 Step 4: Preparing business data...');
       const isExistingBusiness = business?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(business.id);
       
       const upsertData: any = {
@@ -625,8 +661,8 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       console.log('  - authUserId:', authUserId);
       console.log('  - Match:', authUserId === upsertData.user_id ? '✅' : '❌');
 
-      // STEP 4: Try RPC function first (bypasses RLS, most reliable)
-      console.log('📤 Step 4: Creating business profile via RPC function...');
+      // STEP 5: Try RPC function first (bypasses RLS, most reliable)
+      console.log('📤 Step 5: Creating business profile via RPC function...');
       
       let data: any = null;
       let error: any = null;
@@ -685,9 +721,9 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         }
       }
 
-      // STEP 5: If RPC failed or doesn't exist, try direct insert
+      // STEP 6: If RPC failed or doesn't exist, try direct insert
       if (error && (error.code === 'RPC_NOT_FOUND' || error.code === '42883' || error.message?.includes('does not exist'))) {
-        console.log('📤 Step 5: Trying direct insert (RPC not available)...');
+        console.log('📤 Step 6: Trying direct insert (RPC not available)...');
         
         const { data: directData, error: directError } = await supabase
           .from('business_profiles')
@@ -725,7 +761,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         throw error;
       }
 
-      // STEP 6: Process the result
+      // STEP 7: Process the result
       if (!data) {
         throw new Error('No data returned from database');
       }
@@ -749,8 +785,8 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         createdAt: businessResult.created_at || businessResult.createdAt,
       };
 
-      // STEP 7: Update state
-      console.log('💾 Step 7: Updating app state...');
+      // STEP 8: Update state
+      console.log('💾 Step 8: Updating app state...');
       setBusiness(savedBusiness);
       setHasOnboarded(true);
       

@@ -32,8 +32,22 @@ BEGIN
     RAISE EXCEPTION 'User ID does not match authenticated user';
   END IF;
 
+  -- First, clean up any duplicate business profiles for this user
+  -- Keep only the most recent one
+  DELETE FROM public.business_profiles
+  WHERE user_id = p_user_id
+  AND id NOT IN (
+    SELECT id
+    FROM (
+      SELECT id, ROW_NUMBER() OVER (ORDER BY created_at DESC) as rn
+      FROM public.business_profiles
+      WHERE user_id = p_user_id
+    ) ranked
+    WHERE rn = 1
+  );
+
   -- Check if business profile already exists for this user
-  -- Use ORDER BY and LIMIT to handle potential duplicates
+  -- After cleanup, there should be at most one
   SELECT id INTO v_business_id
   FROM public.business_profiles
   WHERE user_id = p_user_id
