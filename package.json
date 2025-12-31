@@ -37,7 +37,7 @@
     "expo-image-picker": "~17.0.10",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.11",
-    "expo-location": "~19.0.8",
+    "expo-location": "19.0.8",
     "expo-print": "~15.0.8",
     "expo-router": "~6.0.21",
     "expo-sharing": "~14.0.8",
@@ -67,7 +67,17 @@
     "@types/react": "~19.1.10",
     "eslint": "^9.31.0",
     "eslint-config-expo": "~10.0.0",
-    "typescript": "~5.8.3"
+    "typescript": "~5.9.2"
+  },
+  "resolutions": {
+    "expo-location": "19.0.8"
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "expo-location"
+      ]
+    }
   },
   "private": true
 }
