@@ -58,6 +58,22 @@ export class SupabaseProvider implements IBackendProvider {
     if (error) throw error;
     if (!data.user) throw new Error('No user returned from sign up');
 
+    // Wait a moment for the session to be established
+    // Supabase might need a moment to set up the session after signup
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Try to get the session to ensure it's established
+    let retries = 0;
+    while (retries < 3) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData?.session) {
+        console.log('✅ Session established after signup');
+        break;
+      }
+      retries++;
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
     return this.mapSupabaseUserToAuthUser(data.user);
   }
 
