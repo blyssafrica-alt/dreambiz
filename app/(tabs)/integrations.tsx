@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import { 
   CreditCard,
   Building2,
@@ -21,9 +21,12 @@ import {
   Alert as RNAlert,
   Linking,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import PageHeader from '@/components/PageHeader';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 interface Integration {
   id: string;
@@ -68,7 +71,7 @@ const integrations: Integration[] = [
     description: 'Connect your bank account for automatic transaction import',
     icon: Building2,
     category: 'bank',
-    status: 'not_available',
+    status: 'available',
   },
   {
     id: 'quickbooks',
@@ -134,11 +137,46 @@ const integrations: Integration[] = [
 
 export default function IntegrationsScreen() {
   const { theme } = useTheme();
+  const { isSuperAdmin, user } = useAuth();
+  const router = useRouter();
   const [connectedIntegrations, setConnectedIntegrations] = useState<string[]>(['email']);
+  const [loading, setLoading] = useState(true);
   
   // Animation setup
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
+
+  const loadIntegrationStatus = async () => {
+    try {
+      setLoading(true);
+      // Load integration status from database
+      const { data, error } = await supabase
+        .from('integration_configs')
+        .select('id, is_active')
+        .eq('is_active', true);
+
+      if (error) {
+        console.error('Error loading integrations:', error);
+        // Default to email being connected
+        setConnectedIntegrations(['email']);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const activeIds = data.map(row => row.id);
+        // Email is always available by default
+        setConnectedIntegrations([...activeIds, 'email'].filter((v, i, a) => a.indexOf(v) === i));
+      } else {
+        // Default to email being connected
+        setConnectedIntegrations(['email']);
+      }
+    } catch (error) {
+      console.error('Failed to load integration status:', error);
+      setConnectedIntegrations(['email']);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     Animated.parallel([
@@ -153,33 +191,129 @@ export default function IntegrationsScreen() {
         useNativeDriver: true,
       }),
     ]).start();
+    loadIntegrationStatus();
   }, []);
 
-  const handleConnect = (integration: Integration) => {
+  // Refresh integration status when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      loadIntegrationStatus();
+    }, [])
+  );
+
+  const handleConnect = async (integration: Integration) => {
     if (integration.status === 'not_available') {
       RNAlert.alert('Not Available', 'This integration is not yet available');
       return;
     }
 
-    if (integration.setupUrl) {
-      RNAlert.alert(
-        'Setup Required',
-        `To connect ${integration.name}, you'll need to set up an account and configure API keys. Would you like to visit their website?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Visit Website',
-            onPress: () => Linking.openURL(integration.setupUrl!),
-          },
-        ]
-      );
-    } else {
+    // Email is always available, no setup needed
+    if (integration.id === 'email') {
       setConnectedIntegrations([...connectedIntegrations, integration.id]);
       RNAlert.alert('Connected', `${integration.name} has been connected successfully`);
+      return;
+    }
+
+    // For integrations that need API keys, check if configured
+    try {
+      const { data, error } = await supabase
+        .from('integration_configs')
+        .select('id, is_active, api_key')
+        .eq('id', integration.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        // PGRST116 means no rows found, which is fine
+        throw error;
+      }
+
+      // If integration exists in config but no API key, need to configure
+      if (data && !data.api_key && integration.setupUrl) {
+        RNAlert.alert(
+          'Configuration Required',
+          `To connect ${integration.name}, you need to configure API keys first. ${isSuperAdmin ? 'Would you like to configure it now?' : 'Please contact your administrator to configure this integration.'}`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            ...(isSuperAdmin ? [{
+              text: 'Configure',
+              onPress: () => router.push('/admin/integrations' as any),
+            }] : []),
+            ...(integration.setupUrl ? [{
+              text: 'Visit Website',
+              onPress: () => Linking.openURL(integration.setupUrl!),
+            }] : []),
+          ]
+        );
+        return;
+      }
+
+      // If integration is configured, activate it
+      if (data && data.api_key) {
+        const { error: updateError } = await supabase
+          .from('integration_configs')
+          .upsert({
+            id: integration.id,
+            name: integration.name,
+            category: integration.category,
+            is_active: true,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'id',
+          });
+
+        if (updateError) throw updateError;
+
+        setConnectedIntegrations([...connectedIntegrations, integration.id]);
+        RNAlert.alert('Connected', `${integration.name} has been connected successfully`);
+      } else if (integration.setupUrl) {
+        // No config exists, offer to set up
+        RNAlert.alert(
+          'Setup Required',
+          `To connect ${integration.name}, you'll need to set up an account and configure API keys. ${isSuperAdmin ? 'Would you like to configure it now?' : 'Please contact your administrator.'}`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            ...(isSuperAdmin ? [{
+              text: 'Configure',
+              onPress: () => router.push('/admin/integrations' as any),
+            }] : []),
+            {
+              text: 'Visit Website',
+              onPress: () => Linking.openURL(integration.setupUrl!),
+            },
+          ]
+        );
+      } else {
+        // Simple integration that doesn't need API keys
+        const { error: insertError } = await supabase
+          .from('integration_configs')
+          .upsert({
+            id: integration.id,
+            name: integration.name,
+            category: integration.category,
+            is_active: true,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'id',
+          });
+
+        if (insertError) throw insertError;
+
+        setConnectedIntegrations([...connectedIntegrations, integration.id]);
+        RNAlert.alert('Connected', `${integration.name} has been connected successfully`);
+      }
+    } catch (error: any) {
+      console.error('Failed to connect integration:', error);
+      RNAlert.alert('Error', error.message || 'Failed to connect integration. Please try again.');
     }
   };
 
-  const handleDisconnect = (integrationId: string) => {
+  const handleDisconnect = async (integrationId: string) => {
+    // Email cannot be disconnected (it's always available)
+    if (integrationId === 'email') {
+      RNAlert.alert('Cannot Disconnect', 'Email integration is always available and cannot be disconnected.');
+      return;
+    }
+
     RNAlert.alert(
       'Disconnect',
       'Are you sure you want to disconnect this integration?',
@@ -188,9 +322,22 @@ export default function IntegrationsScreen() {
         {
           text: 'Disconnect',
           style: 'destructive',
-          onPress: () => {
-            setConnectedIntegrations(connectedIntegrations.filter(id => id !== integrationId));
-            RNAlert.alert('Disconnected', 'Integration has been disconnected');
+          onPress: async () => {
+            try {
+              // Update database to set is_active to false
+              const { error } = await supabase
+                .from('integration_configs')
+                .update({ is_active: false, updated_at: new Date().toISOString() })
+                .eq('id', integrationId);
+
+              if (error) throw error;
+
+              setConnectedIntegrations(connectedIntegrations.filter(id => id !== integrationId));
+              RNAlert.alert('Disconnected', 'Integration has been disconnected');
+            } catch (error: any) {
+              console.error('Failed to disconnect integration:', error);
+              RNAlert.alert('Error', error.message || 'Failed to disconnect integration. Please try again.');
+            }
           },
         },
       ]
@@ -233,6 +380,23 @@ export default function IntegrationsScreen() {
           iconGradient={['#8B5CF6', '#7C3AED']}
         />
 
+        {isSuperAdmin && (
+          <View style={styles.adminBanner}>
+            <View style={styles.adminBannerContent}>
+              <Settings size={18} color="#8B5CF6" />
+              <Text style={styles.adminBannerText}>
+                Configure API keys and webhook URLs
+              </Text>
+              <TouchableOpacity
+                style={styles.adminButton}
+                onPress={() => router.push('/admin/integrations' as any)}
+              >
+                <Text style={styles.adminButtonText}>Configure</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         <Animated.View style={{
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
@@ -274,14 +438,6 @@ export default function IntegrationsScreen() {
                             </Text>
                           </View>
                         )}
-                        {integration.status === 'not_available' && (
-                          <View style={[styles.statusBadge, { backgroundColor: theme.text.tertiary + '20' }]}>
-                            <XCircle size={12} color={theme.text.tertiary} />
-                            <Text style={[styles.statusText, { color: theme.text.tertiary }]}>
-                              Coming Soon
-                            </Text>
-                          </View>
-                        )}
                       </View>
                       <Text style={[styles.integrationDescription, { color: theme.text.secondary }]}>
                         {integration.description}
@@ -302,11 +458,17 @@ export default function IntegrationsScreen() {
                       <TouchableOpacity
                         style={[styles.actionButton, styles.connectButton, { backgroundColor: theme.accent.primary }]}
                         onPress={() => handleConnect(integration)}
-                        disabled={integration.status === 'not_available'}
+                        disabled={loading}
                       >
-                        <Text style={styles.connectButtonText}>Connect</Text>
-                        {integration.setupUrl && (
-                          <ExternalLink size={14} color="#FFF" />
+                        {loading ? (
+                          <ActivityIndicator size="small" color="#FFF" />
+                        ) : (
+                          <>
+                            <Text style={styles.connectButtonText}>Connect</Text>
+                            {integration.setupUrl && (
+                              <ExternalLink size={14} color="#FFF" />
+                            )}
+                          </>
                         )}
                       </TouchableOpacity>
                     )}
@@ -422,6 +584,38 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   connectButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  adminBanner: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 8,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#8B5CF620',
+    borderWidth: 1,
+    borderColor: '#8B5CF640',
+  },
+  adminBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  adminBannerText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#8B5CF6',
+    fontWeight: '500',
+  },
+  adminButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#8B5CF6',
+  },
+  adminButtonText: {
     color: '#FFF',
     fontSize: 14,
     fontWeight: '600',

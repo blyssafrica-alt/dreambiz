@@ -365,58 +365,75 @@ export default function ProductsManagementScreen() {
           </View>
         ) : (
           filteredProducts.map((product) => (
-            <View key={product.id} style={[styles.productCard, { backgroundColor: theme.background.card }]}>
-              {/* Product Image */}
-              {product.images && product.images.length > 0 ? (
-                <Image source={{ uri: product.images[0] }} style={styles.productImage} />
-              ) : (
-                <View style={[styles.productImagePlaceholder, { backgroundColor: theme.background.secondary }]}>
-                  <Package size={32} color={theme.text.tertiary} />
-                </View>
-              )}
+            <TouchableOpacity 
+              key={product.id} 
+              style={[styles.productCard, { backgroundColor: theme.background.card }]}
+              onPress={() => handleOpenModal(product)}
+            >
+              {/* Product Image on Left */}
+              <View style={styles.productImageContainer}>
+                {product.images && product.images.length > 0 ? (
+                  <Image source={{ uri: product.images[0] }} style={styles.productImage} />
+                ) : (
+                  <View style={[styles.productImagePlaceholder, { backgroundColor: theme.background.secondary }]}>
+                    <Package size={24} color={theme.text.tertiary} />
+                  </View>
+                )}
+              </View>
               
-              <View style={styles.productHeader}>
-                <View style={styles.productInfo}>
-                  <Text style={[styles.productName, { color: theme.text.primary }]}>{product.name}</Text>
-                  {product.description && (
-                    <Text style={[styles.productDesc, { color: theme.text.secondary }]} numberOfLines={2}>
-                      {product.description}
+              {/* Product Info on Right */}
+              <View style={styles.productContent}>
+                <View style={styles.productHeader}>
+                  <View style={styles.productInfo}>
+                    <Text style={[styles.productName, { color: theme.text.primary }]} numberOfLines={1}>
+                      {product.name}
                     </Text>
-                  )}
-                  <View style={styles.productMeta}>
-                    <View
-                      style={[
-                        styles.badge,
-                        { backgroundColor: product.status === 'published' ? '#10B98120' : '#64748B20' },
-                      ]}
-                    >
-                      <Text
-                        style={[styles.badgeText, { color: product.status === 'published' ? '#10B981' : '#64748B' }]}
+                    {product.description && (
+                      <Text style={[styles.productDesc, { color: theme.text.secondary }]} numberOfLines={2}>
+                        {product.description}
+                      </Text>
+                    )}
+                    <View style={styles.productMeta}>
+                      <View
+                        style={[
+                          styles.badge,
+                          { backgroundColor: product.status === 'published' ? '#10B98120' : '#64748B20' },
+                        ]}
                       >
-                        {product.status}
+                        <Text
+                          style={[styles.badgeText, { color: product.status === 'published' ? '#10B981' : '#64748B' }]}
+                        >
+                          {product.status}
+                        </Text>
+                      </View>
+                      <Text style={[styles.price, { color: theme.text.primary }]}>
+                        {product.currency} {product.basePrice.toFixed(2)}
                       </Text>
                     </View>
-                    <Text style={[styles.price, { color: theme.text.primary }]}>
-                      {product.currency} {product.basePrice.toFixed(2)}
-                    </Text>
                   </View>
                 </View>
                 <View style={styles.productActions}>
                   <TouchableOpacity
                     style={[styles.actionButton, { backgroundColor: theme.surface.info }]}
-                    onPress={() => handleOpenModal(product)}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleOpenModal(product);
+                    }}
                   >
-                    <Edit size={18} color={theme.accent.info} />
+                    <Edit size={16} color={theme.accent.info} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.actionButton, { backgroundColor: theme.surface.danger }]}
-                    onPress={() => handleDelete(product.id)}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleDelete(product.id);
+                    }}
                   >
-                    <Trash2 size={18} color={theme.accent.danger} />
+                    <Trash2 size={16} color={theme.accent.danger} />
                   </TouchableOpacity>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </ScrollView>
@@ -806,40 +823,47 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   productCard: {
-    padding: 16,
+    flexDirection: 'row',
+    padding: 12,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
   },
+  productImageContainer: {
+    width: 80,
+    height: 80,
+    marginRight: 12,
+  },
   productImage: {
     width: '100%',
-    height: 200,
+    height: '100%',
     borderRadius: 8,
-    marginBottom: 12,
     resizeMode: 'cover',
   },
   productImagePlaceholder: {
     width: '100%',
-    height: 200,
+    height: '100%',
     borderRadius: 8,
-    marginBottom: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  productHeader: {
-    flexDirection: 'row',
+  productContent: {
+    flex: 1,
     justifyContent: 'space-between',
+  },
+  productHeader: {
+    flex: 1,
   },
   productInfo: {
     flex: 1,
     marginRight: 12,
   },
   productName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     marginBottom: 4,
   },
@@ -871,6 +895,8 @@ const styles = StyleSheet.create({
   productActions: {
     flexDirection: 'row',
     gap: 8,
+    marginTop: 8,
+    alignSelf: 'flex-end',
   },
   actionButton: {
     width: 36,

@@ -20,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function StoreScreen() {
   const { theme } = useTheme();
-  const { products, isLoading } = useProducts();
+  const { products, isLoading, refreshProducts } = useProducts();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -42,7 +42,9 @@ export default function StoreScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+    // Refresh products when screen is focused
+    refreshProducts();
+  }, [refreshProducts]);
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -70,10 +72,13 @@ export default function StoreScreen() {
           style={{
             opacity: fadeAnim,
             transform: [{ translateY: slideAnim }],
+            flex: 1,
           }}
         >
           <View style={[styles.searchContainer, { backgroundColor: theme.background.card }]}>
-            <Search size={20} color={theme.text.tertiary} />
+            <View style={[styles.searchIconContainer, { backgroundColor: theme.background.secondary }]}>
+              <Search size={18} color={theme.text.secondary} />
+            </View>
             <TextInput
               style={[styles.searchInput, { color: theme.text.primary }]}
               placeholder="Search products..."
@@ -133,21 +138,34 @@ export default function StoreScreen() {
 
           <ScrollView
             style={styles.scrollView}
-            contentContainerStyle={[styles.contentContainer, { paddingBottom: Platform.OS === 'ios' ? 120 : 100 }]}
+            contentContainerStyle={styles.contentContainer}
             showsVerticalScrollIndicator={false}
           >
             {featuredProducts.length > 0 && (
               <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Featured Products</Text>
+                <View style={styles.sectionHeader}>
+                  <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Featured Products</Text>
+                  <View style={[styles.featuredBadgeHeader, { backgroundColor: theme.accent.primary + '15' }]}>
+                    <Star size={14} color={theme.accent.primary} fill={theme.accent.primary} />
+                    <Text style={[styles.featuredBadgeText, { color: theme.accent.primary }]}>
+                      {featuredProducts.length}
+                    </Text>
+                  </View>
+                </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
                   {featuredProducts.map((product) => (
                     <TouchableOpacity
                       key={product.id}
                       style={[styles.featuredCard, { backgroundColor: theme.background.card }]}
                       onPress={() => router.push(`/(tabs)/store/${product.id}` as any)}
+                      activeOpacity={0.8}
                     >
-                      {product.images && product.images.length > 0 && (
+                      {product.images && product.images.length > 0 ? (
                         <Image source={{ uri: product.images[0] }} style={styles.featuredImage} />
+                      ) : (
+                        <View style={[styles.featuredImagePlaceholder, { backgroundColor: theme.background.secondary }]}>
+                          <Package size={40} color={theme.text.tertiary} />
+                        </View>
                       )}
                       <View style={styles.featuredContent}>
                         <Text style={[styles.featuredName, { color: theme.text.primary }]} numberOfLines={2}>
@@ -203,14 +221,22 @@ export default function StoreScreen() {
                       key={product.id}
                       style={[styles.productCard, { backgroundColor: theme.background.card }]}
                       onPress={() => router.push(`/(tabs)/store/${product.id}` as any)}
+                      activeOpacity={0.85}
                     >
-                      {product.images && product.images.length > 0 ? (
-                        <Image source={{ uri: product.images[0] }} style={styles.productImage} />
-                      ) : (
-                        <View style={[styles.productImagePlaceholder, { backgroundColor: theme.background.secondary }]}>
-                          <Package size={32} color={theme.text.tertiary} />
-                        </View>
-                      )}
+                      <View style={styles.productImageWrapper}>
+                        {product.images && product.images.length > 0 ? (
+                          <Image source={{ uri: product.images[0] }} style={styles.productImage} />
+                        ) : (
+                          <View style={[styles.productImagePlaceholder, { backgroundColor: theme.background.secondary }]}>
+                            <Package size={36} color={theme.text.tertiary} />
+                          </View>
+                        )}
+                        {product.featured && (
+                          <View style={[styles.featuredBadge, { backgroundColor: theme.accent.primary + '20' }]}>
+                            <Star size={12} color={theme.accent.primary} fill={theme.accent.primary} />
+                          </View>
+                        )}
+                      </View>
                       <View style={styles.productContent}>
                         <Text style={[styles.productName, { color: theme.text.primary }]} numberOfLines={2}>
                           {product.name}
@@ -224,11 +250,6 @@ export default function StoreScreen() {
                           <Text style={[styles.productPrice, { color: theme.accent.primary }]}>
                             {product.currency} {product.basePrice.toFixed(2)}
                           </Text>
-                          {product.featured && (
-                            <View style={[styles.featuredBadge, { backgroundColor: theme.accent.primary + '20' }]}>
-                              <Star size={12} color={theme.accent.primary} fill={theme.accent.primary} />
-                            </View>
-                          )}
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -250,170 +271,247 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     marginHorizontal: 20,
     marginTop: 16,
-    marginBottom: 8,
-    borderRadius: 12,
+    marginBottom: 12,
+    borderRadius: 16,
     gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  searchIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 16,
+    fontWeight: '500',
   },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 8,
     paddingBottom: 120,
+    flexGrow: 1,
   },
   section: {
-    marginBottom: 32,
+    marginBottom: 28,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 16,
+    fontSize: 22,
+    fontWeight: '800',
+    marginBottom: 20,
+    letterSpacing: -0.5,
   },
   horizontalScroll: {
     marginHorizontal: -20,
     paddingHorizontal: 20,
+    paddingVertical: 4,
   },
   featuredCard: {
-    width: 280,
+    width: 300,
     marginRight: 16,
-    borderRadius: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  featuredImage: {
+    width: '100%',
+    height: 200,
+    resizeMode: 'cover',
+  },
+  featuredImagePlaceholder: {
+    width: '100%',
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  featuredContent: {
+    padding: 18,
+  },
+  featuredName: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 10,
+    lineHeight: 22,
+    letterSpacing: -0.3,
+  },
+  featuredPrice: {
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  productsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+    marginHorizontal: -7,
+  },
+  productCard: {
+    width: '47.5%',
+    borderRadius: 18,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
+    marginBottom: 4,
   },
-  featuredImage: {
+  productImageWrapper: {
+    position: 'relative',
+  },
+  productImage: {
     width: '100%',
     height: 180,
     resizeMode: 'cover',
   },
-  featuredContent: {
-    padding: 16,
-  },
-  featuredName: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  featuredPrice: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  productsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    marginHorizontal: -8,
-  },
-  productCard: {
-    width: '47%',
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  productImage: {
-    width: '100%',
-    height: 150,
-    resizeMode: 'cover',
-  },
   productImagePlaceholder: {
     width: '100%',
-    height: 150,
+    height: 180,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F3F4F6',
   },
   productContent: {
-    padding: 12,
+    padding: 14,
   },
   productName: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: 6,
+    lineHeight: 20,
+    letterSpacing: -0.2,
   },
   productDesc: {
-    fontSize: 12,
-    marginBottom: 8,
-    lineHeight: 16,
+    fontSize: 13,
+    marginBottom: 10,
+    lineHeight: 18,
+    opacity: 0.7,
   },
   productFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 4,
   },
   productPrice: {
-    fontSize: 16,
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  featuredBadgeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  featuredBadgeText: {
+    fontSize: 13,
     fontWeight: '700',
   },
   featuredBadge: {
-    padding: 4,
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    padding: 6,
     borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    marginTop: 8,
-    textAlign: 'center',
+    paddingVertical: 80,
     paddingHorizontal: 40,
   },
+  emptyText: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 20,
+    letterSpacing: -0.3,
+  },
+  emptySubtext: {
+    fontSize: 15,
+    marginTop: 10,
+    textAlign: 'center',
+    lineHeight: 22,
+    opacity: 0.7,
+  },
   emptyIconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   clearButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 20,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   clearButtonText: {
     color: '#FFF',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
   categoryScroll: {
     marginHorizontal: 20,
-    marginBottom: 8,
+    marginBottom: 16,
   },
   categoryContainer: {
     paddingRight: 20,
-    gap: 8,
+    gap: 10,
   },
   categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   categoryChipText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
 });
 

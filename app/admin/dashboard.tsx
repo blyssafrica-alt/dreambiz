@@ -331,6 +331,21 @@ export default function AdminDashboard() {
             <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
           </View>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/integrations' as any)}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Integration Settings</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Configure API keys and webhook URLs
+              </Text>
+            </View>
+            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+          </View>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
