@@ -375,14 +375,14 @@ export function parseReceiptText(text: string, businessCurrency: string = 'USD')
   const amountAtEndPattern = /([\d,]+\.\d{2})\s*$/;
   
   // Skip keywords that indicate this is NOT the total
-  const skipKeywords = ['CHANGE', 'CASH', 'CARD', 'DEBIT', 'CREDIT', 'BALANCE', 'REFUND', 'RETURN'];
+  const totalSkipKeywords = ['CHANGE', 'CASH', 'CARD', 'DEBIT', 'CREDIT', 'BALANCE', 'REFUND', 'RETURN'];
   
   for (let i = lines.length - 1; i >= Math.max(0, lines.length - 15); i--) {
     const line = lines[i];
     const upperLine = line.toUpperCase();
     
     // Skip lines with change, cash, card, etc. - these are NOT the total
-    if (skipKeywords.some(keyword => upperLine.includes(keyword))) {
+    if (totalSkipKeywords.some(keyword => upperLine.includes(keyword))) {
       continue;
     }
     
