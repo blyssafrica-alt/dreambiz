@@ -33,25 +33,10 @@ export default function SignInScreen() {
     setIsLoading(true);
     try {
       await signIn(email, password);
-      
-      // Check if email is verified
-      const { supabase } = await import('@/lib/supabase');
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user && !session.user.email_confirmed_at) {
-        // Email not verified - redirect to verification screen
-        router.replace('/verify-email' as any);
-      } else {
-        // Email verified - let _layout.tsx handle navigation based on auth state
-        // This ensures proper routing based on isAuthenticated and hasOnboarded
-      }
+      // Don't manually redirect - let _layout.tsx handle navigation based on auth state
+      // This ensures proper routing based on isAuthenticated and hasOnboarded
     } catch (error: any) {
-      // Check if error is about email not confirmed
-      if (error?.message?.includes('email') && error?.message?.includes('confirm')) {
-        router.replace('/verify-email' as any);
-      } else {
-        RNAlert.alert('Error', error?.message || 'Invalid email or password');
-      }
+      RNAlert.alert('Error', error?.message || 'Invalid email or password');
     } finally {
       setIsLoading(false);
     }
