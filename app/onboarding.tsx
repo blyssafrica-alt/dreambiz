@@ -95,7 +95,7 @@ export default function OnboardingScreen() {
       }
       
       // Wait a moment to ensure session is established (especially after signup)
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
       
       await saveBusiness(business);
       router.replace('/(tabs)');
