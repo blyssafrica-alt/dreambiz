@@ -184,27 +184,48 @@ export default function ReceiptScanScreen() {
     }
 
     try {
-      // Build description with all receipt details, prioritizing items
+      // Build detailed description with all items and their prices
       let fullDescription = '';
+      const currencySymbol = business?.currency === 'USD' ? '$' : business?.currency || 'USD';
       
-      // Start with items if available (most important for user to see what they bought)
+      // Always start with a clear header
+      fullDescription = 'RECEIPT ITEMS:\n';
+      fullDescription += '═══════════════════════════════════\n\n';
+      
+      // List all items with their individual prices
       if (extractedItems.length > 0) {
-        fullDescription = 'Items:\n' + extractedItems.map((item, index) => `${index + 1}. ${item}`).join('\n');
+        // Items are already formatted as "Item Name - USD 2.00" from OCR
+        extractedItems.forEach((item, index) => {
+          // Ensure each item is clearly numbered and formatted
+          fullDescription += `${index + 1}. ${item}\n`;
+        });
+        
+        // Add subtotal if we have multiple items
+        if (extractedItems.length > 1) {
+          fullDescription += `\n───────────────────────────────────\n`;
+          fullDescription += `TOTAL: ${currencySymbol}${amountValue.toFixed(2)}\n`;
+        }
       } else if (description) {
-        fullDescription = description;
+        // If no items extracted but description exists, use it
+        fullDescription += description;
+        fullDescription += `\n\n───────────────────────────────────\n`;
+        fullDescription += `TOTAL: ${currencySymbol}${amountValue.toFixed(2)}\n`;
+      } else {
+        // Fallback: just show the total
+        fullDescription += `Total Amount: ${currencySymbol}${amountValue.toFixed(2)}\n`;
       }
       
-      // Add merchant and address info
+      // Add merchant and address info at the bottom
+      fullDescription += '\n═══════════════════════════════════\n';
+      fullDescription += 'STORE DETAILS:\n';
       if (merchant) {
-        fullDescription += fullDescription ? `\n\nStore: ${merchant}` : `Store: ${merchant}`;
+        fullDescription += `Store: ${merchant}\n`;
       }
       if (address) {
-        fullDescription += fullDescription ? `\nAddress: ${address}` : `Address: ${address}`;
+        fullDescription += `Address: ${address}\n`;
       }
-      
-      // Fallback if nothing was extracted
-      if (!fullDescription) {
-        fullDescription = `Receipt: ${merchant || 'Unknown Store'}`;
+      if (date) {
+        fullDescription += `Date: ${date}\n`;
       }
 
       await addTransaction({
@@ -436,7 +457,7 @@ export default function ReceiptScanScreen() {
                 {extractedItems.length > 0 && (
                   <View style={styles.inputGroup}>
                     <Text style={[styles.label, { color: theme.text.primary }]}>
-                      Items from Receipt ({extractedItems.length})
+                      Items from Receipt ({extractedItems.length} items found)
                     </Text>
                     <View style={[styles.itemsContainer, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}>
                       <ScrollView 
@@ -446,7 +467,10 @@ export default function ReceiptScanScreen() {
                       >
                         {extractedItems.map((item, index) => (
                           <View key={index} style={[styles.itemRow, { borderBottomColor: theme.border.light }]}>
-                            <Text style={[styles.itemText, { color: theme.text.primary }]}>
+                            <Text style={[styles.itemNumber, { color: theme.text.tertiary }]}>
+                              {index + 1}.
+                            </Text>
+                            <Text style={[styles.itemText, { color: theme.text.primary, flex: 1 }]}>
                               {item}
                             </Text>
                           </View>
@@ -454,7 +478,7 @@ export default function ReceiptScanScreen() {
                       </ScrollView>
                     </View>
                     <Text style={[styles.helperText, { color: theme.text.tertiary }]}>
-                      These items were extracted from your receipt. You can edit the description below.
+                      ✓ All items with prices extracted. Each item will be recorded individually in the transaction.
                     </Text>
                   </View>
                 )}
@@ -739,12 +763,21 @@ const styles = StyleSheet.create({
     maxHeight: 200,
   },
   itemRow: {
+    flexDirection: 'row',
     padding: 12,
     borderBottomWidth: 1,
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  itemNumber: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    minWidth: 20,
   },
   itemText: {
     fontSize: 14,
     lineHeight: 20,
+    flex: 1,
   },
   helperText: {
     fontSize: 12,

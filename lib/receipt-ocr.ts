@@ -590,7 +590,11 @@ export function parseReceiptText(text: string, businessCurrency: string = 'USD')
     /^(.+?)\s+(\d+)\s+([\d,]+\.\d{2})\s*$/,  // Quantity and price: "ITEM 2 10.00"
     /^(.+?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s*$/,  // Price and total: "ITEM 5.00 10.00"
     /(.+?)\s*-\s*USD\s*([\d,]+\.\d{2})/i,  // Format: "ITEM - USD 4.20"
-    /(.+?)\s*-\s*([\d,]+\.\d{2})/i,  // Format: "ITEM - 4.20"
+    /(.+?)\s*-\s*ZWL\s*([\d,]+\.\d{2})/i,  // Format: "ITEM - ZWL 4.20"
+    /(.+?)\s*-\s*\$?\s*([\d,]+\.\d{2})/i,  // Format: "ITEM - $4.20" or "ITEM - 4.20"
+    /^(.+?)\s+\$\s*([\d,]+\.\d{2})\s*$/,  // Format: "ITEM $4.20"
+    /^(.+?)\s+([\d,]+\.\d{2})\s*USD/i,  // Format: "ITEM 4.20 USD"
+    /^(.+?)\s+([\d,]+\.\d{2})\s*ZWL/i,  // Format: "ITEM 4.20 ZWL"
   ];
   
   receiptData.items = [];
@@ -683,8 +687,16 @@ export function parseReceiptText(text: string, businessCurrency: string = 'USD')
           // Price and total: "ITEM 5.00 10.00"
           itemName = match[1].trim();
           itemPrice = match[3].replace(/,/g, ''); // Use the last price as total
-        } else if (pattern === itemPatterns[4] || pattern === itemPatterns[5]) {
-          // Format: "ITEM - USD 4.20" or "ITEM - 4.20"
+        } else if (pattern === itemPatterns[4] || pattern === itemPatterns[5] || pattern === itemPatterns[6]) {
+          // Format: "ITEM - USD 4.20", "ITEM - ZWL 4.20", or "ITEM - $4.20" or "ITEM - 4.20"
+          itemName = match[1].trim();
+          itemPrice = match[2].replace(/,/g, '');
+        } else if (pattern === itemPatterns[7]) {
+          // Format: "ITEM $4.20"
+          itemName = match[1].trim();
+          itemPrice = match[2].replace(/,/g, '');
+        } else if (pattern === itemPatterns[8] || pattern === itemPatterns[9]) {
+          // Format: "ITEM 4.20 USD" or "ITEM 4.20 ZWL"
           itemName = match[1].trim();
           itemPrice = match[2].replace(/,/g, '');
         }
@@ -712,14 +724,32 @@ export function parseReceiptText(text: string, businessCurrency: string = 'USD')
     
     // If no pattern matched but line looks like an item (has text and number)
     if (!matched && /[a-zA-Z]/.test(line) && /[\d,]+\.?\d*/.test(line)) {
-      // Try to extract any price-like number at the end
-      const priceMatch = line.match(/([\d,]+\.\d{2})$/);
-      if (priceMatch) {
-        const price = parseFloat(priceMatch[1].replace(/,/g, ''));
-        if (price > 0 && price < 100000 && price !== receiptData.amount) {
-          const itemName = line.replace(priceMatch[0], '').trim();
-          if (itemName.length > 2) {
-            receiptData.items.push(`${itemName} - ${businessCurrency} ${price.toFixed(2)}`);
+      // Try multiple patterns to extract price
+      const pricePatterns = [
+        /([\d,]+\.\d{2})\s*$/,  // Price at end: "ITEM 4.20"
+        /\$\s*([\d,]+\.\d{2})\s*$/,  // Dollar sign: "ITEM $4.20"
+        /([\d,]+\.\d{2})\s*USD/i,  // With USD: "ITEM 4.20 USD"
+        /([\d,]+\.\d{2})\s*ZWL/i,  // With ZWL: "ITEM 4.20 ZWL"
+        /-\s*\$?\s*([\d,]+\.\d{2})/i,  // Dash format: "ITEM - 4.20"
+      ];
+      
+      for (const pricePattern of pricePatterns) {
+        const priceMatch = line.match(pricePattern);
+        if (priceMatch) {
+          const price = parseFloat(priceMatch[1].replace(/,/g, ''));
+          if (price > 0 && price < 100000 && price !== receiptData.amount && price !== receiptData.subtotal) {
+            // Extract item name by removing price and currency symbols
+            let itemName = line
+              .replace(priceMatch[0], '')
+              .replace(/\s*-\s*$/i, '')
+              .replace(/\$\s*$/i, '')
+              .trim();
+            
+            if (itemName.length > 2) {
+              receiptData.items.push(`${itemName} - ${businessCurrency} ${price.toFixed(2)}`);
+              matched = true;
+              break;
+            }
           }
         }
       }
