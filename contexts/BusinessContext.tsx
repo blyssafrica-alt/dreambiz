@@ -670,11 +670,28 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         }
         
         const errorCode = (insertError as any)?.code || '';
+        const errorDetails = (insertError as any)?.details || '';
+        const errorHint = (insertError as any)?.hint || '';
         
         console.error('❌ Failed to create business profile:');
         console.error('  - Error code:', errorCode || '(none)');
         console.error('  - Error message:', errorMessage);
+        console.error('  - Error details:', errorDetails || '(none)');
+        console.error('  - Error hint:', errorHint || '(none)');
         console.error('  - Full error object:', insertError);
+        
+        // Handle "query returned more than one row" error (P0003)
+        if (errorCode === 'P0003' || errorMessage.includes('query returned more than one row')) {
+          throw new Error(
+            'Database error: Multiple rows detected. Please run this SQL script in Supabase SQL Editor:\n\n' +
+            '1. Go to Supabase Dashboard > SQL Editor\n' +
+            '2. Copy and paste the contents of: database/COMPLETE_DATABASE_CLEANUP.sql\n' +
+            '3. Click "Run"\n' +
+            '4. Wait for "Database cleanup complete!" message\n' +
+            '5. Refresh this app and try again\n\n' +
+            'This will remove all triggers and functions causing this error.'
+          );
+        }
         
         // Handle specific error cases
         if (errorCode === '23505' || errorMessage.includes('unique constraint') || errorMessage.includes('duplicate')) {
