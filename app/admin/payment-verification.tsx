@@ -1,5 +1,5 @@
 import { Stack, router } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,26 +19,83 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import type { Payment } from '@/types/payments';
 
+interface SubscriptionPayment {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  plan_name?: string;
+  amount: number;
+  currency: string;
+  payment_method: string;
+  payment_date: string;
+  reference?: string;
+  notes?: string;
+  proof_of_payment_url?: string;
+  verification_status: 'pending' | 'approved' | 'rejected';
+  verified_by?: string;
+  verified_at?: string;
+  verification_notes?: string;
+  created_at: string;
+}
+
 export default function PaymentVerificationScreen() {
   const { theme } = useTheme();
   const { user, isSuperAdmin } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [subscriptionPayments, setSubscriptionPayments] = useState<SubscriptionPayment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [selectedSubPayment, setSelectedSubPayment] = useState<SubscriptionPayment | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [verificationNotes, setVerificationNotes] = useState('');
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
+  const [viewMode, setViewMode] = useState<'documents' | 'subscriptions'>('documents');
 
-  useEffect(() => {
-    if (!isSuperAdmin) {
-      Alert.alert('Access Denied', 'Only super admins can access this page');
-      router.back();
-      return;
+  const loadSubscriptionPayments = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      let query = supabase
+        .from('subscription_payments')
+        .select('*, subscription_plans(name)')
+        .order('created_at', { ascending: false });
+
+      if (filter !== 'all') {
+        query = query.eq('verification_status', filter);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      if (data) {
+        setSubscriptionPayments(data.map((row: any) => ({
+          id: row.id,
+          user_id: row.user_id,
+          plan_id: row.plan_id,
+          plan_name: row.subscription_plans?.name || 'Unknown Plan',
+          amount: Number(row.amount),
+          currency: row.currency,
+          payment_method: row.payment_method,
+          payment_date: row.payment_date,
+          reference: row.reference || undefined,
+          notes: row.notes || undefined,
+          proof_of_payment_url: row.proof_of_payment_url || undefined,
+          verification_status: row.verification_status || 'pending',
+          verified_by: row.verified_by || undefined,
+          verified_at: row.verified_at || undefined,
+          verification_notes: row.verification_notes || undefined,
+          created_at: row.created_at,
+        })));
+      }
+    } catch (error: any) {
+      console.error('Failed to load subscription payments:', error);
+      Alert.alert('Error', 'Failed to load subscription payments');
+    } finally {
+      setIsLoading(false);
     }
-    loadPayments();
-  }, [filter, isSuperAdmin]);
+  }, [filter]);
 
-  const loadPayments = async () => {
+  const loadPayments = useCallback(async () => {
     try {
       setIsLoading(true);
       let query = supabase
@@ -78,6 +135,86 @@ export default function PaymentVerificationScreen() {
     } finally {
       setIsLoading(false);
     }
+  }, [filter]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      Alert.alert('Access Denied', 'Only super admins can access this page');
+      router.back();
+      return;
+    }
+    if (viewMode === 'documents') {
+      loadPayments();
+    } else {
+      loadSubscriptionPayments();
+    }
+  }, [filter, isSuperAdmin, viewMode, loadPayments, loadSubscriptionPayments]);
+
+  const handleVerifySubscription = async (payment: SubscriptionPayment, status: 'approved' | 'rejected') => {
+    if (!user) return;
+
+    try {
+      const { error: updateError } = await supabase
+        .from('subscription_payments')
+        .update({
+          verification_status: status,
+          verified_by: user.id,
+          verified_at: new Date().toISOString(),
+          verification_notes: verificationNotes || null,
+        })
+        .eq('id', payment.id);
+
+      if (updateError) throw updateError;
+
+      if (status === 'approved') {
+        const endDate = new Date();
+        const { data: planData } = await supabase
+          .from('subscription_plans')
+          .select('billing_period')
+          .eq('id', payment.plan_id)
+          .single();
+
+        if (planData?.billing_period === 'monthly') {
+          endDate.setMonth(endDate.getMonth() + 1);
+        } else if (planData?.billing_period === 'yearly') {
+          endDate.setFullYear(endDate.getFullYear() + 1);
+        } else if (planData?.billing_period === 'lifetime') {
+          endDate.setFullYear(endDate.getFullYear() + 100);
+        }
+
+        const { data: subscriptionData, error: subError } = await supabase
+          .from('user_subscriptions')
+          .insert({
+            user_id: payment.user_id,
+            plan_id: payment.plan_id,
+            status: 'active',
+            start_date: new Date().toISOString(),
+            end_date: planData?.billing_period === 'lifetime' ? null : endDate.toISOString(),
+            auto_renew: false,
+            price_paid: payment.amount,
+            payment_method: payment.payment_method,
+            payment_status: 'completed',
+          })
+          .select()
+          .single();
+
+        if (subError) throw subError;
+
+        await supabase
+          .from('subscription_payments')
+          .update({ subscription_id: subscriptionData.id })
+          .eq('id', payment.id);
+      }
+
+      setShowModal(false);
+      setSelectedSubPayment(null);
+      setVerificationNotes('');
+      await loadSubscriptionPayments();
+      Alert.alert('Success', `Subscription payment ${status === 'approved' ? 'approved and subscription activated' : 'rejected'} successfully`);
+    } catch (error: any) {
+      console.error('Failed to verify subscription payment:', error);
+      Alert.alert('Error', error.message || 'Failed to verify subscription payment');
+    }
   };
 
   const handleVerify = async (payment: Payment, status: 'approved' | 'rejected') => {
@@ -96,7 +233,6 @@ export default function PaymentVerificationScreen() {
 
       if (error) throw error;
 
-      // If approved, update document status
       if (status === 'approved') {
         const { data: document } = await supabase
           .from('documents')
@@ -138,7 +274,15 @@ export default function PaymentVerificationScreen() {
 
   const openPaymentModal = (payment: Payment) => {
     setSelectedPayment(payment);
+    setSelectedSubPayment(null);
     setVerificationNotes(payment.verificationNotes || '');
+    setShowModal(true);
+  };
+
+  const openSubPaymentModal = (payment: SubscriptionPayment) => {
+    setSelectedSubPayment(payment);
+    setSelectedPayment(null);
+    setVerificationNotes(payment.verification_notes || '');
     setShowModal(true);
   };
 
@@ -169,6 +313,11 @@ export default function PaymentVerificationScreen() {
     return p.verificationStatus === filter;
   });
 
+  const filteredSubPayments = subscriptionPayments.filter(p => {
+    if (filter === 'all') return true;
+    return p.verification_status === filter;
+  });
+
   if (!isSuperAdmin) {
     return null;
   }
@@ -183,6 +332,46 @@ export default function PaymentVerificationScreen() {
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Payment Verification</Text>
         <View style={{ width: 24 }} />
+      </View>
+
+      {/* View Mode Toggle */}
+      <View style={[styles.viewModeContainer, { backgroundColor: theme.background.card }]}>
+        <TouchableOpacity
+          style={[
+            styles.viewModeTab,
+            {
+              backgroundColor: viewMode === 'documents' ? theme.accent.primary : theme.background.secondary,
+            },
+          ]}
+          onPress={() => setViewMode('documents')}
+        >
+          <Text
+            style={[
+              styles.viewModeTabText,
+              { color: viewMode === 'documents' ? '#FFF' : theme.text.primary },
+            ]}
+          >
+            Document Payments
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.viewModeTab,
+            {
+              backgroundColor: viewMode === 'subscriptions' ? theme.accent.primary : theme.background.secondary,
+            },
+          ]}
+          onPress={() => setViewMode('subscriptions')}
+        >
+          <Text
+            style={[
+              styles.viewModeTabText,
+              { color: viewMode === 'subscriptions' ? '#FFF' : theme.text.primary },
+            ]}
+          >
+            Subscription Payments
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Filter Tabs */}
@@ -208,7 +397,9 @@ export default function PaymentVerificationScreen() {
             {filterOption !== 'all' && (
               <View style={[styles.badge, { backgroundColor: filter === filterOption ? '#FFF' : theme.accent.primary }]}>
                 <Text style={[styles.badgeText, { color: filter === filterOption ? theme.accent.primary : '#FFF' }]}>
-                  {payments.filter(p => p.verificationStatus === filterOption).length}
+                  {viewMode === 'documents'
+                    ? payments.filter(p => p.verificationStatus === filterOption).length
+                    : subscriptionPayments.filter(p => p.verification_status === filterOption).length}
                 </Text>
               </View>
             )}
@@ -220,16 +411,23 @@ export default function PaymentVerificationScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.accent.primary} />
         </View>
-      ) : filteredPayments.length === 0 ? (
+      ) : viewMode === 'documents' && filteredPayments.length === 0 ? (
         <View style={styles.emptyState}>
           <Clock size={64} color={theme.text.tertiary} />
           <Text style={[styles.emptyText, { color: theme.text.secondary }]}>
             No {filter === 'all' ? '' : filter} payments found
           </Text>
         </View>
+      ) : viewMode === 'subscriptions' && filteredSubPayments.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Clock size={64} color={theme.text.tertiary} />
+          <Text style={[styles.emptyText, { color: theme.text.secondary }]}>
+            No {filter === 'all' ? '' : filter} subscription payments found
+          </Text>
+        </View>
       ) : (
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-          {filteredPayments.map((payment) => {
+          {viewMode === 'documents' ? filteredPayments.map((payment) => {
             const StatusIcon = getStatusIcon(payment.verificationStatus);
             const statusColor = getStatusColor(payment.verificationStatus);
 
@@ -270,6 +468,50 @@ export default function PaymentVerificationScreen() {
                 )}
               </TouchableOpacity>
             );
+          }) : filteredSubPayments.map((payment) => {
+            const StatusIcon = getStatusIcon(payment.verification_status);
+            const statusColor = getStatusColor(payment.verification_status);
+
+            return (
+              <TouchableOpacity
+                key={payment.id}
+                style={[styles.paymentCard, { backgroundColor: theme.background.card }]}
+                onPress={() => openSubPaymentModal(payment)}
+              >
+                <View style={styles.paymentHeader}>
+                  <View style={styles.paymentInfo}>
+                    <Text style={[styles.paymentAmount, { color: theme.text.primary }]}>
+                      {payment.currency} {payment.amount.toFixed(2)}
+                    </Text>
+                    <Text style={[styles.paymentMethod, { color: theme.accent.primary }]}>
+                      {payment.plan_name}
+                    </Text>
+                    <Text style={[styles.paymentMethod, { color: theme.text.secondary }]}>
+                      {payment.payment_method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </Text>
+                    <Text style={[styles.paymentDate, { color: theme.text.tertiary }]}>
+                      {new Date(payment.payment_date).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
+                    <StatusIcon size={20} color={statusColor} />
+                  </View>
+                </View>
+                {payment.reference && (
+                  <Text style={[styles.paymentReference, { color: theme.text.secondary }]}>
+                    Ref: {payment.reference}
+                  </Text>
+                )}
+                {payment.proof_of_payment_url && (
+                  <View style={styles.proofIndicator}>
+                    <Eye size={16} color={theme.accent.primary} />
+                    <Text style={[styles.proofText, { color: theme.accent.primary }]}>
+                      Proof attached
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
           })}
         </ScrollView>
       )}
@@ -283,7 +525,100 @@ export default function PaymentVerificationScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
-            {selectedPayment && (
+            {selectedSubPayment ? (
+              <>
+                <View style={styles.modalHeader}>
+                  <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Subscription Payment Details</Text>
+                  <TouchableOpacity onPress={() => setShowModal(false)}>
+                    <X size={24} color={theme.text.tertiary} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView style={styles.modalBody}>
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>Plan</Text>
+                    <Text style={[styles.detailValue, { color: theme.text.primary }]}>
+                      {selectedSubPayment.plan_name}
+                    </Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>Amount</Text>
+                    <Text style={[styles.detailValue, { color: theme.text.primary }]}>
+                      {selectedSubPayment.currency} {selectedSubPayment.amount.toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>Method</Text>
+                    <Text style={[styles.detailValue, { color: theme.text.primary }]}>
+                      {selectedSubPayment.payment_method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>Date</Text>
+                    <Text style={[styles.detailValue, { color: theme.text.primary }]}>
+                      {new Date(selectedSubPayment.payment_date).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  {selectedSubPayment.reference && (
+                    <View style={styles.detailRow}>
+                      <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>Reference</Text>
+                      <Text style={[styles.detailValue, { color: theme.text.primary }]}>
+                        {selectedSubPayment.reference}
+                      </Text>
+                    </View>
+                  )}
+                  {selectedSubPayment.notes && (
+                    <View style={styles.detailRow}>
+                      <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>Notes</Text>
+                      <Text style={[styles.detailValue, { color: theme.text.primary }]}>
+                        {selectedSubPayment.notes}
+                      </Text>
+                    </View>
+                  )}
+
+                  {selectedSubPayment.proof_of_payment_url && (
+                    <View style={styles.proofSection}>
+                      <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Proof of Payment</Text>
+                      <Image
+                        source={{ uri: selectedSubPayment.proof_of_payment_url }}
+                        style={styles.proofImage}
+                        resizeMode="contain"
+                      />
+                    </View>
+                  )}
+
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.label, { color: theme.text.primary }]}>Verification Notes</Text>
+                    <TextInput
+                      style={[styles.input, styles.textArea, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                      value={verificationNotes}
+                      onChangeText={setVerificationNotes}
+                      placeholder="Add notes about verification..."
+                      placeholderTextColor={theme.text.tertiary}
+                      multiline
+                      numberOfLines={3}
+                    />
+                  </View>
+                </ScrollView>
+
+                <View style={styles.modalFooter}>
+                  <TouchableOpacity
+                    style={[styles.rejectButton, { backgroundColor: '#EF4444' }]}
+                    onPress={() => handleVerifySubscription(selectedSubPayment, 'rejected')}
+                  >
+                    <X size={20} color="#FFF" />
+                    <Text style={styles.buttonText}>Reject</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.approveButton, { backgroundColor: '#10B981' }]}
+                    onPress={() => handleVerifySubscription(selectedSubPayment, 'approved')}
+                  >
+                    <Check size={20} color="#FFF" />
+                    <Text style={styles.buttonText}>Approve & Activate</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : selectedPayment && (
               <>
                 <View style={styles.modalHeader}>
                   <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Payment Details</Text>
@@ -395,9 +730,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
   },
+  viewModeContainer: {
+    flexDirection: 'row',
+    padding: 16,
+    paddingTop: 8,
+    gap: 8,
+  },
+  viewModeTab: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  viewModeTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
   filterContainer: {
     flexDirection: 'row',
     padding: 16,
+    paddingTop: 8,
     gap: 8,
   },
   filterTab: {
@@ -602,4 +954,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-
