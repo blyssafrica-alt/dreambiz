@@ -30,6 +30,8 @@ export default function AdminDashboard() {
       setIsLoading(true);
 
       // Load all stats in parallel
+      // Note: For users count, we need to check if user is super admin
+      // If not super admin, the RLS policy will only return their own profile
       const [usersResult, businessesResult, productsResult, adsResult, purchasesResult] = await Promise.all([
         supabase.from('users').select('id', { count: 'exact' }),
         supabase.from('business_profiles').select('id', { count: 'exact' }),
@@ -37,6 +39,13 @@ export default function AdminDashboard() {
         supabase.from('advertisements').select('id', { count: 'exact' }),
         supabase.from('product_purchases').select('total_price, payment_status'),
       ]);
+      
+      // Log the users result for debugging
+      if (usersResult.error) {
+        console.error('Error loading users count:', usersResult.error);
+      } else {
+        console.log('Users count result:', usersResult.count, 'users found');
+      }
 
       const totalUsers = usersResult.count || 0;
       const totalBusinesses = businessesResult.count || 0;
