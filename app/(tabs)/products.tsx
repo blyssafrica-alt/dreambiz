@@ -461,13 +461,14 @@ export default function ProductsScreen() {
             )}
           </View>
         ) : (
-          filteredProducts.map((product, index) => {
-            const profitMargin = calculateProfitMargin(product.costPrice, product.sellingPrice);
-            const isLowStock = product.quantity <= lowStockThreshold && product.isActive;
-            const isOutOfStock = product.quantity === 0 && product.isActive;
-            
-            return (
-              <React.Fragment key={product.id}>
+          <>
+            {filteredProducts.map((product, index) => {
+              const profitMargin = calculateProfitMargin(product.costPrice, product.sellingPrice);
+              const isLowStock = product.quantity <= lowStockThreshold && product.isActive;
+              const isOutOfStock = product.quantity === 0 && product.isActive;
+              
+              return (
+                <React.Fragment key={product.id}>
                 <View
                   style={[
                     styles.productCard,
@@ -563,17 +564,18 @@ export default function ProductsScreen() {
                   location="products" 
                 />
               )}
-            </React.Fragment>
-            );
-          })}
-          {/* Show ad at the end if there are products */}
-          {productsAds.length > 0 && filteredProducts.length > 0 && (
-            <AdCard 
-              key="ad-end" 
-              ad={productsAds[0]} 
-              location="products" 
-            />
-          )}
+                </React.Fragment>
+              );
+            })}
+            {/* Show ad at the end if there are products */}
+            {productsAds.length > 0 && filteredProducts.length > 0 && (
+              <AdCard 
+                key="ad-end" 
+                ad={productsAds[0]} 
+                location="products" 
+              />
+            )}
+          </>
         )}
         </ScrollView>
         </Animated.View>
