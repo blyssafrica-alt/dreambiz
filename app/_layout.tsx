@@ -16,6 +16,7 @@ import { FeatureContextProvider } from "@/contexts/FeatureContext";
 import { ProductContextProvider } from "@/contexts/ProductContext";
 import { AdContextProvider } from "@/contexts/AdContext";
 import { PremiumContextProvider } from "@/contexts/PremiumContext";
+import { SettingsContext } from "@/contexts/SettingsContext";
 import { StatusBar } from 'react-native';
 import { supabase } from '@/lib/supabase';
 
@@ -179,17 +180,19 @@ export default function RootLayout() {
         <ThemeContext>
           <ProviderContext>
             <AuthContext>
-              <BusinessContext>
-                <PremiumContextProvider>
-                  <FeatureContextProvider>
-                    <ProductContextProvider>
-                      <AdContextProvider>
-                        <RootLayoutNav />
-                      </AdContextProvider>
-                    </ProductContextProvider>
-                  </FeatureContextProvider>
-                </PremiumContextProvider>
-              </BusinessContext>
+              <SettingsContext>
+                <BusinessContext>
+                  <PremiumContextProvider>
+                    <FeatureContextProvider>
+                      <ProductContextProvider>
+                        <AdContextProvider>
+                          <RootLayoutNav />
+                        </AdContextProvider>
+                      </ProductContextProvider>
+                    </FeatureContextProvider>
+                  </PremiumContextProvider>
+                </BusinessContext>
+              </SettingsContext>
             </AuthContext>
           </ProviderContext>
         </ThemeContext>

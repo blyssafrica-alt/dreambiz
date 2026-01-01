@@ -50,7 +50,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
   // Get user ID - use authUser.id if available (even if profile not loaded yet)
   const userId = authUser?.id || user?.id;
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (businessIdOverride?: string) => {
     if (!userId) {
       setIsLoading(false);
       return;
@@ -58,44 +58,68 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
 
     try {
       setIsLoading(true);
+      
+      // Get current business ID - use override if provided, otherwise use existing business state
+      const currentBusinessId = businessIdOverride || business?.id;
+      
+      // Build queries - filter by business_id if business is selected
+      const buildQuery = (table: string, orderBy: string, orderDir: 'asc' | 'desc' = 'desc', selectFields?: string) => {
+        let query = supabase.from(table);
+        if (selectFields) {
+          query = query.select(selectFields);
+        } else {
+          query = query.select('*');
+        }
+        query = query.eq('user_id', userId);
+        if (currentBusinessId) {
+          query = query.eq('business_id', currentBusinessId);
+        }
+        return query.order(orderBy, { ascending: orderDir === 'asc' });
+      };
+      
       const [businessRes, transactionsRes, documentsRes, productsRes, customersRes, suppliersRes, budgetsRes, cashflowRes, taxRatesRes, employeesRes, projectsRes, projectTasksRes, recurringInvoicesRes, paymentsRes, exchangeRateRes] = await Promise.all([
         supabase.from('business_profiles').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('transactions').select('*').eq('user_id', userId).order('date', { ascending: false }),
-        supabase.from('documents').select('*').eq('user_id', userId).order('date', { ascending: false }),
-        supabase.from('products').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('customers').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('suppliers').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('budgets').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('cashflow_projections').select('*').eq('user_id', userId).order('month', { ascending: true }),
-        supabase.from('tax_rates').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('employees').select('*, auth_user_id, role_id, can_login').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('projects').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('project_tasks').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('recurring_invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('payments').select('*').eq('user_id', userId).order('payment_date', { ascending: false }),
-        supabase.from('exchange_rates').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).single(),
+        buildQuery('transactions', 'date', 'desc'),
+        buildQuery('documents', 'date', 'desc'),
+        buildQuery('products', 'created_at', 'desc'),
+        buildQuery('customers', 'created_at', 'desc'),
+        buildQuery('suppliers', 'created_at', 'desc'),
+        buildQuery('budgets', 'created_at', 'desc'),
+        buildQuery('cashflow_projections', 'month', 'asc'),
+        buildQuery('tax_rates', 'created_at', 'desc'),
+        buildQuery('employees', 'created_at', 'desc', '*, auth_user_id, role_id, can_login'),
+        buildQuery('projects', 'created_at', 'desc'),
+        buildQuery('project_tasks', 'created_at', 'desc'),
+        buildQuery('recurring_invoices', 'created_at', 'desc'),
+        buildQuery('payments', 'payment_date', 'desc'),
+        currentBusinessId 
+          ? supabase.from('exchange_rates').select('*').eq('user_id', userId).eq('business_id', currentBusinessId).order('created_at', { ascending: false }).limit(1).single()
+          : supabase.from('exchange_rates').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).single(),
       ]);
 
-      // Handle multiple businesses per user - use the most recent one
+      // Handle multiple businesses per user - use the most recent one if no business is currently selected
       if (businessRes.data && businessRes.data.length > 0) {
-        // Get the most recent business (already ordered by created_at DESC)
-        const mostRecentBusiness = businessRes.data[0];
-        setBusiness({
-          id: mostRecentBusiness.id,
-          name: mostRecentBusiness.name,
-          type: mostRecentBusiness.type as any,
-          stage: mostRecentBusiness.stage as any,
-          location: mostRecentBusiness.location,
-          capital: Number(mostRecentBusiness.capital),
-          currency: mostRecentBusiness.currency as any,
-          owner: mostRecentBusiness.owner,
-          phone: mostRecentBusiness.phone || undefined,
-          email: mostRecentBusiness.email || undefined,
-          address: mostRecentBusiness.address || undefined,
-          dreamBigBook: mostRecentBusiness.dream_big_book as any,
-          logo: mostRecentBusiness.logo || undefined,
-          createdAt: mostRecentBusiness.created_at,
-        });
+        // Only set business if we don't have one already (to preserve the selected business when switching)
+        if (!currentBusinessId) {
+          // Get the most recent business (already ordered by created_at DESC)
+          const mostRecentBusiness = businessRes.data[0];
+          setBusiness({
+            id: mostRecentBusiness.id,
+            name: mostRecentBusiness.name,
+            type: mostRecentBusiness.type as any,
+            stage: mostRecentBusiness.stage as any,
+            location: mostRecentBusiness.location,
+            capital: Number(mostRecentBusiness.capital),
+            currency: mostRecentBusiness.currency as any,
+            owner: mostRecentBusiness.owner,
+            phone: mostRecentBusiness.phone || undefined,
+            email: mostRecentBusiness.email || undefined,
+            address: mostRecentBusiness.address || undefined,
+            dreamBigBook: mostRecentBusiness.dream_big_book as any,
+            logo: mostRecentBusiness.logo || undefined,
+            createdAt: mostRecentBusiness.created_at,
+          });
+        }
         setHasOnboarded(true);
       }
 
@@ -326,7 +350,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     } finally {
       setIsLoading(false);
     }
-  }, [userId]);
+  }, [userId, business?.id]);
 
   useEffect(() => {
     if (userId) {
@@ -2360,8 +2384,8 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
 
       setBusiness(selectedBusiness);
       
-      // Reload all data for the new business
-      await loadData();
+      // Reload all data for the new business - pass the businessId directly
+      await loadData(businessId);
     } catch (error) {
       console.error('Failed to switch business:', error);
       throw error;

@@ -54,6 +54,9 @@ export default function PaymentVerificationScreen() {
   const loadSubscriptionPayments = useCallback(async () => {
     try {
       setIsLoading(true);
+      console.log('Loading subscription payments with filter:', filter);
+      console.log('Current user:', user?.id, 'isSuperAdmin:', isSuperAdmin);
+      
       let query = supabase
         .from('subscription_payments')
         .select('*, subscription_plans(name)')
@@ -65,10 +68,21 @@ export default function PaymentVerificationScreen() {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('Subscription payments query error:', error);
+        console.error('Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+        });
+        throw error;
+      }
+
+      console.log('Subscription payments loaded:', data?.length || 0, 'payments');
 
       if (data) {
-        setSubscriptionPayments(data.map((row: any) => ({
+        const mappedPayments = data.map((row: any) => ({
           id: row.id,
           user_id: row.user_id,
           plan_id: row.plan_id,
@@ -85,11 +99,20 @@ export default function PaymentVerificationScreen() {
           verified_at: row.verified_at || undefined,
           verification_notes: row.verification_notes || undefined,
           created_at: row.created_at,
-        })));
+        }));
+        
+        console.log('Mapped subscription payments:', mappedPayments.length);
+        setSubscriptionPayments(mappedPayments);
+      } else {
+        console.log('No subscription payments data returned');
+        setSubscriptionPayments([]);
       }
     } catch (error: any) {
       console.error('Failed to load subscription payments:', error);
-      Alert.alert('Error', 'Failed to load subscription payments');
+      const errorMessage = error?.message || 'Failed to load subscription payments';
+      const errorDetails = error?.code ? ` (Code: ${error.code})` : '';
+      Alert.alert('Error', `${errorMessage}${errorDetails}\n\nPlease check:\n1. RLS policies are set correctly\n2. is_super_admin() function exists\n3. You have super admin access`);
+      setSubscriptionPayments([]);
     } finally {
       setIsLoading(false);
     }
@@ -143,12 +166,23 @@ export default function PaymentVerificationScreen() {
       router.back();
       return;
     }
+    
+    // Load both types of payments when component mounts or filter changes
+    // This ensures data is available when switching tabs
+    loadPayments();
+    loadSubscriptionPayments();
+  }, [filter, isSuperAdmin, loadPayments, loadSubscriptionPayments]);
+
+  // Reload when viewMode changes
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    
     if (viewMode === 'documents') {
       loadPayments();
     } else {
       loadSubscriptionPayments();
     }
-  }, [filter, isSuperAdmin, viewMode, loadPayments, loadSubscriptionPayments]);
+  }, [viewMode, isSuperAdmin, loadPayments, loadSubscriptionPayments]);
 
   const handleVerifySubscription = async (payment: SubscriptionPayment, status: 'approved' | 'rejected') => {
     if (!user) return;

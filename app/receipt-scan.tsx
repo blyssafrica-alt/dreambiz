@@ -33,6 +33,7 @@ export default function ReceiptScanScreen() {
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [extractedItems, setExtractedItems] = useState<string[]>([]);
 
   const pickImage = async () => {
     try {
@@ -104,11 +105,17 @@ export default function ReceiptScanScreen() {
           setDate(receiptData.date);
         }
         
-        // Create description from items if available
+        // Store extracted items separately
         if (receiptData.items && Array.isArray(receiptData.items) && receiptData.items.length > 0) {
-          setDescription(receiptData.items.join('\n'));
-        } else if (receiptData.merchant) {
-          setDescription(`Receipt from ${receiptData.merchant}`);
+          setExtractedItems(receiptData.items);
+          // Create description from items
+          const itemsDescription = receiptData.items.join('\n');
+          setDescription(itemsDescription);
+        } else {
+          setExtractedItems([]);
+          if (receiptData.merchant) {
+            setDescription(`Receipt from ${receiptData.merchant}`);
+          }
         }
       }
       
@@ -177,15 +184,25 @@ export default function ReceiptScanScreen() {
     }
 
     try {
-      // Build description with all receipt details
-      let fullDescription = description || '';
+      // Build description with all receipt details, prioritizing items
+      let fullDescription = '';
+      
+      // Start with items if available (most important for user to see what they bought)
+      if (extractedItems.length > 0) {
+        fullDescription = 'Items:\n' + extractedItems.map((item, index) => `${index + 1}. ${item}`).join('\n');
+      } else if (description) {
+        fullDescription = description;
+      }
+      
+      // Add merchant and address info
       if (merchant) {
-        fullDescription = fullDescription ? `${fullDescription}\n\n` : '';
-        fullDescription += `Store: ${merchant}`;
+        fullDescription += fullDescription ? `\n\nStore: ${merchant}` : `Store: ${merchant}`;
       }
       if (address) {
         fullDescription += fullDescription ? `\nAddress: ${address}` : `Address: ${address}`;
       }
+      
+      // Fallback if nothing was extracted
       if (!fullDescription) {
         fullDescription = `Receipt: ${merchant || 'Unknown Store'}`;
       }
@@ -220,6 +237,7 @@ export default function ReceiptScanScreen() {
     setCategory('');
     setDescription('');
     setDate(new Date().toISOString().split('T')[0]);
+    setExtractedItems([]);
   };
 
   return (
@@ -414,6 +432,33 @@ export default function ReceiptScanScreen() {
                   />
                 </View>
 
+                {/* Show extracted items if available */}
+                {extractedItems.length > 0 && (
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.label, { color: theme.text.primary }]}>
+                      Items from Receipt ({extractedItems.length})
+                    </Text>
+                    <View style={[styles.itemsContainer, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}>
+                      <ScrollView 
+                        style={styles.itemsScrollView}
+                        nestedScrollEnabled={true}
+                        showsVerticalScrollIndicator={true}
+                      >
+                        {extractedItems.map((item, index) => (
+                          <View key={index} style={[styles.itemRow, { borderBottomColor: theme.border.light }]}>
+                            <Text style={[styles.itemText, { color: theme.text.primary }]}>
+                              {item}
+                            </Text>
+                          </View>
+                        ))}
+                      </ScrollView>
+                    </View>
+                    <Text style={[styles.helperText, { color: theme.text.tertiary }]}>
+                      These items were extracted from your receipt. You can edit the description below.
+                    </Text>
+                  </View>
+                )}
+
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, { color: theme.text.primary }]}>Description</Text>
                   <TextInput
@@ -422,7 +467,7 @@ export default function ReceiptScanScreen() {
                       color: theme.text.primary,
                       borderColor: theme.border.light,
                     }]}
-                    placeholder="Additional notes (optional)"
+                    placeholder={extractedItems.length > 0 ? "Items are shown above. Add additional notes here if needed." : "Additional notes (optional)"}
                     placeholderTextColor={theme.text.tertiary}
                     value={description}
                     onChangeText={setDescription}
@@ -683,5 +728,27 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '600' as const,
+  },
+  itemsContainer: {
+    borderWidth: 1,
+    borderRadius: 12,
+    maxHeight: 200,
+    marginBottom: 8,
+  },
+  itemsScrollView: {
+    maxHeight: 200,
+  },
+  itemRow: {
+    padding: 12,
+    borderBottomWidth: 1,
+  },
+  itemText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  helperText: {
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });

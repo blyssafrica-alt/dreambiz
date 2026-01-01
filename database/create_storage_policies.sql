@@ -198,11 +198,51 @@ USING (
 );
 
 -- ============================================
+-- PAYMENT_PROOFS BUCKET POLICIES
+-- ============================================
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Public Read - payment_proofs" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Upload - payment_proofs" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Update - payment_proofs" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Delete - payment_proofs" ON storage.objects;
+
+-- Allow public read access (needed for viewing payment proofs via public URLs)
+-- Note: If you want more security, you can restrict this to authenticated users only
+CREATE POLICY "Public Read - payment_proofs"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'payment_proofs');
+
+-- Allow authenticated users to upload payment proofs
+CREATE POLICY "Authenticated Upload - payment_proofs"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'payment_proofs' 
+  AND auth.role() = 'authenticated'
+);
+
+-- Allow authenticated users to update their payment proofs
+CREATE POLICY "Authenticated Update - payment_proofs"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'payment_proofs' 
+  AND auth.role() = 'authenticated'
+);
+
+-- Allow authenticated users to delete payment proofs
+CREATE POLICY "Authenticated Delete - payment_proofs"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'payment_proofs' 
+  AND auth.role() = 'authenticated'
+);
+
+-- ============================================
 -- VERIFICATION
 -- ============================================
 -- Check that policies were created:
 -- SELECT * FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects';
 
 -- Check buckets exist:
--- SELECT name, public FROM storage.buckets WHERE name IN ('book_covers', 'book-documents', 'ad_images', 'product_images', 'business_logos');
+-- SELECT name, public FROM storage.buckets WHERE name IN ('book_covers', 'book-documents', 'ad_images', 'product_images', 'business_logos', 'payment_proofs');
 

@@ -17,6 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { supabase } from '@/lib/supabase';
 import { decode } from 'base64-arraybuffer';
 import type { Currency } from '@/types/business';
@@ -41,6 +42,14 @@ export default function SettingsScreen() {
   } = useBusiness();
   const { theme, isDark, toggleTheme } = useTheme();
   const { signOut, user, isSuperAdmin } = useAuth();
+  const { 
+    settings, 
+    updateNotificationPreference, 
+    updateLanguage, 
+    updateCurrencyPreference, 
+    updateIntegrationPreference,
+    isLoading: settingsLoading 
+  } = useSettings();
   const [name, setName] = useState(business?.name || '');
   const [owner, setOwner] = useState(business?.owner || '');
   const [phone, setPhone] = useState(business?.phone || '');
@@ -51,15 +60,6 @@ export default function SettingsScreen() {
   const [currency, setCurrency] = useState<Currency>(business?.currency || 'USD');
   const [rate, setRate] = useState(exchangeRate.usdToZwl.toString());
   const [logo, setLogo] = useState<string | undefined>(business?.logo);
-  
-  // Configuration states
-  const [smsEnabled, setSmsEnabled] = useState(false);
-  const [emailEnabled, setEmailEnabled] = useState(true);
-  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [language, setLanguage] = useState('en');
-  const [currencyPreference, setCurrencyPreference] = useState<Currency>('USD');
-  const [loadingConfig, setLoadingConfig] = useState(true);
 
   useEffect(() => {
     if (business) {
@@ -75,207 +75,54 @@ export default function SettingsScreen() {
     }
   }, [business]);
 
-  // Load configuration settings
-  useEffect(() => {
-    loadConfigurations();
-  }, [user]);
-
-  const loadConfigurations = async () => {
-    try {
-      setLoadingConfig(true);
-      
-      // Load app settings
-      if (user) {
-        const { data: appSettings } = await supabase
-          .from('app_settings')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
-
-        if (appSettings) {
-          setNotificationsEnabled(appSettings.notifications_enabled ?? true);
-          setLanguage(appSettings.language || 'en');
-          setCurrencyPreference(appSettings.currency_preference || 'USD');
-        }
-      }
-
-      // Load integration configs
-      const { data: integrations } = await supabase
-        .from('integration_configs')
-        .select('id, is_active')
-        .in('id', ['sms', 'email', 'whatsapp']);
-
-      if (integrations) {
-        integrations.forEach((integration: any) => {
-          if (integration.id === 'sms') setSmsEnabled(integration.is_active || false);
-          if (integration.id === 'email') setEmailEnabled(integration.is_active !== false); // Email is default enabled
-          if (integration.id === 'whatsapp') setWhatsappEnabled(integration.is_active || false);
-        });
-      }
-    } catch (error) {
-      console.error('Error loading configurations:', error);
-    } finally {
-      setLoadingConfig(false);
-    }
-  };
-
   const handleToggleSMS = async (enabled: boolean) => {
     try {
-      // Check if SMS is configured first
-      const { data: existing } = await supabase
-        .from('integration_configs')
-        .select('id, config')
-        .eq('id', 'sms')
-        .single();
-
-      if (!existing && enabled) {
-        RNAlert.alert(
-          'Configuration Required',
-          'SMS service needs to be configured first. Please contact your administrator or visit Integrations page.',
-          [
-            { text: 'OK' },
-            { text: 'Go to Integrations', onPress: () => router.push('/(tabs)/integrations' as any) },
-          ]
-        );
-        return;
-      }
-
-      const { error } = await supabase
-        .from('integration_configs')
-        .upsert({
-          id: 'sms',
-          name: 'SMS Service (Twilio)',
-          category: 'communication',
-          is_active: enabled,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'id',
-        });
-
-      if (error) {
-        if (error.code === '42501' || error.message.includes('permission')) {
-          RNAlert.alert(
-            'Permission Required',
-            'You need administrator access to configure SMS. Please contact your administrator.',
-            [
-              { text: 'OK' },
-              { text: 'Go to Integrations', onPress: () => router.push('/(tabs)/integrations' as any) },
-            ]
-          );
-          return;
-        }
-        throw error;
-      }
-      setSmsEnabled(enabled);
+      await updateIntegrationPreference('sms', enabled);
       RNAlert.alert('Success', `SMS ${enabled ? 'enabled' : 'disabled'}`);
     } catch (error: any) {
       console.error('Error toggling SMS:', error);
-      RNAlert.alert('Error', error.message || 'Failed to update SMS settings');
+      RNAlert.alert(
+        'Error',
+        error.message || 'Failed to update SMS settings. SMS service may need to be configured by an administrator first.',
+        [
+          { text: 'OK' },
+          { text: 'Go to Integrations', onPress: () => router.push('/admin/integrations' as any) },
+        ]
+      );
     }
   };
 
   const handleToggleEmail = async (enabled: boolean) => {
     try {
-      const { error } = await supabase
-        .from('integration_configs')
-        .upsert({
-          id: 'email',
-          name: 'Email Service',
-          category: 'communication',
-          is_active: enabled,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'id',
-        });
-
-      if (error) {
-        if (error.code === '42501' || error.message.includes('permission')) {
-          // Email is always available, so just update local state
-          setEmailEnabled(enabled);
-          return;
-        }
-        throw error;
-      }
-      setEmailEnabled(enabled);
+      await updateIntegrationPreference('email', enabled);
       RNAlert.alert('Success', `Email ${enabled ? 'enabled' : 'disabled'}`);
     } catch (error: any) {
       console.error('Error toggling Email:', error);
-      // Email is default enabled, so just update local state
-      setEmailEnabled(enabled);
+      RNAlert.alert('Error', error.message || 'Failed to update email settings');
     }
   };
 
   const handleToggleWhatsApp = async (enabled: boolean) => {
     try {
-      // Check if WhatsApp is configured first
-      const { data: existing } = await supabase
-        .from('integration_configs')
-        .select('id, config')
-        .eq('id', 'whatsapp')
-        .single();
-
-      if (!existing && enabled) {
-        RNAlert.alert(
-          'Configuration Required',
-          'WhatsApp service needs to be configured first. Please contact your administrator or visit Integrations page.',
-          [
-            { text: 'OK' },
-            { text: 'Go to Integrations', onPress: () => router.push('/(tabs)/integrations' as any) },
-          ]
-        );
-        return;
-      }
-
-      const { error } = await supabase
-        .from('integration_configs')
-        .upsert({
-          id: 'whatsapp',
-          name: 'WhatsApp Business',
-          category: 'communication',
-          is_active: enabled,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'id',
-        });
-
-      if (error) {
-        if (error.code === '42501' || error.message.includes('permission')) {
-          RNAlert.alert(
-            'Permission Required',
-            'You need administrator access to configure WhatsApp. Please contact your administrator.',
-            [
-              { text: 'OK' },
-              { text: 'Go to Integrations', onPress: () => router.push('/(tabs)/integrations' as any) },
-            ]
-          );
-          return;
-        }
-        throw error;
-      }
-      setWhatsappEnabled(enabled);
+      await updateIntegrationPreference('whatsapp', enabled);
       RNAlert.alert('Success', `WhatsApp ${enabled ? 'enabled' : 'disabled'}`);
     } catch (error: any) {
       console.error('Error toggling WhatsApp:', error);
-      RNAlert.alert('Error', error.message || 'Failed to update WhatsApp settings');
+      RNAlert.alert(
+        'Error',
+        error.message || 'Failed to update WhatsApp settings. WhatsApp service may need to be configured by an administrator first.',
+        [
+          { text: 'OK' },
+          { text: 'Go to Integrations', onPress: () => router.push('/admin/integrations' as any) },
+        ]
+      );
     }
   };
 
   const handleToggleNotifications = async (enabled: boolean) => {
     try {
-      if (!user) return;
-
-      const { error } = await supabase
-        .from('app_settings')
-        .upsert({
-          user_id: user.id,
-          notifications_enabled: enabled,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id',
-        });
-
-      if (error) throw error;
-      setNotificationsEnabled(enabled);
+      await updateNotificationPreference(enabled);
+      RNAlert.alert('Success', `Push notifications ${enabled ? 'enabled' : 'disabled'}`);
     } catch (error: any) {
       RNAlert.alert('Error', error.message || 'Failed to update notification settings');
     }
@@ -283,20 +130,7 @@ export default function SettingsScreen() {
 
   const handleUpdateLanguage = async (lang: string) => {
     try {
-      if (!user) return;
-
-      const { error } = await supabase
-        .from('app_settings')
-        .upsert({
-          user_id: user.id,
-          language: lang,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id',
-        });
-
-      if (error) throw error;
-      setLanguage(lang);
+      await updateLanguage(lang);
       RNAlert.alert('Success', 'Language preference updated');
     } catch (error: any) {
       RNAlert.alert('Error', error.message || 'Failed to update language');
@@ -305,20 +139,7 @@ export default function SettingsScreen() {
 
   const handleUpdateCurrencyPreference = async (curr: Currency) => {
     try {
-      if (!user) return;
-
-      const { error } = await supabase
-        .from('app_settings')
-        .upsert({
-          user_id: user.id,
-          currency_preference: curr,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id',
-        });
-
-      if (error) throw error;
-      setCurrencyPreference(curr);
+      await updateCurrencyPreference(curr);
       RNAlert.alert('Success', 'Currency preference updated');
     } catch (error: any) {
       RNAlert.alert('Error', error.message || 'Failed to update currency preference');
@@ -573,7 +394,7 @@ export default function SettingsScreen() {
               <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
                 Send payment reminders via SMS
               </Text>
-              {smsEnabled && (
+              {settings.smsEnabled && (
                 <View style={[styles.statusBadge, { backgroundColor: theme.accent.success + '20' }]}>
                   <CheckCircle size={12} color={theme.accent.success} />
                   <Text style={[styles.statusText, { color: theme.accent.success }]}>
@@ -581,7 +402,7 @@ export default function SettingsScreen() {
                   </Text>
                 </View>
               )}
-              {!smsEnabled && (
+              {!settings.smsEnabled && (
                 <View style={[styles.statusBadge, { backgroundColor: theme.text.tertiary + '20' }]}>
                   <XCircle size={12} color={theme.text.tertiary} />
                   <Text style={[styles.statusText, { color: theme.text.tertiary }]}>
@@ -591,11 +412,11 @@ export default function SettingsScreen() {
               )}
             </View>
             <Switch
-              value={smsEnabled}
+              value={settings.smsEnabled}
               onValueChange={handleToggleSMS}
               trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
               thumbColor="#FFF"
-              disabled={loadingConfig}
+              disabled={settingsLoading}
             />
           </View>
 
@@ -611,7 +432,7 @@ export default function SettingsScreen() {
               <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
                 Send invoices and receipts via email
               </Text>
-              {emailEnabled && (
+              {settings.emailEnabled && (
                 <View style={[styles.statusBadge, { backgroundColor: theme.accent.success + '20' }]}>
                   <CheckCircle size={12} color={theme.accent.success} />
                   <Text style={[styles.statusText, { color: theme.accent.success }]}>
@@ -621,11 +442,11 @@ export default function SettingsScreen() {
               )}
             </View>
             <Switch
-              value={emailEnabled}
+              value={settings.emailEnabled}
               onValueChange={handleToggleEmail}
               trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
               thumbColor="#FFF"
-              disabled={loadingConfig}
+              disabled={settingsLoading}
             />
           </View>
 
@@ -641,7 +462,7 @@ export default function SettingsScreen() {
               <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
                 Send invoices and reminders via WhatsApp
               </Text>
-              {whatsappEnabled && (
+              {settings.whatsappEnabled && (
                 <View style={[styles.statusBadge, { backgroundColor: theme.accent.success + '20' }]}>
                   <CheckCircle size={12} color={theme.accent.success} />
                   <Text style={[styles.statusText, { color: theme.accent.success }]}>
@@ -649,7 +470,7 @@ export default function SettingsScreen() {
                   </Text>
                 </View>
               )}
-              {!whatsappEnabled && (
+              {!settings.whatsappEnabled && (
                 <View style={[styles.statusBadge, { backgroundColor: theme.text.tertiary + '20' }]}>
                   <XCircle size={12} color={theme.text.tertiary} />
                   <Text style={[styles.statusText, { color: theme.text.tertiary }]}>
@@ -659,11 +480,11 @@ export default function SettingsScreen() {
               )}
             </View>
             <Switch
-              value={whatsappEnabled}
+              value={settings.whatsappEnabled}
               onValueChange={handleToggleWhatsApp}
               trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
               thumbColor="#FFF"
-              disabled={loadingConfig}
+              disabled={settingsLoading}
             />
           </View>
 
@@ -681,11 +502,11 @@ export default function SettingsScreen() {
               </Text>
             </View>
             <Switch
-              value={notificationsEnabled}
+              value={settings.notificationsEnabled}
               onValueChange={handleToggleNotifications}
               trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
               thumbColor="#FFF"
-              disabled={loadingConfig}
+              disabled={settingsLoading}
             />
           </View>
 
@@ -703,7 +524,7 @@ export default function SettingsScreen() {
                   styles.currencyButton,
                   { 
                     borderColor: theme.border.light,
-                    backgroundColor: language === 'en' ? theme.accent.primary : theme.background.secondary,
+                    backgroundColor: settings.language === 'en' ? theme.accent.primary : theme.background.secondary,
                   },
                 ]}
                 onPress={() => handleUpdateLanguage('en')}
@@ -711,7 +532,7 @@ export default function SettingsScreen() {
                 <Text
                   style={[
                     styles.currencyButtonText,
-                    { color: language === 'en' ? '#FFF' : theme.text.secondary },
+                    { color: settings.language === 'en' ? '#FFF' : theme.text.secondary },
                   ]}
                 >
                   English
@@ -722,7 +543,7 @@ export default function SettingsScreen() {
                   styles.currencyButton,
                   { 
                     borderColor: theme.border.light,
-                    backgroundColor: language === 'sn' ? theme.accent.primary : theme.background.secondary,
+                    backgroundColor: settings.language === 'sn' ? theme.accent.primary : theme.background.secondary,
                   },
                 ]}
                 onPress={() => handleUpdateLanguage('sn')}
@@ -730,7 +551,7 @@ export default function SettingsScreen() {
                 <Text
                   style={[
                     styles.currencyButtonText,
-                    { color: language === 'sn' ? '#FFF' : theme.text.secondary },
+                    { color: settings.language === 'sn' ? '#FFF' : theme.text.secondary },
                   ]}
                 >
                   Shona
@@ -741,7 +562,7 @@ export default function SettingsScreen() {
                   styles.currencyButton,
                   { 
                     borderColor: theme.border.light,
-                    backgroundColor: language === 'nd' ? theme.accent.primary : theme.background.secondary,
+                    backgroundColor: settings.language === 'nd' ? theme.accent.primary : theme.background.secondary,
                   },
                 ]}
                 onPress={() => handleUpdateLanguage('nd')}
@@ -749,7 +570,7 @@ export default function SettingsScreen() {
                 <Text
                   style={[
                     styles.currencyButtonText,
-                    { color: language === 'nd' ? '#FFF' : theme.text.secondary },
+                    { color: settings.language === 'nd' ? '#FFF' : theme.text.secondary },
                   ]}
                 >
                   Ndebele
@@ -775,7 +596,7 @@ export default function SettingsScreen() {
                   styles.currencyButton,
                   { 
                     borderColor: theme.border.light,
-                    backgroundColor: currencyPreference === 'USD' ? theme.accent.primary : theme.background.secondary,
+                    backgroundColor: settings.currencyPreference === 'USD' ? theme.accent.primary : theme.background.secondary,
                   },
                 ]}
                 onPress={() => handleUpdateCurrencyPreference('USD')}
@@ -783,7 +604,7 @@ export default function SettingsScreen() {
                 <Text
                   style={[
                     styles.currencyButtonText,
-                    { color: currencyPreference === 'USD' ? '#FFF' : theme.text.secondary },
+                    { color: settings.currencyPreference === 'USD' ? '#FFF' : theme.text.secondary },
                   ]}
                 >
                   USD
@@ -794,7 +615,7 @@ export default function SettingsScreen() {
                   styles.currencyButton,
                   { 
                     borderColor: theme.border.light,
-                    backgroundColor: currencyPreference === 'ZWL' ? theme.accent.primary : theme.background.secondary,
+                    backgroundColor: settings.currencyPreference === 'ZWL' ? theme.accent.primary : theme.background.secondary,
                   },
                 ]}
                 onPress={() => handleUpdateCurrencyPreference('ZWL')}
@@ -802,7 +623,7 @@ export default function SettingsScreen() {
                 <Text
                   style={[
                     styles.currencyButtonText,
-                    { color: currencyPreference === 'ZWL' ? '#FFF' : theme.text.secondary },
+                    { color: settings.currencyPreference === 'ZWL' ? '#FFF' : theme.text.secondary },
                   ]}
                 >
                   ZWL
