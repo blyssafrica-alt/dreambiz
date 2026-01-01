@@ -588,7 +588,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       // STEP 4: Use RPC function for safe upsert (handles duplicates automatically)
       console.log('📤 Step 4: Creating/updating business profile via safe RPC function...');
       
-      // First, try to use the safe RPC function (most reliable)
+      // First, try to use the safe RPC function (most reliable - handles duplicates automatically)
       const rpcParams = {
         p_user_id: authUserId,
         p_name: newBusiness.name,
@@ -608,35 +608,13 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       let upsertData: any = null;
       let upsertError: any = null;
 
-      // Try RPC function first
+      // Try RPC function first (this handles duplicates automatically)
       const { data: rpcData, error: rpcError } = await supabase.rpc('safe_upsert_business_profile', rpcParams);
 
       if (rpcError) {
-        console.warn('⚠️ RPC function failed, trying direct UPSERT with cleanup...', rpcError);
+        console.warn('⚠️ RPC function failed, trying direct UPSERT...', rpcError);
         
-        // Fallback: Clean up duplicates first, then try direct UPSERT
-        // Delete all but the most recent business profile for this user
-        const { error: cleanupError } = await supabase
-          .from('business_profiles')
-          .delete()
-          .eq('user_id', authUserId)
-          .neq('id', 
-            supabase
-              .from('business_profiles')
-              .select('id')
-              .eq('user_id', authUserId)
-              .order('created_at', { ascending: false })
-              .order('updated_at', { ascending: false })
-              .limit(1)
-              .single()
-              .then(({ data }) => data?.id || '')
-          );
-
-        if (cleanupError) {
-          console.warn('⚠️ Cleanup failed, proceeding with UPSERT anyway:', cleanupError);
-        }
-
-        // Now try direct UPSERT
+        // Fallback: Try direct UPSERT (trigger should handle duplicates)
         const { data: directData, error: directError } = await supabase
           .from('business_profiles')
           .upsert(
@@ -666,28 +644,43 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
 
         if (directError) {
           upsertError = directError;
+          console.error('❌ Direct UPSERT also failed:', directError);
         } else {
           upsertData = directData;
+          console.log('✅ Direct UPSERT succeeded');
         }
       } else {
         // RPC function succeeded
         upsertData = typeof rpcData === 'string' ? JSON.parse(rpcData) : rpcData;
+        console.log('✅ RPC function succeeded');
       }
 
       if (upsertError) {
         console.error('❌ UPSERT failed:', upsertError);
         
-        // Enhanced error message
-        const errorMessage = upsertError.message || 'Failed to save business profile';
+        // Enhanced error message with clear instructions
+        const errorMessage = upsertError.message || String(upsertError) || 'Failed to save business profile';
         const errorCode = upsertError.code || '';
         
         if (errorCode === '23505' || errorMessage.includes('duplicate') || errorMessage.includes('unique constraint')) {
           throw new Error(
-            'Duplicate business profile detected. Please run database/fix_business_profiles_COMPLETE.sql in Supabase SQL Editor to fix this issue.'
+            'Duplicate business profile detected.\n\n' +
+            'SOLUTION:\n' +
+            '1. Open Supabase Dashboard → SQL Editor\n' +
+            '2. Select "No limit" in the dropdown\n' +
+            '3. Copy and paste the contents of database/fix_business_profiles_COMPLETE.sql\n' +
+            '4. Click "Run" to clean up duplicates and create the necessary constraints\n' +
+            '5. Try again after running the script'
           );
-        } else if (errorMessage.includes('more than one row')) {
+        } else if (errorMessage.includes('more than one row') || errorMessage.includes('query returned more than one row')) {
           throw new Error(
-            'Multiple business profiles found. Please run database/fix_business_profiles_COMPLETE.sql in Supabase SQL Editor to clean up duplicates.'
+            'Multiple business profiles found for your account.\n\n' +
+            'SOLUTION:\n' +
+            '1. Open Supabase Dashboard → SQL Editor\n' +
+            '2. Select "No limit" in the dropdown\n' +
+            '3. Copy and paste the contents of database/fix_business_profiles_COMPLETE.sql\n' +
+            '4. Click "Run" to clean up duplicates\n' +
+            '5. Try again after running the script'
           );
         } else {
           throw new Error(`Failed to save business profile: ${errorMessage}`);
