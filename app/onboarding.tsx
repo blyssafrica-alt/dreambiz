@@ -129,7 +129,7 @@ export default function OnboardingScreen() {
       } else if (errorCode === '23503') {
         displayMessage = 'User profile not found. Please try signing out and signing in again.';
       } else if (errorCode === 'P0003' || errorMessage.includes('query returned more than one row')) {
-        displayMessage = 'Database setup required. Please run database/COMPLETE_FIX_BUSINESS_PROFILES.sql in Supabase SQL Editor.';
+        displayMessage = 'Database setup required. Please run database/BULLETPROOF_FIX_BUSINESS_PROFILES.sql in Supabase SQL Editor.';
       } else if (errorMessage.includes('row-level security') || errorMessage.includes('RLS') || errorCode === '42501') {
         displayMessage = 'Security restriction: Unable to create user profile. Please ensure the database trigger is set up or contact support.';
       }

@@ -658,7 +658,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
             'Please run this SQL script in Supabase:\n' +
             '1. Go to Supabase Dashboard > SQL Editor\n' +
             '2. Select "No limit" from dropdown\n' +
-            '3. Open: database/COMPLETE_FIX_BUSINESS_PROFILES.sql\n' +
+            '3. Open: database/BULLETPROOF_FIX_BUSINESS_PROFILES.sql\n' +
             '4. Copy entire contents and click "Run"\n' +
             '5. Wait for "Setup complete!" message\n' +
             '6. Refresh this app and try again'
