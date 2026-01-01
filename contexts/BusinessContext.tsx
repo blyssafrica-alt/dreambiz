@@ -2287,6 +2287,190 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     await loadData();
   }, [loadData]);
 
+  // Get all businesses for the user
+  const getAllBusinesses = useCallback(async (): Promise<BusinessProfile[]> => {
+    if (!userId) return [];
+
+    try {
+      const { data, error } = await supabase
+        .from('business_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (!data) return [];
+
+      return data.map((b: any) => ({
+        id: b.id,
+        name: b.name,
+        type: b.type as any,
+        stage: b.stage as any,
+        location: b.location,
+        capital: Number(b.capital),
+        currency: b.currency as any,
+        owner: b.owner,
+        phone: b.phone || undefined,
+        email: b.email || undefined,
+        address: b.address || undefined,
+        dreamBigBook: b.dream_big_book as any,
+        logo: b.logo || undefined,
+        createdAt: b.created_at,
+      }));
+    } catch (error) {
+      console.error('Failed to get all businesses:', error);
+      return [];
+    }
+  }, [userId]);
+
+  // Switch to a different business
+  const switchBusiness = useCallback(async (businessId: string) => {
+    if (!userId) throw new Error('User not authenticated');
+
+    try {
+      // Find the business
+      const { data, error } = await supabase
+        .from('business_profiles')
+        .select('*')
+        .eq('id', businessId)
+        .eq('user_id', userId)
+        .single();
+
+      if (error) throw error;
+      if (!data) throw new Error('Business not found');
+
+      // Update the current business
+      const selectedBusiness: BusinessProfile = {
+        id: data.id,
+        name: data.name,
+        type: data.type as any,
+        stage: data.stage as any,
+        location: data.location,
+        capital: Number(data.capital),
+        currency: data.currency as any,
+        owner: data.owner,
+        phone: data.phone || undefined,
+        email: data.email || undefined,
+        address: data.address || undefined,
+        dreamBigBook: data.dream_big_book as any,
+        logo: data.logo || undefined,
+        createdAt: data.created_at,
+      };
+
+      setBusiness(selectedBusiness);
+      
+      // Reload all data for the new business
+      await loadData();
+    } catch (error) {
+      console.error('Failed to switch business:', error);
+      throw error;
+    }
+  }, [userId, loadData]);
+
+  // Delete a business
+  const deleteBusiness = useCallback(async (businessId: string) => {
+    if (!userId) throw new Error('User not authenticated');
+    if (business?.id === businessId) {
+      throw new Error('Cannot delete the currently active business. Please switch to another business first.');
+    }
+
+    try {
+      const { error } = await supabase
+        .from('business_profiles')
+        .delete()
+        .eq('id', businessId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      // If we have other businesses, reload data
+      // Otherwise, the user will need to create a new business
+      await loadData();
+    } catch (error) {
+      console.error('Failed to delete business:', error);
+      throw error;
+    }
+  }, [userId, business?.id, loadData]);
+
+  // Check if user can create more businesses based on subscription plan
+  const checkBusinessLimit = useCallback(async (): Promise<{ canCreate: boolean; currentCount: number; maxBusinesses: number | null; planName: string | null }> => {
+    if (!userId) {
+      return { canCreate: false, currentCount: 0, maxBusinesses: null, planName: null };
+    }
+
+    try {
+      // Get current business count
+      const { count: currentCount } = await supabase
+        .from('business_profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+
+      // Try to get subscription plan
+      let maxBusinesses: number | null = null;
+      let planName: string | null = null;
+
+      try {
+        // Check active subscription
+        const { data: subscription } = await supabase
+          .from('user_subscriptions')
+          .select('subscription_plans(max_businesses, name)')
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .order('start_date', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (subscription?.subscription_plans) {
+          maxBusinesses = (subscription.subscription_plans as any).max_businesses;
+          planName = (subscription.subscription_plans as any).name;
+        }
+      } catch {
+        // Subscription check failed, try premium trial
+        try {
+          const { data: trial } = await supabase
+            .from('premium_trials')
+            .select('subscription_plans(max_businesses, name)')
+            .eq('user_id', userId)
+            .eq('status', 'active')
+            .gt('end_date', new Date().toISOString())
+            .order('start_date', { ascending: false })
+            .limit(1)
+            .single();
+
+          if (trial?.subscription_plans) {
+            maxBusinesses = (trial.subscription_plans as any).max_businesses;
+            planName = (trial.subscription_plans as any).name;
+          }
+        } catch {
+          // Trial check failed, default to Free plan (1 business)
+          maxBusinesses = 1;
+          planName = 'Free';
+        }
+      }
+
+      // If no plan found, default to Free (1 business)
+      if (maxBusinesses === null) {
+        maxBusinesses = 1;
+        planName = 'Free';
+      }
+
+      // -1 means unlimited
+      const canCreate = maxBusinesses === -1 || (currentCount || 0) < maxBusinesses;
+
+      return {
+        canCreate,
+        currentCount: currentCount || 0,
+        maxBusinesses,
+        planName,
+      };
+    } catch (error) {
+      console.error('Failed to check business limit:', error);
+      // Default to allowing creation if check fails
+      return { canCreate: true, currentCount: 0, maxBusinesses: null, planName: null };
+    }
+  }, [userId]);
+
   return {
     business,
     transactions: Array.isArray(transactions) ? transactions : [],
@@ -2350,6 +2534,10 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     updateExchangeRate,
     getDashboardMetrics,
     refreshData,
+    getAllBusinesses,
+    switchBusiness,
+    deleteBusiness,
+    checkBusinessLimit,
   };
 });
 

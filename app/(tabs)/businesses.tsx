@@ -5,7 +5,10 @@ import {
   CheckCircle,
   Trash2,
   ArrowRight,
-  X
+  X,
+  ChevronRight,
+  DollarSign,
+  Briefcase,
 } from 'lucide-react-native';
 import { useState, useRef, useEffect } from 'react';
 import {
@@ -18,38 +21,79 @@ import {
   Alert as RNAlert,
   Modal,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import type { BusinessType, BusinessStage, Currency } from '@/types/business';
+import type { BusinessProfile, BusinessType, BusinessStage, Currency, DreamBigBook } from '@/types/business';
+import { DREAMBIG_BOOKS } from '@/constants/books';
 
-interface BusinessListItem {
-  id: string;
-  name: string;
-  type: BusinessType;
-  stage: BusinessStage;
-  currency: Currency;
-  isActive: boolean;
-}
+const businessTypes: { value: BusinessType; label: string }[] = [
+  { value: 'retail', label: 'Retail Shop' },
+  { value: 'services', label: 'Services' },
+  { value: 'restaurant', label: 'Restaurant/Food' },
+  { value: 'salon', label: 'Salon/Beauty' },
+  { value: 'agriculture', label: 'Agriculture' },
+  { value: 'construction', label: 'Construction' },
+  { value: 'transport', label: 'Transport' },
+  { value: 'manufacturing', label: 'Manufacturing' },
+  { value: 'other', label: 'Other' },
+];
+
+const businessStages: { value: BusinessStage; label: string; desc: string }[] = [
+  { value: 'idea', label: 'Idea Stage', desc: 'Planning to start' },
+  { value: 'running', label: 'Running', desc: 'Already operating' },
+  { value: 'growing', label: 'Growing', desc: 'Expanding operations' },
+];
 
 export default function BusinessesScreen() {
-  const { business } = useBusiness();
+  const { business: currentBusiness, getAllBusinesses, switchBusiness, deleteBusiness, saveBusiness, checkBusinessLimit } = useBusiness();
   const { theme } = useTheme();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
-  const [businesses, setBusinesses] = useState<BusinessListItem[]>([
-    // Current business is always first
-    business ? {
-      id: business.id,
-      name: business.name,
-      type: business.type,
-      stage: business.stage,
-      currency: business.currency,
-      isActive: true,
-    } : null,
-  ].filter(Boolean) as BusinessListItem[]);
+  const [businesses, setBusinesses] = useState<BusinessProfile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [limitInfo, setLimitInfo] = useState<{ canCreate: boolean; currentCount: number; maxBusinesses: number | null; planName: string | null } | null>(null);
+
+  // Onboarding form state
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState({
+    name: '',
+    owner: '',
+    type: 'retail' as BusinessType,
+    stage: 'running' as BusinessStage,
+    location: '',
+    capital: '',
+    currency: 'USD' as Currency,
+    phone: '',
+    dreamBigBook: 'none' as DreamBigBook,
+  });
+
+  useEffect(() => {
+    loadBusinesses();
+    checkLimit();
+  }, []);
+
+  const loadBusinesses = async () => {
+    try {
+      setIsLoading(true);
+      const allBusinesses = await getAllBusinesses();
+      setBusinesses(allBusinesses);
+    } catch (error) {
+      console.error('Failed to load businesses:', error);
+      RNAlert.alert('Error', 'Failed to load businesses');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const checkLimit = async () => {
+    const info = await checkBusinessLimit();
+    setLimitInfo(info);
+  };
 
   useEffect(() => {
     Animated.parallel([
@@ -66,63 +110,116 @@ export default function BusinessesScreen() {
       }),
     ]).start();
   }, [fadeAnim, slideAnim]);
-  const [name, setName] = useState('');
-  const [type, setType] = useState<BusinessType>('other');
-  const [stage, setStage] = useState<BusinessStage>('idea');
-  const [currency, setCurrency] = useState<Currency>('USD');
-
-  const businessTypes: BusinessType[] = ['retail', 'services', 'manufacturing', 'agriculture', 'restaurant', 'salon', 'construction', 'transport', 'other'];
-  const businessStages: BusinessStage[] = ['idea', 'running', 'growing'];
-  const currencies: Currency[] = ['USD', 'ZWL'];
 
   const handleAddBusiness = () => {
-    if (!name.trim()) {
-      RNAlert.alert('Missing Name', 'Please enter a business name');
+    // Check limit before showing modal
+    if (limitInfo && !limitInfo.canCreate) {
+      RNAlert.alert(
+        'Business Limit Reached',
+        `Your ${limitInfo.planName || 'plan'} allows ${limitInfo.maxBusinesses} business${limitInfo.maxBusinesses !== 1 ? 'es' : ''}. You currently have ${limitInfo.currentCount}. Please upgrade your plan to create more businesses.`
+      );
+      return;
+    }
+    setShowModal(true);
+    setStep(1);
+    setFormData({
+      name: '',
+      owner: '',
+      type: 'retail',
+      stage: 'running',
+      location: '',
+      capital: '',
+      currency: 'USD',
+      phone: '',
+      dreamBigBook: 'none',
+    });
+  };
+
+  const handleCreateBusiness = async () => {
+    if (!formData.name || !formData.owner || !formData.location || !formData.capital) {
+      RNAlert.alert('Missing Information', 'Please fill in all required fields');
       return;
     }
 
-    const newBusiness: BusinessListItem = {
-      id: Date.now().toString(),
-      name: name.trim(),
-      type,
-      stage,
-      currency,
-      isActive: false,
-    };
+    try {
+      setIsCreating(true);
+      const newBusiness: BusinessProfile = {
+        id: '',
+        name: formData.name,
+        owner: formData.owner,
+        type: formData.type,
+        stage: formData.stage,
+        location: formData.location,
+        capital: parseFloat(formData.capital) || 0,
+        currency: formData.currency,
+        phone: formData.phone,
+        dreamBigBook: formData.dreamBigBook,
+        createdAt: new Date().toISOString(),
+      };
 
-    setBusinesses([...businesses, newBusiness]);
-    handleCloseModal();
-    RNAlert.alert('Success', 'Business added. Switch to it from the list.');
+      await saveBusiness(newBusiness);
+      await loadBusinesses();
+      await checkLimit();
+      handleCloseModal();
+      RNAlert.alert('Success', 'Business created successfully!');
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Failed to create business';
+      RNAlert.alert('Error', errorMessage);
+    } finally {
+      setIsCreating(false);
+    }
   };
 
-  const handleSwitchBusiness = (businessId: string) => {
-    setBusinesses(businesses.map(b => ({
-      ...b,
-      isActive: b.id === businessId,
-    })));
+  const handleSwitchBusiness = async (businessId: string) => {
+    if (currentBusiness?.id === businessId) {
+      RNAlert.alert('Already Active', 'This business is already active');
+      return;
+    }
+
     RNAlert.alert(
       'Switch Business',
-      'To fully switch businesses, you would need to reload data. This feature requires backend support for multiple businesses per user.',
-      [{ text: 'OK' }]
+      'Are you sure you want to switch to this business? All data will be reloaded.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Switch',
+          onPress: async () => {
+            try {
+              await switchBusiness(businessId);
+              await loadBusinesses();
+              RNAlert.alert('Success', 'Business switched successfully');
+            } catch (error: any) {
+              RNAlert.alert('Error', error?.message || 'Failed to switch business');
+            }
+          },
+        },
+      ]
     );
   };
 
-  const handleDeleteBusiness = (businessId: string) => {
-    if (businesses.find(b => b.id === businessId)?.isActive) {
-      RNAlert.alert('Cannot Delete', 'Cannot delete the currently active business');
+  const handleDeleteBusiness = async (businessId: string) => {
+    if (currentBusiness?.id === businessId) {
+      RNAlert.alert('Cannot Delete', 'Cannot delete the currently active business. Please switch to another business first.');
       return;
     }
 
     RNAlert.alert(
       'Delete Business',
-      'Are you sure you want to delete this business? This action cannot be undone.',
+      'Are you sure you want to delete this business? This action cannot be undone and will delete all associated data.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            setBusinesses(businesses.filter(b => b.id !== businessId));
+          onPress: async () => {
+            try {
+              await deleteBusiness(businessId);
+              await loadBusinesses();
+              await checkLimit();
+              RNAlert.alert('Success', 'Business deleted successfully');
+            } catch (error: any) {
+              RNAlert.alert('Error', error?.message || 'Failed to delete business');
+            }
           },
         },
       ]
@@ -131,26 +228,299 @@ export default function BusinessesScreen() {
 
   const handleCloseModal = () => {
     setShowModal(false);
-    setName('');
-    setType('other');
-    setStage('idea');
-    setCurrency('USD');
+    setStep(1);
+    setFormData({
+      name: '',
+      owner: '',
+      type: 'retail',
+      stage: 'running',
+      location: '',
+      capital: '',
+      currency: 'USD',
+      phone: '',
+      dreamBigBook: 'none',
+    });
   };
 
   const getTypeLabel = (type: BusinessType) => {
-    return type.charAt(0).toUpperCase() + type.slice(1);
+    return businessTypes.find(t => t.value === type)?.label || type;
   };
 
   const getStageLabel = (stage: BusinessStage) => {
-    switch (stage) {
-      case 'idea':
-        return 'Idea Stage';
-      case 'running':
-        return 'Running';
-      case 'growing':
-        return 'Growing';
-    }
+    return businessStages.find(s => s.value === stage)?.label || stage;
   };
+
+  const renderStep1 = () => (
+    <View style={styles.stepContainer}>
+      <View style={styles.iconContainer}>
+        <Building2 size={48} color={theme.accent.primary} />
+      </View>
+      <Text style={[styles.stepTitle, { color: theme.text.primary }]}>Let's set up your business</Text>
+      <Text style={[styles.stepDesc, { color: theme.text.secondary }]}>
+        This will take 2 minutes. Your data stays on your device.
+      </Text>
+
+      <View style={styles.inputGroup}>
+        <Text style={[styles.label, { color: theme.text.primary }]}>Business Name *</Text>
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+          placeholder="e.g. Sarah's Salon"
+          placeholderTextColor={theme.text.tertiary}
+          value={formData.name}
+          onChangeText={(text) => setFormData({ ...formData, name: text })}
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={[styles.label, { color: theme.text.primary }]}>Owner Name *</Text>
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+          placeholder="Your full name"
+          placeholderTextColor={theme.text.tertiary}
+          value={formData.owner}
+          onChangeText={(text) => setFormData({ ...formData, owner: text })}
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={[styles.label, { color: theme.text.primary }]}>Phone Number</Text>
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+          placeholder="+263..."
+          placeholderTextColor={theme.text.tertiary}
+          keyboardType="phone-pad"
+          value={formData.phone}
+          onChangeText={(text) => setFormData({ ...formData, phone: text })}
+        />
+      </View>
+
+      <TouchableOpacity 
+        style={[styles.nextButton, { backgroundColor: theme.accent.primary }]} 
+        onPress={() => setStep(2)}
+        disabled={!formData.name || !formData.owner}
+      >
+        <Text style={styles.nextButtonText}>Continue</Text>
+        <ChevronRight size={20} color="#FFF" />
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderStep2 = () => (
+    <View style={styles.stepContainer}>
+      <View style={styles.iconContainer}>
+        <Briefcase size={48} color={theme.accent.primary} />
+      </View>
+      <Text style={[styles.stepTitle, { color: theme.text.primary }]}>About your business</Text>
+      <Text style={[styles.stepDesc, { color: theme.text.secondary }]}>
+        Help us customize the tools for you
+      </Text>
+
+      <View style={styles.inputGroup}>
+        <Text style={[styles.label, { color: theme.text.primary }]}>Business Type *</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+          {businessTypes.map((type) => (
+            <TouchableOpacity
+              key={type.value}
+              style={[
+                styles.chip,
+                { backgroundColor: formData.type === type.value ? theme.accent.primary : theme.background.secondary },
+              ]}
+              onPress={() => setFormData({ ...formData, type: type.value })}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  { color: formData.type === type.value ? '#FFF' : theme.text.primary },
+                ]}
+              >
+                {type.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={[styles.label, { color: theme.text.primary }]}>Business Stage *</Text>
+        {businessStages.map((stage) => (
+          <TouchableOpacity
+            key={stage.value}
+            style={[
+              styles.stageOption,
+              { backgroundColor: formData.stage === stage.value ? theme.accent.primary + '20' : theme.background.secondary },
+            ]}
+            onPress={() => setFormData({ ...formData, stage: stage.value })}
+          >
+            <View>
+              <Text
+                style={[
+                  styles.stageLabel,
+                  { color: formData.stage === stage.value ? theme.accent.primary : theme.text.primary },
+                ]}
+              >
+                {stage.label}
+              </Text>
+              <Text style={[styles.stageDesc, { color: theme.text.secondary }]}>{stage.desc}</Text>
+            </View>
+            {formData.stage === stage.value && (
+              <View style={[styles.checkCircle, { backgroundColor: theme.accent.primary }]} />
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={styles.buttonRow}>
+        <TouchableOpacity style={[styles.backButton, { backgroundColor: theme.background.secondary }]} onPress={() => setStep(1)}>
+          <Text style={[styles.backButtonText, { color: theme.text.primary }]}>Back</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.nextButton, { backgroundColor: theme.accent.primary }]} onPress={() => setStep(3)}>
+          <Text style={styles.nextButtonText}>Continue</Text>
+          <ChevronRight size={20} color="#FFF" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderStep3 = () => (
+    <View style={styles.stepContainer}>
+      <View style={styles.iconContainer}>
+        <DollarSign size={48} color={theme.accent.primary} />
+      </View>
+      <Text style={[styles.stepTitle, { color: theme.text.primary }]}>Financial setup</Text>
+      <Text style={[styles.stepDesc, { color: theme.text.secondary }]}>
+        This helps us track your progress
+      </Text>
+
+      <View style={styles.inputGroup}>
+        <Text style={[styles.label, { color: theme.text.primary }]}>Starting Capital *</Text>
+        <View style={styles.currencyRow}>
+          <TouchableOpacity
+            style={[
+              styles.currencyButton,
+              { backgroundColor: formData.currency === 'USD' ? theme.accent.primary : theme.background.secondary },
+            ]}
+            onPress={() => setFormData({ ...formData, currency: 'USD' })}
+          >
+            <Text
+              style={[
+                styles.currencyButtonText,
+                { color: formData.currency === 'USD' ? '#FFF' : theme.text.primary },
+              ]}
+            >
+              USD
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.currencyButton,
+              { backgroundColor: formData.currency === 'ZWL' ? theme.accent.primary : theme.background.secondary },
+            ]}
+            onPress={() => setFormData({ ...formData, currency: 'ZWL' })}
+          >
+            <Text
+              style={[
+                styles.currencyButtonText,
+                { color: formData.currency === 'ZWL' ? '#FFF' : theme.text.primary },
+              ]}
+            >
+              ZWL
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+          placeholder="0.00"
+          placeholderTextColor={theme.text.tertiary}
+          keyboardType="decimal-pad"
+          value={formData.capital}
+          onChangeText={(text) => setFormData({ ...formData, capital: text })}
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={[styles.label, { color: theme.text.primary }]}>Location *</Text>
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+          placeholder="e.g. Harare, CBD"
+          placeholderTextColor={theme.text.tertiary}
+          value={formData.location}
+          onChangeText={(text) => setFormData({ ...formData, location: text })}
+        />
+      </View>
+
+      <View style={styles.buttonRow}>
+        <TouchableOpacity style={[styles.backButton, { backgroundColor: theme.background.secondary }]} onPress={() => setStep(2)}>
+          <Text style={[styles.backButtonText, { color: theme.text.primary }]}>Back</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.nextButton, { backgroundColor: theme.accent.primary }]} onPress={() => setStep(4)}>
+          <Text style={styles.nextButtonText}>Continue</Text>
+          <ChevronRight size={20} color="#FFF" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderStep4 = () => (
+    <View style={styles.stepContainer}>
+      <View style={[styles.iconContainer, { backgroundColor: theme.accent.primary + '20' }]}>
+        <Building2 size={48} color={theme.accent.primary} />
+      </View>
+      <Text style={[styles.stepTitle, { color: theme.text.primary }]}>Which DreamBig book do you have?</Text>
+      <Text style={[styles.stepDesc, { color: theme.text.secondary }]}>
+        Your book unlocks specialized tools and guidance
+      </Text>
+
+      <ScrollView style={styles.booksContainer} showsVerticalScrollIndicator={false}>
+        {DREAMBIG_BOOKS.map((book) => {
+          const isSelected = formData.dreamBigBook === book.id;
+          return (
+            <TouchableOpacity
+              key={book.id}
+              style={[
+                styles.bookCard,
+                { 
+                  backgroundColor: isSelected ? theme.accent.primary + '10' : theme.background.secondary,
+                  borderColor: isSelected ? book.color : theme.border.light,
+                },
+              ]}
+              onPress={() => setFormData({ ...formData, dreamBigBook: book.id })}
+            >
+              <View style={styles.bookHeader}>
+                <View>
+                  <Text style={[styles.bookTitle, { color: book.color }]}>{book.title}</Text>
+                  <Text style={[styles.bookSubtitle, { color: theme.text.secondary }]}>{book.subtitle}</Text>
+                </View>
+                {isSelected && (
+                  <View style={[styles.bookCheckCircle, { backgroundColor: book.color }]} />
+                )}
+              </View>
+              <Text style={[styles.bookDescription, { color: theme.text.secondary }]}>{book.description}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      <View style={styles.buttonRow}>
+        <TouchableOpacity style={[styles.backButton, { backgroundColor: theme.background.secondary }]} onPress={() => setStep(3)}>
+          <Text style={[styles.backButtonText, { color: theme.text.primary }]}>Back</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.nextButton, { backgroundColor: theme.accent.primary }]} 
+          onPress={handleCreateBusiness}
+          disabled={isCreating}
+        >
+          {isCreating ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <>
+              <Text style={styles.nextButtonText}>Create Business</Text>
+              <ChevronRight size={20} color="#FFF" />
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 
   return (
     <>
@@ -164,7 +534,7 @@ export default function BusinessesScreen() {
           rightAction={
             <TouchableOpacity
               style={styles.headerAddButton}
-              onPress={() => setShowModal(true)}
+              onPress={handleAddBusiness}
             >
               <Plus size={20} color="#FFF" strokeWidth={2.5} />
             </TouchableOpacity>
@@ -176,193 +546,122 @@ export default function BusinessesScreen() {
           transform: [{ translateY: slideAnim }],
           flex: 1,
         }}>
-          <ScrollView 
-            style={styles.scrollView} 
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-        {businesses.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Building2 size={48} color={theme.text.tertiary} />
-            <Text style={[styles.emptyText, { color: theme.text.tertiary }]}>
-              No businesses yet
-            </Text>
-            <TouchableOpacity
-              style={[styles.emptyButton, { backgroundColor: theme.accent.primary }]}
-              onPress={() => setShowModal(true)}
-            >
-              <Text style={styles.emptyButtonText}>Add Your First Business</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          businesses.map(businessItem => (
-            <TouchableOpacity
-              key={businessItem.id}
-              style={[
-                styles.businessCard,
-                { backgroundColor: theme.background.card },
-                businessItem.isActive && { borderWidth: 2, borderColor: theme.accent.primary },
-              ]}
-              onPress={() => handleSwitchBusiness(businessItem.id)}
-            >
-              <View style={styles.businessHeader}>
-                <View style={styles.businessInfo}>
-                  <View style={styles.businessTitleRow}>
-                    <Text style={[styles.businessName, { color: theme.text.primary }]}>
-                      {businessItem.name}
-                    </Text>
-                    {businessItem.isActive && (
-                      <View style={[styles.activeBadge, { backgroundColor: theme.accent.primary }]}>
-                        <CheckCircle size={12} color="#FFF" />
-                        <Text style={styles.activeText}>Active</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={[styles.businessType, { color: theme.text.secondary }]}>
-                    {getTypeLabel(businessItem.type)} • {getStageLabel(businessItem.stage)}
-                  </Text>
-                  <Text style={[styles.businessCurrency, { color: theme.text.tertiary }]}>
-                    Currency: {businessItem.currency}
-                  </Text>
-                </View>
-                <View style={styles.businessActions}>
-                  {!businessItem.isActive && (
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => handleSwitchBusiness(businessItem.id)}
-                    >
-                      <ArrowRight size={18} color={theme.accent.primary} />
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => handleDeleteBusiness(businessItem.id)}
-                  >
-                    <Trash2 size={18} color={theme.accent.danger} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))
-        )}
-          </ScrollView>
-        </Animated.View>
-
-        {/* Add Business Modal */}
-      <Modal
-        visible={showModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={handleCloseModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Add Business</Text>
-              <TouchableOpacity onPress={handleCloseModal}>
-                <X size={24} color={theme.text.tertiary} />
-              </TouchableOpacity>
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.accent.primary} />
             </View>
-
-            <ScrollView style={styles.modalBody}>
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: theme.text.primary }]}>Business Name *</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Enter business name"
-                  placeholderTextColor={theme.text.tertiary}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: theme.text.primary }]}>Business Type</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeSelector}>
-                  {businessTypes.map(t => (
-                    <TouchableOpacity
-                      key={t}
-                      style={[
-                        styles.typeOption,
-                        { backgroundColor: type === t ? theme.accent.primary : theme.background.secondary },
-                      ]}
-                      onPress={() => setType(t)}
-                    >
-                      <Text style={[
-                        styles.typeOptionText,
-                        { color: type === t ? '#FFF' : theme.text.primary },
-                      ]}>
-                        {getTypeLabel(t)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: theme.text.primary }]}>Business Stage</Text>
-                <View style={styles.stageSelector}>
-                  {businessStages.map(s => (
-                    <TouchableOpacity
-                      key={s}
-                      style={[
-                        styles.stageOption,
-                        { backgroundColor: stage === s ? theme.accent.primary : theme.background.secondary },
-                      ]}
-                      onPress={() => setStage(s)}
-                    >
-                      <Text style={[
-                        styles.stageOptionText,
-                        { color: stage === s ? '#FFF' : theme.text.primary },
-                      ]}>
-                        {getStageLabel(s)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: theme.text.primary }]}>Currency</Text>
-                <View style={styles.currencySelector}>
-                  {currencies.map(c => (
-                    <TouchableOpacity
-                      key={c}
-                      style={[
-                        styles.currencyOption,
-                        { backgroundColor: currency === c ? theme.accent.primary : theme.background.secondary },
-                      ]}
-                      onPress={() => setCurrency(c)}
-                    >
-                      <Text style={[
-                        styles.currencyOptionText,
-                        { color: currency === c ? '#FFF' : theme.text.primary },
-                      ]}>
-                        {c}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
+          ) : businesses.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Building2 size={48} color={theme.text.tertiary} />
+              <Text style={[styles.emptyText, { color: theme.text.tertiary }]}>
+                No businesses yet
+              </Text>
               <TouchableOpacity
-                style={[styles.button, styles.cancelButton, { backgroundColor: theme.background.secondary }]}
-                onPress={handleCloseModal}
-              >
-                <Text style={[styles.buttonText, { color: theme.text.secondary }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, styles.saveButton, { backgroundColor: theme.accent.primary }]}
+                style={[styles.emptyButton, { backgroundColor: theme.accent.primary }]}
                 onPress={handleAddBusiness}
               >
-                <Text style={styles.saveButtonText}>Add Business</Text>
+                <Text style={styles.emptyButtonText}>Add Your First Business</Text>
               </TouchableOpacity>
             </View>
+          ) : (
+            <ScrollView 
+              style={styles.scrollView} 
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {limitInfo && (
+                <View style={[styles.limitInfo, { backgroundColor: theme.background.card }]}>
+                  <Text style={[styles.limitText, { color: theme.text.secondary }]}>
+                    {limitInfo.currentCount} / {limitInfo.maxBusinesses === -1 ? '∞' : limitInfo.maxBusinesses} businesses ({limitInfo.planName || 'Free'})
+                  </Text>
+                </View>
+              )}
+              {businesses.map((businessItem) => {
+                const isActive = currentBusiness?.id === businessItem.id;
+                return (
+                  <TouchableOpacity
+                    key={businessItem.id}
+                    style={[
+                      styles.businessCard,
+                      { backgroundColor: theme.background.card },
+                      isActive && { borderWidth: 2, borderColor: theme.accent.primary },
+                    ]}
+                    onPress={() => handleSwitchBusiness(businessItem.id)}
+                  >
+                    <View style={styles.businessHeader}>
+                      <View style={styles.businessInfo}>
+                        <View style={styles.businessTitleRow}>
+                          <Text style={[styles.businessName, { color: theme.text.primary }]}>
+                            {businessItem.name}
+                          </Text>
+                          {isActive && (
+                            <View style={[styles.activeBadge, { backgroundColor: theme.accent.primary }]}>
+                              <CheckCircle size={12} color="#FFF" />
+                              <Text style={styles.activeText}>Active</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={[styles.businessType, { color: theme.text.secondary }]}>
+                          {getTypeLabel(businessItem.type)} • {getStageLabel(businessItem.stage)}
+                        </Text>
+                        <Text style={[styles.businessCurrency, { color: theme.text.tertiary }]}>
+                          Currency: {businessItem.currency}
+                        </Text>
+                      </View>
+                      <View style={styles.businessActions}>
+                        {!isActive && (
+                          <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => handleSwitchBusiness(businessItem.id)}
+                          >
+                            <ArrowRight size={18} color={theme.accent.primary} />
+                          </TouchableOpacity>
+                        )}
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={() => handleDeleteBusiness(businessItem.id)}
+                        >
+                          <Trash2 size={18} color={theme.accent.danger} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+        </Animated.View>
+
+        {/* Add Business Modal - Step by Step Onboarding */}
+        <Modal
+          visible={showModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={handleCloseModal}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: theme.text.primary }]}>
+                  {step === 1 && 'Business Details'}
+                  {step === 2 && 'Business Type'}
+                  {step === 3 && 'Financial Setup'}
+                  {step === 4 && 'DreamBig Book'}
+                </Text>
+                <TouchableOpacity onPress={handleCloseModal}>
+                  <X size={24} color={theme.text.tertiary} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                {step === 1 && renderStep1()}
+                {step === 2 && renderStep2()}
+                {step === 3 && renderStep3()}
+                {step === 4 && renderStep4()}
+              </ScrollView>
+            </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
       </View>
     </>
   );
@@ -394,7 +693,22 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
     flexGrow: 1,
   },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  limitInfo: {
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  limitText: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
   emptyState: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 40,
@@ -433,6 +747,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 4,
+    flexWrap: 'wrap',
   },
   businessName: {
     fontSize: 18,
@@ -489,9 +804,33 @@ const styles = StyleSheet.create({
   },
   modalBody: {
     padding: 20,
+    maxHeight: 600,
+  },
+  stepContainer: {
+    paddingBottom: 20,
+  },
+  iconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    alignSelf: 'center',
+  },
+  stepTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  stepDesc: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 32,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   label: {
     fontSize: 14,
@@ -503,76 +842,113 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     fontSize: 16,
   },
-  typeSelector: {
+  chipScroll: {
     marginTop: 8,
   },
-  typeOption: {
+  chip: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
     marginRight: 8,
   },
-  typeOptionText: {
+  chipText: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  stageSelector: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
   },
   stageOption: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 8,
   },
-  stageOptionText: {
-    fontSize: 14,
+  stageLabel: {
+    fontSize: 16,
     fontWeight: '600',
+    marginBottom: 4,
   },
-  currencySelector: {
+  stageDesc: {
+    fontSize: 12,
+  },
+  checkCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  currencyRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 8,
+    marginBottom: 8,
   },
-  currencyOption: {
+  currencyButton: {
     flex: 1,
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
-  currencyOptionText: {
+  currencyButtonText: {
     fontSize: 14,
     fontWeight: '600',
   },
-  modalFooter: {
-    flexDirection: 'row',
-    padding: 20,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+  booksContainer: {
+    maxHeight: 300,
   },
-  button: {
+  bookCard: {
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 2,
+  },
+  bookHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  bookTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  bookSubtitle: {
+    fontSize: 12,
+  },
+  bookCheckCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  bookDescription: {
+    fontSize: 12,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
+  backButton: {
     flex: 1,
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
   },
-  cancelButton: {
-    // Styled via backgroundColor
-  },
-  saveButton: {
-    // Styled via backgroundColor
-  },
-  buttonText: {
+  backButtonText: {
     fontSize: 16,
     fontWeight: '600',
   },
-  saveButtonText: {
-    color: '#fff',
+  nextButton: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 14,
+    borderRadius: 8,
+    gap: 8,
+  },
+  nextButtonText: {
+    color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
   },
 });
-
