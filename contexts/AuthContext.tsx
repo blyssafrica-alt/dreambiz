@@ -1,6 +1,7 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useEffect, useState } from 'react';
 import { getProvider, type AuthUser } from '@/lib/providers';
+import type { UserProfile } from '@/lib/providers/types';
 
 export interface User {
   id: string;
@@ -126,7 +127,7 @@ export const [AuthContext, useAuth] = createContextHook(() => {
 
       // Wait longer for auth user to be fully available in auth.users
       // This is especially important if email confirmation is required
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
 
       // Try to create user profile with retries
       let profile: UserProfile | null = null;
@@ -147,7 +148,7 @@ export const [AuthContext, useAuth] = createContextHook(() => {
           if (errorMessage.includes('User not found in auth.users') || 
               errorMessage.includes('not found in auth')) {
             console.log(`⚠️ User not found in auth.users yet (attempt ${attempt + 1}/5), waiting ${(attempt + 1) * 2}s...`);
-            await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1))); // Exponential backoff
+            await new Promise<void>(resolve => setTimeout(() => resolve(), 2000 * (attempt + 1))); // Exponential backoff
             continue;
           }
           
@@ -163,7 +164,7 @@ export const [AuthContext, useAuth] = createContextHook(() => {
             } catch {
               // If we can't fetch it, wait and retry
               console.log(`⚠️ Can't fetch profile yet, waiting...`);
-              await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+              await new Promise<void>(resolve => setTimeout(() => resolve(), 2000 * (attempt + 1)));
               continue;
             }
           }
@@ -171,7 +172,7 @@ export const [AuthContext, useAuth] = createContextHook(() => {
           // For RLS errors, the trigger should create it - wait and check
           if (errorMessage.includes('RLS') || errorMessage.includes('row-level security')) {
             console.log(`⚠️ RLS error (attempt ${attempt + 1}/5), waiting for trigger...`);
-            await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+            await new Promise<void>(resolve => setTimeout(() => resolve(), 2000 * (attempt + 1)));
             
             // Check if trigger created it
             try {
@@ -194,7 +195,7 @@ export const [AuthContext, useAuth] = createContextHook(() => {
           
           // For other errors on non-final attempts, wait and retry
           console.log(`⚠️ Profile creation error (attempt ${attempt + 1}/5): ${errorMessage}, retrying...`);
-          await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+          await new Promise<void>(resolve => setTimeout(() => resolve(), 2000 * (attempt + 1)));
         }
       }
 
