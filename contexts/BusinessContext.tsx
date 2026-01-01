@@ -59,7 +59,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     try {
       setIsLoading(true);
       const [businessRes, transactionsRes, documentsRes, productsRes, customersRes, suppliersRes, budgetsRes, cashflowRes, taxRatesRes, employeesRes, projectsRes, projectTasksRes, recurringInvoicesRes, paymentsRes, exchangeRateRes] = await Promise.all([
-        supabase.from('business_profiles').select('*').eq('user_id', userId).single(),
+        supabase.from('business_profiles').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('transactions').select('*').eq('user_id', userId).order('date', { ascending: false }),
         supabase.from('documents').select('*').eq('user_id', userId).order('date', { ascending: false }),
         supabase.from('products').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
@@ -76,22 +76,25 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         supabase.from('exchange_rates').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).single(),
       ]);
 
-      if (businessRes.data) {
+      // Handle multiple businesses per user - use the most recent one
+      if (businessRes.data && businessRes.data.length > 0) {
+        // Get the most recent business (already ordered by created_at DESC)
+        const mostRecentBusiness = businessRes.data[0];
         setBusiness({
-          id: businessRes.data.id,
-          name: businessRes.data.name,
-          type: businessRes.data.type as any,
-          stage: businessRes.data.stage as any,
-          location: businessRes.data.location,
-          capital: Number(businessRes.data.capital),
-          currency: businessRes.data.currency as any,
-          owner: businessRes.data.owner,
-          phone: businessRes.data.phone || undefined,
-          email: businessRes.data.email || undefined,
-          address: businessRes.data.address || undefined,
-          dreamBigBook: businessRes.data.dream_big_book as any,
-          logo: businessRes.data.logo || undefined,
-          createdAt: businessRes.data.created_at,
+          id: mostRecentBusiness.id,
+          name: mostRecentBusiness.name,
+          type: mostRecentBusiness.type as any,
+          stage: mostRecentBusiness.stage as any,
+          location: mostRecentBusiness.location,
+          capital: Number(mostRecentBusiness.capital),
+          currency: mostRecentBusiness.currency as any,
+          owner: mostRecentBusiness.owner,
+          phone: mostRecentBusiness.phone || undefined,
+          email: mostRecentBusiness.email || undefined,
+          address: mostRecentBusiness.address || undefined,
+          dreamBigBook: mostRecentBusiness.dream_big_book as any,
+          logo: mostRecentBusiness.logo || undefined,
+          createdAt: mostRecentBusiness.created_at,
         });
         setHasOnboarded(true);
       }
@@ -585,99 +588,89 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       console.log('  - authUserId:', authUserId);
       console.log('  - Match: ✅');
 
-      // STEP 4: Use PostgreSQL native UPSERT (ON CONFLICT) - most reliable method
-      // This prevents "query returned more than one row" errors by using atomic database operations
-      console.log('📤 Step 4: Creating/updating business profile using UPSERT...');
+      // STEP 4: Create new business profile using RPC function
+      // This function supports multiple businesses per user and enforces plan limits
+      console.log('📤 Step 4: Creating new business profile...');
       
-      let upsertData: any = null;
-      let upsertError: any = null;
+      // Use the create_business_profile RPC function
+      // This function:
+      // - Checks subscription plan limits
+      // - Creates a NEW business (never updates)
+      // - Returns ONLY the newly created business
+      // - Never causes "query returned more than one row" errors
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('create_business_profile', {
+        p_user_id: authUserId,
+        p_name: newBusiness.name,
+        p_type: newBusiness.type,
+        p_stage: newBusiness.stage,
+        p_location: newBusiness.location,
+        p_capital: newBusiness.capital,
+        p_currency: newBusiness.currency,
+        p_owner: newBusiness.owner,
+        p_phone: newBusiness.phone || null,
+        p_email: newBusiness.email || null,
+        p_address: newBusiness.address || null,
+        p_dream_big_book: newBusiness.dreamBigBook || 'none',
+        p_logo: newBusiness.logo || null,
+      });
 
-      // Method 1: Try using Supabase's .upsert() method (uses ON CONFLICT under the hood)
-      console.log('🔄 Attempting UPSERT via Supabase client...');
-      
-      const { data: upsertResult, error: upsertClientError } = await supabase
-        .from('business_profiles')
-        .upsert({
-          user_id: authUserId,
-          name: newBusiness.name,
-          type: newBusiness.type,
-          stage: newBusiness.stage,
-          location: newBusiness.location,
-          capital: newBusiness.capital,
-          currency: newBusiness.currency,
-          owner: newBusiness.owner,
-          phone: newBusiness.phone || null,
-          email: newBusiness.email || null,
-          address: newBusiness.address || null,
-          dream_big_book: newBusiness.dreamBigBook || 'none',
-          logo: newBusiness.logo || null,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id', // Use the unique constraint on user_id
-          ignoreDuplicates: false, // Update on conflict instead of ignoring
-        })
-        .select()
-        .maybeSingle(); // Use maybeSingle to handle edge cases gracefully
-
-      if (upsertClientError) {
-        console.warn('⚠️ Supabase UPSERT failed, trying RPC function as fallback...', upsertClientError);
-        upsertError = upsertClientError;
-      } else if (upsertResult) {
-        upsertData = upsertResult;
-        console.log('✅ Business profile saved successfully via UPSERT');
-      }
-
-      // Method 2: Fallback to RPC function if client UPSERT fails
-      if (!upsertData && upsertError) {
-        console.log('🔄 Attempting UPSERT via RPC function...');
-        
-        const { data: rpcResult, error: rpcError } = await supabase.rpc('upsert_business_profile', {
-          p_user_id: authUserId,
-          p_name: newBusiness.name,
-          p_type: newBusiness.type,
-          p_stage: newBusiness.stage,
-          p_location: newBusiness.location,
-          p_capital: newBusiness.capital,
-          p_currency: newBusiness.currency,
-          p_owner: newBusiness.owner,
-          p_phone: newBusiness.phone || null,
-          p_email: newBusiness.email || null,
-          p_address: newBusiness.address || null,
-          p_dream_big_book: newBusiness.dreamBigBook || 'none',
-          p_logo: newBusiness.logo || null,
-        });
-
-        if (rpcError) {
-          console.error('❌ RPC UPSERT also failed:', rpcError);
-          upsertError = rpcError;
-        } else if (rpcResult) {
-          // RPC returns JSONB, convert to object
-          upsertData = typeof rpcResult === 'string' ? JSON.parse(rpcResult) : rpcResult;
-          console.log('✅ Business profile saved successfully via RPC function');
-        }
-      }
-
-      // If both methods failed, throw error
-      if (!upsertData) {
-        const errorMessage = upsertError?.message || String(upsertError) || 'Failed to save business profile';
-        const errorCode = upsertError?.code || '';
-        
-        console.error('❌ All UPSERT methods failed');
-        console.error('  - Error code:', errorCode);
-        console.error('  - Error message:', errorMessage);
-        
-        // Provide helpful error message
-        if (errorMessage.includes('query returned more than one row')) {
-          throw new Error(
-            'Multiple business profiles found. Please run the SQL script database/fix_business_profiles_500_error.sql in Supabase SQL Editor to clean up duplicates.'
-          );
-        } else if (errorMessage.includes('unique constraint') || errorCode === '23505') {
-          // This shouldn't happen with UPSERT, but handle it gracefully
-          throw new Error('Business profile already exists. Please try again.');
+      if (rpcError) {
+        // Extract error message properly (not [object Object])
+        let errorMessage = '';
+        if (typeof rpcError === 'string') {
+          errorMessage = rpcError;
+        } else if (rpcError?.message) {
+          errorMessage = rpcError.message;
+        } else if (rpcError?.toString && typeof rpcError.toString === 'function') {
+          errorMessage = rpcError.toString();
         } else {
-          throw new Error(`Failed to save business profile: ${errorMessage}`);
+          try {
+            errorMessage = JSON.stringify(rpcError, null, 2);
+          } catch {
+            errorMessage = 'Unknown error occurred while creating business profile';
+          }
+        }
+        
+        const errorCode = rpcError?.code || '';
+        const errorDetails = rpcError?.details || '';
+        const errorHint = rpcError?.hint || '';
+        const httpStatus = (rpcError as any)?.status || (rpcError as any)?.statusCode || '';
+        
+        console.error('❌ Failed to create business profile:');
+        console.error('  - HTTP Status:', httpStatus || '(none)');
+        console.error('  - Error code:', errorCode || '(none)');
+        console.error('  - Error message:', errorMessage);
+        console.error('  - Error details:', errorDetails || '(none)');
+        console.error('  - Error hint:', errorHint || '(none)');
+        console.error('  - Full error object:', rpcError);
+        
+        // Handle 400 Bad Request (usually means RPC function doesn't exist or parameter mismatch)
+        if (httpStatus === 400 || errorCode === 'P0004' || errorMessage.includes('function') && errorMessage.includes('does not exist')) {
+          throw new Error(
+            'Database function not found. Please run the SQL script database/fix_multi_business_support.sql in Supabase SQL Editor to set up the required functions.'
+          );
+        }
+        
+        // Provide user-friendly error messages
+        if (errorMessage.includes('Business limit reached')) {
+          throw new Error(errorMessage); // RPC already provides a good message
+        } else if (errorMessage.includes('query returned more than one row')) {
+          throw new Error(
+            'Database error: Multiple business profiles detected. Please contact support. ' +
+            'Error details: ' + errorMessage
+          );
+        } else {
+          throw new Error(`Failed to create business profile: ${errorMessage}`);
         }
       }
+
+      if (!rpcResult) {
+        throw new Error('No data returned from business profile creation');
+      }
+
+      // RPC returns JSONB, convert to object
+      const upsertData = typeof rpcResult === 'string' ? JSON.parse(rpcResult) : rpcResult;
+      console.log('✅ Business profile created successfully');
 
       // STEP 5: Process the result
       // Convert result to BusinessProfile format
@@ -2313,4 +2306,5 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     refreshData,
   };
 });
+
 
