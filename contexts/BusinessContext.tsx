@@ -630,8 +630,10 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         console.warn('⚠️ Could not check business limits:', limitError.message);
       }
       
-      // DIRECT INSERT - Simple, reliable, no RPC needed
-      const { data: insertData, error: insertError } = await supabase
+      // DIRECT INSERT - Simple, reliable, no RPC needed, no triggers
+      // Use .select() without .maybeSingle() to get array, then take first element
+      // This avoids any "query returned more than one row" errors from database side
+      const { data: insertDataArray, error: insertError } = await supabase
         .from('business_profiles')
         .insert({
           user_id: authUserId,
@@ -648,8 +650,10 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           dream_big_book: newBusiness.dreamBigBook || 'none',
           logo: newBusiness.logo || null,
         })
-        .select()
-        .maybeSingle(); // Use maybeSingle to handle edge cases gracefully
+        .select(); // Get array, not single row
+      
+      // Extract first element from array (INSERT always returns array with one element)
+      const insertData = insertDataArray && insertDataArray.length > 0 ? insertDataArray[0] : null;
 
       if (insertError) {
         let errorMessage = '';
