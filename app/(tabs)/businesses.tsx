@@ -24,6 +24,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import PageHeader from '@/components/PageHeader';
+import PremiumUpgradeModal from '@/components/PremiumUpgradeModal';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { BusinessProfile, BusinessType, BusinessStage, Currency, DreamBigBook } from '@/types/business';
@@ -57,6 +58,7 @@ export default function BusinessesScreen() {
   const [showModal, setShowModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [limitInfo, setLimitInfo] = useState<{ canCreate: boolean; currentCount: number; maxBusinesses: number | null; planName: string | null } | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Onboarding form state
   const [step, setStep] = useState(1);
@@ -75,6 +77,7 @@ export default function BusinessesScreen() {
   useEffect(() => {
     loadBusinesses();
     checkLimit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadBusinesses = async () => {
@@ -114,10 +117,7 @@ export default function BusinessesScreen() {
   const handleAddBusiness = () => {
     // Check limit before showing modal
     if (limitInfo && !limitInfo.canCreate) {
-      RNAlert.alert(
-        'Business Limit Reached',
-        `Your ${limitInfo.planName || 'plan'} allows ${limitInfo.maxBusinesses} business${limitInfo.maxBusinesses !== 1 ? 'es' : ''}. You currently have ${limitInfo.currentCount}. Please upgrade your plan to create more businesses.`
-      );
+      setShowUpgradeModal(true);
       return;
     }
     setShowModal(true);
@@ -255,7 +255,7 @@ export default function BusinessesScreen() {
       <View style={styles.iconContainer}>
         <Building2 size={48} color={theme.accent.primary} />
       </View>
-      <Text style={[styles.stepTitle, { color: theme.text.primary }]}>Let's set up your business</Text>
+      <Text style={[styles.stepTitle, { color: theme.text.primary }]}>Let&apos;s set up your business</Text>
       <Text style={[styles.stepDesc, { color: theme.text.secondary }]}>
         This will take 2 minutes. Your data stays on your device.
       </Text>
@@ -662,6 +662,15 @@ export default function BusinessesScreen() {
             </View>
           </View>
         </Modal>
+
+        {/* Premium Upgrade Modal */}
+        <PremiumUpgradeModal
+          visible={showUpgradeModal}
+          onClose={() => setShowUpgradeModal(false)}
+          title="Business Limit Reached"
+          message={`Your ${limitInfo?.planName || 'current plan'} allows ${limitInfo?.maxBusinesses} business${limitInfo?.maxBusinesses !== 1 ? 'es' : ''}. Upgrade to create more businesses and unlock unlimited potential!`}
+          feature="Multiple Businesses"
+        />
       </View>
     </>
   );
