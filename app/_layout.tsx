@@ -32,9 +32,10 @@ function RootLayoutNav() {
 
   const isLoading = businessLoading || authLoading;
 
-  // Check email verification status
+  // Check email verification status (only when authenticated)
   React.useEffect(() => {
     const checkEmailVerification = async () => {
+      // Only check if user is authenticated
       if (!isAuthenticated || !authUser) {
         setEmailVerified(null);
         return;
@@ -43,18 +44,29 @@ function RootLayoutNav() {
       try {
         const { supabase } = await import('@/lib/supabase');
         const { data: { session } } = await supabase.auth.getSession();
-        setEmailVerified(session?.user?.email_confirmed_at ? true : false);
+        // Only set if we have a valid session
+        if (session?.user) {
+          setEmailVerified(session.user.email_confirmed_at ? true : false);
+        } else {
+          // No session means not authenticated
+          setEmailVerified(null);
+        }
       } catch (error) {
         console.error('Error checking email verification:', error);
-        setEmailVerified(false);
+        setEmailVerified(null);
       }
     };
 
-    checkEmailVerification();
+    // Only check if authenticated
+    if (isAuthenticated && authUser) {
+      checkEmailVerification();
+    } else {
+      setEmailVerified(null);
+    }
   }, [isAuthenticated, authUser]);
 
   useEffect(() => {
-    if (isLoading || emailVerified === null) return; // Wait for email verification check
+    if (isLoading) return; // Wait for auth to load
 
     const currentPath = segments.join('/');
     const inAuth = currentPath.includes('landing') || currentPath.includes('sign-up') || currentPath.includes('sign-in');
@@ -62,10 +74,18 @@ function RootLayoutNav() {
     const inOnboarding = currentPath.includes('onboarding');
     const inTabs = currentPath.includes('(tabs)') || currentPath === '';
 
-    // If not authenticated, redirect to landing page
-    if (!isAuthenticated && !inAuth) {
-      router.replace('/landing' as any);
+    // If not authenticated, redirect to landing page (don't check email verification)
+    if (!isAuthenticated) {
+      if (!inAuth && !inVerifyEmail) {
+        router.replace('/landing' as any);
+      }
       return;
+    }
+
+    // Only check email verification if authenticated
+    // If email verification check is still pending, wait
+    if (emailVerified === null) {
+      return; // Wait for email verification check to complete
     }
 
     // If authenticated but email not verified, redirect to verification screen

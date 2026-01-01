@@ -76,11 +76,19 @@ export const [AuthContext, useAuth] = createContextHook(() => {
         const session = await provider.getCurrentSession();
         
         if (session?.user) {
+          // Only set auth user if we have a valid session
           setAuthUser(session.user);
           await loadUserProfile(session.user.id, session.user);
+        } else {
+          // No session - clear auth state
+          setAuthUser(null);
+          setUser(null);
         }
       } catch (error) {
         console.error('Failed to load user:', error);
+        // On error, clear auth state
+        setAuthUser(null);
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -96,6 +104,7 @@ export const [AuthContext, useAuth] = createContextHook(() => {
         setAuthUser(user);
         await loadUserProfile(user.id, user);
       } else {
+        // User signed out - clear all state
         setUser(null);
         setAuthUser(null);
       }
