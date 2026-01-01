@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Animated,
   Platform,
+  Alert,
 } from 'react-native';
 import PageHeader from '@/components/PageHeader';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -129,7 +130,20 @@ export default function PaymentsScreen() {
               <View style={styles.quickActions}>
                 <TouchableOpacity
                   style={[styles.quickActionCard, { backgroundColor: theme.background.card }]}
-                  onPress={() => router.push('/payments/add' as any)}
+                  onPress={() => {
+                    console.log('Record Payment button pressed - attempting navigation');
+                    // Try navigation - if it fails, show error
+                    const navigate = () => {
+                      try {
+                        router.push('/payments/add' as any);
+                      } catch (error: any) {
+                        console.error('Navigation error:', error);
+                        Alert.alert('Error', `Failed to navigate: ${error?.message || 'Unknown error'}`);
+                      }
+                    };
+                    navigate();
+                  }}
+                  activeOpacity={0.7}
                 >
                   <View style={[styles.quickActionIcon, { backgroundColor: theme.accent.primary + '20' }]}>
                     <Plus size={24} color={theme.accent.primary} />
