@@ -27,6 +27,13 @@ export default function BooksLayout() {
           headerShown: false,
         }} 
       />
+      <Stack.Screen 
+        name="read/[id]" 
+        options={{ 
+          title: 'Read Book',
+          headerShown: false,
+        }} 
+      />
     </Stack>
   );
 }
