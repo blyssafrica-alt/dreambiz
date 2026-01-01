@@ -201,7 +201,11 @@ export default function CalculatorScreen() {
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
         }}>
-          <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+          <ScrollView 
+            style={styles.scrollView} 
+            contentContainerStyle={[styles.content, { paddingBottom: Platform.OS === 'ios' ? 120 : 110 }]}
+            showsVerticalScrollIndicator={false}
+          >
             <View style={[styles.formSection, { alignItems: 'center' }]}>
               <CalcIcon size={40} color={theme?.accent?.primary || '#3B82F6'} />
               <Text style={[styles.title, { color: theme?.text?.primary || '#0F172A' }]}>Business Viability Check</Text>
@@ -505,7 +509,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 40,
   },
   formSection: {
     marginBottom: 32,
