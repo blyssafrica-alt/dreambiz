@@ -41,7 +41,6 @@ const businessStages: { value: BusinessStage; label: string; desc: string }[] = 
 export default function OnboardingScreen() {
   const { saveBusiness } = useBusiness();
   const [step, setStep] = useState(1);
-  const totalSteps = 4;
   const [formData, setFormData] = useState({
     name: '',
     owner: '',
@@ -123,16 +122,16 @@ export default function OnboardingScreen() {
       let displayMessage = errorMessage;
       
       // Provide helpful messages for common errors
-      if (errorMessage.includes('foreign key constraint') || errorMessage.includes('violates foreign key')) {
+      if (errorMessage.includes('Database setup required')) {
+        displayMessage = errorMessage;
+      } else if (errorMessage.includes('foreign key constraint') || errorMessage.includes('violates foreign key')) {
         displayMessage = 'User profile not found. Please try signing out and signing in again.';
-      } else if (errorCode === '23503') { // Foreign key violation
+      } else if (errorCode === '23503') {
         displayMessage = 'User profile not found. Please try signing out and signing in again.';
+      } else if (errorCode === 'P0003' || errorMessage.includes('query returned more than one row')) {
+        displayMessage = 'Database setup required. Please run database/COMPLETE_FIX_BUSINESS_PROFILES.sql in Supabase SQL Editor.';
       } else if (errorMessage.includes('row-level security') || errorMessage.includes('RLS') || errorCode === '42501') {
-        displayMessage = 'Security restriction: Unable to create user profile. Please ensure the database trigger is set up (see database/create_user_profile_trigger.sql) or contact support.';
-      } else if (errorMessage.includes('database trigger')) {
-        displayMessage = errorMessage; // Use the enhanced message from BusinessContext
-      } else if (errorMessage.includes('Cannot save business profile')) {
-        displayMessage = errorMessage; // Use the enhanced message from BusinessContext
+        displayMessage = 'Security restriction: Unable to create user profile. Please ensure the database trigger is set up or contact support.';
       }
       
       console.error('Failed to save business:', {

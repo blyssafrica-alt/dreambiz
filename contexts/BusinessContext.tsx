@@ -646,10 +646,11 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         
         // Handle specific error cases
         
-        // Function doesn't exist or database not set up
+        // Function doesn't exist or database not set up (including P0003)
         if (httpStatus === 400 || 
             errorCode === '42883' || 
             errorCode === 'PGRST202' ||
+            errorCode === 'P0003' ||
             (errorMessage.includes('function') && errorMessage.includes('does not exist')) ||
             errorMessage.includes('query returned more than one row')) {
           throw new Error(
@@ -657,7 +658,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
             'Please run this SQL script in Supabase:\n' +
             '1. Go to Supabase Dashboard > SQL Editor\n' +
             '2. Select "No limit" from dropdown\n' +
-            '3. Open: database/FIX_BUSINESS_PROFILES_COMPLETE.sql\n' +
+            '3. Open: database/COMPLETE_FIX_BUSINESS_PROFILES.sql\n' +
             '4. Copy entire contents and click "Run"\n' +
             '5. Wait for "Setup complete!" message\n' +
             '6. Refresh this app and try again'
