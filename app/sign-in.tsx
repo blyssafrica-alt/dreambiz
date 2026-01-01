@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Mail, Lock, LogIn, ArrowLeft } from 'lucide-react-native';
+import { Mail, Lock, LogIn, ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   View,
@@ -16,12 +16,15 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 
 export default function SignInScreen() {
   const { signIn } = useAuth();
   const { theme, isDark } = useTheme();
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSignIn = async () => {
@@ -72,16 +75,16 @@ export default function SignInScreen() {
             </LinearGradient>
 
             <Text style={[styles.title, { color: theme.text.primary }]}>
-              Welcome Back
+              {t('auth.welcomeBack')}
             </Text>
             <Text style={[styles.subtitle, { color: theme.text.secondary }]}>
-              Sign in to continue
+              {t('auth.signInToContinue')}
             </Text>
           </View>
 
           <View style={styles.form}>
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: theme.text.secondary }]}>Email</Text>
+              <Text style={[styles.label, { color: theme.text.secondary }]}>{t('auth.email')}</Text>
               <View style={[styles.inputContainer, { 
                 backgroundColor: theme.background.card,
                 borderColor: theme.border.light,
@@ -100,7 +103,7 @@ export default function SignInScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: theme.text.secondary }]}>Password</Text>
+              <Text style={[styles.label, { color: theme.text.secondary }]}>{t('auth.password')}</Text>
               <View style={[styles.inputContainer, { 
                 backgroundColor: theme.background.card,
                 borderColor: theme.border.light,
@@ -112,8 +115,18 @@ export default function SignInScreen() {
                   onChangeText={setPassword}
                   placeholder="Your password"
                   placeholderTextColor={theme.text.tertiary}
-                  secureTextEntry
+                  secureTextEntry={!showPassword}
                 />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeButton}
+                >
+                  {showPassword ? (
+                    <EyeOff size={20} color={theme.text.tertiary} />
+                  ) : (
+                    <Eye size={20} color={theme.text.tertiary} />
+                  )}
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -126,14 +139,14 @@ export default function SignInScreen() {
               disabled={isLoading}
             >
               <Text style={styles.signInButtonText}>
-                {isLoading ? 'Signing In...' : 'Sign In'}
+                {isLoading ? t('common.loading') : t('auth.signIn')}
               </Text>
             </TouchableOpacity>
 
             <View style={styles.divider}>
               <View style={[styles.dividerLine, { backgroundColor: theme.border.light }]} />
               <Text style={[styles.dividerText, { color: theme.text.tertiary }]}>
-                New to DreamBig?
+                {t('auth.newToDreamBig')}
               </Text>
               <View style={[styles.dividerLine, { backgroundColor: theme.border.light }]} />
             </View>
@@ -143,7 +156,7 @@ export default function SignInScreen() {
               onPress={() => router.push('/sign-up' as any)}
             >
               <Text style={[styles.signUpLinkText, { color: theme.accent.primary }]}>
-                Create Account
+                {t('auth.createAccount')}
               </Text>
             </TouchableOpacity>
 
@@ -152,7 +165,7 @@ export default function SignInScreen() {
               onPress={() => router.push('/employee-login' as any)}
             >
               <Text style={[styles.employeeLinkText, { color: theme.text.tertiary }]}>
-                Employee Login
+                {t('auth.employeeLogin')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -226,6 +239,9 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
+  },
+  eyeButton: {
+    padding: 4,
   },
   signInButton: {
     height: 56,

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Mail, Lock, User, ArrowRight } from 'lucide-react-native';
+import { Mail, Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   View,
@@ -24,6 +24,8 @@ export default function SignUpScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSignUp = async () => {
@@ -140,8 +142,18 @@ export default function SignUpScreen() {
                   onChangeText={setPassword}
                   placeholder="At least 6 characters"
                   placeholderTextColor={theme.text.tertiary}
-                  secureTextEntry
+                  secureTextEntry={!showPassword}
                 />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeButton}
+                >
+                  {showPassword ? (
+                    <EyeOff size={20} color={theme.text.tertiary} />
+                  ) : (
+                    <Eye size={20} color={theme.text.tertiary} />
+                  )}
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -160,8 +172,18 @@ export default function SignUpScreen() {
                   onChangeText={setConfirmPassword}
                   placeholder="Re-enter password"
                   placeholderTextColor={theme.text.tertiary}
-                  secureTextEntry
+                  secureTextEntry={!showConfirmPassword}
                 />
+                <TouchableOpacity
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={styles.eyeButton}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff size={20} color={theme.text.tertiary} />
+                  ) : (
+                    <Eye size={20} color={theme.text.tertiary} />
+                  )}
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -257,6 +279,9 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
+  },
+  eyeButton: {
+    padding: 4,
   },
   signUpButton: {
     flexDirection: 'row',

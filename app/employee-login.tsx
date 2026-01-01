@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { User, Lock, Smartphone, Mail } from 'lucide-react-native';
+import { User, Lock, Smartphone, Mail, Eye, EyeOff } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -28,6 +28,8 @@ export default function EmployeeLoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [pinCode, setPinCode] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleEmailLogin = async () => {
@@ -214,9 +216,19 @@ export default function EmployeeLoginScreen() {
                       placeholderTextColor={theme.text.tertiary}
                       value={password}
                       onChangeText={setPassword}
-                      secureTextEntry
+                      secureTextEntry={!showPassword}
                       autoCapitalize="none"
                     />
+                    <TouchableOpacity
+                      onPress={() => setShowPassword(!showPassword)}
+                      style={styles.eyeButton}
+                    >
+                      {showPassword ? (
+                        <EyeOff size={20} color={theme.text.tertiary} />
+                      ) : (
+                        <Eye size={20} color={theme.text.tertiary} />
+                      )}
+                    </TouchableOpacity>
                   </View>
                 </View>
 
@@ -249,8 +261,18 @@ export default function EmployeeLoginScreen() {
                       onChangeText={setPinCode}
                       keyboardType="number-pad"
                       maxLength={6}
-                      secureTextEntry
+                      secureTextEntry={!showPin}
                     />
+                    <TouchableOpacity
+                      onPress={() => setShowPin(!showPin)}
+                      style={styles.eyeButton}
+                    >
+                      {showPin ? (
+                        <EyeOff size={20} color={theme.text.tertiary} />
+                      ) : (
+                        <Eye size={20} color={theme.text.tertiary} />
+                      )}
+                    </TouchableOpacity>
                   </View>
                 </View>
 
@@ -357,6 +379,9 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
+  },
+  eyeButton: {
+    padding: 4,
   },
   loginButton: {
     padding: 18,

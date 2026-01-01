@@ -33,6 +33,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAds } from '@/contexts/AdContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { Alert as AlertType } from '@/types/business';
 import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { LineChart, PieChart, BarChart } from '@/components/Charts';
@@ -43,6 +44,7 @@ export default function DashboardScreen() {
   const { business, getDashboardMetrics, transactions, documents } = useBusiness();
   const { theme } = useTheme();
   const { getAdsForLocation } = useAds();
+  const { t } = useTranslation();
   
   // State declarations
   const [metrics, setMetrics] = useState<any>(null);
@@ -425,7 +427,7 @@ export default function DashboardScreen() {
         >
           <View style={styles.header}>
             <View>
-              <Text style={styles.greeting}>Welcome back 👋</Text>
+              <Text style={styles.greeting}>{t('auth.welcomeBack')} 👋</Text>
               <Text style={styles.businessName}>{business?.name || 'Your Business'}</Text>
             </View>
             <View style={styles.headerActions}>
@@ -467,8 +469,8 @@ export default function DashboardScreen() {
             <View style={styles.todaySection}>
               <View style={styles.sectionHeader}>
                 <View>
-                  <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>TODAY</Text>
-                  <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Today&apos;s Overview</Text>
+                  <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>{t('dashboard.today').toUpperCase()}</Text>
+                  <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>{t('dashboard.today')}&apos;s Overview</Text>
                 </View>
                 <View style={[styles.badge, { backgroundColor: theme.surface.info }]}>
                   <Sparkles size={12} color={theme.accent.info} />
@@ -489,7 +491,7 @@ export default function DashboardScreen() {
                   >
                     <ArrowUpRight size={20} color="#FFF" strokeWidth={2.5} />
                   </LinearGradient>
-                  <Text style={[styles.metricLabel, { color: theme.text.secondary }]}>Sales</Text>
+                  <Text style={[styles.metricLabel, { color: theme.text.secondary }]}>{t('dashboard.sales')}</Text>
                   <Text style={[styles.metricValue, { color: theme.text.primary }]}>{formatCurrency(metrics?.todaySales || 0)}</Text>
                 </Animated.View>
 
@@ -505,7 +507,7 @@ export default function DashboardScreen() {
                   >
                     <ArrowDownRight size={20} color="#FFF" strokeWidth={2.5} />
                   </LinearGradient>
-                  <Text style={[styles.metricLabel, { color: theme.text.secondary }]}>Expenses</Text>
+                  <Text style={[styles.metricLabel, { color: theme.text.secondary }]}>{t('dashboard.expenses')}</Text>
                   <Text style={[styles.metricValue, { color: theme.text.primary }]}>{formatCurrency(metrics?.todayExpenses || 0)}</Text>
                 </Animated.View>
               </View>
@@ -518,7 +520,7 @@ export default function DashboardScreen() {
               >
                 <View style={styles.profitContent}>
                   <View style={styles.profitHeader}>
-                    <Text style={styles.profitLabel}>Today&apos;s Profit</Text>
+                    <Text style={styles.profitLabel}>{t('dashboard.today')}&apos;s {t('dashboard.profit')}</Text>
                     <View style={styles.profitIconBg}>
                       {(metrics?.todayProfit || 0) >= 0 ? (
                         <TrendingUp size={20} color="#FFF" strokeWidth={2.5} />
@@ -601,11 +603,11 @@ export default function DashboardScreen() {
               
               <View style={[styles.summaryCard, { backgroundColor: theme.background.card }]}>
                 <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Sales</Text>
+                  <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>{t('dashboard.sales')}</Text>
                   <Text style={[styles.summaryValue, { color: theme.text.primary }]}>{formatCurrency(metrics?.monthSales || 0)}</Text>
                 </View>
                 <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Expenses</Text>
+                  <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>{t('dashboard.expenses')}</Text>
                   <Text style={[styles.summaryValue, { color: theme.text.primary }]}>{formatCurrency(metrics?.monthExpenses || 0)}</Text>
                 </View>
                 <View style={[styles.summaryDivider, { backgroundColor: theme.border.light }]} />
@@ -650,8 +652,8 @@ export default function DashboardScreen() {
                     </Text>
                   </View>
                   <View>
-                    <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>ALERTS</Text>
-                    <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Important Notifications</Text>
+                    <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>{t('dashboard.alerts').toUpperCase()}</Text>
+                    <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>{t('dashboard.alerts')}</Text>
                   </View>
                 </View>
                 {activeAlerts.length > 2 && (
@@ -735,8 +737,8 @@ export default function DashboardScreen() {
           {metrics && metrics.topCategories && metrics.topCategories.length > 0 && (
             <View style={styles.categoriesSection}>
               <View>
-                <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>TOP CATEGORIES</Text>
-                <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Top Categories</Text>
+                <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>{t('dashboard.topCategories').toUpperCase()}</Text>
+                <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>{t('dashboard.topCategories')}</Text>
               </View>
               {metrics.topCategories.map((cat: any, index: number) => (
                 <View key={index} style={[styles.categoryItem, { backgroundColor: theme.background.card }]}>

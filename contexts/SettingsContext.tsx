@@ -200,6 +200,7 @@ export const [SettingsContext, useSettings] = createContextHook(() => {
     updateCurrencyPreference,
     updateIntegrationPreference,
     refreshSettings: loadSettings,
+    language: settings.language,
   };
 });
 

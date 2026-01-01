@@ -18,6 +18,7 @@ import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import { supabase } from '@/lib/supabase';
 import { decode } from 'base64-arraybuffer';
 import type { Currency } from '@/types/business';
@@ -50,6 +51,7 @@ export default function SettingsScreen() {
     updateIntegrationPreference,
     isLoading: settingsLoading 
   } = useSettings();
+  const { t } = useTranslation();
   const [name, setName] = useState(business?.name || '');
   const [owner, setOwner] = useState(business?.owner || '');
   const [phone, setPhone] = useState(business?.phone || '');
@@ -131,9 +133,14 @@ export default function SettingsScreen() {
   const handleUpdateLanguage = async (lang: string) => {
     try {
       await updateLanguage(lang);
-      RNAlert.alert('Success', 'Language preference updated');
+      // The app will automatically update because useTranslation reads from settings
+      RNAlert.alert(
+        t('common.success'), 
+        t('settings.language') + ' ' + t('common.save').toLowerCase() + 'd. The app will update shortly.',
+        [{ text: t('common.confirm') }]
+      );
     } catch (error: any) {
-      RNAlert.alert('Error', error.message || 'Failed to update language');
+      RNAlert.alert(t('common.error'), error.message || 'Failed to update language');
     }
   };
 
@@ -314,7 +321,7 @@ export default function SettingsScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Settings' }} />
+      <Stack.Screen options={{ title: t('settings.title') }} />
       <ScrollView 
         style={[styles.container, { backgroundColor: theme.background.secondary }]} 
         contentContainerStyle={styles.content}
@@ -349,17 +356,17 @@ export default function SettingsScreen() {
               <Sun size={20} color={theme.accent.primary} />
             )}
             <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
-              Appearance
+              {t('settings.appearance')}
             </Text>
           </View>
 
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
               <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
-                Dark Mode
+                {t('settings.darkMode')}
               </Text>
               <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
-                Switch between light and dark theme
+                {t('settings.switchTheme')}
               </Text>
             </View>
             <Switch
@@ -378,7 +385,7 @@ export default function SettingsScreen() {
           <View style={styles.sectionHeader}>
             <SettingsIcon size={20} color={theme.accent.primary} />
             <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
-              Configurations
+              {t('settings.configurations')}
             </Text>
           </View>
 
@@ -388,17 +395,17 @@ export default function SettingsScreen() {
               <View style={styles.settingTitleRow}>
                 <MessageSquare size={18} color={theme.accent.primary} />
                 <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
-                  SMS Notifications
+                  {t('settings.smsNotifications')}
                 </Text>
               </View>
               <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
-                Send payment reminders via SMS
+                {t('settings.sendPaymentReminders')}
               </Text>
               {settings.smsEnabled && (
                 <View style={[styles.statusBadge, { backgroundColor: theme.accent.success + '20' }]}>
                   <CheckCircle size={12} color={theme.accent.success} />
                   <Text style={[styles.statusText, { color: theme.accent.success }]}>
-                    Active
+                    {t('settings.active')}
                   </Text>
                 </View>
               )}
@@ -406,7 +413,7 @@ export default function SettingsScreen() {
                 <View style={[styles.statusBadge, { backgroundColor: theme.text.tertiary + '20' }]}>
                   <XCircle size={12} color={theme.text.tertiary} />
                   <Text style={[styles.statusText, { color: theme.text.tertiary }]}>
-                    Inactive
+                    {t('settings.inactive')}
                   </Text>
                 </View>
               )}
@@ -426,17 +433,17 @@ export default function SettingsScreen() {
               <View style={styles.settingTitleRow}>
                 <Mail size={18} color={theme.accent.primary} />
                 <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
-                  Email Notifications
+                  {t('settings.emailNotifications')}
                 </Text>
               </View>
               <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
-                Send invoices and receipts via email
+                {t('settings.sendInvoicesReceipts')}
               </Text>
               {settings.emailEnabled && (
                 <View style={[styles.statusBadge, { backgroundColor: theme.accent.success + '20' }]}>
                   <CheckCircle size={12} color={theme.accent.success} />
                   <Text style={[styles.statusText, { color: theme.accent.success }]}>
-                    Active
+                    {t('settings.active')}
                   </Text>
                 </View>
               )}
@@ -456,17 +463,17 @@ export default function SettingsScreen() {
               <View style={styles.settingTitleRow}>
                 <MessageSquare size={18} color={theme.accent.primary} />
                 <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
-                  WhatsApp Business
+                  {t('settings.whatsappBusiness')}
                 </Text>
               </View>
               <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
-                Send invoices and reminders via WhatsApp
+                {t('settings.sendInvoicesReminders')}
               </Text>
               {settings.whatsappEnabled && (
                 <View style={[styles.statusBadge, { backgroundColor: theme.accent.success + '20' }]}>
                   <CheckCircle size={12} color={theme.accent.success} />
                   <Text style={[styles.statusText, { color: theme.accent.success }]}>
-                    Active
+                    {t('settings.active')}
                   </Text>
                 </View>
               )}
@@ -474,7 +481,7 @@ export default function SettingsScreen() {
                 <View style={[styles.statusBadge, { backgroundColor: theme.text.tertiary + '20' }]}>
                   <XCircle size={12} color={theme.text.tertiary} />
                   <Text style={[styles.statusText, { color: theme.text.tertiary }]}>
-                    Inactive
+                    {t('settings.inactive')}
                   </Text>
                 </View>
               )}
@@ -494,11 +501,11 @@ export default function SettingsScreen() {
               <View style={styles.settingTitleRow}>
                 <Bell size={18} color={theme.accent.primary} />
                 <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
-                  Push Notifications
+                  {t('settings.pushNotifications')}
                 </Text>
               </View>
               <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
-                Receive alerts and reminders
+                {t('settings.receiveAlerts')}
               </Text>
             </View>
             <Switch
@@ -515,7 +522,7 @@ export default function SettingsScreen() {
             <View style={styles.settingTitleRow}>
               <Globe size={18} color={theme.accent.primary} />
               <Text style={[styles.label, { color: theme.text.secondary, marginLeft: 8 }]}>
-                Language
+                {t('settings.language')}
               </Text>
             </View>
             <View style={styles.currencyRow}>
@@ -584,11 +591,11 @@ export default function SettingsScreen() {
             <View style={styles.settingTitleRow}>
               <DollarSign size={18} color={theme.accent.primary} />
               <Text style={[styles.label, { color: theme.text.secondary, marginLeft: 8 }]}>
-                Default Currency
+                {t('settings.defaultCurrency')}
               </Text>
             </View>
             <Text style={[styles.hint, { color: theme.text.tertiary }]}>
-              Preferred currency for new transactions
+              {t('settings.preferredCurrency')}
             </Text>
             <View style={styles.currencyRow}>
               <TouchableOpacity
@@ -640,7 +647,7 @@ export default function SettingsScreen() {
           <View style={styles.sectionHeader}>
             <Building2 size={20} color={theme.accent.primary} />
             <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
-              Business Profile
+              {t('settings.businessProfile')}
             </Text>
           </View>
 
