@@ -585,40 +585,115 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       console.log('  - authUserId:', authUserId);
       console.log('  - Match: ✅');
 
-      // STEP 4: Use RPC function for safe upsert (handles duplicates automatically)
-      console.log('📤 Step 4: Creating/updating business profile via safe RPC function...');
+      // STEP 4: Clean up duplicates FIRST, then upsert (automatic - no manual SQL needed)
+      console.log('📤 Step 4: Cleaning up duplicates and creating/updating business profile...');
       
-      // First, try to use the safe RPC function (most reliable - handles duplicates automatically)
-      const rpcParams = {
-        p_user_id: authUserId,
-        p_name: newBusiness.name,
-        p_type: newBusiness.type,
-        p_stage: newBusiness.stage,
-        p_location: newBusiness.location,
-        p_capital: newBusiness.capital,
-        p_currency: newBusiness.currency,
-        p_owner: newBusiness.owner,
-        p_phone: newBusiness.phone || null,
-        p_email: newBusiness.email || null,
-        p_address: newBusiness.address || null,
-        p_dream_big_book: newBusiness.dreamBigBook || 'none',
-        p_logo: newBusiness.logo || null,
-      };
+      // CRITICAL: Clean up duplicates BEFORE attempting UPSERT
+      // This ensures we only have one business profile per user
+      console.log('🧹 Step 4.1: Checking for and cleaning up duplicate business profiles...');
+      
+      // Get all business profiles for this user
+      const { data: existingProfiles, error: fetchError } = await supabase
+        .from('business_profiles')
+        .select('id, created_at, updated_at')
+        .eq('user_id', authUserId)
+        .order('created_at', { ascending: false })
+        .order('updated_at', { ascending: false });
 
+      if (fetchError) {
+        console.warn('⚠️ Could not fetch existing profiles:', fetchError);
+      } else if (existingProfiles && existingProfiles.length > 1) {
+        // We have duplicates - delete all but the most recent one
+        console.log(`⚠️ Found ${existingProfiles.length} business profiles. Cleaning up duplicates...`);
+        
+        const profileToKeep = existingProfiles[0]; // Most recent
+        const profilesToDelete = existingProfiles.slice(1); // All others
+        
+        for (const profile of profilesToDelete) {
+          const { error: deleteError } = await supabase
+            .from('business_profiles')
+            .delete()
+            .eq('id', profile.id);
+          
+          if (deleteError) {
+            console.warn(`⚠️ Could not delete duplicate profile ${profile.id}:`, deleteError);
+          } else {
+            console.log(`✅ Deleted duplicate profile ${profile.id}`);
+          }
+        }
+        
+        console.log(`✅ Cleaned up ${profilesToDelete.length} duplicate profile(s)`);
+      } else if (existingProfiles && existingProfiles.length === 1) {
+        console.log('✅ Only one business profile found - no cleanup needed');
+      } else {
+        console.log('✅ No existing business profiles - will create new one');
+      }
+
+      // STEP 4.2: Now attempt UPSERT (should work now that duplicates are cleaned)
+      console.log('💾 Step 4.2: Upserting business profile...');
+      
       let upsertData: any = null;
       let upsertError: any = null;
 
-      // Try RPC function first (this handles duplicates automatically)
-      const { data: rpcData, error: rpcError } = await supabase.rpc('safe_upsert_business_profile', rpcParams);
+      const { data: directData, error: directError } = await supabase
+        .from('business_profiles')
+        .upsert(
+          {
+            user_id: authUserId,
+            name: newBusiness.name,
+            type: newBusiness.type,
+            stage: newBusiness.stage,
+            location: newBusiness.location,
+            capital: newBusiness.capital,
+            currency: newBusiness.currency,
+            owner: newBusiness.owner,
+            phone: newBusiness.phone || null,
+            email: newBusiness.email || null,
+            address: newBusiness.address || null,
+            dream_big_book: newBusiness.dreamBigBook || 'none',
+            logo: newBusiness.logo || null,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: 'user_id',
+            ignoreDuplicates: false,
+          }
+        )
+        .select()
+        .single();
 
-      if (rpcError) {
-        console.warn('⚠️ RPC function failed, trying direct UPSERT...', rpcError);
+      if (directError) {
+        upsertError = directError;
+        console.error('❌ UPSERT failed:', directError);
         
-        // Fallback: Try direct UPSERT (trigger should handle duplicates)
-        const { data: directData, error: directError } = await supabase
-          .from('business_profiles')
-          .upsert(
-            {
+        // If we still get duplicate errors, try aggressive cleanup and retry
+        const errorMessage = directError.message || String(directError) || '';
+        if (errorMessage.includes('more than one row') || 
+            errorMessage.includes('query returned more than one row') ||
+            directError.code === '23505' ||
+            errorMessage.includes('duplicate')) {
+          
+          console.log('🔄 Duplicate error detected. Performing aggressive cleanup and retry...');
+          
+          // Aggressive cleanup: Delete ALL profiles for this user, then insert fresh
+          const { error: deleteAllError } = await supabase
+            .from('business_profiles')
+            .delete()
+            .eq('user_id', authUserId);
+          
+          if (deleteAllError) {
+            console.warn('⚠️ Could not delete all profiles:', deleteAllError);
+          } else {
+            console.log('✅ Deleted all existing profiles for clean insert');
+          }
+          
+          // Wait a moment for deletion to complete
+          await new Promise<void>(resolve => setTimeout(() => resolve(), 500));
+          
+          // Now try INSERT (not UPSERT) since we deleted everything
+          const { data: insertData, error: insertError } = await supabase
+            .from('business_profiles')
+            .insert({
               user_id: authUserId,
               name: newBusiness.name,
               type: newBusiness.type,
@@ -632,59 +707,23 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
               address: newBusiness.address || null,
               dream_big_book: newBusiness.dreamBigBook || 'none',
               logo: newBusiness.logo || null,
-              updated_at: new Date().toISOString(),
-            },
-            {
-              onConflict: 'user_id',
-              ignoreDuplicates: false,
-            }
-          )
-          .select()
-          .single();
-
-        if (directError) {
-          upsertError = directError;
-          console.error('❌ Direct UPSERT also failed:', directError);
+            })
+            .select()
+            .single();
+          
+          if (insertError) {
+            throw new Error(`Failed to save business profile after cleanup: ${insertError.message || 'Unknown error'}`);
+          } else {
+            // Use insert data
+            upsertData = insertData;
+            console.log('✅ Successfully created business profile after cleanup');
+          }
         } else {
-          upsertData = directData;
-          console.log('✅ Direct UPSERT succeeded');
+          throw new Error(`Failed to save business profile: ${errorMessage || 'Unknown error'}`);
         }
       } else {
-        // RPC function succeeded
-        upsertData = typeof rpcData === 'string' ? JSON.parse(rpcData) : rpcData;
-        console.log('✅ RPC function succeeded');
-      }
-
-      if (upsertError) {
-        console.error('❌ UPSERT failed:', upsertError);
-        
-        // Enhanced error message with clear instructions
-        const errorMessage = upsertError.message || String(upsertError) || 'Failed to save business profile';
-        const errorCode = upsertError.code || '';
-        
-        if (errorCode === '23505' || errorMessage.includes('duplicate') || errorMessage.includes('unique constraint')) {
-          throw new Error(
-            'Duplicate business profile detected.\n\n' +
-            'SOLUTION:\n' +
-            '1. Open Supabase Dashboard → SQL Editor\n' +
-            '2. Select "No limit" in the dropdown\n' +
-            '3. Copy and paste the contents of database/fix_business_profiles_COMPLETE.sql\n' +
-            '4. Click "Run" to clean up duplicates and create the necessary constraints\n' +
-            '5. Try again after running the script'
-          );
-        } else if (errorMessage.includes('more than one row') || errorMessage.includes('query returned more than one row')) {
-          throw new Error(
-            'Multiple business profiles found for your account.\n\n' +
-            'SOLUTION:\n' +
-            '1. Open Supabase Dashboard → SQL Editor\n' +
-            '2. Select "No limit" in the dropdown\n' +
-            '3. Copy and paste the contents of database/fix_business_profiles_COMPLETE.sql\n' +
-            '4. Click "Run" to clean up duplicates\n' +
-            '5. Try again after running the script'
-          );
-        } else {
-          throw new Error(`Failed to save business profile: ${errorMessage}`);
-        }
+        upsertData = directData;
+        console.log('✅ Business profile upserted successfully');
       }
 
       if (!upsertData) {
