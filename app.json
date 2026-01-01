@@ -24,7 +24,8 @@
         "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to access your photos to upload product images and receipts",
         "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera to scan receipts and capture product images",
         "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone for voice notes"
-      }
+      },
+      "usesIcloudStorage": true
     },
     "android": {
       "adaptiveIcon": {
@@ -39,7 +40,11 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "INTERNET"
       ]
     },
     "web": {
@@ -54,6 +59,12 @@
         "expo-image-picker",
         {
           "photosPermission": "The app accesses your photos to upload product images and scan receipts."
+        }
+      ],
+      [
+        "expo-document-picker",
+        {
+          "iCloudContainerEnvironment": "Production"
         }
       ]
     ],

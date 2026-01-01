@@ -224,7 +224,7 @@ export default function IntegrationsConfigScreen() {
     });
 
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json() as any;
       throw new Error(error.error?.message || 'Invalid Stripe credentials');
     }
 
@@ -277,7 +277,7 @@ export default function IntegrationsConfigScreen() {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+      const error = await response.json().catch(() => ({})) as any;
       throw new Error(error.error_description || error.error || 'Invalid PayPal credentials');
     }
 
@@ -325,7 +325,7 @@ export default function IntegrationsConfigScreen() {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+      const error = await response.json().catch(() => ({})) as any;
       throw new Error(error.message || 'Invalid Twilio credentials');
     }
 

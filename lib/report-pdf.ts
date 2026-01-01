@@ -509,7 +509,7 @@ export async function exportReportToPDF(
           console.log('Print window failed, trying download:', printError);
         }
 
-        const blob = typeof Blob !== 'undefined' ? new Blob([html], { type: 'text/html;charset=utf-8', lastModified: Date.now() }) : null;
+        const blob = typeof Blob !== 'undefined' ? new Blob([html], { type: 'text/html;charset=utf-8' }) : null;
         if (!blob) {
           throw new Error('Blob API not available');
         }

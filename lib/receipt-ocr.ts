@@ -114,7 +114,7 @@ async function extractTextWithOCRSpace(imageUri: string, apiKey?: string): Promi
     
     const response = await fetch(ocrApiUrl, {
       method: 'POST',
-      body: formData,
+      body: formData as any,
       headers: {
         // Don't set Content-Type - FormData will set it with boundary
       },
@@ -128,7 +128,7 @@ async function extractTextWithOCRSpace(imageUri: string, apiKey?: string): Promi
       throw new Error(`OCR API error: ${response.status} ${response.statusText} - ${errorText.substring(0, 200)}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as any;
     console.log('OCR API response data:', JSON.stringify(data).substring(0, 500));
     
     // Check for API errors
@@ -190,7 +190,7 @@ async function extractTextWithTesseract(imageUri: string): Promise<string> {
     console.log('Attempting Tesseract.js OCR...');
     
     // Check if we're in React Native environment
-    const isReactNative = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
+    const isReactNative = typeof (globalThis as any).navigator !== 'undefined' && (globalThis as any).navigator.product === 'ReactNative';
     const isExpo = typeof (global as any).__expo !== 'undefined';
     
     if (isReactNative || isExpo) {
@@ -265,7 +265,7 @@ async function extractTextWithTesseract(imageUri: string): Promise<string> {
     }
     
     // Check if it's a React Native specific error
-    const isReactNative = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
+    const isReactNative = typeof (globalThis as any).navigator !== 'undefined' && (globalThis as any).navigator.product === 'ReactNative';
     if (isReactNative && (error.message?.includes('file://') || error.message?.includes('URI'))) {
       throw new Error('Tesseract.js has limited support in React Native. Please configure OCR.space API key for better results.');
     }
@@ -292,7 +292,7 @@ export async function extractTextFromImage(imageUri: string): Promise<string> {
   console.log('API Key value:', apiKey ? `${apiKey.substring(0, 5)}...` : 'none');
   
   // Check if we're in React Native - if so, skip Tesseract entirely
-  const isReactNative = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
+  const isReactNative = typeof (globalThis as any).navigator !== 'undefined' && (globalThis as any).navigator.product === 'ReactNative';
   const isExpo = typeof (global as any).__expo !== 'undefined';
   
   try {
