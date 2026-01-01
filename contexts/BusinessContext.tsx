@@ -585,146 +585,111 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       console.log('  - authUserId:', authUserId);
       console.log('  - Match: ✅');
 
-      // STEP 4: Clean up duplicates FIRST, then upsert (automatic - no manual SQL needed)
-      console.log('📤 Step 4: Cleaning up duplicates and creating/updating business profile...');
+      // STEP 4: DELETE all existing profiles, then INSERT fresh (simplest and most reliable)
+      console.log('📤 Step 4: Ensuring clean state and creating/updating business profile...');
       
-      // CRITICAL: Clean up duplicates BEFORE attempting UPSERT
-      // This ensures we only have one business profile per user
-      console.log('🧹 Step 4.1: Checking for and cleaning up duplicate business profiles...');
+      // CRITICAL: Delete ALL existing business profiles for this user first
+      // This ensures we start with a clean slate and avoid any "more than one row" errors
+      console.log('🧹 Step 4.1: Deleting all existing business profiles for clean insert...');
       
-      // Get all business profiles for this user
-      const { data: existingProfiles, error: fetchError } = await supabase
+      const { error: deleteError, count: deleteCount } = await supabase
         .from('business_profiles')
-        .select('id, created_at, updated_at')
-        .eq('user_id', authUserId)
-        .order('created_at', { ascending: false })
-        .order('updated_at', { ascending: false });
+        .delete({ count: 'exact' })
+        .eq('user_id', authUserId);
 
-      if (fetchError) {
-        console.warn('⚠️ Could not fetch existing profiles:', fetchError);
-      } else if (existingProfiles && existingProfiles.length > 1) {
-        // We have duplicates - delete all but the most recent one
-        console.log(`⚠️ Found ${existingProfiles.length} business profiles. Cleaning up duplicates...`);
+      if (deleteError) {
+        console.warn('⚠️ Could not delete existing profiles:', deleteError);
+        // Continue anyway - might not exist
+      } else {
+        console.log(`✅ Deleted ${deleteCount || 0} existing business profile(s)`);
+      }
+
+      // Wait a moment to ensure deletion is complete
+      await new Promise<void>(resolve => setTimeout(() => resolve(), 300));
+
+      // STEP 4.2: Verify no profiles exist (double-check)
+      console.log('🔍 Step 4.2: Verifying clean state...');
+      const { data: remainingProfiles, error: checkError } = await supabase
+        .from('business_profiles')
+        .select('id')
+        .eq('user_id', authUserId);
+
+      if (checkError) {
+        console.warn('⚠️ Could not verify clean state:', checkError);
+      } else if (remainingProfiles && remainingProfiles.length > 0) {
+        console.warn(`⚠️ Still found ${remainingProfiles.length} profile(s) after delete. Attempting force delete...`);
         
-        const profileToKeep = existingProfiles[0]; // Most recent
-        const profilesToDelete = existingProfiles.slice(1); // All others
-        
-        for (const profile of profilesToDelete) {
-          const { error: deleteError } = await supabase
+        // Force delete by ID
+        for (const profile of remainingProfiles) {
+          const { error: forceDeleteError } = await supabase
             .from('business_profiles')
             .delete()
             .eq('id', profile.id);
           
-          if (deleteError) {
-            console.warn(`⚠️ Could not delete duplicate profile ${profile.id}:`, deleteError);
-          } else {
-            console.log(`✅ Deleted duplicate profile ${profile.id}`);
+          if (forceDeleteError) {
+            console.warn(`⚠️ Could not force delete profile ${profile.id}:`, forceDeleteError);
           }
         }
         
-        console.log(`✅ Cleaned up ${profilesToDelete.length} duplicate profile(s)`);
-      } else if (existingProfiles && existingProfiles.length === 1) {
-        console.log('✅ Only one business profile found - no cleanup needed');
+        // Wait again
+        await new Promise<void>(resolve => setTimeout(() => resolve(), 300));
       } else {
-        console.log('✅ No existing business profiles - will create new one');
+        console.log('✅ Verified: No existing profiles found');
       }
 
-      // STEP 4.2: Now attempt UPSERT (should work now that duplicates are cleaned)
-      console.log('💾 Step 4.2: Upserting business profile...');
+      // STEP 4.3: INSERT fresh business profile (not UPSERT - we deleted everything)
+      console.log('💾 Step 4.3: Inserting fresh business profile...');
       
-      let upsertData: any = null;
-      let upsertError: any = null;
-
-      const { data: directData, error: directError } = await supabase
+      const { data: insertData, error: insertError } = await supabase
         .from('business_profiles')
-        .upsert(
-          {
-            user_id: authUserId,
-            name: newBusiness.name,
-            type: newBusiness.type,
-            stage: newBusiness.stage,
-            location: newBusiness.location,
-            capital: newBusiness.capital,
-            currency: newBusiness.currency,
-            owner: newBusiness.owner,
-            phone: newBusiness.phone || null,
-            email: newBusiness.email || null,
-            address: newBusiness.address || null,
-            dream_big_book: newBusiness.dreamBigBook || 'none',
-            logo: newBusiness.logo || null,
-            updated_at: new Date().toISOString(),
-          },
-          {
-            onConflict: 'user_id',
-            ignoreDuplicates: false,
-          }
-        )
+        .insert({
+          user_id: authUserId,
+          name: newBusiness.name,
+          type: newBusiness.type,
+          stage: newBusiness.stage,
+          location: newBusiness.location,
+          capital: newBusiness.capital,
+          currency: newBusiness.currency,
+          owner: newBusiness.owner,
+          phone: newBusiness.phone || null,
+          email: newBusiness.email || null,
+          address: newBusiness.address || null,
+          dream_big_book: newBusiness.dreamBigBook || 'none',
+          logo: newBusiness.logo || null,
+        })
         .select()
         .single();
 
-      if (directError) {
-        upsertError = directError;
-        console.error('❌ UPSERT failed:', directError);
+      if (insertError) {
+        console.error('❌ INSERT failed:', insertError);
         
-        // If we still get duplicate errors, try aggressive cleanup and retry
-        const errorMessage = directError.message || String(directError) || '';
+        const errorMessage = insertError.message || String(insertError) || 'Failed to save business profile';
+        const errorCode = insertError.code || '';
+        
+        // If we still get duplicate errors, there might be a trigger or constraint issue
         if (errorMessage.includes('more than one row') || 
             errorMessage.includes('query returned more than one row') ||
-            directError.code === '23505' ||
-            errorMessage.includes('duplicate')) {
+            errorCode === '23505' ||
+            errorMessage.includes('duplicate') ||
+            errorMessage.includes('unique constraint')) {
           
-          console.log('🔄 Duplicate error detected. Performing aggressive cleanup and retry...');
-          
-          // Aggressive cleanup: Delete ALL profiles for this user, then insert fresh
-          const { error: deleteAllError } = await supabase
-            .from('business_profiles')
-            .delete()
-            .eq('user_id', authUserId);
-          
-          if (deleteAllError) {
-            console.warn('⚠️ Could not delete all profiles:', deleteAllError);
-          } else {
-            console.log('✅ Deleted all existing profiles for clean insert');
-          }
-          
-          // Wait a moment for deletion to complete
-          await new Promise<void>(resolve => setTimeout(() => resolve(), 500));
-          
-          // Now try INSERT (not UPSERT) since we deleted everything
-          const { data: insertData, error: insertError } = await supabase
-            .from('business_profiles')
-            .insert({
-              user_id: authUserId,
-              name: newBusiness.name,
-              type: newBusiness.type,
-              stage: newBusiness.stage,
-              location: newBusiness.location,
-              capital: newBusiness.capital,
-              currency: newBusiness.currency,
-              owner: newBusiness.owner,
-              phone: newBusiness.phone || null,
-              email: newBusiness.email || null,
-              address: newBusiness.address || null,
-              dream_big_book: newBusiness.dreamBigBook || 'none',
-              logo: newBusiness.logo || null,
-            })
-            .select()
-            .single();
-          
-          if (insertError) {
-            throw new Error(`Failed to save business profile after cleanup: ${insertError.message || 'Unknown error'}`);
-          } else {
-            // Use insert data
-            upsertData = insertData;
-            console.log('✅ Successfully created business profile after cleanup');
-          }
+          throw new Error(
+            'Unable to save business profile due to duplicate detection.\n\n' +
+            'This usually means there are duplicate profiles in the database that cannot be deleted automatically.\n\n' +
+            'SOLUTION:\n' +
+            '1. Open Supabase Dashboard → SQL Editor\n' +
+            '2. Select "No limit" in the dropdown\n' +
+            '3. Run this SQL to clean up duplicates:\n\n' +
+            `DELETE FROM public.business_profiles WHERE user_id = '${authUserId}' AND id NOT IN (SELECT id FROM (SELECT id, ROW_NUMBER() OVER (ORDER BY created_at DESC) as rn FROM public.business_profiles WHERE user_id = '${authUserId}') ranked WHERE rn = 1);\n\n` +
+            '4. Then try again'
+          );
         } else {
-          throw new Error(`Failed to save business profile: ${errorMessage || 'Unknown error'}`);
+          throw new Error(`Failed to save business profile: ${errorMessage}`);
         }
-      } else {
-        upsertData = directData;
-        console.log('✅ Business profile upserted successfully');
       }
+
+      const upsertData = insertData;
+      console.log('✅ Business profile created successfully');
 
       if (!upsertData) {
         throw new Error('No data returned from database');
