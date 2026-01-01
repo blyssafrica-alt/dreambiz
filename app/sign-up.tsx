@@ -46,18 +46,11 @@ export default function SignUpScreen() {
     try {
       await signUp(name, email, password);
       
-      // Check if email confirmation is required
-      const { supabase } = await import('@/lib/supabase');
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user && !session.user.email_confirmed_at) {
-        // Email confirmation required - redirect to verification screen
-        router.replace('/verify-email' as any);
-      } else {
-        // Email already confirmed or auto-confirm enabled - proceed to onboarding
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        router.replace('/onboarding');
-      }
+      // Always redirect to verify-email after signup
+      // The verify-email screen will check if email is already verified
+      // and auto-redirect to onboarding if it is
+      console.log('Sign up successful, redirecting to verify-email');
+      router.replace('/verify-email' as any);
     } catch (error: any) {
       const errorMessage = error?.message || 'Failed to create account';
       RNAlert.alert('Error', errorMessage);

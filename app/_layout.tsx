@@ -42,18 +42,29 @@ function RootLayoutNav() {
       }
 
       try {
-        const { supabase } = await import('@/lib/supabase');
-        const { data: { session } } = await supabase.auth.getSession();
+        // Use static import instead of dynamic import to avoid syntax errors
+        const { supabase } = require('@/lib/supabase');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          setEmailVerified(null);
+          return;
+        }
+        
         // Only set if we have a valid session
         if (session?.user) {
-          setEmailVerified(session.user.email_confirmed_at ? true : false);
+          const isVerified = !!session.user.email_confirmed_at;
+          setEmailVerified(isVerified);
+          console.log('Email verification status:', isVerified ? 'Verified' : 'Not verified');
         } else {
           // No session means not authenticated
           setEmailVerified(null);
         }
-      } catch (error) {
-        console.error('Error checking email verification:', error);
-        setEmailVerified(null);
+      } catch (error: any) {
+        console.error('Error checking email verification:', error?.message || error);
+        // On error, assume not verified to be safe
+        setEmailVerified(false);
       }
     };
 
@@ -83,19 +94,24 @@ function RootLayoutNav() {
     }
 
     // Only check email verification if authenticated
-    // If email verification check is still pending, wait
-    if (emailVerified === null) {
+    // If email verification check is still pending, wait (but not indefinitely)
+    if (emailVerified === null && isAuthenticated) {
+      // Wait a bit for email verification check, but don't block forever
       return; // Wait for email verification check to complete
     }
 
-    // If authenticated but email not verified, redirect to verification screen
-    if (isAuthenticated && !emailVerified && !inVerifyEmail && !inAuth) {
+    // CRITICAL: If authenticated but email not verified, redirect to verification screen
+    // This must happen BEFORE checking onboarding status
+    if (isAuthenticated && emailVerified === false && !inVerifyEmail && !inAuth) {
+      console.log('Redirecting to verify-email: email not verified');
       router.replace('/verify-email' as any);
       return;
     }
 
     // If authenticated, email verified, but not onboarded, redirect to onboarding
-    if (isAuthenticated && emailVerified && !hasOnboarded && !inOnboarding && !inVerifyEmail) {
+    // Only proceed to onboarding if email is verified (emailVerified === true)
+    if (isAuthenticated && emailVerified === true && !hasOnboarded && !inOnboarding && !inVerifyEmail) {
+      console.log('Redirecting to onboarding: email verified, not onboarded');
       router.replace('/onboarding' as any);
       return;
     }
