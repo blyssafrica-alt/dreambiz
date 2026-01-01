@@ -585,84 +585,112 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       console.log('  - authUserId:', authUserId);
       console.log('  - Match: ✅');
 
-      // STEP 4: Use direct UPSERT (simpler and more reliable than RPC)
-      // The trigger will automatically clean up any duplicates
-      console.log('📤 Step 4: Creating/updating business profile via direct UPSERT...');
+      // STEP 4: Use RPC function for safe upsert (handles duplicates automatically)
+      console.log('📤 Step 4: Creating/updating business profile via safe RPC function...');
       
-      // Use PostgreSQL UPSERT (ON CONFLICT) - much simpler and more reliable
-      // The trigger will automatically clean up duplicates if any exist
-      let { data: upsertData, error: upsertError } = await supabase
-        .from('business_profiles')
-        .upsert(
-          {
-            user_id: authUserId,
-            name: newBusiness.name,
-            type: newBusiness.type,
-            stage: newBusiness.stage,
-            location: newBusiness.location,
-            capital: newBusiness.capital,
-            currency: newBusiness.currency,
-            owner: newBusiness.owner,
-            phone: newBusiness.phone || null,
-            email: newBusiness.email || null,
-            address: newBusiness.address || null,
-            dream_big_book: newBusiness.dreamBigBook || 'none',
-            logo: newBusiness.logo || null,
-            updated_at: new Date().toISOString(),
-          },
-          {
-            onConflict: 'user_id', // Use unique constraint on user_id
-            ignoreDuplicates: false, // Update existing instead of ignoring
-          }
-        )
-        .select()
-        .single();
+      // First, try to use the safe RPC function (most reliable)
+      const rpcParams = {
+        p_user_id: authUserId,
+        p_name: newBusiness.name,
+        p_type: newBusiness.type,
+        p_stage: newBusiness.stage,
+        p_location: newBusiness.location,
+        p_capital: newBusiness.capital,
+        p_currency: newBusiness.currency,
+        p_owner: newBusiness.owner,
+        p_phone: newBusiness.phone || null,
+        p_email: newBusiness.email || null,
+        p_address: newBusiness.address || null,
+        p_dream_big_book: newBusiness.dreamBigBook || 'none',
+        p_logo: newBusiness.logo || null,
+      };
+
+      let upsertData: any = null;
+      let upsertError: any = null;
+
+      // Try RPC function first
+      const { data: rpcData, error: rpcError } = await supabase.rpc('safe_upsert_business_profile', rpcParams);
+
+      if (rpcError) {
+        console.warn('⚠️ RPC function failed, trying direct UPSERT with cleanup...', rpcError);
+        
+        // Fallback: Clean up duplicates first, then try direct UPSERT
+        // Delete all but the most recent business profile for this user
+        const { error: cleanupError } = await supabase
+          .from('business_profiles')
+          .delete()
+          .eq('user_id', authUserId)
+          .neq('id', 
+            supabase
+              .from('business_profiles')
+              .select('id')
+              .eq('user_id', authUserId)
+              .order('created_at', { ascending: false })
+              .order('updated_at', { ascending: false })
+              .limit(1)
+              .single()
+              .then(({ data }) => data?.id || '')
+          );
+
+        if (cleanupError) {
+          console.warn('⚠️ Cleanup failed, proceeding with UPSERT anyway:', cleanupError);
+        }
+
+        // Now try direct UPSERT
+        const { data: directData, error: directError } = await supabase
+          .from('business_profiles')
+          .upsert(
+            {
+              user_id: authUserId,
+              name: newBusiness.name,
+              type: newBusiness.type,
+              stage: newBusiness.stage,
+              location: newBusiness.location,
+              capital: newBusiness.capital,
+              currency: newBusiness.currency,
+              owner: newBusiness.owner,
+              phone: newBusiness.phone || null,
+              email: newBusiness.email || null,
+              address: newBusiness.address || null,
+              dream_big_book: newBusiness.dreamBigBook || 'none',
+              logo: newBusiness.logo || null,
+              updated_at: new Date().toISOString(),
+            },
+            {
+              onConflict: 'user_id',
+              ignoreDuplicates: false,
+            }
+          )
+          .select()
+          .single();
+
+        if (directError) {
+          upsertError = directError;
+        } else {
+          upsertData = directData;
+        }
+      } else {
+        // RPC function succeeded
+        upsertData = typeof rpcData === 'string' ? JSON.parse(rpcData) : rpcData;
+      }
 
       if (upsertError) {
         console.error('❌ UPSERT failed:', upsertError);
         
-        // Provide helpful error messages
-        if (upsertError.code === '23505') {
-          // Unique constraint violation - trigger should handle this, but if it doesn't, try again
-          console.log('⚠️ Unique constraint violation detected. Trigger should clean this up. Retrying...');
-          // Wait a moment for trigger to clean up, then retry once
-          await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
-          
-          const { data: retryData, error: retryError } = await supabase
-            .from('business_profiles')
-            .upsert(
-              {
-                user_id: authUserId,
-                name: newBusiness.name,
-                type: newBusiness.type,
-                stage: newBusiness.stage,
-                location: newBusiness.location,
-                capital: newBusiness.capital,
-                currency: newBusiness.currency,
-                owner: newBusiness.owner,
-                phone: newBusiness.phone || null,
-                email: newBusiness.email || null,
-                address: newBusiness.address || null,
-                dream_big_book: newBusiness.dreamBigBook || 'none',
-                logo: newBusiness.logo || null,
-                updated_at: new Date().toISOString(),
-              },
-              {
-                onConflict: 'user_id',
-                ignoreDuplicates: false,
-              }
-            )
-            .select()
-            .single();
-            
-          if (retryError) {
-            throw new Error(`Failed to save business profile: ${retryError.message || 'Unknown error'}`);
-          }
-          
-          // Use retry data
-          upsertData = retryData as any;
+        // Enhanced error message
+        const errorMessage = upsertError.message || 'Failed to save business profile';
+        const errorCode = upsertError.code || '';
+        
+        if (errorCode === '23505' || errorMessage.includes('duplicate') || errorMessage.includes('unique constraint')) {
+          throw new Error(
+            'Duplicate business profile detected. Please run database/fix_business_profiles_COMPLETE.sql in Supabase SQL Editor to fix this issue.'
+          );
+        } else if (errorMessage.includes('more than one row')) {
+          throw new Error(
+            'Multiple business profiles found. Please run database/fix_business_profiles_COMPLETE.sql in Supabase SQL Editor to clean up duplicates.'
+          );
         } else {
-          throw new Error(upsertError.message || 'Failed to save business profile');
+          throw new Error(`Failed to save business profile: ${errorMessage}`);
         }
       }
 
