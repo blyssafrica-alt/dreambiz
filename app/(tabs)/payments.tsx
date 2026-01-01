@@ -1,5 +1,5 @@
-import { Stack } from 'expo-router';
-import { useState, useRef, useEffect } from 'react';
+import { Stack, useRouter } from 'expo-router';
+import { useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,12 @@ import {
   ScrollView,
   TouchableOpacity,
   Animated,
+  Platform,
 } from 'react-native';
 import PageHeader from '@/components/PageHeader';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
-import { CreditCard, DollarSign, TrendingUp, Calendar, Filter, Plus } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { CreditCard, DollarSign, TrendingUp, Calendar, Plus } from 'lucide-react-native';
 
 export default function PaymentsScreen() {
   const { theme } = useTheme();
@@ -36,7 +36,7 @@ export default function PaymentsScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim]);
 
   // Calculate payment statistics - ensure documents is an array
   const safeDocuments = Array.isArray(documents) ? documents : [];
@@ -87,7 +87,7 @@ export default function PaymentsScreen() {
         >
           <ScrollView
             style={styles.scrollView}
-            contentContainerStyle={styles.contentContainer}
+            contentContainerStyle={[styles.contentContainer, { paddingBottom: Platform.OS === 'ios' ? 120 : 110 }]}
             showsVerticalScrollIndicator={false}
           >
             {/* Summary Cards */}
