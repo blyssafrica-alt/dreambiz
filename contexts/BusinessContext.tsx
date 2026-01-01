@@ -625,32 +625,94 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       console.log('  - authUserId:', authUserId);
       console.log('  - Match:', authUserId === upsertData.user_id ? '✅' : '❌');
 
-      // STEP 4: Call RPC function (handles everything automatically with UPSERT)
-      console.log('📤 Step 4: Creating/updating business profile via RPC function...');
+      // STEP 4: Use direct UPSERT (simpler and more reliable than RPC)
+      // The trigger will automatically clean up any duplicates
+      console.log('📤 Step 4: Creating/updating business profile via direct UPSERT...');
       
-      const { data: rpcData, error: rpcError } = await supabase.rpc('create_or_update_business_profile', businessData);
+      // Use PostgreSQL UPSERT (ON CONFLICT) - much simpler and more reliable
+      // The trigger will automatically clean up duplicates if any exist
+      const { data: upsertData, error: upsertError } = await supabase
+        .from('business_profiles')
+        .upsert(
+          {
+            user_id: authUserId,
+            name: newBusiness.name,
+            type: newBusiness.type,
+            stage: newBusiness.stage,
+            location: newBusiness.location,
+            capital: newBusiness.capital,
+            currency: newBusiness.currency,
+            owner: newBusiness.owner,
+            phone: newBusiness.phone || null,
+            email: newBusiness.email || null,
+            address: newBusiness.address || null,
+            dream_big_book: newBusiness.dreamBigBook || 'none',
+            logo: newBusiness.logo || null,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: 'user_id', // Use unique constraint on user_id
+            ignoreDuplicates: false, // Update existing instead of ignoring
+          }
+        )
+        .select()
+        .single();
 
-      if (rpcError) {
-        console.error('❌ RPC function failed:', rpcError);
+      if (upsertError) {
+        console.error('❌ UPSERT failed:', upsertError);
         
         // Provide helpful error messages
-        if (rpcError.code === '42883' || rpcError.message?.includes('does not exist')) {
-          throw new Error(
-            'Database function not found. Please run database/create_business_profile_rpc_FINAL.sql in Supabase SQL Editor.'
-          );
+        if (upsertError.code === '23505') {
+          // Unique constraint violation - trigger should handle this, but if it doesn't, try again
+          console.log('⚠️ Unique constraint violation detected. Trigger should clean this up. Retrying...');
+          // Wait a moment for trigger to clean up, then retry once
+          await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
+          
+          const { data: retryData, error: retryError } = await supabase
+            .from('business_profiles')
+            .upsert(
+              {
+                user_id: authUserId,
+                name: newBusiness.name,
+                type: newBusiness.type,
+                stage: newBusiness.stage,
+                location: newBusiness.location,
+                capital: newBusiness.capital,
+                currency: newBusiness.currency,
+                owner: newBusiness.owner,
+                phone: newBusiness.phone || null,
+                email: newBusiness.email || null,
+                address: newBusiness.address || null,
+                dream_big_book: newBusiness.dreamBigBook || 'none',
+                logo: newBusiness.logo || null,
+                updated_at: new Date().toISOString(),
+              },
+              {
+                onConflict: 'user_id',
+                ignoreDuplicates: false,
+              }
+            )
+            .select()
+            .single();
+            
+          if (retryError) {
+            throw new Error(`Failed to save business profile: ${retryError.message || 'Unknown error'}`);
+          }
+          
+          // Use retry data
+          upsertData = retryData;
+        } else {
+          throw new Error(upsertError.message || 'Failed to save business profile');
         }
-        
-        throw new Error(rpcError.message || 'Failed to save business profile');
       }
 
-      if (!rpcData) {
+      if (!upsertData) {
         throw new Error('No data returned from database');
       }
 
       // STEP 5: Process the result
-
       // Convert result to BusinessProfile format
-      const businessResult = typeof data === 'string' ? JSON.parse(data) : data;
+      const businessResult = upsertData;
       
       const savedBusiness: BusinessProfile = {
         id: businessResult.id,
@@ -666,6 +728,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         address: businessResult.address || undefined,
         dreamBigBook: businessResult.dream_big_book || businessResult.dreamBigBook || 'none' as any,
         createdAt: businessResult.created_at || businessResult.createdAt,
+        logo: businessResult.logo || undefined,
       };
 
       // STEP 6: Update state
