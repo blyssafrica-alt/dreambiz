@@ -12,7 +12,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert as RNAlert,
-  Share,
   Platform,
   Animated,
 } from 'react-native';
@@ -29,9 +28,6 @@ export default function ReportsScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [period, setPeriod] = useState<ReportPeriod>('month');
-
-  // Ensure arrays are always valid
-  const safeTransactions = Array.isArray(transactions) ? transactions : [];
 
   useEffect(() => {
     Animated.parallel([
@@ -94,6 +90,7 @@ export default function ReportsScreen() {
   };
 
   const reportData = useMemo(() => {
+    const safeTransactions = Array.isArray(transactions) ? transactions : [];
     const { start, end } = getDateRange(period);
     const filtered = safeTransactions.filter(t => t.date >= start && t.date <= end);
 
@@ -268,7 +265,7 @@ export default function ReportsScreen() {
         ))}
       </ScrollView>
 
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: Platform.OS === 'ios' ? 120 : 110 }}>
         {/* Profit & Loss Summary */}
         <View style={[styles.card, { backgroundColor: theme.background.card }]}>
           <Text style={[styles.cardTitle, { color: theme.text.primary }]}>Profit & Loss</Text>

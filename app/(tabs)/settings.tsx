@@ -1,5 +1,5 @@
 import { Stack, router } from 'expo-router';
-import { DollarSign, Building2, MapPin, Phone, Mail, Save, FileText, Moon, Sun, LogOut, Download, Database, Image as ImageIcon, X, Upload, Settings as SettingsIcon } from 'lucide-react-native';
+import { DollarSign, Building2, MapPin, Phone, Mail, Save, FileText, Moon, Sun, LogOut, Download, Database, Image as ImageIcon, X, Settings as SettingsIcon } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
 import {
   View,
@@ -91,7 +91,7 @@ export default function SettingsScreen() {
             const fileName = `business-logo-${business?.id || 'temp'}-${Date.now()}.${fileExt}`;
             const filePath = `logos/${fileName}`;
 
-            const { data, error } = await supabase.storage
+            const { error } = await supabase.storage
               .from('business_logos')
               .upload(filePath, decode(base64), {
                 contentType: asset.mimeType || 'image/jpeg',
@@ -723,7 +723,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: Platform.OS === 'ios' ? 120 : 110,
   },
   userCard: {
     flexDirection: 'row',

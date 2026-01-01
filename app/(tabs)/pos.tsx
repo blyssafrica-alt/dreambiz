@@ -1329,7 +1329,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    paddingBottom: 100,
+    paddingBottom: Platform.OS === 'ios' ? 120 : 110,
   },
   productCard: {
     width: (Dimensions.get('window').width - 44) / 2,
