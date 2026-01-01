@@ -104,40 +104,70 @@ export default function IntegrationsConfigScreen() {
   const loadIntegrations = async () => {
     try {
       setLoading(true);
+      
+      // Define all available integrations (matching the regular integrations page)
+      const allIntegrations: IntegrationConfig[] = [
+        { id: 'stripe', name: 'Stripe', category: 'payment', isActive: false, config: {} },
+        { id: 'paypal', name: 'PayPal', category: 'payment', isActive: false, config: {} },
+        { id: 'ecocash', name: 'EcoCash', category: 'payment', isActive: false, config: {} },
+        { id: 'quickbooks', name: 'QuickBooks', category: 'accounting', isActive: false, config: {} },
+        { id: 'xero', name: 'Xero', category: 'accounting', isActive: false, config: {} },
+        { id: 'email', name: 'Email Service', category: 'communication', isActive: true, config: {} },
+        { id: 'sms', name: 'SMS Service (Twilio)', category: 'communication', isActive: false, config: {} },
+        { id: 'whatsapp', name: 'WhatsApp Business', category: 'communication', isActive: false, config: {} },
+        { id: 'google-drive', name: 'Google Drive', category: 'storage', isActive: false, config: {} },
+        { id: 'dropbox', name: 'Dropbox', category: 'storage', isActive: false, config: {} },
+        { id: 'bank', name: 'Bank Account', category: 'bank', isActive: false, config: {} },
+      ];
+
+      // Load existing configurations from database
       const { data, error } = await supabase
         .from('integration_configs')
         .select('*')
         .order('name', { ascending: true });
 
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        setIntegrations(data.map((row: any) => ({
-          id: row.id,
-          name: row.name,
-          category: row.category,
-          isActive: row.is_active || false,
-          config: row.config || {},
-        })));
-      } else {
-        const defaultIntegrations: IntegrationConfig[] = [
-          { id: 'stripe', name: 'Stripe', category: 'payment', isActive: false, config: {} },
-          { id: 'paypal', name: 'PayPal', category: 'payment', isActive: false, config: {} },
-          { id: 'ecocash', name: 'EcoCash', category: 'payment', isActive: false, config: {} },
-          { id: 'quickbooks', name: 'QuickBooks', category: 'accounting', isActive: false, config: {} },
-          { id: 'xero', name: 'Xero', category: 'accounting', isActive: false, config: {} },
-          { id: 'email', name: 'Email Service', category: 'communication', isActive: false, config: {} },
-          { id: 'sms', name: 'SMS Service (Twilio)', category: 'communication', isActive: false, config: {} },
-          { id: 'whatsapp', name: 'WhatsApp Business', category: 'communication', isActive: false, config: {} },
-          { id: 'google-drive', name: 'Google Drive', category: 'storage', isActive: false, config: {} },
-          { id: 'dropbox', name: 'Dropbox', category: 'storage', isActive: false, config: {} },
-          { id: 'bank', name: 'Bank Account', category: 'bank', isActive: false, config: {} },
-        ];
-        setIntegrations(defaultIntegrations);
+      if (error) {
+        console.error('Error loading integrations:', error);
+        // Still show all integrations even if database query fails
+        setIntegrations(allIntegrations);
+        return;
       }
+
+      // Merge database data with default integrations
+      // This ensures all integrations are shown, even if not in database yet
+      const mergedIntegrations = allIntegrations.map(defaultIntegration => {
+        const dbIntegration = data?.find((row: any) => row.id === defaultIntegration.id);
+        if (dbIntegration) {
+          return {
+            id: dbIntegration.id,
+            name: dbIntegration.name || defaultIntegration.name,
+            category: dbIntegration.category || defaultIntegration.category,
+            isActive: dbIntegration.is_active ?? defaultIntegration.isActive,
+            config: dbIntegration.config || {},
+          };
+        }
+        return defaultIntegration;
+      });
+
+      setIntegrations(mergedIntegrations);
     } catch (error: any) {
       console.error('Failed to load integrations:', error);
       Alert.alert('Error', 'Failed to load integration configurations');
+      // Show default integrations on error
+      const defaultIntegrations: IntegrationConfig[] = [
+        { id: 'stripe', name: 'Stripe', category: 'payment', isActive: false, config: {} },
+        { id: 'paypal', name: 'PayPal', category: 'payment', isActive: false, config: {} },
+        { id: 'ecocash', name: 'EcoCash', category: 'payment', isActive: false, config: {} },
+        { id: 'quickbooks', name: 'QuickBooks', category: 'accounting', isActive: false, config: {} },
+        { id: 'xero', name: 'Xero', category: 'accounting', isActive: false, config: {} },
+        { id: 'email', name: 'Email Service', category: 'communication', isActive: true, config: {} },
+        { id: 'sms', name: 'SMS Service (Twilio)', category: 'communication', isActive: false, config: {} },
+        { id: 'whatsapp', name: 'WhatsApp Business', category: 'communication', isActive: false, config: {} },
+        { id: 'google-drive', name: 'Google Drive', category: 'storage', isActive: false, config: {} },
+        { id: 'dropbox', name: 'Dropbox', category: 'storage', isActive: false, config: {} },
+        { id: 'bank', name: 'Bank Account', category: 'bank', isActive: false, config: {} },
+      ];
+      setIntegrations(defaultIntegrations);
     } finally {
       setLoading(false);
     }
@@ -426,6 +456,18 @@ export default function IntegrationsConfigScreen() {
     return integrationFields[id] || [];
   };
 
+  // Group integrations by category
+  const groupedIntegrations = integrations.reduce((acc, integration) => {
+    if (!acc[integration.category]) {
+      acc[integration.category] = [];
+    }
+    acc[integration.category].push(integration);
+    return acc;
+  }, {} as Record<string, IntegrationConfig[]>);
+
+  // Category order for display
+  const categoryOrder = ['payment', 'bank', 'accounting', 'communication', 'storage'];
+
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
@@ -448,109 +490,118 @@ export default function IntegrationsConfigScreen() {
       />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {integrations.map((integration) => {
-          const fields = getFieldsForIntegration(integration.id);
-          
-          return (
-            <View key={integration.id} style={[styles.integrationCard, { backgroundColor: theme.background.card }]}>
-              <View style={styles.cardHeader}>
-                <View>
-                  <Text style={[styles.integrationName, { color: theme.text.primary }]}>
-                    {integration.name}
-                  </Text>
-                  <Text style={[styles.categoryLabel, { color: theme.text.secondary }]}>
-                    {getCategoryLabel(integration.category)}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={[
-                    styles.toggleButton,
-                    { backgroundColor: integration.isActive ? theme.accent.success : theme.background.secondary }
-                  ]}
-                  onPress={() => updateIntegration(integration.id, { isActive: !integration.isActive })}
-                >
-                  <Text style={[
-                    styles.toggleText,
-                    { color: integration.isActive ? '#FFF' : theme.text.secondary }
-                  ]}>
-                    {integration.isActive ? 'Active' : 'Inactive'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+        {categoryOrder.map((category) => {
+          const categoryIntegrations = groupedIntegrations[category] || [];
+          if (categoryIntegrations.length === 0) return null;
 
-              {fields.length > 0 ? (
-                fields.map((field) => (
-                  <View key={field.key} style={styles.formSection}>
-                    <Text style={[styles.label, { color: theme.text.primary }]}>
-                      {field.label} {field.required && <Text style={{ color: theme.accent.danger }}>*</Text>}
-                    </Text>
-                    <View style={styles.inputContainer}>
-                      <TextInput
-                        style={[styles.input, { color: theme.text.primary, borderColor: theme.border.medium }]}
-                        value={integration.config[field.key] || ''}
-                        onChangeText={(text) => updateConfigField(integration.id, field.key, text)}
-                        placeholder={field.placeholder}
-                        placeholderTextColor={theme.text.tertiary}
-                        secureTextEntry={field.type === 'password' && !showSecrets[`${integration.id}_${field.key}`]}
-                        keyboardType={field.type === 'number' ? 'numeric' : field.type === 'email' ? 'email-address' : 'default'}
-                        autoCapitalize="none"
-                      />
-                      {field.type === 'password' && (
+          return (
+            <View key={category} style={styles.categorySection}>
+              <Text style={[styles.categoryTitle, { color: theme.text.primary }]}>
+                {getCategoryLabel(category)}
+              </Text>
+              {categoryIntegrations.map((integration) => {
+                const fields = getFieldsForIntegration(integration.id);
+                
+                return (
+                  <View key={integration.id} style={[styles.integrationCard, { backgroundColor: theme.background.card }]}>
+                    <View style={styles.cardHeader}>
+                      <View>
+                        <Text style={[styles.integrationName, { color: theme.text.primary }]}>
+                          {integration.name}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[
+                          styles.toggleButton,
+                          { backgroundColor: integration.isActive ? theme.accent.success : theme.background.secondary }
+                        ]}
+                        onPress={() => updateIntegration(integration.id, { isActive: !integration.isActive })}
+                      >
+                        <Text style={[
+                          styles.toggleText,
+                          { color: integration.isActive ? '#FFF' : theme.text.secondary }
+                        ]}>
+                          {integration.isActive ? 'Active' : 'Inactive'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {fields.length > 0 ? (
+                      fields.map((field) => (
+                        <View key={field.key} style={styles.formSection}>
+                          <Text style={[styles.label, { color: theme.text.primary }]}>
+                            {field.label} {field.required && <Text style={{ color: theme.accent.danger }}>*</Text>}
+                          </Text>
+                          <View style={styles.inputContainer}>
+                            <TextInput
+                              style={[styles.input, { color: theme.text.primary, borderColor: theme.border.medium }]}
+                              value={integration.config[field.key] || ''}
+                              onChangeText={(text) => updateConfigField(integration.id, field.key, text)}
+                              placeholder={field.placeholder}
+                              placeholderTextColor={theme.text.tertiary}
+                              secureTextEntry={field.type === 'password' && !showSecrets[`${integration.id}_${field.key}`]}
+                              keyboardType={field.type === 'number' ? 'numeric' : field.type === 'email' ? 'email-address' : 'default'}
+                              autoCapitalize="none"
+                            />
+                            {field.type === 'password' && (
+                              <TouchableOpacity
+                                style={styles.eyeButton}
+                                onPress={() => toggleSecretVisibility(`${integration.id}_${field.key}`)}
+                              >
+                                {showSecrets[`${integration.id}_${field.key}`] ? (
+                                  <EyeOff size={18} color={theme.text.secondary} />
+                                ) : (
+                                  <Eye size={18} color={theme.text.secondary} />
+                                )}
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        </View>
+                      ))
+                    ) : (
+                      <View style={styles.formSection}>
+                        <Text style={[styles.label, { color: theme.text.secondary }]}>
+                          No configuration required for this integration
+                        </Text>
+                      </View>
+                    )}
+
+                    <View style={styles.buttonRow}>
+                      {['stripe', 'paypal', 'sms', 'email', 'whatsapp', 'google-drive', 'dropbox'].includes(integration.id) && (
                         <TouchableOpacity
-                          style={styles.eyeButton}
-                          onPress={() => toggleSecretVisibility(`${integration.id}_${field.key}`)}
+                          style={[styles.testButton, { backgroundColor: theme.background.secondary, borderColor: theme.border.medium }]}
+                          onPress={() => testConnection(integration)}
+                          disabled={testing === integration.id}
                         >
-                          {showSecrets[`${integration.id}_${field.key}`] ? (
-                            <EyeOff size={18} color={theme.text.secondary} />
+                          {testing === integration.id ? (
+                            <ActivityIndicator size="small" color={theme.accent.primary} />
                           ) : (
-                            <Eye size={18} color={theme.text.secondary} />
+                            <>
+                              <TestTube size={16} color={theme.accent.primary} />
+                              <Text style={[styles.testButtonText, { color: theme.accent.primary }]}>Test</Text>
+                            </>
                           )}
                         </TouchableOpacity>
                       )}
+                      
+                      <TouchableOpacity
+                        style={[styles.saveButton, { backgroundColor: theme.accent.primary }]}
+                        onPress={() => handleSave(integration)}
+                        disabled={saving === integration.id}
+                      >
+                        {saving === integration.id ? (
+                          <ActivityIndicator size="small" color="#FFF" />
+                        ) : (
+                          <>
+                            <Save size={18} color="#FFF" />
+                            <Text style={styles.saveButtonText}>Save</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
                     </View>
                   </View>
-                ))
-              ) : (
-                <View style={styles.formSection}>
-                  <Text style={[styles.label, { color: theme.text.secondary }]}>
-                    No configuration required for this integration
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.buttonRow}>
-                {['stripe', 'paypal', 'sms', 'email', 'whatsapp', 'google-drive', 'dropbox'].includes(integration.id) && (
-                  <TouchableOpacity
-                    style={[styles.testButton, { backgroundColor: theme.background.secondary, borderColor: theme.border.medium }]}
-                    onPress={() => testConnection(integration)}
-                    disabled={testing === integration.id}
-                  >
-                    {testing === integration.id ? (
-                      <ActivityIndicator size="small" color={theme.accent.primary} />
-                    ) : (
-                      <>
-                        <TestTube size={16} color={theme.accent.primary} />
-                        <Text style={[styles.testButtonText, { color: theme.accent.primary }]}>Test</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                )}
-                
-                <TouchableOpacity
-                  style={[styles.saveButton, { backgroundColor: theme.accent.primary }]}
-                  onPress={() => handleSave(integration)}
-                  disabled={saving === integration.id}
-                >
-                  {saving === integration.id ? (
-                    <ActivityIndicator size="small" color="#FFF" />
-                  ) : (
-                    <>
-                      <Save size={18} color="#FFF" />
-                      <Text style={styles.saveButtonText}>Save</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
+                );
+              })}
             </View>
           );
         })}
@@ -667,5 +718,15 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  categorySection: {
+    marginBottom: 32,
+  },
+  categoryTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });

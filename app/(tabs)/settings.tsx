@@ -1,5 +1,5 @@
 import { Stack, router } from 'expo-router';
-import { DollarSign, Building2, MapPin, Phone, Mail, Save, FileText, Moon, Sun, LogOut, Download, Database, Image as ImageIcon, X, Settings as SettingsIcon } from 'lucide-react-native';
+import { DollarSign, Building2, MapPin, Phone, Mail, Save, FileText, Moon, Sun, LogOut, Download, Database, Image as ImageIcon, X, Settings as SettingsIcon, MessageSquare, Bell, Globe, CheckCircle, XCircle } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
 import {
   View,
@@ -51,6 +51,15 @@ export default function SettingsScreen() {
   const [currency, setCurrency] = useState<Currency>(business?.currency || 'USD');
   const [rate, setRate] = useState(exchangeRate.usdToZwl.toString());
   const [logo, setLogo] = useState<string | undefined>(business?.logo);
+  
+  // Configuration states
+  const [smsEnabled, setSmsEnabled] = useState(false);
+  const [emailEnabled, setEmailEnabled] = useState(true);
+  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [language, setLanguage] = useState('en');
+  const [currencyPreference, setCurrencyPreference] = useState<Currency>('USD');
+  const [loadingConfig, setLoadingConfig] = useState(true);
 
   useEffect(() => {
     if (business) {
@@ -65,6 +74,256 @@ export default function SettingsScreen() {
       setLogo(business.logo);
     }
   }, [business]);
+
+  // Load configuration settings
+  useEffect(() => {
+    loadConfigurations();
+  }, [user]);
+
+  const loadConfigurations = async () => {
+    try {
+      setLoadingConfig(true);
+      
+      // Load app settings
+      if (user) {
+        const { data: appSettings } = await supabase
+          .from('app_settings')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (appSettings) {
+          setNotificationsEnabled(appSettings.notifications_enabled ?? true);
+          setLanguage(appSettings.language || 'en');
+          setCurrencyPreference(appSettings.currency_preference || 'USD');
+        }
+      }
+
+      // Load integration configs
+      const { data: integrations } = await supabase
+        .from('integration_configs')
+        .select('id, is_active')
+        .in('id', ['sms', 'email', 'whatsapp']);
+
+      if (integrations) {
+        integrations.forEach((integration: any) => {
+          if (integration.id === 'sms') setSmsEnabled(integration.is_active || false);
+          if (integration.id === 'email') setEmailEnabled(integration.is_active !== false); // Email is default enabled
+          if (integration.id === 'whatsapp') setWhatsappEnabled(integration.is_active || false);
+        });
+      }
+    } catch (error) {
+      console.error('Error loading configurations:', error);
+    } finally {
+      setLoadingConfig(false);
+    }
+  };
+
+  const handleToggleSMS = async (enabled: boolean) => {
+    try {
+      // Check if SMS is configured first
+      const { data: existing } = await supabase
+        .from('integration_configs')
+        .select('id, config')
+        .eq('id', 'sms')
+        .single();
+
+      if (!existing && enabled) {
+        RNAlert.alert(
+          'Configuration Required',
+          'SMS service needs to be configured first. Please contact your administrator or visit Integrations page.',
+          [
+            { text: 'OK' },
+            { text: 'Go to Integrations', onPress: () => router.push('/(tabs)/integrations' as any) },
+          ]
+        );
+        return;
+      }
+
+      const { error } = await supabase
+        .from('integration_configs')
+        .upsert({
+          id: 'sms',
+          name: 'SMS Service (Twilio)',
+          category: 'communication',
+          is_active: enabled,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'id',
+        });
+
+      if (error) {
+        if (error.code === '42501' || error.message.includes('permission')) {
+          RNAlert.alert(
+            'Permission Required',
+            'You need administrator access to configure SMS. Please contact your administrator.',
+            [
+              { text: 'OK' },
+              { text: 'Go to Integrations', onPress: () => router.push('/(tabs)/integrations' as any) },
+            ]
+          );
+          return;
+        }
+        throw error;
+      }
+      setSmsEnabled(enabled);
+      RNAlert.alert('Success', `SMS ${enabled ? 'enabled' : 'disabled'}`);
+    } catch (error: any) {
+      console.error('Error toggling SMS:', error);
+      RNAlert.alert('Error', error.message || 'Failed to update SMS settings');
+    }
+  };
+
+  const handleToggleEmail = async (enabled: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('integration_configs')
+        .upsert({
+          id: 'email',
+          name: 'Email Service',
+          category: 'communication',
+          is_active: enabled,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'id',
+        });
+
+      if (error) {
+        if (error.code === '42501' || error.message.includes('permission')) {
+          // Email is always available, so just update local state
+          setEmailEnabled(enabled);
+          return;
+        }
+        throw error;
+      }
+      setEmailEnabled(enabled);
+      RNAlert.alert('Success', `Email ${enabled ? 'enabled' : 'disabled'}`);
+    } catch (error: any) {
+      console.error('Error toggling Email:', error);
+      // Email is default enabled, so just update local state
+      setEmailEnabled(enabled);
+    }
+  };
+
+  const handleToggleWhatsApp = async (enabled: boolean) => {
+    try {
+      // Check if WhatsApp is configured first
+      const { data: existing } = await supabase
+        .from('integration_configs')
+        .select('id, config')
+        .eq('id', 'whatsapp')
+        .single();
+
+      if (!existing && enabled) {
+        RNAlert.alert(
+          'Configuration Required',
+          'WhatsApp service needs to be configured first. Please contact your administrator or visit Integrations page.',
+          [
+            { text: 'OK' },
+            { text: 'Go to Integrations', onPress: () => router.push('/(tabs)/integrations' as any) },
+          ]
+        );
+        return;
+      }
+
+      const { error } = await supabase
+        .from('integration_configs')
+        .upsert({
+          id: 'whatsapp',
+          name: 'WhatsApp Business',
+          category: 'communication',
+          is_active: enabled,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'id',
+        });
+
+      if (error) {
+        if (error.code === '42501' || error.message.includes('permission')) {
+          RNAlert.alert(
+            'Permission Required',
+            'You need administrator access to configure WhatsApp. Please contact your administrator.',
+            [
+              { text: 'OK' },
+              { text: 'Go to Integrations', onPress: () => router.push('/(tabs)/integrations' as any) },
+            ]
+          );
+          return;
+        }
+        throw error;
+      }
+      setWhatsappEnabled(enabled);
+      RNAlert.alert('Success', `WhatsApp ${enabled ? 'enabled' : 'disabled'}`);
+    } catch (error: any) {
+      console.error('Error toggling WhatsApp:', error);
+      RNAlert.alert('Error', error.message || 'Failed to update WhatsApp settings');
+    }
+  };
+
+  const handleToggleNotifications = async (enabled: boolean) => {
+    try {
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert({
+          user_id: user.id,
+          notifications_enabled: enabled,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id',
+        });
+
+      if (error) throw error;
+      setNotificationsEnabled(enabled);
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to update notification settings');
+    }
+  };
+
+  const handleUpdateLanguage = async (lang: string) => {
+    try {
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert({
+          user_id: user.id,
+          language: lang,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id',
+        });
+
+      if (error) throw error;
+      setLanguage(lang);
+      RNAlert.alert('Success', 'Language preference updated');
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to update language');
+    }
+  };
+
+  const handleUpdateCurrencyPreference = async (curr: Currency) => {
+    try {
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert({
+          user_id: user.id,
+          currency_preference: curr,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id',
+        });
+
+      if (error) throw error;
+      setCurrencyPreference(curr);
+      RNAlert.alert('Success', 'Currency preference updated');
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to update currency preference');
+    }
+  };
 
   const handlePickImage = async () => {
     try {
@@ -288,6 +547,268 @@ export default function SettingsScreen() {
               trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
               thumbColor="#FFF"
             />
+          </View>
+        </View>
+
+        <View style={[styles.section, { 
+          backgroundColor: theme.background.card,
+          borderColor: theme.border.light,
+        }]}>
+          <View style={styles.sectionHeader}>
+            <SettingsIcon size={20} color={theme.accent.primary} />
+            <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
+              Configurations
+            </Text>
+          </View>
+
+          {/* SMS Settings */}
+          <View style={styles.settingRow}>
+            <View style={styles.settingLeft}>
+              <View style={styles.settingTitleRow}>
+                <MessageSquare size={18} color={theme.accent.primary} />
+                <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
+                  SMS Notifications
+                </Text>
+              </View>
+              <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
+                Send payment reminders via SMS
+              </Text>
+              {smsEnabled && (
+                <View style={[styles.statusBadge, { backgroundColor: theme.accent.success + '20' }]}>
+                  <CheckCircle size={12} color={theme.accent.success} />
+                  <Text style={[styles.statusText, { color: theme.accent.success }]}>
+                    Active
+                  </Text>
+                </View>
+              )}
+              {!smsEnabled && (
+                <View style={[styles.statusBadge, { backgroundColor: theme.text.tertiary + '20' }]}>
+                  <XCircle size={12} color={theme.text.tertiary} />
+                  <Text style={[styles.statusText, { color: theme.text.tertiary }]}>
+                    Inactive
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Switch
+              value={smsEnabled}
+              onValueChange={handleToggleSMS}
+              trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
+              thumbColor="#FFF"
+              disabled={loadingConfig}
+            />
+          </View>
+
+          {/* Email Settings */}
+          <View style={[styles.settingRow, { marginTop: 16 }]}>
+            <View style={styles.settingLeft}>
+              <View style={styles.settingTitleRow}>
+                <Mail size={18} color={theme.accent.primary} />
+                <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
+                  Email Notifications
+                </Text>
+              </View>
+              <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
+                Send invoices and receipts via email
+              </Text>
+              {emailEnabled && (
+                <View style={[styles.statusBadge, { backgroundColor: theme.accent.success + '20' }]}>
+                  <CheckCircle size={12} color={theme.accent.success} />
+                  <Text style={[styles.statusText, { color: theme.accent.success }]}>
+                    Active
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Switch
+              value={emailEnabled}
+              onValueChange={handleToggleEmail}
+              trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
+              thumbColor="#FFF"
+              disabled={loadingConfig}
+            />
+          </View>
+
+          {/* WhatsApp Settings */}
+          <View style={[styles.settingRow, { marginTop: 16 }]}>
+            <View style={styles.settingLeft}>
+              <View style={styles.settingTitleRow}>
+                <MessageSquare size={18} color={theme.accent.primary} />
+                <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
+                  WhatsApp Business
+                </Text>
+              </View>
+              <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
+                Send invoices and reminders via WhatsApp
+              </Text>
+              {whatsappEnabled && (
+                <View style={[styles.statusBadge, { backgroundColor: theme.accent.success + '20' }]}>
+                  <CheckCircle size={12} color={theme.accent.success} />
+                  <Text style={[styles.statusText, { color: theme.accent.success }]}>
+                    Active
+                  </Text>
+                </View>
+              )}
+              {!whatsappEnabled && (
+                <View style={[styles.statusBadge, { backgroundColor: theme.text.tertiary + '20' }]}>
+                  <XCircle size={12} color={theme.text.tertiary} />
+                  <Text style={[styles.statusText, { color: theme.text.tertiary }]}>
+                    Inactive
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Switch
+              value={whatsappEnabled}
+              onValueChange={handleToggleWhatsApp}
+              trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
+              thumbColor="#FFF"
+              disabled={loadingConfig}
+            />
+          </View>
+
+          {/* Notifications */}
+          <View style={[styles.settingRow, { marginTop: 16 }]}>
+            <View style={styles.settingLeft}>
+              <View style={styles.settingTitleRow}>
+                <Bell size={18} color={theme.accent.primary} />
+                <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
+                  Push Notifications
+                </Text>
+              </View>
+              <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
+                Receive alerts and reminders
+              </Text>
+            </View>
+            <Switch
+              value={notificationsEnabled}
+              onValueChange={handleToggleNotifications}
+              trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
+              thumbColor="#FFF"
+              disabled={loadingConfig}
+            />
+          </View>
+
+          {/* Language Preference */}
+          <View style={[styles.inputGroup, { marginTop: 16 }]}>
+            <View style={styles.settingTitleRow}>
+              <Globe size={18} color={theme.accent.primary} />
+              <Text style={[styles.label, { color: theme.text.secondary, marginLeft: 8 }]}>
+                Language
+              </Text>
+            </View>
+            <View style={styles.currencyRow}>
+              <TouchableOpacity
+                style={[
+                  styles.currencyButton,
+                  { 
+                    borderColor: theme.border.light,
+                    backgroundColor: language === 'en' ? theme.accent.primary : theme.background.secondary,
+                  },
+                ]}
+                onPress={() => handleUpdateLanguage('en')}
+              >
+                <Text
+                  style={[
+                    styles.currencyButtonText,
+                    { color: language === 'en' ? '#FFF' : theme.text.secondary },
+                  ]}
+                >
+                  English
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.currencyButton,
+                  { 
+                    borderColor: theme.border.light,
+                    backgroundColor: language === 'sn' ? theme.accent.primary : theme.background.secondary,
+                  },
+                ]}
+                onPress={() => handleUpdateLanguage('sn')}
+              >
+                <Text
+                  style={[
+                    styles.currencyButtonText,
+                    { color: language === 'sn' ? '#FFF' : theme.text.secondary },
+                  ]}
+                >
+                  Shona
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.currencyButton,
+                  { 
+                    borderColor: theme.border.light,
+                    backgroundColor: language === 'nd' ? theme.accent.primary : theme.background.secondary,
+                  },
+                ]}
+                onPress={() => handleUpdateLanguage('nd')}
+              >
+                <Text
+                  style={[
+                    styles.currencyButtonText,
+                    { color: language === 'nd' ? '#FFF' : theme.text.secondary },
+                  ]}
+                >
+                  Ndebele
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Currency Preference */}
+          <View style={[styles.inputGroup, { marginTop: 16 }]}>
+            <View style={styles.settingTitleRow}>
+              <DollarSign size={18} color={theme.accent.primary} />
+              <Text style={[styles.label, { color: theme.text.secondary, marginLeft: 8 }]}>
+                Default Currency
+              </Text>
+            </View>
+            <Text style={[styles.hint, { color: theme.text.tertiary }]}>
+              Preferred currency for new transactions
+            </Text>
+            <View style={styles.currencyRow}>
+              <TouchableOpacity
+                style={[
+                  styles.currencyButton,
+                  { 
+                    borderColor: theme.border.light,
+                    backgroundColor: currencyPreference === 'USD' ? theme.accent.primary : theme.background.secondary,
+                  },
+                ]}
+                onPress={() => handleUpdateCurrencyPreference('USD')}
+              >
+                <Text
+                  style={[
+                    styles.currencyButtonText,
+                    { color: currencyPreference === 'USD' ? '#FFF' : theme.text.secondary },
+                  ]}
+                >
+                  USD
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.currencyButton,
+                  { 
+                    borderColor: theme.border.light,
+                    backgroundColor: currencyPreference === 'ZWL' ? theme.accent.primary : theme.background.secondary,
+                  },
+                ]}
+                onPress={() => handleUpdateCurrencyPreference('ZWL')}
+              >
+                <Text
+                  style={[
+                    styles.currencyButtonText,
+                    { color: currencyPreference === 'ZWL' ? '#FFF' : theme.text.secondary },
+                  ]}
+                >
+                  ZWL
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -992,5 +1513,26 @@ const styles = StyleSheet.create({
   logoUploadText: {
     fontSize: 14,
     fontWeight: '600' as const,
+  },
+  settingTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '600' as const,
+    textTransform: 'uppercase',
   },
 });
