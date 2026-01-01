@@ -387,7 +387,7 @@ export default function DocumentsScreen() {
         </View>
 
         <ScrollView 
-          contentContainerStyle={[styles.content, { paddingBottom: Platform.OS === 'ios' ? 120 : 100 }]}
+          contentContainerStyle={[styles.content, { paddingBottom: Platform.OS === 'ios' ? 120 : 110 }]}
           showsVerticalScrollIndicator={false}
           style={styles.scrollView}
         >

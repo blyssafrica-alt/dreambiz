@@ -19,10 +19,23 @@ Add proper bottom padding to all ScrollView contentContainerStyle props.
 >
 ```
 
-## Files Already Fixed
+## Files Fixed
 - ✅ app/(tabs)/payments.tsx
-- ✅ app/(tabs)/pos.tsx (special handling for cart button)
+- ✅ app/(tabs)/pos.tsx (special handling for cart button at bottom: cartButtonBottom + 10)
 - ✅ app/(tabs)/index.tsx (dashboard)
+- ✅ app/(tabs)/finances.tsx
+- ✅ app/(tabs)/documents.tsx  
+- ✅ app/(tabs)/products.tsx
+- ✅ app/(tabs)/more.tsx
 
-## Files That Need Fixing
-All other tab screens with ScrollView components.
+## Tab Bar Configuration
+From `app/(tabs)/_layout.tsx`:
+- **iOS tab bar height**: 100px
+- **Android tab bar height**: 90px
+- **Tab bar bottom padding (iOS)**: Math.max(34, insets.bottom + 10)
+- **Tab bar bottom padding (Android)**: Math.max(40, insets.bottom + 20)
+
+## Notes
+- The POS screen has special handling because it has a floating cart button that needs to be positioned above the tab bar
+- All ScrollView components with bottom content should use the consistent padding pattern
+- FAB buttons should be positioned at `Platform.OS === 'ios' ? 100 : 80` from bottom

@@ -380,7 +380,7 @@ export default function ProductsScreen() {
           </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
+          <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 120 : 110 }}>
         {/* Product Analytics Summary */}
         {safeProducts.length > 0 && (
           <View style={[styles.analyticsCard, { backgroundColor: theme.background.card }]}>

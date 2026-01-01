@@ -429,7 +429,7 @@ export default function FinancesScreen() {
         {/* Transactions List */}
         <ScrollView 
           style={styles.scrollView}
-          contentContainerStyle={[styles.content, { paddingBottom: Platform.OS === 'ios' ? 140 : 120 }]}
+          contentContainerStyle={[styles.content, { paddingBottom: Platform.OS === 'ios' ? 120 : 110 }]}
           showsVerticalScrollIndicator={false}
         >
           <Animated.View style={{
