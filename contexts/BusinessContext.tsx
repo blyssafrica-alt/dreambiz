@@ -580,50 +580,10 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
 
       // STEP 3: Prepare business data
       console.log('💼 Step 4: Preparing business data...');
-      const isExistingBusiness = business?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(business.id);
-      
-      const upsertData: any = {
-        user_id: authUserId, // Use verified authUserId from session
-        name: newBusiness.name,
-        type: newBusiness.type,
-        stage: newBusiness.stage,
-        location: newBusiness.location,
-        capital: newBusiness.capital,
-        currency: newBusiness.currency,
-        owner: newBusiness.owner,
-        phone: newBusiness.phone || null,
-        email: newBusiness.email || null,
-        address: newBusiness.address || null,
-        dream_big_book: newBusiness.dreamBigBook || 'none',
-        logo: newBusiness.logo || null,
-      };
-
-      // Only include id if we have an existing business with a valid UUID
-      if (isExistingBusiness) {
-        upsertData.id = business.id;
-      }
-
-      // Prepare RPC function parameters
-      const businessData = {
-        p_user_id: authUserId,
-        p_name: upsertData.name,
-        p_type: upsertData.type,
-        p_stage: upsertData.stage,
-        p_location: upsertData.location,
-        p_capital: upsertData.capital,
-        p_currency: upsertData.currency,
-        p_owner: upsertData.owner,
-        p_phone: upsertData.phone || null,
-        p_email: upsertData.email || null,
-        p_address: upsertData.address || null,
-        p_dream_big_book: upsertData.dream_big_book || 'none',
-        p_logo: upsertData.logo || null,
-      };
-
       console.log('🔄 Saving business profile:');
-      console.log('  - user_id (will be used):', upsertData.user_id);
+      console.log('  - user_id (will be used):', authUserId);
       console.log('  - authUserId:', authUserId);
-      console.log('  - Match:', authUserId === upsertData.user_id ? '✅' : '❌');
+      console.log('  - Match: ✅');
 
       // STEP 4: Use direct UPSERT (simpler and more reliable than RPC)
       // The trigger will automatically clean up any duplicates
@@ -631,7 +591,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       
       // Use PostgreSQL UPSERT (ON CONFLICT) - much simpler and more reliable
       // The trigger will automatically clean up duplicates if any exist
-      const { data: upsertData, error: upsertError } = await supabase
+      let { data: upsertData, error: upsertError } = await supabase
         .from('business_profiles')
         .upsert(
           {
@@ -700,7 +660,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           }
           
           // Use retry data
-          upsertData = retryData;
+          upsertData = retryData as any;
         } else {
           throw new Error(upsertError.message || 'Failed to save business profile');
         }
