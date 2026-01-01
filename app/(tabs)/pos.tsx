@@ -40,7 +40,6 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -61,7 +60,7 @@ type PaymentMethod = 'cash' | 'card' | 'mobile_money' | 'bank_transfer';
 export default function POSScreen() {
   const { business, products = [], customers = [], addDocument, updateProduct, addTransaction, addCustomer, taxRates = [] } = useBusiness();
   const { theme } = useTheme();
-  const { hasPermission, isOwner, loading: permissionsLoading } = useEmployeePermissions();
+  const { hasPermission, isOwner } = useEmployeePermissions();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -98,7 +97,7 @@ export default function POSScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim]);
 
   useEffect(() => {
     Animated.spring(cartSlideAnim, {
@@ -107,7 +106,7 @@ export default function POSScreen() {
       tension: 50,
       friction: 10,
     }).start();
-  }, [cartOpen]);
+  }, [cartOpen, cartSlideAnim]);
 
   // Auto-print receipt when sale completes
   useEffect(() => {
@@ -191,6 +190,12 @@ export default function POSScreen() {
     const received = parseFloat(amountReceived) || 0;
     return Math.max(0, received - cartTotal);
   }, [paymentMethod, amountReceived, cartTotal]);
+
+  // Calculate proper spacing for tab bar
+  const tabBarHeight = Platform.OS === 'ios' ? 100 : 90;
+  const totalTabBarSpace = tabBarHeight;
+  const cartButtonBottom = totalTabBarSpace + 10;
+  const cartSheetPaddingBottom = totalTabBarSpace + 20;
 
   const addToCart = (product: Product) => {
     const existingItem = cart.find(item => item.product.id === product.id);
@@ -459,7 +464,7 @@ export default function POSScreen() {
       Linking.openURL(mailtoUrl).catch(() => {
         RNAlert.alert('Error', 'Could not open email client');
       });
-    } catch (error: any) {
+    } catch {
       RNAlert.alert('Error', 'Failed to prepare email');
     }
   };
@@ -470,9 +475,9 @@ export default function POSScreen() {
     try {
       await exportToPDF(createdReceipt, business);
       RNAlert.alert('Success', 'Receipt PDF exported successfully!');
-    } catch (error: any) {
-      console.error('PDF export failed:', error);
-      RNAlert.alert('Error', error.message || 'Failed to export receipt as PDF. Please ensure expo-print is installed.');
+    } catch (err: any) {
+      console.error('PDF export failed:', err);
+      RNAlert.alert('Error', err.message || 'Failed to export receipt as PDF. Please ensure expo-print is installed.');
     }
   };
 
@@ -619,7 +624,7 @@ export default function POSScreen() {
         {/* Cart Button (Floating) */}
         {cart.length > 0 && (
           <TouchableOpacity
-            style={[styles.cartButton, { backgroundColor: theme.accent.primary }]}
+            style={[styles.cartButton, { backgroundColor: theme.accent.primary, bottom: cartButtonBottom }]}
             onPress={() => setCartOpen(true)}
           >
             <View style={styles.cartButtonBadge}>
@@ -639,7 +644,7 @@ export default function POSScreen() {
             },
           ]}
         >
-          <View style={[styles.cartSheetContent, { backgroundColor: theme.background.card }]}>
+          <View style={[styles.cartSheetContent, { backgroundColor: theme.background.card, paddingBottom: cartSheetPaddingBottom }]}>
             {/* Cart Header */}
             <View style={styles.cartHeader}>
               <View style={styles.cartHeaderLeft}>
@@ -1394,7 +1399,6 @@ const styles = StyleSheet.create({
   },
   cartButton: {
     position: 'absolute',
-    bottom: 100,
     right: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1446,7 +1450,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingTop: 20,
     paddingHorizontal: 20,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
