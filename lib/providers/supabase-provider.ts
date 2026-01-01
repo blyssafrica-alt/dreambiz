@@ -58,20 +58,18 @@ export class SupabaseProvider implements IBackendProvider {
     if (error) throw error;
     if (!data.user) throw new Error('No user returned from sign up');
 
-    // Wait a moment for the session to be established
-    // Supabase might need a moment to set up the session after signup
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Try to get the session to ensure it's established
-    let retries = 0;
-    while (retries < 3) {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData?.session) {
-        console.log('✅ Session established after signup');
-        break;
+    // Try to get the session immediately (Supabase usually has it ready)
+    // Only retry once if needed
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session) {
+      // Wait briefly and check once more
+      await new Promise<void>(resolve => setTimeout(() => resolve(), 300));
+      const { data: sessionData2 } = await supabase.auth.getSession();
+      if (sessionData2?.session) {
+        console.log('✅ Session established after signup (retry)');
       }
-      retries++;
-      await new Promise(resolve => setTimeout(resolve, 500));
+    } else {
+      console.log('✅ Session established after signup');
     }
 
     return this.mapSupabaseUserToAuthUser(data.user);
@@ -169,8 +167,8 @@ export class SupabaseProvider implements IBackendProvider {
         // RPC succeeded - check the result
         const result = rpcData as any;
         if (result.success) {
-          // Wait a moment for the insert to complete
-          await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
+          // Brief wait for the insert to complete
+          await new Promise<void>(resolve => setTimeout(() => resolve(), 300));
           existing = await this.getUserProfile(userId);
           if (existing) {
             console.log('✅ User profile synced via RPC function');
@@ -237,9 +235,9 @@ export class SupabaseProvider implements IBackendProvider {
           errorMessage.includes('users_pkey')) {
         
         // Duplicate key means profile EXISTS in database - wait and retry to fetch it
-        // Wait and retry multiple times (profile might be created by trigger/RPC)
-        for (let i = 0; i < 3; i++) {
-          await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
+        // Wait and retry quickly (profile might be created by trigger/RPC)
+        for (let i = 0; i < 2; i++) {
+          await new Promise<void>(resolve => setTimeout(() => resolve(), 300));
           existing = await this.getUserProfile(userId);
           if (existing) {
             console.log('✅ User profile found after duplicate key error');
@@ -293,8 +291,8 @@ export class SupabaseProvider implements IBackendProvider {
               rpcWorked = true;
               console.log('✅ RPC function succeeded:', result.message || 'Profile synced');
               
-              // Wait a moment for the insert to complete
-              await new Promise<void>(resolve => setTimeout(() => resolve(), 1500));
+              // Brief wait for the insert to complete
+              await new Promise<void>(resolve => setTimeout(() => resolve(), 300));
               
               // Try to read the profile
               existing = await this.getUserProfile(userId);
