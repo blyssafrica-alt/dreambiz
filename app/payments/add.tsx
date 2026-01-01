@@ -96,30 +96,34 @@ export default function AddPaymentScreen() {
   };
 
   const handleSave = async () => {
+    console.log('handleSave called', { selectedDocumentId, amount, outstandingAmount, selectedDocument });
+    
     if (!selectedDocumentId) {
       Alert.alert('Missing Field', 'Please select a document');
       return;
     }
 
-    if (!amount) {
+    if (!amount || amount.trim() === '') {
       Alert.alert('Missing Field', 'Please enter payment amount');
       return;
     }
 
     const paymentAmount = parseFloat(amount);
     if (isNaN(paymentAmount) || paymentAmount <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid amount');
+      Alert.alert('Invalid Amount', 'Please enter a valid amount greater than 0');
       return;
     }
 
-    if (paymentAmount > outstandingAmount) {
-      Alert.alert('Invalid Amount', `Amount cannot exceed outstanding balance of ${outstandingAmount.toFixed(2)}`);
+    if (outstandingAmount > 0 && paymentAmount > outstandingAmount) {
+      Alert.alert('Invalid Amount', `Amount cannot exceed outstanding balance of ${selectedDocument?.currency || 'USD'} ${outstandingAmount.toFixed(2)}`);
       return;
     }
 
     try {
+      console.log('Attempting to save payment...');
       setIsLoading(true);
-      await addPayment({
+      
+      const paymentData = {
         documentId: selectedDocumentId,
         amount: paymentAmount,
         currency: selectedDocument?.currency || 'USD',
@@ -128,14 +132,18 @@ export default function AddPaymentScreen() {
         reference: reference || undefined,
         notes: notes || undefined,
         proofOfPaymentUrl: proofImage || undefined,
-        verificationStatus: 'pending',
-      });
+        verificationStatus: 'pending' as const,
+      };
+      
+      console.log('Payment data:', paymentData);
+      await addPayment(paymentData);
 
       Alert.alert('Success', 'Payment recorded successfully', [
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to record payment');
+      console.error('Error saving payment:', error);
+      Alert.alert('Error', error?.message || 'Failed to record payment. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -312,9 +320,23 @@ export default function AddPaymentScreen() {
         )}
 
         <TouchableOpacity
-          style={[styles.saveButton, { backgroundColor: theme.accent.primary }]}
-          onPress={handleSave}
-          disabled={isLoading || !selectedDocumentId}
+          style={[
+            styles.saveButton, 
+            { 
+              backgroundColor: (isLoading || !selectedDocumentId) ? theme.border.medium : theme.accent.primary,
+              opacity: (isLoading || !selectedDocumentId) ? 0.5 : 1,
+            }
+          ]}
+          onPress={() => {
+            console.log('Record Payment button pressed', { selectedDocumentId, amount, isLoading });
+            if (!selectedDocumentId) {
+              Alert.alert('No Document Selected', 'Please select a document first');
+              return;
+            }
+            handleSave();
+          }}
+          disabled={isLoading}
+          activeOpacity={0.7}
         >
           {isLoading ? (
             <ActivityIndicator color="#FFF" />
