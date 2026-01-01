@@ -23,6 +23,11 @@ export default function VerifyEmailScreen() {
   const [email, setEmail] = useState(authUser?.email || '');
 
   useEffect(() => {
+    // Set email from authUser
+    if (authUser?.email) {
+      setEmail(authUser.email);
+    }
+    
     // Check if email is already verified
     checkEmailStatus();
     
@@ -32,13 +37,17 @@ export default function VerifyEmailScreen() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [authUser]);
 
   const checkEmailStatus = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.email_confirmed_at) {
         setIsVerified(true);
+        // Auto-redirect to onboarding after a short delay
+        setTimeout(() => {
+          router.replace('/onboarding' as any);
+        }, 1500);
       }
     } catch (error) {
       console.error('Error checking email status:', error);
@@ -109,7 +118,7 @@ export default function VerifyEmailScreen() {
           </Text>
           <Text style={[styles.subtitle, { color: theme.text.secondary }]}>
             {isVerified
-              ? 'Your email has been verified. You can now continue with onboarding.'
+              ? 'Your email has been verified. Redirecting to onboarding...'
               : 'We sent a verification link to your email address. Please check your inbox and click the link to verify your account.'}
           </Text>
         </View>
@@ -176,27 +185,17 @@ export default function VerifyEmailScreen() {
           )}
         </View>
 
-        <TouchableOpacity
-          style={[
-            styles.continueButton,
-            {
-              backgroundColor: isVerified ? theme.accent.primary : theme.background.secondary,
-              opacity: isVerified ? 1 : 0.5,
-            },
-          ]}
-          onPress={handleContinue}
-          disabled={!isVerified}
-        >
-          <Text
-            style={[
-              styles.continueButtonText,
-              { color: isVerified ? '#FFF' : theme.text.tertiary },
-            ]}
+        {isVerified && (
+          <TouchableOpacity
+            style={[styles.continueButton, { backgroundColor: theme.accent.primary }]}
+            onPress={handleContinue}
           >
-            {isVerified ? 'Continue to Onboarding' : 'Waiting for Verification...'}
-          </Text>
-          {isVerified && <ArrowRight size={20} color="#FFF" />}
-        </TouchableOpacity>
+            <Text style={styles.continueButtonText}>
+              Continue to Onboarding
+            </Text>
+            <ArrowRight size={20} color="#FFF" />
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={styles.backButton}
@@ -336,6 +335,7 @@ const styles = StyleSheet.create({
   continueButtonText: {
     fontSize: 16,
     fontWeight: '700' as const,
+    color: '#FFF',
   },
   backButton: {
     alignItems: 'center',
