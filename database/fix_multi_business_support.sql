@@ -28,6 +28,8 @@ DROP FUNCTION IF EXISTS public.safe_upsert_business_profile(UUID, TEXT, TEXT, TE
 -- - Creates a NEW business profile
 -- - Returns ONLY the newly created business
 -- - Never uses SELECT INTO that could return multiple rows
+-- NOTE: This is a simplified version. For the bulletproof version with
+-- full error handling, see database/fix_create_business_profile_rpc.sql
 -- ============================================================================
 CREATE OR REPLACE FUNCTION public.create_business_profile(
   p_user_id UUID,
