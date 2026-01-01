@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBusiness } from '@/contexts/BusinessContext';
 import type { BusinessProfile, BusinessType, BusinessStage, Currency, DreamBigBook } from '@/types/business';
 import { DREAMBIG_BOOKS } from '@/constants/books';
+import { supabase } from '@/lib/supabase';
 
 const businessTypes: { value: BusinessType; label: string }[] = [
   { value: 'retail', label: 'Retail Shop' },
@@ -77,7 +78,6 @@ export default function OnboardingScreen() {
 
     try {
       // Verify email is confirmed before proceeding
-      const { supabase } = await import('@/lib/supabase');
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user && !session.user.email_confirmed_at) {
