@@ -585,145 +585,98 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       console.log('  - authUserId:', authUserId);
       console.log('  - Match: ✅');
 
-      // STEP 4: Simple UPDATE or INSERT approach (most reliable - avoids all duplicate issues)
-      console.log('📤 Step 4: Creating/updating business profile...');
+      // STEP 4: Use PostgreSQL native UPSERT (ON CONFLICT) - most reliable method
+      // This prevents "query returned more than one row" errors by using atomic database operations
+      console.log('📤 Step 4: Creating/updating business profile using UPSERT...');
       
-      // Step 4.1: Check if a business profile already exists
-      console.log('🔍 Step 4.1: Checking for existing business profile...');
-      
-      const { data: existingProfile, error: fetchError } = await supabase
-        .from('business_profiles')
-        .select('id')
-        .eq('user_id', authUserId)
-        .maybeSingle(); // Use maybeSingle to avoid "more than one row" error
-
       let upsertData: any = null;
+      let upsertError: any = null;
 
-      if (fetchError && !fetchError.message?.includes('PGRST116')) {
-        // PGRST116 means "not found" which is fine
-        console.warn('⚠️ Error checking for existing profile:', fetchError);
+      // Method 1: Try using Supabase's .upsert() method (uses ON CONFLICT under the hood)
+      console.log('🔄 Attempting UPSERT via Supabase client...');
+      
+      const { data: upsertResult, error: upsertClientError } = await supabase
+        .from('business_profiles')
+        .upsert({
+          user_id: authUserId,
+          name: newBusiness.name,
+          type: newBusiness.type,
+          stage: newBusiness.stage,
+          location: newBusiness.location,
+          capital: newBusiness.capital,
+          currency: newBusiness.currency,
+          owner: newBusiness.owner,
+          phone: newBusiness.phone || null,
+          email: newBusiness.email || null,
+          address: newBusiness.address || null,
+          dream_big_book: newBusiness.dreamBigBook || 'none',
+          logo: newBusiness.logo || null,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id', // Use the unique constraint on user_id
+          ignoreDuplicates: false, // Update on conflict instead of ignoring
+        })
+        .select()
+        .maybeSingle(); // Use maybeSingle to handle edge cases gracefully
+
+      if (upsertClientError) {
+        console.warn('⚠️ Supabase UPSERT failed, trying RPC function as fallback...', upsertClientError);
+        upsertError = upsertClientError;
+      } else if (upsertResult) {
+        upsertData = upsertResult;
+        console.log('✅ Business profile saved successfully via UPSERT');
       }
 
-      if (existingProfile?.id) {
-        // Profile exists - UPDATE it
-        console.log(`✅ Found existing profile (${existingProfile.id}). Updating...`);
+      // Method 2: Fallback to RPC function if client UPSERT fails
+      if (!upsertData && upsertError) {
+        console.log('🔄 Attempting UPSERT via RPC function...');
         
-        const { data: updateData, error: updateError } = await supabase
-          .from('business_profiles')
-          .update({
-            name: newBusiness.name,
-            type: newBusiness.type,
-            stage: newBusiness.stage,
-            location: newBusiness.location,
-            capital: newBusiness.capital,
-            currency: newBusiness.currency,
-            owner: newBusiness.owner,
-            phone: newBusiness.phone || null,
-            email: newBusiness.email || null,
-            address: newBusiness.address || null,
-            dream_big_book: newBusiness.dreamBigBook || 'none',
-            logo: newBusiness.logo || null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existingProfile.id)
-          .select()
-          .single();
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('upsert_business_profile', {
+          p_user_id: authUserId,
+          p_name: newBusiness.name,
+          p_type: newBusiness.type,
+          p_stage: newBusiness.stage,
+          p_location: newBusiness.location,
+          p_capital: newBusiness.capital,
+          p_currency: newBusiness.currency,
+          p_owner: newBusiness.owner,
+          p_phone: newBusiness.phone || null,
+          p_email: newBusiness.email || null,
+          p_address: newBusiness.address || null,
+          p_dream_big_book: newBusiness.dreamBigBook || 'none',
+          p_logo: newBusiness.logo || null,
+        });
 
-        if (updateError) {
-          console.error('❌ UPDATE failed:', updateError);
-          throw new Error(`Failed to update business profile: ${updateError.message || 'Unknown error'}`);
-        }
-
-        upsertData = updateData;
-        console.log('✅ Business profile updated successfully');
-      } else {
-        // No profile exists - INSERT new one
-        console.log('✅ No existing profile found. Creating new one...');
-        
-        const { data: insertData, error: insertError } = await supabase
-          .from('business_profiles')
-          .insert({
-            user_id: authUserId,
-            name: newBusiness.name,
-            type: newBusiness.type,
-            stage: newBusiness.stage,
-            location: newBusiness.location,
-            capital: newBusiness.capital,
-            currency: newBusiness.currency,
-            owner: newBusiness.owner,
-            phone: newBusiness.phone || null,
-            email: newBusiness.email || null,
-            address: newBusiness.address || null,
-            dream_big_book: newBusiness.dreamBigBook || 'none',
-            logo: newBusiness.logo || null,
-          })
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error('❌ INSERT failed:', insertError);
-          
-          const errorMessage = insertError.message || String(insertError) || 'Failed to save business profile';
-          const errorCode = insertError.code || '';
-          
-          // If INSERT fails with duplicate error, try UPDATE instead (profile might have been created by trigger)
-          if (errorCode === '23505' || 
-              errorMessage.includes('duplicate') || 
-              errorMessage.includes('unique constraint') ||
-              errorMessage.includes('already exists')) {
-            
-            console.log('🔄 Duplicate detected during INSERT. Attempting UPDATE instead...');
-            
-            // Try to get the existing profile
-            const { data: retryProfile, error: retryFetchError } = await supabase
-              .from('business_profiles')
-              .select('id')
-              .eq('user_id', authUserId)
-              .maybeSingle();
-            
-            if (retryProfile?.id) {
-              // Update the existing profile
-              const { data: retryUpdateData, error: retryUpdateError } = await supabase
-                .from('business_profiles')
-                .update({
-                  name: newBusiness.name,
-                  type: newBusiness.type,
-                  stage: newBusiness.stage,
-                  location: newBusiness.location,
-                  capital: newBusiness.capital,
-                  currency: newBusiness.currency,
-                  owner: newBusiness.owner,
-                  phone: newBusiness.phone || null,
-                  email: newBusiness.email || null,
-                  address: newBusiness.address || null,
-                  dream_big_book: newBusiness.dreamBigBook || 'none',
-                  logo: newBusiness.logo || null,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', retryProfile.id)
-                .select()
-                .single();
-              
-              if (retryUpdateError) {
-                throw new Error(`Failed to save business profile: ${retryUpdateError.message || 'Unknown error'}`);
-              }
-              
-              upsertData = retryUpdateData;
-              console.log('✅ Business profile updated successfully (after duplicate detection)');
-            } else {
-              throw new Error(`Failed to save business profile: ${errorMessage}`);
-            }
-          } else {
-            throw new Error(`Failed to save business profile: ${errorMessage}`);
-          }
-        } else {
-          upsertData = insertData;
-          console.log('✅ Business profile created successfully');
+        if (rpcError) {
+          console.error('❌ RPC UPSERT also failed:', rpcError);
+          upsertError = rpcError;
+        } else if (rpcResult) {
+          // RPC returns JSONB, convert to object
+          upsertData = typeof rpcResult === 'string' ? JSON.parse(rpcResult) : rpcResult;
+          console.log('✅ Business profile saved successfully via RPC function');
         }
       }
 
+      // If both methods failed, throw error
       if (!upsertData) {
-        throw new Error('No data returned from database');
+        const errorMessage = upsertError?.message || String(upsertError) || 'Failed to save business profile';
+        const errorCode = upsertError?.code || '';
+        
+        console.error('❌ All UPSERT methods failed');
+        console.error('  - Error code:', errorCode);
+        console.error('  - Error message:', errorMessage);
+        
+        // Provide helpful error message
+        if (errorMessage.includes('query returned more than one row')) {
+          throw new Error(
+            'Multiple business profiles found. Please run the SQL script database/fix_business_profiles_500_error.sql in Supabase SQL Editor to clean up duplicates.'
+          );
+        } else if (errorMessage.includes('unique constraint') || errorCode === '23505') {
+          // This shouldn't happen with UPSERT, but handle it gracefully
+          throw new Error('Business profile already exists. Please try again.');
+        } else {
+          throw new Error(`Failed to save business profile: ${errorMessage}`);
+        }
       }
 
       // STEP 5: Process the result
