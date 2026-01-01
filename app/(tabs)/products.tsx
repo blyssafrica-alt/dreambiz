@@ -11,7 +11,7 @@ import {
   Image as ImageIcon,
   Camera
 } from 'lucide-react-native';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -32,6 +32,8 @@ import { supabase } from '@/lib/supabase';
 import { decode } from 'base64-arraybuffer';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAds } from '@/contexts/AdContext';
+import { AdCard } from '@/components/AdCard';
 import type { Product } from '@/types/business';
 import { useEmployeePermissions } from '@/hooks/useEmployeePermissions';
 
@@ -52,6 +54,8 @@ export default function ProductsScreen() {
   const { business, products, addProduct, updateProduct, deleteProduct } = useBusiness();
   const { theme } = useTheme();
   const { hasPermission, isOwner, loading: permissionsLoading } = useEmployeePermissions();
+  const { getAdsForLocation } = useAds();
+  const productsAds = getAdsForLocation('products');
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
@@ -457,22 +461,22 @@ export default function ProductsScreen() {
             )}
           </View>
         ) : (
-          filteredProducts.map(product => {
+          filteredProducts.map((product, index) => {
             const profitMargin = calculateProfitMargin(product.costPrice, product.sellingPrice);
             const isLowStock = product.quantity <= lowStockThreshold && product.isActive;
             const isOutOfStock = product.quantity === 0 && product.isActive;
             
             return (
-              <View
-                key={product.id}
-                style={[
-                  styles.productCard,
-                  { backgroundColor: theme.background.card },
-                  !product.isActive && { opacity: 0.6 },
-                  isLowStock && { borderLeftWidth: 4, borderLeftColor: theme.accent.warning },
-                  isOutOfStock && { borderLeftWidth: 4, borderLeftColor: theme.accent.danger }
-                ]}
-              >
+              <React.Fragment key={product.id}>
+                <View
+                  style={[
+                    styles.productCard,
+                    { backgroundColor: theme.background.card },
+                    !product.isActive && { opacity: 0.6 },
+                    isLowStock && { borderLeftWidth: 4, borderLeftColor: theme.accent.warning },
+                    isOutOfStock && { borderLeftWidth: 4, borderLeftColor: theme.accent.danger }
+                  ]}
+                >
                 {product.featuredImage && (
                   <Image source={{ uri: product.featuredImage }} style={styles.productImage} />
                 )}
@@ -551,8 +555,25 @@ export default function ProductsScreen() {
                   </View>
                 )}
               </View>
+              {/* Show ad after every 5 products */}
+              {productsAds.length > 0 && (index + 1) % 5 === 0 && index < filteredProducts.length - 1 && (
+                <AdCard 
+                  key={`ad-${index}`} 
+                  ad={productsAds[Math.floor((index / 5) % productsAds.length)]} 
+                  location="products" 
+                />
+              )}
+            </React.Fragment>
             );
-          })
+          })}
+          {/* Show ad at the end if there are products */}
+          {productsAds.length > 0 && filteredProducts.length > 0 && (
+            <AdCard 
+              key="ad-end" 
+              ad={productsAds[0]} 
+              location="products" 
+            />
+          )}
         )}
         </ScrollView>
         </Animated.View>

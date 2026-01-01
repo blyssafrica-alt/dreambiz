@@ -15,7 +15,7 @@ import {
   FileText,
   DollarSign
 } from 'lucide-react-native';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -31,11 +31,15 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAds } from '@/contexts/AdContext';
+import { AdCard } from '@/components/AdCard';
 import type { Customer } from '@/types/business';
 
 export default function CustomersScreen() {
   const { business, customers, documents, addCustomer, updateCustomer, deleteCustomer } = useBusiness();
   const { theme } = useTheme();
+  const { getAdsForLocation } = useAds();
+  const customersAds = getAdsForLocation('customers');
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
@@ -279,91 +283,110 @@ export default function CustomersScreen() {
             )}
           </View>
         ) : (
-          filteredCustomers.map(customer => (
-            <View
-              key={customer.id}
-              style={[styles.customerCard, { backgroundColor: theme.background.card }]}
-            >
-              <View style={styles.customerHeader}>
-                <View style={styles.customerInfo}>
-                  <Text style={[styles.customerName, { color: theme.text.primary }]}>
-                    {customer.name}
-                  </Text>
-                  {customer.totalPurchases > 0 && (
-                    <Text style={[styles.customerTotal, { color: theme.accent.primary }]}>
-                      Total: {formatCurrency(customer.totalPurchases)}
-                    </Text>
-                  )}
-                </View>
-                <View style={styles.customerActions}>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => {
-                      setSelectedCustomer(customer);
-                      setShowCustomerDetail(true);
-                    }}
-                  >
-                    <Eye size={18} color={theme.accent.info} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => handleEdit(customer)}
-                  >
-                    <Edit2 size={18} color={theme.accent.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => handleDelete(customer.id)}
-                  >
-                    <Trash2 size={18} color={theme.accent.danger} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.customerDetails}>
-                {customer.phone && (
-                  <TouchableOpacity
-                    style={styles.contactRow}
-                    onPress={() => handleCall(customer.phone!)}
-                  >
-                    <Phone size={16} color={theme.accent.primary} />
-                    <Text style={[styles.contactText, { color: theme.accent.primary }]}>
-                      {customer.phone}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                {customer.email && (
-                  <TouchableOpacity
-                    style={styles.contactRow}
-                    onPress={() => handleEmail(customer.email!)}
-                  >
-                    <Mail size={16} color={theme.accent.primary} />
-                    <Text style={[styles.contactText, { color: theme.accent.primary }]}>
-                      {customer.email}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                {customer.address && (
-                  <View style={styles.contactRow}>
-                    <MapPin size={16} color={theme.text.tertiary} />
-                    <Text style={[styles.contactText, { color: theme.text.secondary }]}>
-                      {customer.address}
-                    </Text>
+          <>
+            {filteredCustomers.map((customer, index) => (
+              <React.Fragment key={customer.id}>
+                <View
+                  style={[styles.customerCard, { backgroundColor: theme.background.card }]}
+                >
+                  <View style={styles.customerHeader}>
+                    <View style={styles.customerInfo}>
+                      <Text style={[styles.customerName, { color: theme.text.primary }]}>
+                        {customer.name}
+                      </Text>
+                      {customer.totalPurchases > 0 && (
+                        <Text style={[styles.customerTotal, { color: theme.accent.primary }]}>
+                          Total: {formatCurrency(customer.totalPurchases)}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.customerActions}>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => {
+                          setSelectedCustomer(customer);
+                          setShowCustomerDetail(true);
+                        }}
+                      >
+                        <Eye size={18} color={theme.accent.info} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => handleEdit(customer)}
+                      >
+                        <Edit2 size={18} color={theme.accent.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => handleDelete(customer.id)}
+                      >
+                        <Trash2 size={18} color={theme.accent.danger} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
+
+                  <View style={styles.customerDetails}>
+                    {customer.phone && (
+                      <TouchableOpacity
+                        style={styles.contactRow}
+                        onPress={() => handleCall(customer.phone!)}
+                      >
+                        <Phone size={16} color={theme.accent.primary} />
+                        <Text style={[styles.contactText, { color: theme.accent.primary }]}>
+                          {customer.phone}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    {customer.email && (
+                      <TouchableOpacity
+                        style={styles.contactRow}
+                        onPress={() => handleEmail(customer.email!)}
+                      >
+                        <Mail size={16} color={theme.accent.primary} />
+                        <Text style={[styles.contactText, { color: theme.accent.primary }]}>
+                          {customer.email}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    {customer.address && (
+                      <View style={styles.contactRow}>
+                        <MapPin size={16} color={theme.text.tertiary} />
+                        <Text style={[styles.contactText, { color: theme.text.secondary }]}>
+                          {customer.address}
+                        </Text>
+                      </View>
+                    )}
+                    {customer.notes && (
+                      <Text style={[styles.customerNotes, { color: theme.text.secondary }]}>
+                        {customer.notes}
+                      </Text>
+                    )}
+                    {customer.lastPurchaseDate && (
+                      <Text style={[styles.lastPurchase, { color: theme.text.tertiary }]}>
+                        Last purchase: {new Date(customer.lastPurchaseDate).toLocaleDateString()}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                {/* Show ad after every 5 customers */}
+                {customersAds.length > 0 && (index + 1) % 5 === 0 && index < filteredCustomers.length - 1 && (
+                  <AdCard 
+                    key={`ad-${index}`} 
+                    ad={customersAds[Math.floor((index / 5) % customersAds.length)]} 
+                    location="customers" 
+                  />
                 )}
-                {customer.notes && (
-                  <Text style={[styles.customerNotes, { color: theme.text.secondary }]}>
-                    {customer.notes}
-                  </Text>
-                )}
-                {customer.lastPurchaseDate && (
-                  <Text style={[styles.lastPurchase, { color: theme.text.tertiary }]}>
-                    Last purchase: {new Date(customer.lastPurchaseDate).toLocaleDateString()}
-                  </Text>
-                )}
-              </View>
-            </View>
-          ))
+              </React.Fragment>
+            ))}
+            {/* Show ad at the end if there are customers */}
+            {customersAds.length > 0 && filteredCustomers.length > 0 && (
+              <AdCard 
+                key="ad-end" 
+                ad={customersAds[0]} 
+                location="customers" 
+              />
+            )}
+          </>
         )}
           </ScrollView>
         </Animated.View>

@@ -36,9 +36,15 @@ export default function AdminDashboard() {
         supabase.from('users').select('id', { count: 'exact' }),
         supabase.from('business_profiles').select('id', { count: 'exact' }),
         supabase.from('platform_products').select('id', { count: 'exact' }),
-        supabase.from('advertisements').select('id', { count: 'exact' }),
+        supabase.from('advertisements').select('id', { count: 'exact' }).eq('status', 'active'),
         supabase.from('product_purchases').select('total_price, payment_status'),
       ]);
+      
+      // Also load subscription payments in parallel
+      const { data: subscriptionPayments } = await supabase
+        .from('subscription_payments')
+        .select('amount, verification_status')
+        .eq('verification_status', 'approved');
       
       // Log the users result for debugging
       if (usersResult.error) {
@@ -54,7 +60,11 @@ export default function AdminDashboard() {
 
       // Calculate revenue from completed purchases
       const completedPurchases = purchasesResult.data?.filter(p => p.payment_status === 'completed') || [];
-      const totalRevenue = completedPurchases.reduce((sum, p) => sum + parseFloat(p.total_price || '0'), 0);
+      const productRevenue = completedPurchases.reduce((sum, p) => sum + parseFloat(p.total_price || '0'), 0);
+      
+      // Include subscription payments revenue
+      const subscriptionRevenue = subscriptionPayments?.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0) || 0;
+      const totalRevenue = productRevenue + subscriptionRevenue;
 
       // Active users (users who logged in within last 30 days)
       const thirtyDaysAgo = new Date();

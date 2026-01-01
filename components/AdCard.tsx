@@ -1,10 +1,11 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Linking, Alert } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAds } from '@/contexts/AdContext';
 import type { Advertisement } from '@/types/super-admin';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ExternalLink } from 'lucide-react-native';
+import { router } from 'expo-router';
 
 interface AdCardProps {
   ad: Advertisement;
@@ -21,14 +22,42 @@ export function AdCard({ ad, location, onPress }: AdCardProps) {
     trackImpression(ad.id, location);
   }, [ad.id, location, trackImpression]);
 
-  const handlePress = () => {
+  const handlePress = async () => {
     trackClick(ad.id, location);
     if (onPress) {
       onPress();
+      return;
+    }
+    
+    // Handle CTA actions
+    if (ad.ctaAction === 'external_url' && ad.ctaUrl) {
+      try {
+        const canOpen = await Linking.canOpenURL(ad.ctaUrl);
+        if (canOpen) {
+          await Linking.openURL(ad.ctaUrl);
+        } else {
+          Alert.alert('Error', 'Cannot open this URL');
+        }
+      } catch (error) {
+        console.error('Failed to open URL:', error);
+        Alert.alert('Error', 'Failed to open link');
+      }
+    } else if (ad.ctaAction === 'open_product' && ad.ctaTargetId) {
+      router.push(`/products/${ad.ctaTargetId}` as any);
+    } else if (ad.ctaAction === 'open_book' && ad.ctaTargetId) {
+      router.push(`/books/${ad.ctaTargetId}` as any);
+    } else if (ad.ctaAction === 'open_feature' && ad.ctaTargetId) {
+      // Navigate to feature or show feature details
+      router.push(`/features/${ad.ctaTargetId}` as any);
     } else if (ad.ctaUrl) {
-      // Handle CTA action
-      if (ad.ctaAction === 'external_url') {
-        // Open external URL (would need Linking API)
+      // Fallback: try to open as URL
+      try {
+        const canOpen = await Linking.canOpenURL(ad.ctaUrl);
+        if (canOpen) {
+          await Linking.openURL(ad.ctaUrl);
+        }
+      } catch (error) {
+        console.error('Failed to open URL:', error);
       }
     }
   };

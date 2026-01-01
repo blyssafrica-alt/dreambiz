@@ -14,7 +14,7 @@ import {
   Calendar,
   ChevronDown
 } from 'lucide-react-native';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -31,6 +31,8 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAds } from '@/contexts/AdContext';
+import { AdCard } from '@/components/AdCard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SALES_CATEGORIES, EXPENSE_CATEGORIES } from '@/constants/categories';
 import type { Currency, TransactionType } from '@/types/business';
@@ -38,6 +40,8 @@ import type { Currency, TransactionType } from '@/types/business';
 export default function FinancesScreen() {
   const { business, transactions, addTransaction, updateTransaction, deleteTransaction } = useBusiness();
   const { theme } = useTheme();
+  const { getAdsForLocation } = useAds();
+  const financesAds = getAdsForLocation('finances');
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const [showModal, setShowModal] = useState(false);
@@ -457,74 +461,93 @@ export default function FinancesScreen() {
                 </TouchableOpacity>
               </View>
             ) : (
-              filteredTransactions.map((transaction) => (
-                <TouchableOpacity
-                  key={transaction.id}
-                  style={[styles.transactionCard, { backgroundColor: theme.background.card }]}
-                  activeOpacity={0.7}
-                  onPress={() => handleEdit(transaction)}
-                >
-                  <View style={styles.transactionLeft}>
-                    <LinearGradient
-                      colors={transaction.type === 'sale' ? ['#10B981', '#059669'] : ['#EF4444', '#DC2626']}
-                      style={styles.typeIconGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
+              <>
+                {filteredTransactions.map((transaction, index) => (
+                  <React.Fragment key={transaction.id}>
+                    <TouchableOpacity
+                      style={[styles.transactionCard, { backgroundColor: theme.background.card }]}
+                      activeOpacity={0.7}
+                      onPress={() => handleEdit(transaction)}
                     >
-                      {transaction.type === 'sale' ? (
-                        <TrendingUp size={20} color="#FFF" strokeWidth={2.5} />
-                      ) : (
-                        <TrendingDown size={20} color="#FFF" strokeWidth={2.5} />
-                      )}
-                    </LinearGradient>
-                    <View style={styles.transactionInfo}>
-                      <Text style={[styles.transactionDesc, { color: theme.text.primary }]}>
-                        {transaction.description}
-                      </Text>
-                      <View style={styles.transactionMeta}>
-                        <Text style={[styles.transactionMetaText, { color: theme.text.secondary }]}>
-                          {transaction.category}
-                        </Text>
-                        <Text style={[styles.transactionMetaDot, { color: theme.text.tertiary }]}>
-                          {' • '}
-                        </Text>
-                        <Text style={[styles.transactionMetaText, { color: theme.text.secondary }]}>
-                          {formatDate(transaction.date)}
-                        </Text>
+                      <View style={styles.transactionLeft}>
+                        <LinearGradient
+                          colors={transaction.type === 'sale' ? ['#10B981', '#059669'] : ['#EF4444', '#DC2626']}
+                          style={styles.typeIconGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                        >
+                          {transaction.type === 'sale' ? (
+                            <TrendingUp size={20} color="#FFF" strokeWidth={2.5} />
+                          ) : (
+                            <TrendingDown size={20} color="#FFF" strokeWidth={2.5} />
+                          )}
+                        </LinearGradient>
+                        <View style={styles.transactionInfo}>
+                          <Text style={[styles.transactionDesc, { color: theme.text.primary }]}>
+                            {transaction.description}
+                          </Text>
+                          <View style={styles.transactionMeta}>
+                            <Text style={[styles.transactionMetaText, { color: theme.text.secondary }]}>
+                              {transaction.category}
+                            </Text>
+                            <Text style={[styles.transactionMetaDot, { color: theme.text.tertiary }]}>
+                              {' • '}
+                            </Text>
+                            <Text style={[styles.transactionMetaText, { color: theme.text.secondary }]}>
+                              {formatDate(transaction.date)}
+                            </Text>
+                          </View>
+                        </View>
                       </View>
-                    </View>
-                  </View>
-                  <View style={styles.transactionRight}>
-                    <Text style={[
-                      styles.transactionAmount,
-                      { color: transaction.type === 'sale' ? '#10B981' : '#EF4444' }
-                    ]}>
-                      {transaction.type === 'sale' ? '+' : '-'}
-                      {formatCurrency(transaction.amount, transaction.currency)}
-                    </Text>
-                    <View style={styles.actionButtons}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleEdit(transaction);
-                        }}
-                      >
-                        <Edit2 size={16} color={theme.accent.primary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleDelete(transaction.id);
-                        }}
-                      >
-                        <Trash2 size={16} color={theme.accent.danger} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))
+                      <View style={styles.transactionRight}>
+                        <Text style={[
+                          styles.transactionAmount,
+                          { color: transaction.type === 'sale' ? '#10B981' : '#EF4444' }
+                        ]}>
+                          {transaction.type === 'sale' ? '+' : '-'}
+                          {formatCurrency(transaction.amount, transaction.currency)}
+                        </Text>
+                        <View style={styles.actionButtons}>
+                          <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleEdit(transaction);
+                            }}
+                          >
+                            <Edit2 size={16} color={theme.accent.primary} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleDelete(transaction.id);
+                            }}
+                          >
+                            <Trash2 size={16} color={theme.accent.danger} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                    {/* Show ad after every 5 transactions */}
+                    {financesAds.length > 0 && (index + 1) % 5 === 0 && index < filteredTransactions.length - 1 && (
+                      <AdCard 
+                        key={`ad-${index}`} 
+                        ad={financesAds[Math.floor((index / 5) % financesAds.length)]} 
+                        location="finances" 
+                      />
+                    )}
+                  </React.Fragment>
+                ))}
+                {/* Show ad at the end if there are transactions */}
+                {financesAds.length > 0 && filteredTransactions.length > 0 && (
+                  <AdCard 
+                    key="ad-end" 
+                    ad={financesAds[0]} 
+                    location="finances" 
+                  />
+                )}
+              </>
             )}
           </Animated.View>
         </ScrollView>

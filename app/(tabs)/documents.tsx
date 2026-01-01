@@ -1,6 +1,6 @@
 import { Stack, router } from 'expo-router';
 import { FileText, Plus, Receipt, FileCheck, CheckCircle, Clock, XCircle, Send, ShoppingCart, FileSignature, Handshake, AlertCircle, Filter, X, Trash2 } from 'lucide-react-native';
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAds } from '@/contexts/AdContext';
+import { AdCard } from '@/components/AdCard';
 import type { DocumentType, DocumentItem, DocumentStatus } from '@/types/business';
 import { getDocumentTemplate } from '@/lib/document-templates-db';
 import { getFilterPresets, saveFilterPreset, deleteFilterPreset } from '@/lib/filter-presets';
@@ -25,6 +27,8 @@ import DocumentWizard from '@/components/DocumentWizard';
 export default function DocumentsScreen() {
   const { business, documents = [], addDocument, updateDocument, deleteDocument } = useBusiness();
   const { theme } = useTheme();
+  const { getAdsForLocation } = useAds();
+  const documentsAds = getAdsForLocation('documents');
   const [showWizard, setShowWizard] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | 'all'>('all');
@@ -398,53 +402,72 @@ export default function DocumentsScreen() {
               <Text style={styles.emptyDesc}>Create professional invoices, receipts, quotations, purchase orders, contracts, and supplier agreements</Text>
             </View>
           ) : (
-            filteredDocuments.map((doc) => {
-              const overdue = isOverdue(doc);
-              return (
-                <View 
-                  key={doc.id} 
-                  style={[styles.docCard, overdue && { borderLeftWidth: 4, borderLeftColor: '#EF4444' }]}
-                >
-                  <TouchableOpacity 
-                    style={styles.docCardContent}
-                    onPress={() => router.push(`/document/${doc.id}` as any)}
-                  >
-                    <View style={styles.docHeader}>
-                      <View style={styles.docLeft}>
-                        <View style={styles.docIcon}>{getIcon(doc.type)}</View>
-                        <View>
-                          <Text style={styles.docNumber}>{doc.documentNumber}</Text>
-                          <Text style={styles.docCustomer}>{doc.customerName}</Text>
-                          {doc.dueDate && (
-                            <Text style={[styles.docDueDate, { color: overdue ? '#EF4444' : '#64748B' }]}>
-                              Due: {formatDate(doc.dueDate)} {overdue && '⚠️'}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-                      <View style={styles.docRight}>
-                        <Text style={styles.docAmount}>{formatCurrency(doc.total)}</Text>
-                        <View style={styles.statusRow}>
-                          <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(doc.status)}20` }]}>
-                            {getStatusIcon(doc.status)}
-                            <Text style={[styles.statusText, { color: getStatusColor(doc.status) }]}>
-                              {getStatusLabel(doc.status)}
-                            </Text>
+            <>
+              {filteredDocuments.map((doc, index) => {
+                const overdue = isOverdue(doc);
+                return (
+                  <React.Fragment key={doc.id}>
+                    <View 
+                      style={[styles.docCard, overdue && { borderLeftWidth: 4, borderLeftColor: '#EF4444' }]}
+                    >
+                      <TouchableOpacity 
+                        style={styles.docCardContent}
+                        onPress={() => router.push(`/document/${doc.id}` as any)}
+                      >
+                        <View style={styles.docHeader}>
+                          <View style={styles.docLeft}>
+                            <View style={styles.docIcon}>{getIcon(doc.type)}</View>
+                            <View>
+                              <Text style={styles.docNumber}>{doc.documentNumber}</Text>
+                              <Text style={styles.docCustomer}>{doc.customerName}</Text>
+                              {doc.dueDate && (
+                                <Text style={[styles.docDueDate, { color: overdue ? '#EF4444' : '#64748B' }]}>
+                                  Due: {formatDate(doc.dueDate)} {overdue && '⚠️'}
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+                          <View style={styles.docRight}>
+                            <Text style={styles.docAmount}>{formatCurrency(doc.total)}</Text>
+                            <View style={styles.statusRow}>
+                              <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(doc.status)}20` }]}>
+                                {getStatusIcon(doc.status)}
+                                <Text style={[styles.statusText, { color: getStatusColor(doc.status) }]}>
+                                  {getStatusLabel(doc.status)}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text style={styles.docDate}>{formatDate(doc.date)}</Text>
                           </View>
                         </View>
-                        <Text style={styles.docDate}>{formatDate(doc.date)}</Text>
-                      </View>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.deleteButton}
+                        onPress={() => handleDeleteDocument(doc.id, doc.documentNumber)}
+                      >
+                        <Trash2 size={18} color="#EF4444" />
+                      </TouchableOpacity>
                     </View>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDeleteDocument(doc.id, doc.documentNumber)}
-                  >
-                    <Trash2 size={18} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-              );
-            })
+                    {/* Show ad after every 5 documents */}
+                    {documentsAds.length > 0 && (index + 1) % 5 === 0 && index < filteredDocuments.length - 1 && (
+                      <AdCard 
+                        key={`ad-${index}`} 
+                        ad={documentsAds[Math.floor((index / 5) % documentsAds.length)]} 
+                        location="documents" 
+                      />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+              {/* Show ad at the end if there are documents */}
+              {documentsAds.length > 0 && filteredDocuments.length > 0 && (
+                <AdCard 
+                  key="ad-end" 
+                  ad={documentsAds[0]} 
+                  location="documents" 
+                />
+              )}
+            </>
           )}
         </ScrollView>
 
