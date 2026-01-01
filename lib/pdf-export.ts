@@ -577,7 +577,7 @@ export async function exportToPDF(
         }
 
         // Method 2: Create downloadable HTML file
-        const blob = typeof Blob !== 'undefined' ? new Blob([html], { type: 'text/html;charset=utf-8' }) : null;
+        const blob = typeof Blob !== 'undefined' ? new Blob([html], { type: 'text/html', lastModified: Date.now() } as any) : null;
         if (!blob) {
           throw new Error('Blob API not available');
         }

@@ -225,7 +225,10 @@ export default function IntegrationsConfigScreen() {
 
     if (!response.ok) {
       const error = await response.json() as any;
-      throw new Error(error.error?.message || 'Invalid Stripe credentials');
+      const errorMessage = (error && typeof error === 'object' && 'error' in error && error.error && typeof error.error === 'object' && 'message' in error.error) 
+        ? String(error.error.message) 
+        : 'Invalid Stripe credentials';
+      throw new Error(errorMessage);
     }
 
     Alert.alert('Success', 'Stripe connection test successful!');
@@ -278,7 +281,11 @@ export default function IntegrationsConfigScreen() {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({})) as any;
-      throw new Error(error.error_description || error.error || 'Invalid PayPal credentials');
+      const errorMessage = (error && typeof error === 'object')
+        ? (('error_description' in error && error.error_description) ? String(error.error_description) : 
+           ('error' in error && error.error) ? String(error.error) : 'Invalid PayPal credentials')
+        : 'Invalid PayPal credentials';
+      throw new Error(errorMessage);
     }
 
     Alert.alert('Success', 'PayPal connection test successful!');
@@ -326,7 +333,10 @@ export default function IntegrationsConfigScreen() {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({})) as any;
-      throw new Error(error.message || 'Invalid Twilio credentials');
+      const errorMessage = (error && typeof error === 'object' && 'message' in error && error.message) 
+        ? String(error.message) 
+        : 'Invalid Twilio credentials';
+      throw new Error(errorMessage);
     }
 
     Alert.alert('Success', 'Twilio connection test successful!');

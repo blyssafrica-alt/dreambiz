@@ -115,9 +115,6 @@ async function extractTextWithOCRSpace(imageUri: string, apiKey?: string): Promi
     const response = await fetch(ocrApiUrl, {
       method: 'POST',
       body: formData as any,
-      headers: {
-        // Don't set Content-Type - FormData will set it with boundary
-      },
     });
     
     console.log('OCR API response status:', response.status);
@@ -132,22 +129,22 @@ async function extractTextWithOCRSpace(imageUri: string, apiKey?: string): Promi
     console.log('OCR API response data:', JSON.stringify(data).substring(0, 500));
     
     // Check for API errors
-    if (data.ErrorMessage && data.ErrorMessage.length > 0) {
-      const errorMsg = Array.isArray(data.ErrorMessage) 
-        ? data.ErrorMessage.join(', ') 
-        : data.ErrorMessage;
+    if (data && typeof data === 'object' && 'ErrorMessage' in data && data.ErrorMessage && Array.isArray(data.ErrorMessage) && data.ErrorMessage.length > 0) {
+      const errorMsg = data.ErrorMessage.map((e: any) => String(e)).join(', ');
       throw new Error(`OCR API error: ${errorMsg}`);
+    } else if (data && typeof data === 'object' && 'ErrorMessage' in data && data.ErrorMessage) {
+      throw new Error(`OCR API error: ${String(data.ErrorMessage)}`);
     }
     
     // Check for rate limit or quota errors
-    if (data.OCRExitCode === 99) {
+    if (data && typeof data === 'object' && 'OCRExitCode' in data && data.OCRExitCode === 99) {
       throw new Error('OCR API quota exceeded. Please get a free API key from https://ocr.space/ocrapi/freekey');
     }
     
-    if (data.OCRExitCode === 1 && data.ParsedResults && data.ParsedResults.length > 0) {
+    if (data && typeof data === 'object' && 'OCRExitCode' in data && data.OCRExitCode === 1 && 'ParsedResults' in data && Array.isArray(data.ParsedResults) && data.ParsedResults.length > 0) {
       // Success - extract text from all parsed results
       const allText = data.ParsedResults
-        .map((result: any) => result.ParsedText || '')
+        .map((result: any) => (result && typeof result === 'object' && 'ParsedText' in result) ? String(result.ParsedText || '') : '')
         .join('\n')
         .trim();
       
@@ -158,14 +155,15 @@ async function extractTextWithOCRSpace(imageUri: string, apiKey?: string): Promi
     }
     
     // Check exit codes
-    if (data.OCRExitCode === 2) {
+    const exitCode = (data && typeof data === 'object' && 'OCRExitCode' in data) ? data.OCRExitCode : 0;
+    if (exitCode === 2) {
       throw new Error('OCR processing failed - image may be corrupted');
     }
-    if (data.OCRExitCode === 3 || data.OCRExitCode === 4) {
+    if (exitCode === 3 || exitCode === 4) {
       throw new Error('OCR processing failed - no text detected in image');
     }
     
-    throw new Error(`No text found in image. Exit code: ${data.OCRExitCode}`);
+    throw new Error(`No text found in image. Exit code: ${exitCode}`);
   } catch (error: any) {
     console.error('OCR.space API error:', error);
     // Provide more helpful error messages
