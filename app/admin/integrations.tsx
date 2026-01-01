@@ -138,12 +138,27 @@ export default function IntegrationsConfigScreen() {
       const mergedIntegrations = allIntegrations.map(defaultIntegration => {
         const dbIntegration = data?.find((row: any) => row.id === defaultIntegration.id);
         if (dbIntegration) {
+          // Parse config if it's a string, otherwise use as-is
+          let config = {};
+          if (dbIntegration.config) {
+            if (typeof dbIntegration.config === 'string') {
+              try {
+                config = JSON.parse(dbIntegration.config);
+              } catch (e) {
+                console.warn(`Failed to parse config for ${dbIntegration.id}:`, e);
+                config = {};
+              }
+            } else {
+              config = dbIntegration.config;
+            }
+          }
+          
           return {
             id: dbIntegration.id,
             name: dbIntegration.name || defaultIntegration.name,
             category: dbIntegration.category || defaultIntegration.category,
             isActive: dbIntegration.is_active ?? defaultIntegration.isActive,
-            config: dbIntegration.config || {},
+            config: config,
           };
         }
         return defaultIntegration;
@@ -177,26 +192,68 @@ export default function IntegrationsConfigScreen() {
     try {
       setSaving(integration.id);
       
+      // Validate required fields if integration is being activated
+      if (integration.isActive) {
+        const fields = getFieldsForIntegration(integration.id);
+        const requiredFields = fields.filter(f => f.required);
+        const missingFields = requiredFields.filter(f => !integration.config[f.key] || integration.config[f.key].trim() === '');
+        
+        if (missingFields.length > 0) {
+          Alert.alert(
+            'Missing Required Fields',
+            `Please fill in all required fields before activating:\n${missingFields.map(f => `- ${f.label}`).join('\n')}`
+          );
+          setSaving(null);
+          return;
+        }
+      }
+
+      // Prepare the data to save
+      const dataToSave: any = {
+        id: integration.id,
+        name: integration.name,
+        category: integration.category,
+        is_active: integration.isActive,
+        config: integration.config || {},
+        updated_at: new Date().toISOString(),
+      };
+
+      // Check if this is a new record (no created_at means it's new)
+      const { data: existing } = await supabase
+        .from('integration_configs')
+        .select('created_at')
+        .eq('id', integration.id)
+        .single();
+
+      if (!existing) {
+        // New record - set created_at
+        dataToSave.created_at = new Date().toISOString();
+      }
+
       const { error } = await supabase
         .from('integration_configs')
-        .upsert({
-          id: integration.id,
-          name: integration.name,
-          category: integration.category,
-          is_active: integration.isActive,
-          config: integration.config,
-          updated_at: new Date().toISOString(),
-        }, {
+        .upsert(dataToSave, {
           onConflict: 'id',
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
       Alert.alert('Success', `${integration.name} configuration saved successfully`);
       await loadIntegrations();
     } catch (error: any) {
       console.error('Failed to save integration:', error);
-      Alert.alert('Error', error.message || 'Failed to save integration configuration');
+      let errorMessage = 'Failed to save integration configuration';
+      
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.code) {
+        errorMessage = `Database error (${error.code}): ${error.message || 'Unknown error'}`;
+      }
+      
+      Alert.alert('Error', errorMessage);
     } finally {
       setSaving(null);
     }
@@ -430,11 +487,19 @@ export default function IntegrationsConfigScreen() {
   };
 
   const updateConfigField = (id: string, key: string, value: any) => {
-    setIntegrations(prev => prev.map(integration => 
-      integration.id === id 
-        ? { ...integration, config: { ...integration.config, [key]: value } }
-        : integration
-    ));
+    setIntegrations(prev => prev.map(integration => {
+      if (integration.id === id) {
+        const newConfig = { ...integration.config };
+        // Remove empty strings to keep config clean
+        if (value === '' || value === null || value === undefined) {
+          delete newConfig[key];
+        } else {
+          newConfig[key] = value;
+        }
+        return { ...integration, config: newConfig };
+      }
+      return integration;
+    }));
   };
 
   const toggleSecretVisibility = (id: string) => {
@@ -527,37 +592,55 @@ export default function IntegrationsConfigScreen() {
                     </View>
 
                     {fields.length > 0 ? (
-                      fields.map((field) => (
-                        <View key={field.key} style={styles.formSection}>
-                          <Text style={[styles.label, { color: theme.text.primary }]}>
-                            {field.label} {field.required && <Text style={{ color: theme.accent.danger }}>*</Text>}
-                          </Text>
-                          <View style={styles.inputContainer}>
-                            <TextInput
-                              style={[styles.input, { color: theme.text.primary, borderColor: theme.border.medium }]}
-                              value={integration.config[field.key] || ''}
-                              onChangeText={(text) => updateConfigField(integration.id, field.key, text)}
-                              placeholder={field.placeholder}
-                              placeholderTextColor={theme.text.tertiary}
-                              secureTextEntry={field.type === 'password' && !showSecrets[`${integration.id}_${field.key}`]}
-                              keyboardType={field.type === 'number' ? 'numeric' : field.type === 'email' ? 'email-address' : 'default'}
-                              autoCapitalize="none"
-                            />
-                            {field.type === 'password' && (
-                              <TouchableOpacity
-                                style={styles.eyeButton}
-                                onPress={() => toggleSecretVisibility(`${integration.id}_${field.key}`)}
-                              >
-                                {showSecrets[`${integration.id}_${field.key}`] ? (
-                                  <EyeOff size={18} color={theme.text.secondary} />
-                                ) : (
-                                  <Eye size={18} color={theme.text.secondary} />
-                                )}
-                              </TouchableOpacity>
+                      fields.map((field) => {
+                        const fieldValue = integration.config[field.key] || '';
+                        const isEmpty = !fieldValue || fieldValue.trim() === '';
+                        const isRequiredAndEmpty = field.required && isEmpty && integration.isActive;
+                        
+                        return (
+                          <View key={field.key} style={styles.formSection}>
+                            <Text style={[styles.label, { color: theme.text.primary }]}>
+                              {field.label} {field.required && <Text style={{ color: theme.accent.danger }}>*</Text>}
+                            </Text>
+                            <View style={styles.inputContainer}>
+                              <TextInput
+                                style={[
+                                  styles.input, 
+                                  { 
+                                    color: theme.text.primary, 
+                                    borderColor: isRequiredAndEmpty ? theme.accent.danger : theme.border.medium,
+                                    borderWidth: isRequiredAndEmpty ? 2 : 1,
+                                  }
+                                ]}
+                                value={fieldValue}
+                                onChangeText={(text) => updateConfigField(integration.id, field.key, text)}
+                                placeholder={field.placeholder}
+                                placeholderTextColor={theme.text.tertiary}
+                                secureTextEntry={field.type === 'password' && !showSecrets[`${integration.id}_${field.key}`]}
+                                keyboardType={field.type === 'number' ? 'numeric' : field.type === 'email' ? 'email-address' : 'default'}
+                                autoCapitalize="none"
+                              />
+                              {field.type === 'password' && (
+                                <TouchableOpacity
+                                  style={styles.eyeButton}
+                                  onPress={() => toggleSecretVisibility(`${integration.id}_${field.key}`)}
+                                >
+                                  {showSecrets[`${integration.id}_${field.key}`] ? (
+                                    <EyeOff size={18} color={theme.text.secondary} />
+                                  ) : (
+                                    <Eye size={18} color={theme.text.secondary} />
+                                  )}
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                            {isRequiredAndEmpty && (
+                              <Text style={[styles.errorText, { color: theme.accent.danger }]}>
+                                This field is required when integration is active
+                              </Text>
                             )}
                           </View>
-                        </View>
-                      ))
+                        );
+                      })
                     ) : (
                       <View style={styles.formSection}>
                         <Text style={[styles.label, { color: theme.text.secondary }]}>
@@ -728,5 +811,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  errorText: {
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });
