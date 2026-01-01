@@ -618,7 +618,6 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       });
 
       if (rpcError) {
-        // Extract error message properly (not [object Object])
         let errorMessage = '';
         if (typeof rpcError === 'string') {
           errorMessage = rpcError;
@@ -636,7 +635,6 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         
         const errorCode = (rpcError as any)?.code || '';
         const errorDetails = (rpcError as any)?.details || '';
-        const errorHint = (rpcError as any)?.hint || '';
         const httpStatus = (rpcError as any)?.status || (rpcError as any)?.statusCode || '';
         
         console.error('❌ Failed to create business profile:');
@@ -644,35 +642,37 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         console.error('  - Error code:', errorCode || '(none)');
         console.error('  - Error message:', errorMessage);
         console.error('  - Error details:', errorDetails || '(none)');
-        console.error('  - Error hint:', errorHint || '(none)');
         console.error('  - Full error object:', rpcError);
         
-        // Handle specific error cases with user-friendly messages
+        // Handle specific error cases
         
-        // Function doesn't exist
+        // Function doesn't exist or database not set up
         if (httpStatus === 400 || 
             errorCode === '42883' || 
-            errorCode === 'P0004' || 
-            (errorMessage.includes('function') && errorMessage.includes('does not exist'))) {
+            errorCode === 'PGRST202' ||
+            (errorMessage.includes('function') && errorMessage.includes('does not exist')) ||
+            errorMessage.includes('query returned more than one row')) {
           throw new Error(
-            'Database setup incomplete.\n\n' +
-            'Please run the SQL script:\n' +
-            '1. Open Supabase Dashboard > SQL Editor\n' +
-            '2. Select "No limit" from the dropdown\n' +
-            '3. Copy and run: database/COMPLETE_BUSINESS_FIX.sql\n' +
-            '4. Refresh this app and try again'
+            'Database setup required.\n\n' +
+            'Please run this SQL script in Supabase:\n' +
+            '1. Go to Supabase Dashboard > SQL Editor\n' +
+            '2. Select "No limit" from dropdown\n' +
+            '3. Open: database/FIX_BUSINESS_PROFILES_COMPLETE.sql\n' +
+            '4. Copy entire contents and click "Run"\n' +
+            '5. Wait for "Setup complete!" message\n' +
+            '6. Refresh this app and try again'
           );
         }
         
-        // Business limit reached (P0001 is our custom error code)
+        // Business limit reached
         if (errorCode === 'P0001' || errorMessage.includes('Business limit reached')) {
-          throw new Error(errorMessage); // RPC already provides a good message
+          throw new Error(errorMessage);
         }
         
-        // Foreign key violation (user profile doesn't exist)
+        // Foreign key violation
         if (errorCode === '23503' || errorMessage.includes('foreign key')) {
           throw new Error(
-            'User profile not found. Please try signing out and signing in again.'
+            'User profile not found. Please sign out and sign in again.'
           );
         }
         
@@ -683,15 +683,14 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           );
         }
         
-        // Duplicate business (shouldn't happen but handle it)
+        // Duplicate business
         if (errorCode === '23505' || errorCode === 'P0002' || errorMessage.includes('already exists')) {
           throw new Error(
             'A business with this name already exists. Please use a different name.'
           );
         }
         
-        // Generic error
-        throw new Error(`Failed to create business profile: ${errorMessage}`);
+        throw new Error(`Database error: ${errorMessage}`);
       }
 
       if (!rpcResult) {
@@ -734,7 +733,6 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       console.log('✅ Business profile saved successfully!');
       return savedBusiness;
     } catch (error: any) {
-      // Enhanced error logging
       let errorMessage = '';
       if (typeof error === 'string') {
         errorMessage = error;
@@ -752,19 +750,15 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       
       const errorCode = error?.code || '';
       const errorDetails = error?.details || '';
-      const errorHint = error?.hint || '';
       
       console.error('❌ Failed to save business profile:');
       console.error('  - Error message:', errorMessage);
       console.error('  - Error code:', errorCode || '(none)');
       console.error('  - Error details:', errorDetails || '(none)');
-      console.error('  - Error hint:', errorHint || '(none)');
       
-      // Create enhanced error with all details
       const enhancedError = new Error(errorMessage);
       (enhancedError as any).code = errorCode;
       (enhancedError as any).details = errorDetails;
-      (enhancedError as any).hint = errorHint;
       throw enhancedError;
     }
   };
