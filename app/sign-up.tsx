@@ -51,17 +51,8 @@ export default function SignUpScreen() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user && !session.user.email_confirmed_at) {
-        // Email confirmation required - show message and redirect to sign-in
-        RNAlert.alert(
-          'Email Confirmation Required',
-          'Please check your email and click the confirmation link before continuing. After confirming, you can sign in and complete onboarding.',
-          [
-            {
-              text: 'OK',
-              onPress: () => router.replace('/sign-in' as any)
-            }
-          ]
-        );
+        // Email confirmation required - redirect to verification screen
+        router.replace('/verify-email' as any);
       } else {
         // Email already confirmed or auto-confirm enabled - proceed to onboarding
         await new Promise(resolve => setTimeout(resolve, 1500));

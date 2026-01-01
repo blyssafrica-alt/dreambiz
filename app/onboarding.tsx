@@ -82,16 +82,8 @@ export default function OnboardingScreen() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user && !session.user.email_confirmed_at) {
-        RNAlert.alert(
-          'Email Not Confirmed',
-          'Please confirm your email address before completing onboarding. Check your inbox for the confirmation email.',
-          [
-            {
-              text: 'OK',
-              onPress: () => router.replace('/sign-in' as any)
-            }
-          ]
-        );
+        // Redirect to verification screen instead of showing alert
+        router.replace('/verify-email' as any);
         return;
       }
       

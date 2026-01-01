@@ -35,7 +35,7 @@ function RootLayoutNav() {
     if (isLoading) return;
 
     const currentPath = segments.join('/');
-    const inAuth = currentPath.includes('landing') || currentPath.includes('sign-up') || currentPath.includes('sign-in');
+    const inAuth = currentPath.includes('landing') || currentPath.includes('sign-up') || currentPath.includes('sign-in') || currentPath.includes('verify-email');
     const inOnboarding = currentPath.includes('onboarding');
     const inTabs = currentPath.includes('(tabs)') || currentPath === '';
 
@@ -69,6 +69,7 @@ function RootLayoutNav() {
         <Stack.Screen name="landing" options={{ headerShown: false }} />
         <Stack.Screen name="sign-up" options={{ headerShown: false }} />
         <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+        <Stack.Screen name="verify-email" options={{ headerShown: false }} />
         <Stack.Screen name="employee-login" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
