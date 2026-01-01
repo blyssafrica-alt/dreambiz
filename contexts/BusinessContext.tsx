@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 import { getProvider } from '@/lib/providers';
-import { getChapterForTopic } from '@/lib/book-service';
+
 import type { 
   BusinessProfile, 
   Transaction, 
@@ -591,6 +591,9 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       // STEP 4: Create new business profile using RPC function
       // This function supports multiple businesses per user and enforces plan limits
       console.log('📤 Step 4: Creating new business profile...');
+      console.log('  - User ID:', authUserId);
+      console.log('  - Business name:', newBusiness.name);
+      console.log('  - Business type:', newBusiness.type);
       
       // Use the create_business_profile RPC function
       // This function:
@@ -631,9 +634,9 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           }
         }
         
-        const errorCode = rpcError?.code || '';
-        const errorDetails = rpcError?.details || '';
-        const errorHint = rpcError?.hint || '';
+        const errorCode = (rpcError as any)?.code || '';
+        const errorDetails = (rpcError as any)?.details || '';
+        const errorHint = (rpcError as any)?.hint || '';
         const httpStatus = (rpcError as any)?.status || (rpcError as any)?.statusCode || '';
         
         console.error('❌ Failed to create business profile:');
@@ -644,33 +647,63 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         console.error('  - Error hint:', errorHint || '(none)');
         console.error('  - Full error object:', rpcError);
         
-        // Handle 400 Bad Request (usually means RPC function doesn't exist or parameter mismatch)
-        if (httpStatus === 400 || errorCode === 'P0004' || errorMessage.includes('function') && errorMessage.includes('does not exist')) {
+        // Handle specific error cases with user-friendly messages
+        
+        // Function doesn't exist
+        if (httpStatus === 400 || 
+            errorCode === '42883' || 
+            errorCode === 'P0004' || 
+            (errorMessage.includes('function') && errorMessage.includes('does not exist'))) {
           throw new Error(
-            'Database function not found. Please run the SQL script database/fix_multi_business_support.sql in Supabase SQL Editor to set up the required functions.'
+            'Database setup incomplete.\n\n' +
+            'Please run the SQL script:\n' +
+            '1. Open Supabase Dashboard > SQL Editor\n' +
+            '2. Select "No limit" from the dropdown\n' +
+            '3. Copy and run: database/COMPLETE_BUSINESS_FIX.sql\n' +
+            '4. Refresh this app and try again'
           );
         }
         
-        // Provide user-friendly error messages
-        if (errorMessage.includes('Business limit reached')) {
+        // Business limit reached (P0001 is our custom error code)
+        if (errorCode === 'P0001' || errorMessage.includes('Business limit reached')) {
           throw new Error(errorMessage); // RPC already provides a good message
-        } else if (errorMessage.includes('query returned more than one row')) {
-          throw new Error(
-            'Database error: Multiple business profiles detected. Please contact support. ' +
-            'Error details: ' + errorMessage
-          );
-        } else {
-          throw new Error(`Failed to create business profile: ${errorMessage}`);
         }
+        
+        // Foreign key violation (user profile doesn't exist)
+        if (errorCode === '23503' || errorMessage.includes('foreign key')) {
+          throw new Error(
+            'User profile not found. Please try signing out and signing in again.'
+          );
+        }
+        
+        // Permission denied
+        if (errorCode === '42501' || errorCode === 'P0004' || errorMessage.includes('permission')) {
+          throw new Error(
+            'Permission denied. Please ensure you are logged in correctly.'
+          );
+        }
+        
+        // Duplicate business (shouldn't happen but handle it)
+        if (errorCode === '23505' || errorCode === 'P0002' || errorMessage.includes('already exists')) {
+          throw new Error(
+            'A business with this name already exists. Please use a different name.'
+          );
+        }
+        
+        // Generic error
+        throw new Error(`Failed to create business profile: ${errorMessage}`);
       }
 
       if (!rpcResult) {
+        console.error('❌ RPC returned no data');
         throw new Error('No data returned from business profile creation');
       }
 
       // RPC returns JSONB, convert to object
       const upsertData = typeof rpcResult === 'string' ? JSON.parse(rpcResult) : rpcResult;
       console.log('✅ Business profile created successfully');
+      console.log('  - Business ID:', upsertData.id);
+      console.log('  - Business name:', upsertData.name);
 
       // STEP 5: Process the result
       // Convert result to BusinessProfile format
@@ -1403,7 +1436,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           }
         }
       }
-    } catch (error: any) {
+    } catch {
       // Silently fail - don't log errors that might cause issues
       // Just return empty alerts array to prevent any syntax errors from breaking the app
       evaluatedAlerts = [];
