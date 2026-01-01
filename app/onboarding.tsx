@@ -77,6 +77,24 @@ export default function OnboardingScreen() {
     };
 
     try {
+      // Verify email is confirmed before proceeding
+      const { supabase } = await import('@/lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user && !session.user.email_confirmed_at) {
+        RNAlert.alert(
+          'Email Not Confirmed',
+          'Please confirm your email address before completing onboarding. Check your inbox for the confirmation email.',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/sign-in' as any)
+            }
+          ]
+        );
+        return;
+      }
+      
       // Wait a moment to ensure session is established (especially after signup)
       await new Promise(resolve => setTimeout(resolve, 1000));
       

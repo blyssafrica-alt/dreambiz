@@ -1,6 +1,5 @@
--- FINAL SIMPLIFIED RPC Function: Create or update business profile
--- Uses PostgreSQL UPSERT (ON CONFLICT) to automatically handle duplicates
--- This is the SIMPLEST and MOST RELIABLE approach
+-- BULLETPROOF RPC Function: Create or update business profile
+-- This version handles ALL edge cases including existing duplicates
 -- Run this in Supabase SQL Editor with "No limit" selected
 
 CREATE OR REPLACE FUNCTION public.create_or_update_business_profile(
@@ -33,7 +32,8 @@ BEGIN
     RAISE EXCEPTION 'User ID does not match authenticated user';
   END IF;
 
-  -- STEP 1: Clean up ALL duplicates using CTE (most reliable method)
+  -- STEP 1: Clean up ALL duplicates, keeping only the most recent one
+  -- This uses a CTE to safely identify and delete duplicates
   WITH ranked_profiles AS (
     SELECT 
       id,
@@ -47,14 +47,15 @@ BEGIN
     SELECT id FROM ranked_profiles WHERE rn > 1
   );
 
-  -- STEP 2: Get existing profile (LIMIT 1 ensures only one row)
+  -- STEP 2: Get the existing profile ID and created_at (if any)
+  -- Use LIMIT 1 to ensure only one row is returned
   SELECT id, created_at INTO v_existing_id, v_existing_created_at
   FROM public.business_profiles
   WHERE user_id = p_user_id
   ORDER BY created_at DESC
   LIMIT 1;
 
-  -- STEP 3: Update or Insert
+  -- STEP 3: Insert or Update
   IF v_existing_id IS NOT NULL THEN
     -- UPDATE existing profile
     UPDATE public.business_profiles
@@ -114,6 +115,10 @@ BEGIN
   END IF;
 
   -- Return the result
+  IF v_result IS NULL THEN
+    RAISE EXCEPTION 'Failed to create or update business profile: No result returned';
+  END IF;
+
   RETURN v_result;
 EXCEPTION
   WHEN OTHERS THEN

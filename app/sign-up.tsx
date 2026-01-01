@@ -46,10 +46,27 @@ export default function SignUpScreen() {
     try {
       await signUp(name, email, password);
       
-      // Wait a moment to ensure session is established before redirecting
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Check if email confirmation is required
+      const { supabase } = await import('@/lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
       
-      router.replace('/onboarding');
+      if (session?.user && !session.user.email_confirmed_at) {
+        // Email confirmation required - show message and redirect to sign-in
+        RNAlert.alert(
+          'Email Confirmation Required',
+          'Please check your email and click the confirmation link before continuing. After confirming, you can sign in and complete onboarding.',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/sign-in' as any)
+            }
+          ]
+        );
+      } else {
+        // Email already confirmed or auto-confirm enabled - proceed to onboarding
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        router.replace('/onboarding');
+      }
     } catch (error: any) {
       const errorMessage = error?.message || 'Failed to create account';
       RNAlert.alert('Error', errorMessage);
