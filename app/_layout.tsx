@@ -24,34 +24,68 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   const { hasOnboarded, isLoading: businessLoading } = useBusiness();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, authUser } = useAuth();
   const { theme, isDark } = useTheme();
   const segments = useSegments();
   const router = useRouter();
+  const [emailVerified, setEmailVerified] = React.useState<boolean | null>(null);
 
   const isLoading = businessLoading || authLoading;
 
+  // Check email verification status
+  React.useEffect(() => {
+    const checkEmailVerification = async () => {
+      if (!isAuthenticated || !authUser) {
+        setEmailVerified(null);
+        return;
+      }
+
+      try {
+        const { supabase } = await import('@/lib/supabase');
+        const { data: { session } } = await supabase.auth.getSession();
+        setEmailVerified(session?.user?.email_confirmed_at ? true : false);
+      } catch (error) {
+        console.error('Error checking email verification:', error);
+        setEmailVerified(false);
+      }
+    };
+
+    checkEmailVerification();
+  }, [isAuthenticated, authUser]);
+
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || emailVerified === null) return; // Wait for email verification check
 
     const currentPath = segments.join('/');
-    const inAuth = currentPath.includes('landing') || currentPath.includes('sign-up') || currentPath.includes('sign-in') || currentPath.includes('verify-email');
+    const inAuth = currentPath.includes('landing') || currentPath.includes('sign-up') || currentPath.includes('sign-in');
+    const inVerifyEmail = currentPath.includes('verify-email');
     const inOnboarding = currentPath.includes('onboarding');
     const inTabs = currentPath.includes('(tabs)') || currentPath === '';
 
     // If not authenticated, redirect to landing page
     if (!isAuthenticated && !inAuth) {
       router.replace('/landing' as any);
-    } 
-    // If authenticated but not onboarded, redirect to onboarding
-    else if (isAuthenticated && !hasOnboarded && !inOnboarding) {
-      router.replace('/onboarding' as any);
-    } 
-    // If authenticated and onboarded, redirect to main app (tabs)
-    else if (isAuthenticated && hasOnboarded && (inAuth || inOnboarding)) {
-      router.replace('/(tabs)' as any);
+      return;
     }
-  }, [isAuthenticated, hasOnboarded, isLoading, segments, router]);
+
+    // If authenticated but email not verified, redirect to verification screen
+    if (isAuthenticated && !emailVerified && !inVerifyEmail && !inAuth) {
+      router.replace('/verify-email' as any);
+      return;
+    }
+
+    // If authenticated, email verified, but not onboarded, redirect to onboarding
+    if (isAuthenticated && emailVerified && !hasOnboarded && !inOnboarding && !inVerifyEmail) {
+      router.replace('/onboarding' as any);
+      return;
+    }
+
+    // If authenticated and onboarded, redirect to main app (tabs)
+    if (isAuthenticated && hasOnboarded && (inAuth || inOnboarding || inVerifyEmail)) {
+      router.replace('/(tabs)' as any);
+      return;
+    }
+  }, [isAuthenticated, hasOnboarded, emailVerified, isLoading, segments, router]);
 
   return (
     <>
