@@ -17,6 +17,7 @@ import { ProductContextProvider } from "@/contexts/ProductContext";
 import { AdContextProvider } from "@/contexts/AdContext";
 import { PremiumContextProvider } from "@/contexts/PremiumContext";
 import { StatusBar } from 'react-native';
+import { supabase } from '@/lib/supabase';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -42,8 +43,7 @@ function RootLayoutNav() {
       }
 
       try {
-        // Use static import instead of dynamic import to avoid syntax errors
-        const { supabase } = require('@/lib/supabase');
+        // Use static import from top of file
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -93,26 +93,38 @@ function RootLayoutNav() {
       return;
     }
 
-    // Only check email verification if authenticated
-    // If email verification check is still pending, wait (but not indefinitely)
+    // CRITICAL: If authenticated, we MUST check email verification status
+    // If email verification check is still pending, wait a bit but then proceed with assumption
     if (emailVerified === null && isAuthenticated) {
-      // Wait a bit for email verification check, but don't block forever
-      return; // Wait for email verification check to complete
+      // Wait a maximum of 2 seconds for email verification check
+      // After that, assume not verified to be safe
+      const timeout = setTimeout(() => {
+        if (emailVerified === null) {
+          console.log('Email verification check timed out, assuming not verified');
+          setEmailVerified(false);
+        }
+      }, 2000);
+      return () => clearTimeout(timeout);
     }
 
     // CRITICAL: If authenticated but email not verified, redirect to verification screen
     // This must happen BEFORE checking onboarding status
-    if (isAuthenticated && emailVerified === false && !inVerifyEmail && !inAuth) {
-      console.log('Redirecting to verify-email: email not verified');
-      router.replace('/verify-email' as any);
+    // Also redirect if we're on onboarding but email is not verified
+    if (isAuthenticated && emailVerified === false) {
+      if (!inVerifyEmail && !inAuth) {
+        console.log('Redirecting to verify-email: email not verified');
+        router.replace('/verify-email' as any);
+      }
       return;
     }
 
     // If authenticated, email verified, but not onboarded, redirect to onboarding
     // Only proceed to onboarding if email is verified (emailVerified === true)
-    if (isAuthenticated && emailVerified === true && !hasOnboarded && !inOnboarding && !inVerifyEmail) {
-      console.log('Redirecting to onboarding: email verified, not onboarded');
-      router.replace('/onboarding' as any);
+    if (isAuthenticated && emailVerified === true && !hasOnboarded) {
+      if (!inOnboarding && !inVerifyEmail) {
+        console.log('Redirecting to onboarding: email verified, not onboarded');
+        router.replace('/onboarding' as any);
+      }
       return;
     }
 
