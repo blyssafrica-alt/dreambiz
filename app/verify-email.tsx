@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { Mail, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react-native';
-import { useState, useEffect } from 'react';
+import { Mail, CheckCircle, AlertCircle, ArrowRight, Sparkles, Clock, RefreshCw } from 'lucide-react-native';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,11 @@ import {
   ScrollView,
   StatusBar,
   Alert as RNAlert,
+  Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
@@ -21,12 +24,35 @@ export default function VerifyEmailScreen() {
   const [isChecking, setIsChecking] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [email, setEmail] = useState(authUser?.email || '');
+  const [lastResendTime, setLastResendTime] = useState(0);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     // Set email from authUser
     if (authUser?.email) {
       setEmail(authUser.email);
     }
+    
+    // Animate entrance
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start();
     
     // Check if email is already verified
     checkEmailStatus();
@@ -39,15 +65,73 @@ export default function VerifyEmailScreen() {
     return () => clearInterval(interval);
   }, [authUser]);
 
+  // Pulse animation for mail icon
+  useEffect(() => {
+    if (!isVerified) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    }
+  }, [isVerified]);
+
+  // Rotate animation for refresh icon
+  useEffect(() => {
+    if (isChecking) {
+      const rotate = Animated.loop(
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        })
+      );
+      rotate.start();
+      return () => rotate.stop();
+    } else {
+      rotateAnim.setValue(0);
+    }
+  }, [isChecking]);
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => {
+        setResendCooldown(resendCooldown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
+
   const checkEmailStatus = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.email_confirmed_at) {
         setIsVerified(true);
+        // Animate success
+        Animated.parallel([
+          Animated.spring(scaleAnim, {
+            toValue: 1.05,
+            tension: 50,
+            friction: 7,
+            useNativeDriver: true,
+          }),
+        ]).start();
         // Auto-redirect to onboarding after a short delay
         setTimeout(() => {
           router.replace('/onboarding' as any);
-        }, 1500);
+        }, 2000);
       }
     } catch (error) {
       console.error('Error checking email status:', error);
@@ -57,6 +141,10 @@ export default function VerifyEmailScreen() {
   const handleResendEmail = async () => {
     if (!email) {
       RNAlert.alert('Error', 'Email address not found');
+      return;
+    }
+
+    if (resendCooldown > 0) {
       return;
     }
 
@@ -70,9 +158,12 @@ export default function VerifyEmailScreen() {
       if (error) {
         RNAlert.alert('Error', error.message || 'Failed to resend verification email');
       } else {
+        setLastResendTime(Date.now());
+        setResendCooldown(60); // 60 second cooldown
         RNAlert.alert(
           'Email Sent',
-          'A new verification email has been sent. Please check your inbox.'
+          'A new verification email has been sent. Please check your inbox.',
+          [{ text: 'OK' }]
         );
       }
     } catch (error: any) {
@@ -92,121 +183,214 @@ export default function VerifyEmailScreen() {
     router.replace('/onboarding' as any);
   };
 
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   return (
-    <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background.primary }]} edges={['top', 'bottom']}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <LinearGradient
-            colors={[theme.accent.primary, theme.accent.secondary] as any}
-            style={styles.iconGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            {isVerified ? (
-              <CheckCircle size={48} color="#FFF" />
-            ) : (
-              <Mail size={48} color="#FFF" />
+        <Animated.View
+          style={{
+            opacity: fadeAnim,
+            transform: [{ scale: scaleAnim }],
+          }}
+        >
+          {/* Header Section */}
+          <View style={styles.header}>
+            <Animated.View
+              style={{
+                transform: [{ scale: isVerified ? 1 : pulseAnim }],
+              }}
+            >
+              <LinearGradient
+                colors={
+                  isVerified
+                    ? ['#10B981', '#059669', '#047857'] as any
+                    : [theme.accent.primary, theme.accent.secondary] as any
+                }
+                style={styles.iconGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                {isVerified ? (
+                  <CheckCircle size={56} color="#FFF" strokeWidth={2.5} />
+                ) : (
+                  <Mail size={56} color="#FFF" strokeWidth={2} />
+                )}
+              </LinearGradient>
+            </Animated.View>
+
+            {isVerified && (
+              <View style={styles.sparklesContainer}>
+                <Sparkles size={24} color={theme.accent.success} style={styles.sparkle1} />
+                <Sparkles size={20} color={theme.accent.success} style={styles.sparkle2} />
+                <Sparkles size={18} color={theme.accent.success} style={styles.sparkle3} />
+              </View>
             )}
-          </LinearGradient>
 
-          <Text style={[styles.title, { color: theme.text.primary }]}>
-            {isVerified ? 'Email Verified!' : 'Verify Your Email'}
-          </Text>
-          <Text style={[styles.subtitle, { color: theme.text.secondary }]}>
-            {isVerified
-              ? 'Your email has been verified. Redirecting to onboarding...'
-              : 'We sent a verification link to your email address. Please check your inbox and click the link to verify your account.'}
-          </Text>
-        </View>
-
-        <View style={[styles.card, { backgroundColor: theme.background.card }]}>
-          <View style={styles.emailContainer}>
-            <Mail size={20} color={theme.text.secondary} />
-            <Text style={[styles.emailText, { color: theme.text.primary }]}>
-              {email || 'No email found'}
+            <Text style={[styles.title, { color: theme.text.primary }]}>
+              {isVerified ? 'Email Verified!' : 'Verify Your Email'}
+            </Text>
+            <Text style={[styles.subtitle, { color: theme.text.secondary }]}>
+              {isVerified
+                ? 'Your email has been successfully verified. You can now proceed to set up your business.'
+                : `We've sent a verification link to your email address. Please check your inbox and click the link to verify your account.`}
             </Text>
           </View>
 
-          {!isVerified && (
-            <>
-              <View style={[styles.infoBox, { backgroundColor: theme.background.secondary }]}>
-                <AlertCircle size={20} color={theme.accent.warning} />
-                <View style={styles.infoContent}>
-                  <Text style={[styles.infoTitle, { color: theme.text.primary }]}>
-                    Check Your Inbox
+          {/* Main Card */}
+          <View style={[styles.card, { backgroundColor: theme.background.card }]}>
+            {/* Email Display */}
+            <View style={[styles.emailContainer, { backgroundColor: theme.background.secondary }]}>
+              <View style={[styles.emailIconContainer, { backgroundColor: theme.accent.primary + '15' }]}>
+                <Mail size={20} color={theme.accent.primary} />
+              </View>
+              <View style={styles.emailTextContainer}>
+                <Text style={[styles.emailLabel, { color: theme.text.secondary }]}>Email Address</Text>
+                <Text style={[styles.emailText, { color: theme.text.primary }]} numberOfLines={1}>
+                  {email || 'No email found'}
+                </Text>
+              </View>
+            </View>
+
+            {!isVerified && (
+              <>
+                {/* Info Box */}
+                <View style={[styles.infoBox, { backgroundColor: theme.accent.warning + '10', borderColor: theme.accent.warning + '30' }]}>
+                  <View style={[styles.infoIconContainer, { backgroundColor: theme.accent.warning + '20' }]}>
+                    <AlertCircle size={24} color={theme.accent.warning} />
+                  </View>
+                  <View style={styles.infoContent}>
+                    <Text style={[styles.infoTitle, { color: theme.text.primary }]}>
+                      Check Your Inbox
+                    </Text>
+                    <Text style={[styles.infoText, { color: theme.text.secondary }]}>
+                      We've sent a verification email to {email}. Click the link in the email to verify your account.
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Instructions */}
+                <View style={styles.instructions}>
+                  <View style={styles.instructionHeader}>
+                    <Clock size={18} color={theme.text.secondary} />
+                    <Text style={[styles.instructionTitle, { color: theme.text.primary }]}>
+                      Didn't receive the email?
+                    </Text>
+                  </View>
+                  <View style={styles.instructionList}>
+                    <View style={styles.instructionItem}>
+                      <View style={[styles.bullet, { backgroundColor: theme.accent.primary }]} />
+                      <Text style={[styles.instructionText, { color: theme.text.secondary }]}>
+                        Check your spam/junk folder
+                      </Text>
+                    </View>
+                    <View style={styles.instructionItem}>
+                      <View style={[styles.bullet, { backgroundColor: theme.accent.primary }]} />
+                      <Text style={[styles.instructionText, { color: theme.text.secondary }]}>
+                        Make sure you entered the correct email address
+                      </Text>
+                    </View>
+                    <View style={styles.instructionItem}>
+                      <View style={[styles.bullet, { backgroundColor: theme.accent.primary }]} />
+                      <Text style={[styles.instructionText, { color: theme.text.secondary }]}>
+                        Wait a few minutes and try resending
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Resend Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.resendButton,
+                    {
+                      backgroundColor: theme.accent.primary,
+                      opacity: resendCooldown > 0 ? 0.6 : 1,
+                    },
+                    isChecking && styles.resendButtonDisabled,
+                  ]}
+                  onPress={handleResendEmail}
+                  disabled={isChecking || resendCooldown > 0}
+                  activeOpacity={0.8}
+                >
+                  {isChecking ? (
+                    <>
+                      <Animated.View style={{ transform: [{ rotate: spin }] }}>
+                        <RefreshCw size={20} color="#FFF" />
+                      </Animated.View>
+                      <Text style={styles.resendButtonText}>Sending...</Text>
+                    </>
+                  ) : resendCooldown > 0 ? (
+                    <>
+                      <Clock size={20} color="#FFF" />
+                      <Text style={styles.resendButtonText}>Resend in {resendCooldown}s</Text>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw size={20} color="#FFF" />
+                      <Text style={styles.resendButtonText}>Resend Verification Email</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+
+            {isVerified && (
+              <View style={[styles.successBox, { backgroundColor: theme.accent.success + '15', borderColor: theme.accent.success + '30' }]}>
+                <View style={[styles.successIconContainer, { backgroundColor: theme.accent.success + '20' }]}>
+                  <CheckCircle size={28} color={theme.accent.success} strokeWidth={2.5} />
+                </View>
+                <View style={styles.successContent}>
+                  <Text style={[styles.successTitle, { color: theme.text.primary }]}>
+                    Verification Successful!
                   </Text>
-                  <Text style={[styles.infoText, { color: theme.text.secondary }]}>
-                    We've sent a verification email to {email}. Click the link in the email to verify your account.
+                  <Text style={[styles.successText, { color: theme.text.secondary }]}>
+                    Your email has been verified. Redirecting to onboarding...
                   </Text>
                 </View>
               </View>
+            )}
+          </View>
 
-              <View style={styles.instructions}>
-                <Text style={[styles.instructionTitle, { color: theme.text.primary }]}>
-                  Didn't receive the email?
-                </Text>
-                <Text style={[styles.instructionText, { color: theme.text.secondary }]}>
-                  • Check your spam/junk folder{'\n'}
-                  • Make sure you entered the correct email address{'\n'}
-                  • Wait a few minutes and try resending
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={[
-                  styles.resendButton,
-                  {
-                    backgroundColor: theme.background.secondary,
-                    borderColor: theme.border.medium,
-                  },
-                  isChecking && styles.resendButtonDisabled,
-                ]}
-                onPress={handleResendEmail}
-                disabled={isChecking}
-              >
-                <Text style={[styles.resendButtonText, { color: theme.accent.primary }]}>
-                  {isChecking ? 'Sending...' : 'Resend Verification Email'}
-                </Text>
-              </TouchableOpacity>
-            </>
-          )}
-
+          {/* Continue Button (when verified) */}
           {isVerified && (
-            <View style={[styles.successBox, { backgroundColor: theme.accent.success + '20' }]}>
-              <CheckCircle size={24} color={theme.accent.success} />
-              <Text style={[styles.successText, { color: theme.accent.success }]}>
-                Your email has been verified successfully!
-              </Text>
-            </View>
+            <TouchableOpacity
+              style={[styles.continueButton, { backgroundColor: theme.accent.primary }]}
+              onPress={handleContinue}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={[theme.accent.primary, theme.accent.secondary] as any}
+                style={styles.continueButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.continueButtonText}>Continue to Onboarding</Text>
+                <ArrowRight size={22} color="#FFF" strokeWidth={2.5} />
+              </LinearGradient>
+            </TouchableOpacity>
           )}
-        </View>
 
-        {isVerified && (
+          {/* Back Button */}
           <TouchableOpacity
-            style={[styles.continueButton, { backgroundColor: theme.accent.primary }]}
-            onPress={handleContinue}
+            style={styles.backButton}
+            onPress={() => router.replace('/sign-in' as any)}
+            activeOpacity={0.7}
           >
-            <Text style={styles.continueButtonText}>
-              Continue to Onboarding
+            <Text style={[styles.backButtonText, { color: theme.text.secondary }]}>
+              Back to Sign In
             </Text>
-            <ArrowRight size={20} color="#FFF" />
           </TouchableOpacity>
-        )}
-
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.replace('/sign-in' as any)}
-        >
-          <Text style={[styles.backButtonText, { color: theme.text.secondary }]}>
-            Back to Sign In
-          </Text>
-        </TouchableOpacity>
+        </Animated.View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -217,50 +401,98 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingVertical: 60,
+    paddingVertical: 40,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 32,
+    position: 'relative',
   },
   iconGradient: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  sparklesContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sparkle1: {
+    position: 'absolute',
+    top: 20,
+    right: 60,
+  },
+  sparkle2: {
+    position: 'absolute',
+    top: 40,
+    left: 50,
+  },
+  sparkle3: {
+    position: 'absolute',
+    bottom: 20,
+    right: 40,
   },
   title: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '800' as const,
-    marginBottom: 8,
+    marginBottom: 12,
     textAlign: 'center',
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
     lineHeight: 24,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    fontWeight: '400' as const,
   },
   card: {
-    borderRadius: 16,
+    borderRadius: 24,
     padding: 24,
     marginBottom: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 20,
+    elevation: 8,
   },
   emailContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    marginBottom: 20,
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 24,
+    gap: 16,
+  },
+  emailIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emailTextContainer: {
+    flex: 1,
+  },
+  emailLabel: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   emailText: {
     fontSize: 16,
@@ -268,82 +500,144 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     flexDirection: 'row',
-    padding: 16,
-    borderRadius: 12,
-    gap: 12,
-    marginBottom: 20,
+    padding: 20,
+    borderRadius: 16,
+    gap: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+  },
+  infoIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   infoContent: {
     flex: 1,
   },
   infoTitle: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '700' as const,
+    marginBottom: 6,
   },
   infoText: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 22,
+    fontWeight: '400' as const,
   },
   instructions: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  instructionTitle: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    marginBottom: 8,
-  },
-  instructionText: {
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  resendButton: {
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  resendButtonDisabled: {
-    opacity: 0.5,
-  },
-  resendButtonText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-  },
-  successBox: {
+  instructionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
+    gap: 8,
+    marginBottom: 16,
+  },
+  instructionTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+  },
+  instructionList: {
     gap: 12,
   },
-  successText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    flex: 1,
+  instructionItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
   },
-  continueButton: {
+  bullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 8,
+  },
+  instructionText: {
+    fontSize: 14,
+    lineHeight: 22,
+    flex: 1,
+    fontWeight: '400' as const,
+  },
+  resendButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     height: 56,
-    borderRadius: 12,
-    gap: 8,
-    marginBottom: 16,
+    borderRadius: 16,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  continueButtonText: {
+  resendButtonDisabled: {
+    opacity: 0.7,
+  },
+  resendButtonText: {
     fontSize: 16,
     fontWeight: '700' as const,
     color: '#FFF',
+    letterSpacing: 0.3,
+  },
+  successBox: {
+    flexDirection: 'row',
+    padding: 20,
+    borderRadius: 16,
+    gap: 16,
+    borderWidth: 1,
+  },
+  successIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successContent: {
+    flex: 1,
+  },
+  successTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    marginBottom: 6,
+  },
+  successText: {
+    fontSize: 14,
+    lineHeight: 22,
+    fontWeight: '400' as const,
+  },
+  continueButton: {
+    borderRadius: 16,
+    marginBottom: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  continueButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 60,
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  continueButtonText: {
+    fontSize: 17,
+    fontWeight: '700' as const,
+    color: '#FFF',
+    letterSpacing: 0.5,
   },
   backButton: {
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 16,
   },
   backButtonText: {
-    fontSize: 14,
-    fontWeight: '500' as const,
+    fontSize: 15,
+    fontWeight: '600' as const,
   },
 });
-
