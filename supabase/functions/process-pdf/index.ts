@@ -29,10 +29,20 @@ interface PDFExtractionResult {
   fullText: string;
   totalPages: number;
   pageCount: number;
+  metadata?: {
+    title?: string | null;
+    author?: string | null;
+    subject?: string | null;
+    creator?: string | null;
+    producer?: string | null;
+    creationDate?: string | null;
+    modificationDate?: string | null;
+  };
 }
 
 /**
  * Extract chapters from PDF text using pattern matching
+ * Enhanced with more patterns and better detection
  */
 function extractChaptersFromText(text: string): Chapter[] {
   const chapters: Chapter[] = [];
@@ -41,52 +51,118 @@ function extractChaptersFromText(text: string): Chapter[] {
     return chapters;
   }
 
-  // Common chapter patterns
+  // Enhanced chapter patterns - more comprehensive matching
   const chapterPatterns = [
-    /^Chapter\s+(\d+)[:.\s]+(.+)$/gmi,
-    /^CHAPTER\s+(\d+)[:.\s]+(.+)$/gmi,
-    /^(\d+)[:.\s]+(.+)$/gmi,
-    /^Part\s+(\d+)[:.\s]+(.+)$/gmi,
+    // Standard chapter formats
+    /^Chapter\s+(\d+)[:.\s\-]+(.+)$/gmi,
+    /^CHAPTER\s+(\d+)[:.\s\-]+(.+)$/gmi,
+    /^Ch\.\s*(\d+)[:.\s\-]+(.+)$/gmi,
+    /^CH\.\s*(\d+)[:.\s\-]+(.+)$/gmi,
+    
+    // Numbered chapters
+    /^(\d+)[:.\s\-]+(.+)$/gmi,
     /^(\d+)\.\s+(.+)$/gmi,
+    /^(\d+)\s+([A-Z][^\n]+)$/gmi,
+    
+    // Part/Section formats
+    /^Part\s+(\d+)[:.\s\-]+(.+)$/gmi,
+    /^PART\s+(\d+)[:.\s\-]+(.+)$/gmi,
+    /^Section\s+(\d+)[:.\s\-]+(.+)$/gmi,
+    /^SECTION\s+(\d+)[:.\s\-]+(.+)$/gmi,
+    
+    // Roman numerals
+    /^Chapter\s+([IVX]+)[:.\s\-]+(.+)$/gmi,
+    /^CHAPTER\s+([IVX]+)[:.\s\-]+(.+)$/gmi,
+    
+    // With "of" (e.g., "Chapter 1 of 10")
+    /^Chapter\s+(\d+)\s+of\s+\d+[:.\s\-]+(.+)$/gmi,
+    
+    // Standalone chapter titles (if on their own line)
+    /^Chapter\s+(\d+)$/gmi,
   ];
 
   const lines = text.split('\n');
   let currentChapter: Chapter | null = null;
   let chapterContent: string[] = [];
+  let pageNumber = 1; // Track page numbers for chapter location
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     
+    // Check if this line indicates a new page
+    if (line.match(/^---\s*Page\s+(\d+)\s+---$/i)) {
+      const pageMatch = line.match(/(\d+)/);
+      if (pageMatch) {
+        pageNumber = parseInt(pageMatch[1], 10);
+      }
+      continue; // Skip page markers
+    }
+    
     // Try to match chapter patterns
     let matched = false;
+    let chapterNum: number | null = null;
+    let chapterTitle: string = '';
+    
     for (const pattern of chapterPatterns) {
       pattern.lastIndex = 0;
       const match = pattern.exec(line);
       if (match) {
-        // Save previous chapter if exists
-        if (currentChapter) {
-          currentChapter.content = chapterContent.join('\n');
-          chapters.push(currentChapter);
+        // Handle different match formats
+        if (match[1] && match[2]) {
+          // Standard format: number and title
+          const numStr = match[1];
+          // Try to parse as number, or convert Roman numeral
+          if (/^\d+$/.test(numStr)) {
+            chapterNum = parseInt(numStr, 10);
+          } else if (/^[IVX]+$/i.test(numStr)) {
+            // Simple Roman numeral conversion (I=1, II=2, III=3, IV=4, V=5, etc.)
+            const romanMap: Record<string, number> = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
+            let romanValue = 0;
+            for (let j = 0; j < numStr.length; j++) {
+              const current = romanMap[numStr[j].toUpperCase()] || 0;
+              const next = romanMap[numStr[j + 1]?.toUpperCase()] || 0;
+              if (current < next) {
+                romanValue -= current;
+              } else {
+                romanValue += current;
+              }
+            }
+            chapterNum = romanValue;
+          } else {
+            chapterNum = parseInt(numStr, 10) || chapters.length + 1;
+          }
+          chapterTitle = match[2].trim() || `Chapter ${chapterNum}`;
+        } else if (match[1]) {
+          // Just number, no title
+          chapterNum = parseInt(match[1], 10) || chapters.length + 1;
+          chapterTitle = `Chapter ${chapterNum}`;
         }
         
-        // Start new chapter
-        const chapterNum = parseInt(match[1], 10);
-        const chapterTitle = match[2].trim();
-        
-        currentChapter = {
-          number: chapterNum,
-          title: chapterTitle,
-          content: '',
-        };
-        chapterContent = [];
-        matched = true;
-        break;
+        if (chapterNum !== null) {
+          // Save previous chapter if exists
+          if (currentChapter) {
+            currentChapter.content = chapterContent.join('\n').trim();
+            currentChapter.pageEnd = pageNumber - 1;
+            chapters.push(currentChapter);
+          }
+          
+          // Start new chapter
+          currentChapter = {
+            number: chapterNum,
+            title: chapterTitle,
+            content: '',
+            pageStart: pageNumber,
+          };
+          chapterContent = [];
+          matched = true;
+          break;
+        }
       }
     }
     
     if (!matched && currentChapter) {
-      // Add line to current chapter content
-      if (line.length > 0) {
+      // Add line to current chapter content (skip empty lines and page markers)
+      if (line.length > 0 && !line.match(/^---\s*Page\s+\d+\s+---$/i)) {
         chapterContent.push(line);
       }
     }
@@ -94,11 +170,25 @@ function extractChaptersFromText(text: string): Chapter[] {
   
   // Add last chapter
   if (currentChapter) {
-    currentChapter.content = chapterContent.join('\n');
+    currentChapter.content = chapterContent.join('\n').trim();
+    currentChapter.pageEnd = pageNumber;
     chapters.push(currentChapter);
   }
+  
+  // Sort chapters by number to ensure correct order
+  chapters.sort((a, b) => a.number - b.number);
+  
+  // Remove duplicate chapters (same number)
+  const uniqueChapters: Chapter[] = [];
+  const seenNumbers = new Set<number>();
+  for (const chapter of chapters) {
+    if (!seenNumbers.has(chapter.number)) {
+      seenNumbers.add(chapter.number);
+      uniqueChapters.push(chapter);
+    }
+  }
 
-  return chapters;
+  return uniqueChapters;
 }
 
 /**
@@ -145,7 +235,7 @@ function extractPageCountFromPDFStructure(arrayBuffer: ArrayBuffer): number {
  * Extract text and metadata from PDF
  * Uses PDF.js from CDN if available, otherwise extracts basic metadata
  */
-async function extractTextFromPDF(pdfUrl: string, supabaseClient?: any): Promise<{ text: string; pageCount: number }> {
+async function extractTextFromPDF(pdfUrl: string, supabaseClient?: any): Promise<{ text: string; pageCount: number; metadata?: any }> {
   try {
     // Fetch PDF - handle Supabase Storage URLs that might need authentication
     let response: Response;
@@ -203,7 +293,7 @@ async function extractTextFromPDF(pdfUrl: string, supabaseClient?: any): Promise
 /**
  * Process PDF buffer to extract text and page count
  */
-async function processPDFBuffer(arrayBuffer: ArrayBuffer): Promise<{ text: string; pageCount: number }> {
+async function processPDFBuffer(arrayBuffer: ArrayBuffer): Promise<{ text: string; pageCount: number; metadata?: any }> {
   try {
     console.log('PDF fetched, size:', arrayBuffer.byteLength);
     
@@ -224,6 +314,7 @@ async function processPDFBuffer(arrayBuffer: ArrayBuffer): Promise<{ text: strin
         return {
           text: '',
           pageCount: pageCount,
+          metadata: undefined,
         };
       }
       
@@ -232,6 +323,7 @@ async function processPDFBuffer(arrayBuffer: ArrayBuffer): Promise<{ text: strin
         return {
           text: '',
           pageCount: pageCount,
+          metadata: undefined,
         };
       }
       
@@ -250,6 +342,7 @@ async function processPDFBuffer(arrayBuffer: ArrayBuffer): Promise<{ text: strin
         return {
           text: '',
           pageCount: pageCount,
+          metadata: undefined,
         };
       }
       
@@ -258,29 +351,87 @@ async function processPDFBuffer(arrayBuffer: ArrayBuffer): Promise<{ text: strin
         return {
           text: '',
           pageCount: pageCount,
+          metadata: undefined,
         };
       }
       
       const verifiedPageCount = pdf.numPages;
       console.log(`PDF.js verified: ${verifiedPageCount} pages`);
       
-      // Extract text from all pages (limit to first 50 pages for performance)
+      // Extract text from ALL pages (removed 50 page limit for complete extraction)
       let fullText = '';
-      const maxPages = Math.min(verifiedPageCount, 50);
       
-      for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+      // Extract metadata if available
+      let pdfMetadata: any = {};
+      try {
+        const metadata = await pdf.getMetadata();
+        if (metadata) {
+          pdfMetadata = {
+            title: metadata.info?.Title || null,
+            author: metadata.info?.Author || null,
+            subject: metadata.info?.Subject || null,
+            creator: metadata.info?.Creator || null,
+            producer: metadata.info?.Producer || null,
+            creationDate: metadata.info?.CreationDate || null,
+            modificationDate: metadata.info?.ModDate || null,
+          };
+          console.log('PDF Metadata extracted:', pdfMetadata);
+        }
+      } catch (metadataError) {
+        console.warn('Could not extract PDF metadata:', metadataError);
+      }
+      
+      // Process all pages - extract text with better formatting
+      for (let pageNum = 1; pageNum <= verifiedPageCount; pageNum++) {
         try {
           const page = await pdf.getPage(pageNum);
           const textContent = await page.getTextContent();
           
-          // Combine all text items from the page
+          // Combine all text items from the page with better formatting
           if (textContent && textContent.items) {
-            const pageText = textContent.items
-              .map((item: any) => item.str || '')
-              .filter((str: string) => str.length > 0)
-              .join(' ');
+            let pageText = '';
+            let lastY = -1;
             
-            fullText += `\n--- Page ${pageNum} ---\n${pageText}\n`;
+            // Group text items by Y position to preserve line breaks
+            const lines: { y: number; items: any[] }[] = [];
+            
+            for (const item of textContent.items) {
+              const y = item.transform?.[5] || 0; // Y position from transform matrix
+              
+              // Find or create line for this Y position
+              let line = lines.find(l => Math.abs(l.y - y) < 5); // 5px tolerance
+              if (!line) {
+                line = { y, items: [] };
+                lines.push(line);
+              }
+              line.items.push(item);
+            }
+            
+            // Sort lines by Y position (top to bottom)
+            lines.sort((a, b) => b.y - a.y);
+            
+            // Build page text from lines
+            for (const line of lines) {
+              // Sort items in line by X position (left to right)
+              line.items.sort((a, b) => {
+                const ax = a.transform?.[4] || 0;
+                const bx = b.transform?.[4] || 0;
+                return ax - bx;
+              });
+              
+              const lineText = line.items
+                .map((item: any) => item.str || '')
+                .filter((str: string) => str.length > 0)
+                .join(' ');
+              
+              if (lineText.trim().length > 0) {
+                pageText += lineText + '\n';
+              }
+            }
+            
+            if (pageText.trim().length > 0) {
+              fullText += `\n--- Page ${pageNum} ---\n${pageText}\n`;
+            }
           }
         } catch (pageError) {
           console.warn(`Error extracting page ${pageNum}:`, pageError);
@@ -288,11 +439,17 @@ async function processPDFBuffer(arrayBuffer: ArrayBuffer): Promise<{ text: strin
         }
       }
       
-      console.log(`Extracted ${fullText.length} characters from ${maxPages} pages`);
+      console.log(`Extracted ${fullText.length} characters from ${verifiedPageCount} pages`);
+      
+      // Store metadata in the result
+      if (Object.keys(pdfMetadata).length > 0) {
+        fullText = `[PDF Metadata]\nTitle: ${pdfMetadata.title || 'N/A'}\nAuthor: ${pdfMetadata.author || 'N/A'}\nSubject: ${pdfMetadata.subject || 'N/A'}\n\n${fullText}`;
+      }
       
       return {
         text: fullText,
         pageCount: verifiedPageCount,
+        metadata: Object.keys(pdfMetadata).length > 0 ? pdfMetadata : undefined,
       };
     } catch (pdfjsError: any) {
       console.warn('PDF.js extraction failed, using structure-based extraction:', pdfjsError?.message || pdfjsError);
@@ -378,11 +535,16 @@ serve(async (req) => {
     // Try to extract text and metadata from PDF
     let extractedText = '';
     let pageCount = 0;
+    let pdfMetadata: any = null;
     try {
       const extractionResult = await extractTextFromPDF(pdfUrl, supabaseClient);
       extractedText = extractionResult.text;
       pageCount = extractionResult.pageCount;
+      pdfMetadata = extractionResult.metadata;
       console.log(`Extracted ${pageCount} pages, ${extractedText.length} characters`);
+      if (pdfMetadata) {
+        console.log('PDF Metadata:', pdfMetadata);
+      }
     } catch (error: any) {
       console.error('PDF extraction error:', error?.message || error);
       // Continue with empty text - will return manual processing suggestion
@@ -431,6 +593,7 @@ serve(async (req) => {
           fullText: extractedText,
           extractedAt: new Date().toISOString(),
           pageCount: pageCount,
+          metadata: pdfMetadata || null,
         },
       };
 
@@ -478,6 +641,8 @@ serve(async (req) => {
             chapters,
             totalChapters: chapters.length,
             pageCount: pageCount,
+            metadata: pdfMetadata || null,
+            fullTextLength: extractedText.length,
           },
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -487,11 +652,13 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
-          message: `PDF processed. Found ${pageCount} pages. Please enter chapters manually.`,
+          message: `PDF processed. Found ${pageCount} pages${extractedText.length > 0 ? ` with ${extractedText.length} characters of text` : ''}. Please enter chapters manually.`,
           data: {
             chapters: [],
             totalChapters: 0,
             pageCount: pageCount,
+            metadata: pdfMetadata || null,
+            fullTextLength: extractedText.length,
           },
           requiresManualEntry: true,
         }),
@@ -507,6 +674,8 @@ serve(async (req) => {
             chapters: [],
             totalChapters: 0,
             pageCount: 0,
+            metadata: null,
+            fullTextLength: 0,
           },
           requiresManualEntry: true,
         }),
