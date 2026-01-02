@@ -708,14 +708,12 @@ serve(async (req, ctx) => {
 
   try {
     // ============================================
-    // AUTHENTICATION - AUTOMATIC VIA SUPABASE GATEWAY
+    // AUTHENTICATION - DISABLED AT GATEWAY LEVEL
     // ============================================
-    // Function is configured with verify_jwt = true in config.toml
-    // Gateway validates JWT BEFORE forwarding to function
-    // If we reach here, JWT is VALID and user is authenticated
-    // DO NOT re-validate auth - gateway already did this
-    // DO NOT check Authorization header - gateway handles this
+    // Function is configured with verify_jwt = false in config.toml
+    // Gateway does NOT validate JWT - requests reach function directly
     // Function uses service role key for database operations (bypasses RLS)
+    // No auth validation needed - function accepts all requests
     // ============================================
     
     const apikeyHeader = req.headers.get('apikey') || req.headers.get('Apikey') || req.headers.get('APIKEY');
