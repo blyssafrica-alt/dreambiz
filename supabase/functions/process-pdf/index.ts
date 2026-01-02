@@ -466,9 +466,33 @@ async function processPDFBuffer(arrayBuffer: ArrayBuffer): Promise<{ text: strin
 }
 
 serve(async (req) => {
+  // Log ALL requests for debugging (including OPTIONS)
+  console.log('=== Edge Function Request ===');
+  console.log('Method:', req.method);
+  console.log('URL:', req.url);
+  console.log('Headers:', Object.fromEntries(req.headers.entries()));
+  
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
+    console.log('Handling CORS preflight request');
     return new Response('ok', { headers: corsHeaders });
+  }
+
+  // Only allow POST method
+  if (req.method !== 'POST') {
+    console.error('Invalid method:', req.method, '- Only POST is allowed');
+    return new Response(
+      JSON.stringify({ 
+        success: false,
+        error: `Method ${req.method} not allowed. Only POST is supported.`,
+        requiresManualEntry: true,
+      }),
+      { 
+        status: 405, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        statusText: 'Method Not Allowed',
+      }
+    );
   }
 
   try {
@@ -482,6 +506,8 @@ serve(async (req) => {
       hasAuth: !!authHeader,
       hasApikey: !!apikeyHeader,
       url: req.url,
+      authHeaderPreview: authHeader ? authHeader.substring(0, 30) + '...' : null,
+      apikeyHeaderPreview: apikeyHeader ? apikeyHeader.substring(0, 20) + '...' : null,
     });
     
     // IMPORTANT: If we reach here, the Supabase gateway accepted the request
