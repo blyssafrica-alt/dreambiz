@@ -63,6 +63,9 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       const currentBusinessId = businessIdOverride || business?.id;
       
       // Build queries - filter by business_id if business is selected
+      // NOTE: Some tables don't have business_id (e.g., project_tasks, exchange_rates)
+      // Tables without business_id: project_tasks, exchange_rates
+      const tablesWithoutBusinessId = ['project_tasks', 'exchange_rates'];
       const buildQuery = (table: string, orderBy: string, orderDir: 'asc' | 'desc' = 'desc', selectFields?: string) => {
         let query = supabase.from(table);
         if (selectFields) {
@@ -71,50 +74,111 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           query = query.select('*');
         }
         query = query.eq('user_id', userId);
-        if (currentBusinessId) {
+        // Only filter by business_id if table has that column
+        if (currentBusinessId && !tablesWithoutBusinessId.includes(table)) {
           query = query.eq('business_id', currentBusinessId);
         }
         return query.order(orderBy, { ascending: orderDir === 'asc' });
       };
       
       // Build queries with error handling - wrap each in try-catch to prevent one failure from breaking all
+      // Add request deduplication to prevent infinite retries
+      const queryCache = new Map<string, { promise: Promise<any>; timestamp: number }>();
+      const CACHE_TTL = 5000; // 5 seconds cache to prevent duplicate requests
+      
       const safeQuery = async (queryPromise: Promise<any>, tableName: string) => {
-        try {
-          const result = await queryPromise;
-          // Suppress warnings for expected errors (404, PGRST116 = not found, 42P01 = table doesn't exist)
-          if (result.error) {
-            const errorCode = result.error.code || '';
-            const errorMessage = result.error.message || '';
-            const statusCode = result.error.status || result.error.statusCode || '';
-            
-            // Only log unexpected errors, not 404s or missing tables
+        const cacheKey = `${tableName}-${userId}-${currentBusinessId || 'no-business'}`;
+        const cached = queryCache.get(cacheKey);
+        
+        // Return cached promise if it's still valid
+        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+          return cached.promise;
+        }
+        
+        const queryPromiseWithErrorHandling = (async () => {
+          try {
+            const result = await queryPromise;
+            // Handle 400 Bad Request errors (malformed queries, missing columns, etc.)
+            if (result.error) {
+              const errorCode = result.error.code || '';
+              const errorMessage = result.error.message || '';
+              const statusCode = result.error.status || result.error.statusCode || '';
+              
+              // Check for 400 Bad Request (malformed query, missing column, etc.)
+              const is400Error = statusCode === 400 || errorCode === 'PGRST202' || errorMessage.includes('column') && errorMessage.includes('does not exist');
+              
+              if (is400Error) {
+                // Log 400 errors in development - these indicate schema mismatches
+                if (__DEV__) {
+                  console.error(`400 Bad Request for ${tableName}:`, {
+                    error: result.error,
+                    message: errorMessage,
+                    code: errorCode,
+                    hint: 'This usually means the query references a column that does not exist in the table',
+                  });
+                }
+                // Return empty result instead of retrying
+                return { data: [], error: null };
+              }
+              
+              // Check for 401 Unauthorized (auth issues)
+              const is401Error = statusCode === 401 || errorCode === 'PGRST301';
+              if (is401Error) {
+                if (__DEV__) {
+                  console.error(`401 Unauthorized for ${tableName}:`, {
+                    error: result.error,
+                    message: errorMessage,
+                    hint: 'Session may have expired. User may need to sign in again.',
+                  });
+                }
+                // Return empty result instead of retrying
+                return { data: [], error: null };
+              }
+              
+              // Only log unexpected errors, not 404s or missing tables
+              const isExpectedError = 
+                errorCode === 'PGRST116' || // Not found (OK for optional queries)
+                errorCode === '42P01' || // Table doesn't exist
+                statusCode === 404 || // HTTP 404
+                errorMessage.includes('does not exist') ||
+                errorMessage.includes('relation') && errorMessage.includes('does not exist');
+              
+              if (!isExpectedError) {
+                // Only log unexpected errors in development
+                if (__DEV__) {
+                  console.warn(`Query error for ${tableName}:`, result.error);
+                }
+              }
+            }
+            return result;
+          } catch (error: any) {
+            // Suppress exceptions for missing tables
+            const errorMessage = error?.message || '';
             const isExpectedError = 
-              errorCode === 'PGRST116' || // Not found (OK for optional queries)
-              errorCode === '42P01' || // Table doesn't exist
-              statusCode === 404 || // HTTP 404
               errorMessage.includes('does not exist') ||
               errorMessage.includes('relation') && errorMessage.includes('does not exist');
             
-            if (!isExpectedError) {
-              // Only log unexpected errors in development
-              if (__DEV__) {
-                console.warn(`Query error for ${tableName}:`, result.error);
-              }
+            if (!isExpectedError && __DEV__) {
+              console.error(`Query exception for ${tableName}:`, error);
+            }
+            return { data: null, error: { message: error?.message || 'Query failed' } };
+          }
+        })();
+        
+        // Cache the promise
+        queryCache.set(cacheKey, { promise: queryPromiseWithErrorHandling, timestamp: Date.now() });
+        
+        // Clean up old cache entries
+        if (queryCache.size > 50) {
+          const now = Date.now();
+          for (const [key, value] of queryCache.entries()) {
+            if (now - value.timestamp > CACHE_TTL) {
+              queryCache.delete(key);
             }
           }
-          return result;
-        } catch (error: any) {
-          // Suppress exceptions for missing tables
-          const errorMessage = error?.message || '';
-          const isExpectedError = 
-            errorMessage.includes('does not exist') ||
-            errorMessage.includes('relation') && errorMessage.includes('does not exist');
-          
-          if (!isExpectedError && __DEV__) {
-            console.error(`Query exception for ${tableName}:`, error);
-          }
-          return { data: null, error: { message: error?.message || 'Query failed' } };
         }
+        
+        return queryPromiseWithErrorHandling;
       };
 
       const [businessRes, transactionsRes, documentsRes, productsRes, customersRes, suppliersRes, budgetsRes, cashflowRes, taxRatesRes, employeesRes, projectsRes, projectTasksRes, recurringInvoicesRes, paymentsRes, exchangeRateRes] = await Promise.all([
@@ -413,13 +477,21 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     }
   }, [userId, business?.id]);
 
+  // Prevent infinite retries by using ref to track loading state
+  const isLoadingRef = useRef(false);
+  
   useEffect(() => {
-    if (userId) {
-      loadData();
-    } else {
+    if (userId && !isLoadingRef.current) {
+      isLoadingRef.current = true;
+      loadData().finally(() => {
+        isLoadingRef.current = false;
+      });
+    } else if (!userId) {
       setIsLoading(false);
     }
-  }, [userId, loadData]);
+    // Only depend on userId and business?.id, not loadData (which changes on every render)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, business?.id]);
 
   const saveBusiness = async (newBusiness: BusinessProfile) => {
     if (!userId) throw new Error('User not authenticated');
