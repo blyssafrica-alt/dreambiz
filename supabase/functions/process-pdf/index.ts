@@ -314,6 +314,17 @@ serve(async (req) => {
   }
 
   try {
+    // Get authorization header - Edge Functions can be called with or without auth
+    const authHeader = req.headers.get('authorization');
+    const apikeyHeader = req.headers.get('apikey');
+    
+    // Log for debugging (remove sensitive data in production)
+    console.log('Request received:', {
+      method: req.method,
+      hasAuth: !!authHeader,
+      hasApikey: !!apikeyHeader,
+    });
+
     // Parse request body with error handling
     let requestData;
     try {

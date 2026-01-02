@@ -77,24 +77,41 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         return query.order(orderBy, { ascending: orderDir === 'asc' });
       };
       
+      // Build queries with error handling - wrap each in try-catch to prevent one failure from breaking all
+      const safeQuery = async (queryPromise: Promise<any>, tableName: string) => {
+        try {
+          const result = await queryPromise;
+          if (result.error && result.error.code !== 'PGRST116') { // PGRST116 is "not found" which is OK for optional queries
+            console.warn(`Query error for ${tableName}:`, result.error);
+          }
+          return result;
+        } catch (error: any) {
+          console.error(`Query exception for ${tableName}:`, error);
+          return { data: null, error: { message: error?.message || 'Query failed' } };
+        }
+      };
+
       const [businessRes, transactionsRes, documentsRes, productsRes, customersRes, suppliersRes, budgetsRes, cashflowRes, taxRatesRes, employeesRes, projectsRes, projectTasksRes, recurringInvoicesRes, paymentsRes, exchangeRateRes] = await Promise.all([
-        supabase.from('business_profiles').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        buildQuery('transactions', 'date', 'desc'),
-        buildQuery('documents', 'date', 'desc'),
-        buildQuery('products', 'created_at', 'desc'),
-        buildQuery('customers', 'created_at', 'desc'),
-        buildQuery('suppliers', 'created_at', 'desc'),
-        buildQuery('budgets', 'created_at', 'desc'),
-        buildQuery('cashflow_projections', 'month', 'asc'),
-        buildQuery('tax_rates', 'created_at', 'desc'),
-        buildQuery('employees', 'created_at', 'desc', '*, auth_user_id, role_id, can_login'),
-        buildQuery('projects', 'created_at', 'desc'),
-        buildQuery('project_tasks', 'created_at', 'desc'),
-        buildQuery('recurring_invoices', 'created_at', 'desc'),
-        buildQuery('payments', 'payment_date', 'desc'),
-        currentBusinessId 
-          ? supabase.from('exchange_rates').select('*').eq('user_id', userId).eq('business_id', currentBusinessId).order('created_at', { ascending: false }).limit(1).single()
-          : supabase.from('exchange_rates').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).single(),
+        safeQuery(supabase.from('business_profiles').select('*').eq('user_id', userId).order('created_at', { ascending: false }), 'business_profiles'),
+        safeQuery(buildQuery('transactions', 'date', 'desc'), 'transactions'),
+        safeQuery(buildQuery('documents', 'date', 'desc'), 'documents'),
+        safeQuery(buildQuery('products', 'created_at', 'desc'), 'products'),
+        safeQuery(buildQuery('customers', 'created_at', 'desc'), 'customers'),
+        safeQuery(buildQuery('suppliers', 'created_at', 'desc'), 'suppliers'),
+        safeQuery(buildQuery('budgets', 'created_at', 'desc'), 'budgets'),
+        safeQuery(buildQuery('cashflow_projections', 'month', 'asc'), 'cashflow_projections'),
+        safeQuery(buildQuery('tax_rates', 'created_at', 'desc'), 'tax_rates'),
+        safeQuery(buildQuery('employees', 'created_at', 'desc', '*, auth_user_id, role_id, can_login'), 'employees'),
+        safeQuery(buildQuery('projects', 'created_at', 'desc'), 'projects'),
+        safeQuery(buildQuery('project_tasks', 'created_at', 'desc'), 'project_tasks'),
+        safeQuery(buildQuery('recurring_invoices', 'created_at', 'desc'), 'recurring_invoices'),
+        safeQuery(buildQuery('payments', 'payment_date', 'desc'), 'payments'),
+        safeQuery(
+          currentBusinessId 
+            ? supabase.from('exchange_rates').select('*').eq('user_id', userId).eq('business_id', currentBusinessId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+            : supabase.from('exchange_rates').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+          'exchange_rates'
+        ),
       ]);
 
       // Handle multiple businesses per user - use the most recent one if no business is currently selected
@@ -289,7 +306,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         })));
       }
 
-      if (projectTasksRes.data) {
+      if (projectTasksRes.data && !projectTasksRes.error) {
         setProjectTasks(projectTasksRes.data.map(t => ({
           id: t.id,
           projectId: t.project_id,
@@ -302,9 +319,12 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           createdAt: t.created_at,
           updatedAt: t.updated_at,
         })));
+      } else if (projectTasksRes.error) {
+        console.warn('Could not load project tasks:', projectTasksRes.error);
+        setProjectTasks([]);
       }
 
-      if (recurringInvoicesRes.data) {
+      if (recurringInvoicesRes.data && !recurringInvoicesRes.error) {
         setRecurringInvoices(recurringInvoicesRes.data.map(r => ({
           id: r.id,
           customerName: r.customer_name,
@@ -323,6 +343,10 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           createdAt: r.created_at,
           updatedAt: r.updated_at,
         })));
+      } else if (recurringInvoicesRes.error) {
+        // Table might not exist or RLS is blocking - set empty array
+        console.warn('Could not load recurring invoices:', recurringInvoicesRes.error);
+        setRecurringInvoices([]);
       }
 
       if (paymentsRes.data) {
@@ -339,11 +363,14 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         })));
       }
 
-      if (exchangeRateRes.data) {
+      if (exchangeRateRes.data && !exchangeRateRes.error) {
         setExchangeRate({
           usdToZwl: Number(exchangeRateRes.data.usd_to_zwl),
           lastUpdated: exchangeRateRes.data.created_at,
         });
+      } else if (exchangeRateRes.error && exchangeRateRes.error.code !== 'PGRST116') {
+        // PGRST116 is "not found" which is OK - just use default rate
+        console.warn('Could not load exchange rate:', exchangeRateRes.error);
       }
     } catch (error) {
       console.error('Failed to load data:', error);
