@@ -470,13 +470,24 @@ serve(async (req) => {
   // Extract full URL information
   const url = new URL(req.url);
   const fullUrl = `${url.protocol}//${url.host}${url.pathname}${url.search}`;
+  const expectedPath = '/functions/v1/process-pdf';
+  const isCorrectPath = url.pathname === expectedPath;
   
   console.log('=== Edge Function Request ===');
   console.log('Method:', req.method);
   console.log('Full URL:', fullUrl);
   console.log('Path:', url.pathname);
-  console.log('Expected path: /functions/v1/process-pdf');
-  console.log('URL correct:', url.pathname === '/functions/v1/process-pdf' || url.pathname === '/process-pdf');
+  console.log('Expected path:', expectedPath);
+  console.log('URL correct:', isCorrectPath);
+  
+  if (!isCorrectPath) {
+    console.error('⚠️ WARNING: Request received at wrong path!');
+    console.error('   Actual path:', url.pathname);
+    console.error('   Expected path:', expectedPath);
+    console.error('   This may cause the function to not work correctly.');
+    console.error('   Frontend should call: https://<project>.supabase.co/functions/v1/process-pdf');
+  }
+  
   console.log('Headers:', Object.fromEntries(req.headers.entries()));
   
   // Handle CORS preflight
