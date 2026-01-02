@@ -493,6 +493,11 @@ serve(async (req) => {
       apikeyHeaderValue: apikeyHeader ? apikeyHeader.substring(0, 20) + '...' : null,
       allHeadersPreview: allHeaders,
     });
+    
+    // IMPORTANT: If we reach here, the Supabase gateway accepted the request
+    // This means the apikey header was present and valid
+    // The 401 error happens at the gateway level BEFORE this code runs
+    // So if this code executes, authentication passed the gateway check
 
     // Parse request body with error handling
     let requestData;

@@ -428,19 +428,34 @@ export default function BooksManagementScreen() {
         }
 
         if (error) {
-          // Log error details for debugging
-          console.error('Edge Function error:', {
+          // Log full error details for debugging (serialize properly)
+          const errorDetails = {
             status: error.status,
             statusCode: error.statusCode,
             message: error.message,
             name: error.name,
-          });
+            error: error.error ? JSON.stringify(error.error, null, 2) : undefined,
+            fullError: JSON.stringify(error, Object.getOwnPropertyNames(error), 2),
+          };
           
-          // Check if it's a 401 (function not deployed) or network error
+          console.error('Edge Function error:', errorDetails);
+          console.error('Full error object:', error);
+          
+          // Check if it's a 401 (function not deployed or auth issue)
           if (error.status === 401 || error.statusCode === 401) {
+            const errorMsg = error.message || 'Authentication failed';
+            console.error('401 Unauthorized - Possible causes:', {
+              functionUrl,
+              hasApikey: !!supabaseAnonKey,
+              apikeyLength: supabaseAnonKey?.length || 0,
+              hasSession: !!session,
+              hasAccessToken: !!session?.access_token,
+              errorMessage: errorMsg,
+            });
+            
             Alert.alert(
-              'Function Not Deployed',
-              'The PDF processing function is not deployed yet. Please deploy it or use manual entry.',
+              'Authentication Error',
+              `Failed to authenticate with PDF processing service.\n\nError: ${errorMsg}\n\nPlease ensure:\n1. You are signed in\n2. The function is deployed\n3. Try manual entry if this persists.`,
               [{ text: 'OK' }]
             );
             setIsProcessingPDF(false);
