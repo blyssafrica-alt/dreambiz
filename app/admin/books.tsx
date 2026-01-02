@@ -600,11 +600,29 @@ export default function BooksManagementScreen() {
             isProcessingRef.current = false;
             setIsProcessingPDF(false);
             
-            Alert.alert(
-              'Authentication Failed',
-              `Unable to process PDF. The function returned 401 Unauthorized.\n\nThis usually means:\n1. Edge Function is not deployed\n2. User session is expired/invalid\n3. Gateway rejected the request\n\nPlease try:\n1. Deploy the Edge Function (see docs/DEPLOYMENT_INSTRUCTIONS.md)\n2. Sign out and sign back in\n3. Check Supabase Dashboard → Edge Functions → Logs\n4. Use manual entry if this persists`,
-              [{ text: 'OK' }]
-            );
+            // Provide specific error message based on response
+            let errorMessage = 'Unable to process PDF. The function returned 401 Unauthorized.\n\n';
+            
+            if (jobError.responseText?.includes('not found') || jobError.message?.includes('404')) {
+              errorMessage += '⚠️ FUNCTION NOT DEPLOYED\n\n';
+              errorMessage += 'The Edge Function is not deployed. Please:\n';
+              errorMessage += '1. Go to Supabase Dashboard → Edge Functions\n';
+              errorMessage += '2. Deploy the "process-pdf" function\n';
+              errorMessage += '3. See QUICK_FIX_401_ERRORS.md for instructions\n';
+            } else {
+              errorMessage += 'Possible causes:\n';
+              errorMessage += '1. Edge Function is not deployed (most likely)\n';
+              errorMessage += '2. User session expired\n';
+              errorMessage += '3. Gateway authentication issue\n\n';
+              errorMessage += 'Solutions:\n';
+              errorMessage += '1. Deploy the function (see QUICK_FIX_401_ERRORS.md)\n';
+              errorMessage += '2. Sign out and sign back in\n';
+              errorMessage += '3. Check Supabase Dashboard → Edge Functions → Logs\n';
+            }
+            
+            errorMessage += '\nYou can use manual entry as a fallback.';
+            
+            Alert.alert('Authentication Failed', errorMessage, [{ text: 'OK' }]);
             return;
           }
 
