@@ -778,40 +778,82 @@ serve(async (req) => {
       );
     }
   } catch (error: any) {
-    console.error('Error processing PDF:', error);
+    // ============================================
+    // COMPREHENSIVE ERROR HANDLING
+    // ============================================
+    // This catch block handles ALL errors that occur during PDF processing.
+    // It ALWAYS returns a valid JSON Response with status 200 to prevent
+    // the Supabase client from throwing FunctionsHttpError.
+    // ============================================
     
-    // Log full error details for debugging
-    const errorDetails = {
-      message: error?.message || 'Unknown error',
-      stack: error?.stack || 'No stack trace',
-      name: error?.name || 'Error',
-    };
-    console.error('Error details:', JSON.stringify(errorDetails, null, 2));
+    console.error('[process-pdf] Error processing PDF:', error);
     
-    // Check if we're in development mode
+    // Safely extract error information
+    const errorMessage = error?.message || 'Unknown error';
+    const errorStack = error?.stack || 'No stack trace';
+    const errorName = error?.name || 'Error';
+    
+    // Log full error details for debugging (only in development)
     const isDevelopment = Deno.env.get('DENO_ENV') === 'development' || 
                          Deno.env.get('ENVIRONMENT') === 'development';
     
-    // ALWAYS return 200 status code - use success field to indicate failure
-    // This prevents FunctionsHttpError from being thrown
-    return new Response(
-      JSON.stringify({ 
+    if (isDevelopment) {
+      const errorDetails = {
+        message: errorMessage,
+        stack: errorStack,
+        name: errorName,
+      };
+      console.error('[process-pdf] Error details:', JSON.stringify(errorDetails, null, 2));
+    }
+    
+    // ALWAYS return 200 status code with structured JSON
+    // This prevents the Supabase client from throwing FunctionsHttpError
+    // The frontend checks the 'success' field to determine actual outcome
+    try {
+      const errorResponse = {
         success: false,
-        error: error?.message || 'Failed to process PDF',
+        error: errorMessage,
         message: 'An error occurred while processing the PDF. Please use manual entry.',
         data: {
           chapters: [],
           totalChapters: 0,
           pageCount: 0,
+          metadata: null,
+          fullTextLength: 0,
         },
         requiresManualEntry: true,
-        details: isDevelopment ? errorDetails : undefined,
-      }),
-      { 
-        status: 200,  // Changed from 500 to 200
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+        ...(isDevelopment ? { details: { message: errorMessage, stack: errorStack, name: errorName } } : {}),
+      };
+      
+      return new Response(
+        JSON.stringify(errorResponse),
+        { 
+          status: 200,  // Always 200 to prevent FunctionsHttpError
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+          } 
+        }
+      );
+    } catch (jsonError: any) {
+      // If JSON.stringify fails (should never happen), return minimal response
+      console.error('[process-pdf] CRITICAL: Failed to stringify error response:', jsonError);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Internal server error',
+          message: 'An error occurred while processing the PDF. Please use manual entry.',
+          requiresManualEntry: true,
+        }),
+        { 
+          status: 200,
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+          } 
+        }
+      );
+    }
   }
 });
 
