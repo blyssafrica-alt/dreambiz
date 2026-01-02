@@ -1173,7 +1173,7 @@ export default function BooksManagementScreen() {
                     {book.totalChapters} chapters
                   </Text>
                   <Text style={[styles.bookMetaText, { color: theme.text.tertiary }]}>
-                    ${book.price.toFixed(2)}
+                    ${(book.price || 0).toFixed(2)}
                   </Text>
                 </View>
                 {book.documentFileUrl && (
@@ -1197,7 +1197,7 @@ export default function BooksManagementScreen() {
                     Sales: {book.totalSales}
                   </Text>
                   <Text style={[styles.statText, { color: theme.text.tertiary }]}>
-                    Revenue: ${book.totalRevenue.toFixed(2)}
+                    Revenue: ${(book.totalRevenue || 0).toFixed(2)}
                   </Text>
                 </View>
               </View>
