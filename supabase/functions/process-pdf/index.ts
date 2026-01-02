@@ -85,6 +85,8 @@ function extractChaptersFromText(text: string): Chapter[] {
   let currentChapter: Chapter | null = null;
   let chapterContent: string[] = [];
   let pageNumber = 1; // Track page numbers for chapter location
+  
+  console.log(`[extractChaptersFromText] Processing ${lines.length} lines, text length: ${text.length}`);
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -503,11 +505,16 @@ async function processPDFAsync(
         .eq('id', jobId);
 
       const extractionResult = await extractTextFromPDF(pdfUrl, supabaseClient);
-      extractedText = extractionResult.text;
-      pageCount = extractionResult.pageCount;
-      pdfMetadata = extractionResult.metadata;
+      extractedText = extractionResult.text || '';
+      pageCount = extractionResult.pageCount || 0;
+      pdfMetadata = extractionResult.metadata || null;
       
-      console.log(`[Job ${jobId}] Extracted ${pageCount} pages, ${extractedText.length} characters`);
+      console.log(`[Job ${jobId}] Extracted ${pageCount} pages, ${extractedText.length} characters of text`);
+      console.log(`[Job ${jobId}] Metadata:`, pdfMetadata ? JSON.stringify(pdfMetadata).substring(0, 200) : 'none');
+      
+      if (extractedText.length === 0 && pageCount > 0) {
+        console.warn(`[Job ${jobId}] WARNING: Page count extracted (${pageCount} pages) but text extraction returned empty. PDF may be image-based or encrypted.`);
+      }
       
       // Update progress: text extraction done
       await supabaseClient
@@ -549,8 +556,15 @@ async function processPDFAsync(
       .eq('id', jobId);
     
     if (extractedText && extractedText.length > 0) {
+      console.log(`[Job ${jobId}] Extracting chapters from ${extractedText.length} characters of text`);
       chapters = extractChaptersFromText(extractedText);
       console.log(`[Job ${jobId}] Extracted ${chapters.length} chapters`);
+      if (chapters.length === 0) {
+        console.warn(`[Job ${jobId}] No chapters found. Text preview (first 500 chars):`, extractedText.substring(0, 500));
+      }
+    } else {
+      console.warn(`[Job ${jobId}] Cannot extract chapters - extracted text is empty or null`);
+      console.log(`[Job ${jobId}] extractedText length: ${extractedText?.length || 0}`);
     }
 
     // Update progress: processing complete
