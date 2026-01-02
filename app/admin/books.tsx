@@ -132,7 +132,18 @@ export default function BooksManagementScreen() {
           saleStartDate: row.sale_start_date || undefined,
           saleEndDate: row.sale_end_date || undefined,
           totalChapters: row.total_chapters || 0,
-          chapters: row.chapters || [],
+          chapters: (() => {
+            const ch = row.chapters;
+            if (Array.isArray(ch)) return ch;
+            if (typeof ch === 'string') {
+              try {
+                return JSON.parse(ch || '[]');
+              } catch {
+                return [];
+              }
+            }
+            return [];
+          })(),
           enabledFeatures: row.enabled_features || [],
           author: row.author || '',
           isbn: row.isbn || '',
