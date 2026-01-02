@@ -156,12 +156,12 @@ function RootLayoutNav() {
         <Stack.Screen name="employee-login" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="document/[id]" options={{ title: 'Document' }} />
-        <Stack.Screen name="business-plan" options={{ title: 'Business Plan' }} />
-        <Stack.Screen name="help" options={{ title: 'Help & Support' }} />
+        <Stack.Screen name="document/[id]" options={{ title: 'Document', headerShown: true }} />
+        <Stack.Screen name="business-plan" options={{ title: 'Business Plan', headerShown: true }} />
+        <Stack.Screen name="help" options={{ title: 'Help & Support', headerShown: false }} />
         <Stack.Screen name="books" options={{ headerShown: false }} />
-        <Stack.Screen name="my-library" options={{ title: 'My Library' }} />
-        <Stack.Screen name="receipt-scan" options={{ title: 'Scan Receipt' }} />
+        <Stack.Screen name="my-library" options={{ title: 'My Library', headerShown: false }} />
+        <Stack.Screen name="receipt-scan" options={{ title: 'Scan Receipt', headerShown: false }} />
         <Stack.Screen name="payments" options={{ headerShown: false }} />
         <Stack.Screen name="admin" options={{ headerShown: false }} />
       </Stack>

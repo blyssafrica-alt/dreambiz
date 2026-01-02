@@ -1,6 +1,7 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -72,98 +73,105 @@ export default function AdminLayout() {
         name="dashboard" 
         options={{ 
           title: 'Admin Dashboard',
-          headerShown: true,
+          headerShown: false,
         }} 
       />
       <Stack.Screen 
         name="features" 
         options={{ 
           title: 'Feature Management',
-          headerShown: true,
+          headerShown: false,
         }} 
       />
       <Stack.Screen 
         name="products" 
         options={{ 
           title: 'Product Management',
-          headerShown: true,
+          headerShown: false,
         }} 
       />
       <Stack.Screen 
         name="ads" 
         options={{ 
           title: 'Advertisement Management',
-          headerShown: true,
+          headerShown: false,
         }} 
       />
       <Stack.Screen 
         name="templates" 
         options={{ 
           title: 'Document Templates',
-          headerShown: true,
+          headerShown: false,
         }} 
       />
       <Stack.Screen 
         name="alerts" 
         options={{ 
           title: 'Alert Rules',
-          headerShown: true,
+          headerShown: false,
         }} 
       />
       <Stack.Screen 
         name="books" 
         options={{ 
           title: 'Book Management',
-          headerShown: true,
+          headerShown: false,
         }} 
       />
       <Stack.Screen 
         name="users" 
         options={{ 
           title: 'User Management',
-          headerShown: true,
+          headerShown: false,
         }} 
       />
       <Stack.Screen 
         name="premium" 
         options={{ 
           title: 'Premium Management',
-          headerShown: true,
+          headerShown: false,
         }} 
       />
       <Stack.Screen 
         name="payment-methods" 
         options={{ 
           title: 'Payment Methods',
-          headerShown: true,
+          headerShown: false,
         }} 
       />
       <Stack.Screen 
         name="help-content" 
         options={{ 
           title: 'Help Content',
-          headerShown: true,
+          headerShown: false,
         }} 
       />
       <Stack.Screen 
         name="payment-verification" 
         options={{ 
           title: 'Payment Verification',
-          headerShown: true,
+          headerShown: false,
         }} 
       />
       <Stack.Screen 
         name="product-categories" 
         options={{ 
           title: 'Product Categories',
-          headerShown: true,
+          headerShown: false,
         }} 
       />
       <Stack.Screen 
         name="employee-roles" 
         options={{ 
           title: 'Employee Roles',
-          headerShown: true,
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
+        name="integrations" 
+        options={{ 
+          title: 'Integration Settings',
+          headerShown: false,
         }} 
       />
     </Stack>
