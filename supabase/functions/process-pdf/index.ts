@@ -639,45 +639,45 @@ serve(async (req) => {
   // Log ALL requests for debugging (including OPTIONS)
   // Extract full URL information
   const url = new URL(req.url);
-  const fullUrl = `${url.protocol}//${url.host}${url.pathname}${url.search}`;
   
-  // NOTE: Supabase gateway may strip /functions/v1/ prefix before forwarding to function
+  // Get forwarded headers (gateway sets these)
+  const forwardedProto = req.headers.get('x-forwarded-proto') || req.headers.get('X-Forwarded-Proto');
+  const forwardedHost = req.headers.get('x-forwarded-host') || req.headers.get('X-Forwarded-Host');
+  const forwardedFor = req.headers.get('x-forwarded-for') || req.headers.get('X-Forwarded-For');
+  
+  // NOTE: Supabase gateway STRIPS /functions/v1/ prefix before forwarding to function
   // So the function receives /process-pdf instead of /functions/v1/process-pdf
-  // This is normal behavior - accept both paths
-  const expectedPaths = ['/functions/v1/process-pdf', '/process-pdf'];
-  const isCorrectPath = expectedPaths.includes(url.pathname);
+  // This is EXPECTED and NORMAL behavior - the frontend MUST include /functions/v1/ but the function receives it without
+  const expectedPaths = ['/process-pdf']; // Gateway always strips /functions/v1/, so we only receive /process-pdf
+  const isCorrectPath = url.pathname === '/process-pdf' || url.pathname === '/functions/v1/process-pdf';
   
   console.log('=== Edge Function Request ===');
   console.log('Method:', req.method);
-  console.log('Full URL:', fullUrl);
-  console.log('Path (after gateway):', url.pathname);
-  console.log('Expected paths (gateway strips /functions/v1/):', expectedPaths);
-  console.log('URL correct:', isCorrectPath);
-  console.log('⚠️ IMPORTANT: Frontend MUST call: https://<project>.supabase.co/functions/v1/process-pdf');
-  console.log('   Gateway strips /functions/v1/ prefix, so function receives: /process-pdf');
-  console.log('   If you see http:// or missing /functions/v1/, the frontend URL is WRONG!');
+  console.log('Raw req.url:', req.url);
+  console.log('URL pathname (after gateway):', url.pathname);
+  console.log('X-Forwarded-Proto:', forwardedProto || '(not set)');
+  console.log('X-Forwarded-Host:', forwardedHost || '(not set)');
+  console.log('✅ Path is correct (gateway strips /functions/v1/):', isCorrectPath);
+  console.log('ℹ️ NOTE: Gateway strips /functions/v1/ prefix - frontend MUST send it but function receives without it');
   
+  // Only log warnings for actual issues (wrong path, not the protocol since req.url might be misleading)
   if (!isCorrectPath) {
-    console.error('❌ ERROR: Request received at unexpected path:', url.pathname);
-    console.error('   Accepted paths:', expectedPaths);
-    console.error('   Frontend MUST call: https://<project>.supabase.co/functions/v1/process-pdf');
-    console.error('   (Gateway strips /functions/v1/ prefix - this is normal, but frontend must include it)');
+    console.warn('⚠️ WARNING: Unexpected path:', url.pathname, '- Expected: /process-pdf (gateway should strip /functions/v1/)');
   }
   
-  // Check for common URL issues
-  if (fullUrl.includes('http://') && !fullUrl.includes('localhost')) {
-    console.error('❌ CRITICAL: URL uses HTTP instead of HTTPS! Frontend URL is wrong!');
-    console.error('   Expected: https://<project>.supabase.co/functions/v1/process-pdf');
-    console.error('   Got: ' + fullUrl);
-  }
-  
-  if (!fullUrl.includes('/functions/v1/') && !fullUrl.includes('localhost')) {
-    console.error('❌ CRITICAL: URL missing /functions/v1/ prefix! Frontend URL is wrong!');
-    console.error('   Expected: https://<project>.supabase.co/functions/v1/process-pdf');
-    console.error('   Got: ' + fullUrl);
-  }
-  
-  console.log('Headers:', Object.fromEntries(req.headers.entries()));
+  // Log headers (excluding sensitive values)
+  const headerMap: Record<string, string> = {};
+  req.headers.forEach((value, key) => {
+    // Don't log full auth tokens
+    if (key.toLowerCase() === 'authorization') {
+      headerMap[key] = value.substring(0, 20) + '...';
+    } else if (key.toLowerCase() === 'apikey') {
+      headerMap[key] = value.substring(0, 20) + '...';
+    } else {
+      headerMap[key] = value;
+    }
+  });
+  console.log('Request headers (sanitized):', JSON.stringify(headerMap, null, 2));
   
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
