@@ -764,12 +764,41 @@ export default function BooksManagementScreen() {
                 }
               }
 
-              // Job completed but no useful data
+              // Job completed - chapters should always be auto-created
               setIsProcessingPDF(false);
-              Alert.alert(
-                'PDF Processing Complete',
-                'PDF processed but no chapters were detected. Please enter chapters manually in Step 4.'
-              );
+              // If somehow we still don't have chapters, auto-create them from page count
+              if (result.pageCount && result.pageCount > 0 && (!result.chapters || result.chapters.length === 0)) {
+                const estimatedChapters = Math.max(1, Math.ceil(result.pageCount / 12));
+                const autoChapters: BookChapter[] = [];
+                const pagesPerChapter = Math.ceil(result.pageCount / estimatedChapters);
+                
+                for (let i = 1; i <= estimatedChapters; i++) {
+                  const pageStart = (i - 1) * pagesPerChapter + 1;
+                  const pageEnd = Math.min(i * pagesPerChapter, result.pageCount);
+                  autoChapters.push({
+                    number: i,
+                    title: `Chapter ${i}`,
+                    pageStart: pageStart,
+                    pageEnd: pageEnd,
+                  });
+                }
+                
+                const updatedFormData: any = { ...formData };
+                updatedFormData.chapters = autoChapters;
+                updatedFormData.totalChapters = autoChapters.length;
+                updatedFormData.pageCount = result.pageCount;
+                setFormData(updatedFormData);
+                
+                Alert.alert(
+                  'PDF Processed',
+                  `PDF processed successfully!\n\n• Pages: ${result.pageCount}\n• Chapters: ${autoChapters.length} (auto-created)`
+                );
+              } else {
+                Alert.alert(
+                  'PDF Processing Complete',
+                  `PDF processed successfully!\n\n• Pages: ${result.pageCount || 'N/A'}\n• Chapters: ${result.chapters?.length || 0}`
+                );
+              }
               return;
             }
 
