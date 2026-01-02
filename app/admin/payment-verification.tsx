@@ -52,6 +52,7 @@ interface BookPurchase {
   payment_status: 'pending' | 'completed' | 'failed' | 'refunded';
   payment_reference?: string;
   payment_notes?: string;
+  proof_of_payment_url?: string;
   access_granted: boolean;
   access_granted_at?: string;
   created_at: string;
@@ -231,6 +232,7 @@ export default function PaymentVerificationScreen() {
           payment_status: row.payment_status || 'pending',
           payment_reference: row.payment_reference || undefined,
           payment_notes: row.payment_notes || undefined,
+          proof_of_payment_url: row.proof_of_payment_url || undefined,
           access_granted: row.access_granted || false,
           access_granted_at: row.access_granted_at || undefined,
           created_at: row.created_at,
@@ -964,6 +966,17 @@ export default function PaymentVerificationScreen() {
                       {selectedBookPurchase.access_granted ? 'Yes' : 'No'}
                     </Text>
                   </View>
+
+                  {selectedBookPurchase.proof_of_payment_url && (
+                    <View style={styles.proofSection}>
+                      <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Proof of Payment</Text>
+                      <Image
+                        source={{ uri: selectedBookPurchase.proof_of_payment_url }}
+                        style={styles.proofImage}
+                        resizeMode="contain"
+                      />
+                    </View>
+                  )}
 
                   <View style={styles.inputGroup}>
                     <Text style={[styles.label, { color: theme.text.primary }]}>Verification Notes</Text>

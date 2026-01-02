@@ -16,11 +16,13 @@ import * as Linking from 'expo-linking';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, ShoppingCart, Star, BookOpen, Check, X, CreditCard, Smartphone, Building2, DollarSign } from 'lucide-react-native';
+import { ArrowLeft, ShoppingCart, Star, BookOpen, Check, X, CreditCard, Smartphone, Building2, DollarSign, Upload, Image as ImageIcon, Camera, Loader } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getBookBySlug } from '@/lib/book-service';
 import type { Book } from '@/types/books';
 import { supabase } from '@/lib/supabase';
+import * as ImagePicker from 'expo-image-picker';
+import { decode } from 'base64-arraybuffer';
 
 export default function BookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -33,7 +35,11 @@ export default function BookDetailScreen() {
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bank_transfer' | 'mobile_money' | 'card' | 'other'>('mobile_money');
   const [paymentReference, setPaymentReference] = useState('');
+  const [paymentNotes, setPaymentNotes] = useState('');
   const [hasPurchased, setHasPurchased] = useState(false);
+  const [purchaseStatus, setPurchaseStatus] = useState<'none' | 'pending' | 'completed' | 'failed'>('none');
+  const [proofImage, setProofImage] = useState<string | null>(null);
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
 
   useEffect(() => {
     loadBook();
@@ -103,15 +109,24 @@ export default function BookDetailScreen() {
         .select('*')
         .eq('book_id', id)
         .eq('user_id', user.id)
-        .eq('payment_status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
         .single();
 
       if (data) {
-        setHasPurchased(true);
+        if (data.payment_status === 'completed' && data.access_granted) {
+          setHasPurchased(true);
+          setPurchaseStatus('completed');
+        } else if (data.payment_status === 'pending') {
+          setPurchaseStatus('pending');
+        } else if (data.payment_status === 'failed' || data.payment_status === 'refunded') {
+          setPurchaseStatus('failed');
+        }
       }
     } catch (error) {
       // User hasn't purchased this book
       setHasPurchased(false);
+      setPurchaseStatus('none');
     }
   };
 
@@ -142,14 +157,72 @@ export default function BookDetailScreen() {
     setShowPurchaseModal(true);
   };
 
+  const handlePickProofImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant camera roll access to upload proof of payment');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        if (asset.base64) {
+          setIsUploadingProof(true);
+          try {
+            const fileExt = asset.uri.split('.').pop() || 'jpg';
+            const fileName = `book-payment-proof-${Date.now()}.${fileExt}`;
+            const filePath = `payment_proofs/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+              .from('payment_proofs')
+              .upload(filePath, decode(asset.base64), {
+                contentType: asset.mimeType || 'image/jpeg',
+                upsert: false,
+              });
+
+            if (uploadError) throw uploadError;
+
+            const { data: publicUrlData } = supabase.storage
+              .from('payment_proofs')
+              .getPublicUrl(filePath);
+
+            if (publicUrlData?.publicUrl) {
+              setProofImage(publicUrlData.publicUrl);
+            }
+          } catch (error: any) {
+            console.error('Error uploading proof:', error);
+            Alert.alert('Upload Error', error.message || 'Failed to upload proof of payment');
+          } finally {
+            setIsUploadingProof(false);
+          }
+        }
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to pick image');
+    }
+  };
+
   const handleConfirmPurchase = async () => {
     if (!book || !user || !business) return;
+
+    if (!proofImage) {
+      Alert.alert('Proof Required', 'Please upload proof of payment to complete your purchase');
+      return;
+    }
 
     try {
       setIsPurchasing(true);
       const price = getCurrentPrice();
 
-      // Create purchase record
+      // Create purchase record with pending status
       const { data, error } = await supabase
         .from('book_purchases')
         .insert({
@@ -160,33 +233,31 @@ export default function BookDetailScreen() {
           total_price: price,
           currency: book.currency,
           payment_method: paymentMethod,
-          payment_status: 'completed', // For now, mark as completed immediately
+          payment_status: 'pending', // Start as pending, requires admin verification
           payment_reference: paymentReference || null,
-          access_granted: true,
-          access_granted_at: new Date().toISOString(),
+          payment_notes: paymentNotes || null,
+          proof_of_payment_url: proofImage,
+          access_granted: false, // Access granted only after admin approval
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      // Update book sales stats (trigger will handle this, but we can also update directly)
-      await supabase
-        .from('books')
-        .update({
-          total_sales: book.totalSales + 1,
-          total_revenue: book.totalRevenue + price,
-        })
-        .eq('id', book.id);
-
-      setHasPurchased(true);
+      setPurchaseStatus('pending');
       setShowPurchaseModal(false);
-      Alert.alert('Success', 'Book purchased successfully! You now have access to this book.', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      setProofImage(null);
+      setPaymentReference('');
+      setPaymentNotes('');
+      
+      Alert.alert(
+        'Payment Submitted',
+        'Your payment has been submitted for verification. You will receive access to the book once your payment is approved by our team.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
     } catch (error: any) {
-      console.error('Failed to purchase book:', error);
-      Alert.alert('Error', error.message || 'Failed to complete purchase');
+      console.error('Failed to submit payment:', error);
+      Alert.alert('Error', error.message || 'Failed to submit payment');
     } finally {
       setIsPurchasing(false);
     }
@@ -358,6 +429,14 @@ export default function BookDetailScreen() {
             <BookOpen size={20} color="#FFF" />
             <Text style={styles.purchaseButtonText}>Read Book</Text>
           </TouchableOpacity>
+        ) : purchaseStatus === 'pending' ? (
+          <TouchableOpacity
+            style={[styles.purchaseButton, { backgroundColor: '#F59E0B' }]}
+            disabled
+          >
+            <Loader size={20} color="#FFF" />
+            <Text style={styles.purchaseButtonText}>Payment Pending Verification</Text>
+          </TouchableOpacity>
         ) : (
           <TouchableOpacity
             style={[styles.purchaseButton, { backgroundColor: theme.accent.primary }]}
@@ -371,55 +450,77 @@ export default function BookDetailScreen() {
         )}
       </View>
 
-      {/* Purchase Modal */}
+      {/* Purchase Modal - Modern Redesign */}
       <Modal
         visible={showPurchaseModal}
         animationType="slide"
         transparent
-        onRequestClose={() => setShowPurchaseModal(false)}
+        onRequestClose={() => {
+          setShowPurchaseModal(false);
+          setProofImage(null);
+          setPaymentReference('');
+          setPaymentNotes('');
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Purchase Book</Text>
-              <TouchableOpacity onPress={() => setShowPurchaseModal(false)}>
-                <X size={24} color={theme.text.tertiary} />
+            {/* Header with gradient */}
+            <View style={[styles.modalHeaderModern, { backgroundColor: theme.accent.primary }]}>
+              <View>
+                <Text style={styles.modalTitleModern}>Complete Purchase</Text>
+                <Text style={styles.modalSubtitleModern}>{book.title}</Text>
+              </View>
+              <TouchableOpacity 
+                onPress={() => {
+                  setShowPurchaseModal(false);
+                  setProofImage(null);
+                  setPaymentReference('');
+                  setPaymentNotes('');
+                }}
+                style={styles.closeButtonModern}
+              >
+                <X size={24} color="#FFF" />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
-              <View style={styles.purchaseSummary}>
-                <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Book</Text>
-                <Text style={[styles.summaryValue, { color: theme.text.primary }]}>{book.title}</Text>
-              </View>
-              <View style={styles.purchaseSummary}>
-                <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Price</Text>
-                <Text style={[styles.summaryValue, { color: theme.accent.primary }]}>
-                  {book.currency} {currentPrice.toFixed(2)}
-                </Text>
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              {/* Price Summary Card */}
+              <View style={[styles.summaryCard, { backgroundColor: theme.background.secondary }]}>
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabelModern, { color: theme.text.secondary }]}>Amount to Pay</Text>
+                  <Text style={[styles.summaryPriceModern, { color: theme.accent.primary }]}>
+                    {book.currency} {currentPrice.toFixed(2)}
+                  </Text>
+                </View>
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: theme.text.primary }]}>Payment Method</Text>
-                <View style={styles.paymentMethods}>
+              {/* Payment Method Selection */}
+              <View style={styles.inputGroupModern}>
+                <Text style={[styles.labelModern, { color: theme.text.primary }]}>Payment Method</Text>
+                <View style={styles.paymentMethodsGrid}>
                   {(['mobile_money', 'bank_transfer', 'card', 'cash'] as const).map(method => (
                     <TouchableOpacity
                       key={method}
                       style={[
-                        styles.paymentMethodOption,
+                        styles.paymentMethodCard,
                         {
-                          backgroundColor: paymentMethod === method ? theme.accent.primary + '20' : theme.background.secondary,
-                          borderColor: paymentMethod === method ? theme.accent.primary : theme.border.light,
+                          backgroundColor: paymentMethod === method 
+                            ? theme.accent.primary + '15' 
+                            : theme.background.secondary,
+                          borderWidth: paymentMethod === method ? 2 : 1,
+                          borderColor: paymentMethod === method 
+                            ? theme.accent.primary 
+                            : theme.border.light,
                         }
                       ]}
                       onPress={() => setPaymentMethod(method)}
                     >
-                      {method === 'mobile_money' && <Smartphone size={20} color={paymentMethod === method ? theme.accent.primary : theme.text.secondary} />}
-                      {method === 'bank_transfer' && <Building2 size={20} color={paymentMethod === method ? theme.accent.primary : theme.text.secondary} />}
-                      {method === 'card' && <CreditCard size={20} color={paymentMethod === method ? theme.accent.primary : theme.text.secondary} />}
-                      {method === 'cash' && <DollarSign size={20} color={paymentMethod === method ? theme.accent.primary : theme.text.secondary} />}
+                      {method === 'mobile_money' && <Smartphone size={24} color={paymentMethod === method ? theme.accent.primary : theme.text.secondary} />}
+                      {method === 'bank_transfer' && <Building2 size={24} color={paymentMethod === method ? theme.accent.primary : theme.text.secondary} />}
+                      {method === 'card' && <CreditCard size={24} color={paymentMethod === method ? theme.accent.primary : theme.text.secondary} />}
+                      {method === 'cash' && <DollarSign size={24} color={paymentMethod === method ? theme.accent.primary : theme.text.secondary} />}
                       <Text style={[
-                        styles.paymentMethodText,
+                        styles.paymentMethodLabel,
                         { color: paymentMethod === method ? theme.accent.primary : theme.text.primary }
                       ]}>
                         {method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
@@ -429,28 +530,104 @@ export default function BookDetailScreen() {
                 </View>
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: theme.text.primary }]}>Payment Reference (Optional)</Text>
+              {/* Payment Reference */}
+              <View style={styles.inputGroupModern}>
+                <Text style={[styles.labelModern, { color: theme.text.primary }]}>Transaction Reference</Text>
+                <Text style={[styles.labelHint, { color: theme.text.tertiary }]}>
+                  Enter your payment transaction reference number
+                </Text>
                 <TextInput
-                  style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                  style={[styles.inputModern, { backgroundColor: theme.background.secondary, color: theme.text.primary, borderColor: theme.border.light }]}
                   value={paymentReference}
                   onChangeText={setPaymentReference}
-                  placeholder="Transaction reference number"
+                  placeholder="e.g., MTN123456789 or ZB123456"
                   placeholderTextColor={theme.text.tertiary}
                 />
               </View>
 
+              {/* Payment Notes */}
+              <View style={styles.inputGroupModern}>
+                <Text style={[styles.labelModern, { color: theme.text.primary }]}>Additional Notes (Optional)</Text>
+                <TextInput
+                  style={[styles.inputModern, styles.textAreaModern, { backgroundColor: theme.background.secondary, color: theme.text.primary, borderColor: theme.border.light }]}
+                  value={paymentNotes}
+                  onChangeText={setPaymentNotes}
+                  placeholder="Any additional information about your payment..."
+                  placeholderTextColor={theme.text.tertiary}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+              </View>
+
+              {/* Proof of Payment Upload */}
+              <View style={styles.inputGroupModern}>
+                <Text style={[styles.labelModern, { color: theme.text.primary }]}>Proof of Payment *</Text>
+                <Text style={[styles.labelHint, { color: theme.text.tertiary }]}>
+                  Upload a screenshot or photo of your payment receipt
+                </Text>
+                {proofImage ? (
+                  <View style={styles.proofImageContainer}>
+                    <Image source={{ uri: proofImage }} style={styles.proofImagePreview} />
+                    <TouchableOpacity
+                      style={[styles.removeProofButton, { backgroundColor: '#EF4444' }]}
+                      onPress={() => setProofImage(null)}
+                    >
+                      <X size={16} color="#FFF" />
+                      <Text style={styles.removeProofText}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.uploadProofButton, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}
+                    onPress={handlePickProofImage}
+                    disabled={isUploadingProof}
+                  >
+                    {isUploadingProof ? (
+                      <ActivityIndicator color={theme.accent.primary} />
+                    ) : (
+                      <>
+                        <Upload size={24} color={theme.accent.primary} />
+                        <Text style={[styles.uploadProofText, { color: theme.accent.primary }]}>
+                          Upload Proof of Payment
+                        </Text>
+                        <Text style={[styles.uploadProofHint, { color: theme.text.tertiary }]}>
+                          Tap to select image from gallery
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Info Banner */}
+              <View style={[styles.infoBanner, { backgroundColor: theme.accent.primary + '15', borderLeftColor: theme.accent.primary }]}>
+                <Text style={[styles.infoBannerText, { color: theme.text.secondary }]}>
+                  Your payment will be reviewed by our team. Access to the book will be granted once your payment is verified.
+                </Text>
+              </View>
+
+              {/* Submit Button */}
               <TouchableOpacity
-                style={[styles.confirmButton, { backgroundColor: theme.accent.primary }]}
+                style={[
+                  styles.submitButton,
+                  { 
+                    backgroundColor: proofImage ? theme.accent.primary : theme.text.tertiary,
+                    opacity: isPurchasing ? 0.7 : 1,
+                  }
+                ]}
                 onPress={handleConfirmPurchase}
-                disabled={isPurchasing}
+                disabled={isPurchasing || !proofImage}
               >
                 {isPurchasing ? (
-                  <ActivityIndicator color="#FFF" />
+                  <>
+                    <ActivityIndicator color="#FFF" />
+                    <Text style={styles.submitButtonText}>Submitting...</Text>
+                  </>
                 ) : (
                   <>
-                    <Check size={20} color="#FFF" />
-                    <Text style={styles.confirmButtonText}>Confirm Purchase</Text>
+                    <Check size={22} color="#FFF" />
+                    <Text style={styles.submitButtonText}>Submit Payment for Verification</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -651,28 +828,197 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '92%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 20,
   },
-  modalHeader: {
+  modalHeaderModern: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: 24,
+    paddingBottom: 20,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+  },
+  modalTitleModern: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFF',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  modalSubtitleModern: {
+    fontSize: 14,
+    color: '#FFF',
+    opacity: 0.9,
+  },
+  closeButtonModern: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: -4,
+  },
+  modalBody: {
+    padding: 24,
+    paddingTop: 20,
+  },
+  summaryCard: {
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 24,
+  },
+  summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
   },
-  modalTitle: {
-    fontSize: 20,
+  summaryLabelModern: {
+    fontSize: 14,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  summaryPriceModern: {
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  inputGroupModern: {
+    marginBottom: 24,
+  },
+  labelModern: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  labelHint: {
+    fontSize: 13,
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  inputModern: {
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    minHeight: 52,
+  },
+  textAreaModern: {
+    minHeight: 100,
+    paddingTop: 16,
+  },
+  paymentMethodsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 12,
+  },
+  paymentMethodCard: {
+    flex: 1,
+    minWidth: '47%',
+    padding: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  paymentMethodLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  uploadProofButton: {
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 12,
+  },
+  uploadProofText: {
+    fontSize: 16,
     fontWeight: '700',
   },
-  modalBody: {
-    padding: 20,
+  uploadProofHint: {
+    fontSize: 13,
+  },
+  proofImageContainer: {
+    marginTop: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  proofImagePreview: {
+    width: '100%',
+    height: 300,
+    resizeMode: 'cover',
+  },
+  removeProofButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  removeProofText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  infoBanner: {
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    marginBottom: 24,
+    marginTop: 8,
+  },
+  infoBannerText: {
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  submitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    padding: 18,
+    borderRadius: 14,
+    marginTop: 8,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  submitButtonText: {
+    color: '#FFF',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   purchaseSummary: {
     flexDirection: 'row',
