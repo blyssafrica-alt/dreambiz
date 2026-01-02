@@ -330,12 +330,18 @@ export default function BooksManagementScreen() {
         // Get Supabase URL and anon key for function URL
         // Import from supabase config
         const { supabaseUrl, supabaseAnonKey } = await import('@/lib/supabase');
+        
+        // CRITICAL: Edge Functions URL must include /functions/v1/
+        // URL format: https://<project>.supabase.co/functions/v1/<function-name>
         const functionUrl = `${supabaseUrl}/functions/v1/process-pdf`;
 
         if (__DEV__) {
           console.log('Calling process-pdf Edge Function:', {
             pdfUrl: formData.documentFileUrl,
             functionUrl,
+            supabaseUrl,
+            hasAnonKey: !!supabaseAnonKey,
+            anonKeyPreview: supabaseAnonKey?.substring(0, 20) + '...',
             hasSession: !!session,
             hasAccessToken: !!session?.access_token,
             tokenPreview: session?.access_token?.substring(0, 20) + '...',
@@ -345,12 +351,14 @@ export default function BooksManagementScreen() {
 
         // Use direct fetch to ensure headers are sent correctly
         // This bypasses any potential issues with supabase.functions.invoke
+        // CRITICAL: Both Authorization and apikey headers are required by Supabase
         const response = await fetch(functionUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`, // Explicit auth header
-            'apikey': supabaseAnonKey, // Required by Supabase
+            'Authorization': `Bearer ${session.access_token}`, // User's JWT token
+            'apikey': supabaseAnonKey, // CRITICAL: Required by Supabase gateway
+            'x-client-info': 'dream-biz-app/1.0', // Optional but helpful
           },
           body: JSON.stringify({
             pdfUrl: formData.documentFileUrl,
