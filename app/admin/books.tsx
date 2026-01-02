@@ -284,9 +284,56 @@ export default function BooksManagementScreen() {
       // The Edge Function will extract data and return it without updating database
 
       // Try to call Supabase Edge Function for PDF processing
-      // CRITICAL: We do NOT send Authorization header - function uses service role key
-      // This prevents "Invalid JWT" errors from Supabase gateway
+      // CRITICAL: Supabase gateway REQUIRES Authorization header, but function works without validating it
+      // Solution: Get valid session token and send it, but function uses service role key (bypasses auth)
       try {
+        // Get and refresh session to ensure we have a valid token
+        let { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          Alert.alert('Authentication Error', 'Please sign in to process PDF documents.');
+          setIsProcessingPDF(false);
+          return;
+        }
+
+        // Refresh session if expired or expiring soon
+        if (session) {
+          const expiresAt = session.expires_at ? new Date(session.expires_at * 1000) : null;
+          const now = new Date();
+          const expiresIn = expiresAt ? expiresAt.getTime() - now.getTime() : 0;
+          
+          // Refresh if expired or expires in less than 5 minutes
+          if (expiresIn < 5 * 60 * 1000) {
+            if (__DEV__) {
+              console.log(`Session expiring soon (${Math.round(expiresIn / 1000)}s), refreshing...`);
+            }
+            try {
+              const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+              if (!refreshError && refreshData?.session) {
+                session = refreshData.session;
+                if (__DEV__) {
+                  console.log('Session refreshed successfully');
+                }
+              } else {
+                if (__DEV__) {
+                  console.warn('Failed to refresh session:', refreshError);
+                }
+              }
+            } catch (refreshException: any) {
+              if (__DEV__) {
+                console.warn('Exception refreshing session:', refreshException);
+              }
+            }
+          }
+        }
+
+        if (!session || !session.access_token) {
+          Alert.alert('Authentication Required', 'Please sign in to process PDF documents.');
+          setIsProcessingPDF(false);
+          return;
+        }
+
         // Get Supabase URL and anon key for function URL
         const supabaseConfig = await import('@/lib/supabase');
         const supabaseUrl = supabaseConfig.supabaseUrl || 'https://oqcgerfjjiozltkmmkxf.supabase.co';
@@ -314,28 +361,25 @@ export default function BooksManagementScreen() {
           });
         }
         
-        // CRITICAL FIX: DO NOT send Authorization header at all if token might be invalid
-        // Supabase gateway validates JWT and rejects with 401 if invalid
-        // Solution: Only send apikey header, let function work without auth
-        // The function uses service role key which bypasses all auth
-        
-        // Build headers - ONLY include apikey, NEVER include Authorization
-        // This prevents "Invalid JWT" errors from the gateway
+        // Build headers - BOTH apikey AND Authorization are required by Supabase gateway
+        // The gateway validates the Authorization header, but the Edge Function doesn't need to
+        // The function uses service role key which bypasses all auth checks
         const requestHeaders: Record<string, string> = {
           'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey, // CRITICAL: Always required, this is enough
+          'apikey': supabaseAnonKey, // CRITICAL: Always required
+          'Authorization': `Bearer ${session.access_token}`, // CRITICAL: Required by gateway
         };
         
-        // DO NOT send Authorization header - function works without it
-        // The Edge Function uses service role key which bypasses RLS and auth
         if (__DEV__) {
-          console.log('Calling function WITHOUT Authorization header (function uses service role key)');
+          console.log('Calling function WITH Authorization header (gateway requires it, function uses service role key)');
           console.log('Request details:', {
             functionUrl,
             hasApikey: !!requestHeaders['apikey'],
-            hasAuthorization: false, // Explicitly false
+            hasAuthorization: !!requestHeaders['Authorization'],
             apikeyLength: requestHeaders['apikey']?.length || 0,
-            note: 'Function will use service role key, no user auth needed',
+            tokenPreview: session.access_token.substring(0, 20) + '...',
+            expiresAt: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
+            note: 'Gateway validates JWT, but function uses service role key (bypasses auth)',
           });
         }
         
