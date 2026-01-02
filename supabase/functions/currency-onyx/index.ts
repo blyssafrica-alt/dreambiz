@@ -211,13 +211,21 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('Error in currency-onyx function:', error);
     
+    // Return error response but ALWAYS with 200 status and default exchange rate
+    // This prevents FunctionsHttpError from being thrown and provides usable data
     return new Response(
       JSON.stringify({ 
         success: false,
         error: error?.message || 'Failed to process currency request',
+        message: 'An error occurred, but returning default exchange rate',
+        // Always return default exchange rate even on error
+        data: {
+          exchangeRate: 25000,
+          exchangeRateDate: new Date().toISOString(),
+        },
       }),
       { 
-        status: 200, // Always return 200, use success field for status
+        status: 200, // CRITICAL: Always return 200, use success field for status
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
