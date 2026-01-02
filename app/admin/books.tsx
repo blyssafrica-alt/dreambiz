@@ -284,94 +284,9 @@ export default function BooksManagementScreen() {
       // The Edge Function will extract data and return it without updating database
 
       // Try to call Supabase Edge Function for PDF processing
-      // Using direct fetch with explicit headers to ensure auth is sent correctly
+      // CRITICAL: We do NOT send Authorization header - function uses service role key
+      // This prevents "Invalid JWT" errors from Supabase gateway
       try {
-        // Get and verify session
-        let { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error('Session error:', sessionError);
-          Alert.alert('Authentication Error', 'Please sign in to process PDF documents.');
-          setIsProcessingPDF(false);
-          return;
-        }
-
-        // Check if session is expired and refresh if needed
-        // Always refresh to ensure we have a valid token
-        if (session) {
-          const expiresAt = session.expires_at ? new Date(session.expires_at * 1000) : null;
-          const now = new Date();
-          const expiresIn = expiresAt ? expiresAt.getTime() - now.getTime() : 0;
-          
-          // Refresh if expired or expires in less than 10 minutes (more aggressive refresh)
-          if (expiresIn < 10 * 60 * 1000) {
-            if (__DEV__) {
-              console.log(`Session expiring soon (${Math.round(expiresIn / 1000)}s), refreshing...`);
-            }
-            try {
-              const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-              if (!refreshError && refreshData?.session) {
-                session = refreshData.session;
-                if (__DEV__) {
-                  console.log('Session refreshed successfully');
-                }
-              } else {
-                if (__DEV__) {
-                  console.warn('Failed to refresh session:', refreshError);
-                }
-                // If refresh failed, try to get a new session
-                const { data: { session: newSession } } = await supabase.auth.getSession();
-                if (newSession) {
-                  session = newSession;
-                  if (__DEV__) {
-                    console.log('Got new session after refresh failure');
-                  }
-                }
-              }
-            } catch (refreshException: any) {
-              if (__DEV__) {
-                console.warn('Exception refreshing session:', refreshException);
-              }
-              // Try to get a new session
-              const { data: { session: newSession } } = await supabase.auth.getSession();
-              if (newSession) {
-                session = newSession;
-              }
-            }
-          }
-        }
-
-        // If we still don't have a valid session, try one more time
-        if (!session || !session.access_token) {
-          const { data: { session: finalSession } } = await supabase.auth.getSession();
-          if (finalSession && finalSession.access_token) {
-            session = finalSession;
-          } else {
-            Alert.alert('Authentication Required', 'Please sign in to process PDF documents.');
-            setIsProcessingPDF(false);
-            return;
-          }
-        }
-        
-        // Verify token is not expired
-        if (session.expires_at) {
-          const expiresAt = new Date(session.expires_at * 1000);
-          const now = new Date();
-          if (expiresAt <= now) {
-            if (__DEV__) {
-              console.warn('Token is expired, attempting refresh...');
-            }
-            const { data: refreshData } = await supabase.auth.refreshSession();
-            if (refreshData?.session) {
-              session = refreshData.session;
-            } else {
-              Alert.alert('Session Expired', 'Your session has expired. Please sign in again.');
-              setIsProcessingPDF(false);
-              return;
-            }
-          }
-        }
-
         // Get Supabase URL and anon key for function URL
         const supabaseConfig = await import('@/lib/supabase');
         const supabaseUrl = supabaseConfig.supabaseUrl || 'https://oqcgerfjjiozltkmmkxf.supabase.co';
