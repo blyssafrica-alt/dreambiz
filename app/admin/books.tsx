@@ -1231,13 +1231,13 @@ export default function BooksManagementScreen() {
           <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
             <View style={styles.modalHeader}>
               <View style={styles.headerLeft}>
-              <Text style={[styles.modalTitle, { color: theme.text.primary }]}>
+                <Text style={[styles.modalTitle, { color: theme.text.primary }]}>
                   {step === 1 ? 'Basic Information' : 
                    step === 2 ? 'Media & Documents' :
                    step === 3 ? 'Pricing & Metadata' :
                    step === 4 ? 'Chapters & Features' :
                    step === 5 ? 'Settings' : 'Book Management'}
-              </Text>
+                </Text>
                 <Text style={[styles.stepIndicator, { color: theme.text.secondary }]}>
                   Step {step} of {totalSteps}
                 </Text>
