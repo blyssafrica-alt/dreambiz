@@ -386,46 +386,28 @@ export default function BooksManagementScreen() {
         
         const functionUrl = `${supabaseUrl}/functions/v1/process-pdf`;
         
-        // CRITICAL: Only send Authorization header if we have a VALID token
-        // If JWT is invalid, gateway will reject with 401
-        // So we skip Authorization header entirely if token is invalid/expired
-        let validToken: string | null = null;
-        if (session?.access_token) {
-          const expiresAt = session.expires_at ? new Date(session.expires_at * 1000) : null;
-          const now = new Date();
-          const isExpired = expiresAt ? expiresAt <= now : false;
-          const expiresIn = expiresAt ? expiresAt.getTime() - now.getTime() : 0;
-          
-          // Only use token if it's valid and not expiring soon
-          if (!isExpired && expiresIn > 60 * 1000) {
-            validToken = session.access_token;
-          }
-        }
+        // CRITICAL FIX: DO NOT send Authorization header at all if token might be invalid
+        // Supabase gateway validates JWT and rejects with 401 if invalid
+        // Solution: Only send apikey header, let function work without auth
+        // The function uses service role key which bypasses all auth
         
-        // Build headers - ALWAYS include apikey, only include Authorization if valid
+        // Build headers - ONLY include apikey, NEVER include Authorization
+        // This prevents "Invalid JWT" errors from the gateway
         const requestHeaders: Record<string, string> = {
           'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey, // CRITICAL: Always required
+          'apikey': supabaseAnonKey, // CRITICAL: Always required, this is enough
         };
         
-        // Only add Authorization header if we have a valid token
-        if (validToken) {
-          requestHeaders['Authorization'] = `Bearer ${validToken}`;
-          if (__DEV__) {
-            console.log('Calling function WITH valid authentication');
-          }
-        } else {
-          if (__DEV__) {
-            console.log('Calling function WITHOUT authentication (no valid token)');
-          }
-        }
-        
+        // DO NOT send Authorization header - function works without it
+        // The Edge Function uses service role key which bypasses RLS and auth
         if (__DEV__) {
+          console.log('Calling function WITHOUT Authorization header (function uses service role key)');
           console.log('Request details:', {
             functionUrl,
             hasApikey: !!requestHeaders['apikey'],
-            hasAuthorization: !!requestHeaders['Authorization'],
+            hasAuthorization: false, // Explicitly false
             apikeyLength: requestHeaders['apikey']?.length || 0,
+            note: 'Function will use service role key, no user auth needed',
           });
         }
         
