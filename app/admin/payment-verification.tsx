@@ -1,5 +1,5 @@
 import { Stack, router } from 'expo-router';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
   Modal,
   TextInput,
   RefreshControl,
+  Animated,
+  LayoutChangeEvent,
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -77,6 +79,14 @@ export default function PaymentVerificationScreen() {
   const [viewMode, setViewMode] = useState<'documents' | 'subscriptions' | 'books'>('documents');
   const [subViewMode, setSubViewMode] = useState<'books' | 'subscriptions'>('books');
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Animated values for sliding indicators
+  const mainTabSlideAnim = useRef(new Animated.Value(0)).current;
+  const subTabSlideAnim = useRef(new Animated.Value(0)).current;
+  const filterTabSlideAnim = useRef(new Animated.Value(0)).current;
+  const [mainTabLayouts, setMainTabLayouts] = useState<{ [key: string]: { x: number; width: number } }>({});
+  const [subTabLayouts, setSubTabLayouts] = useState<{ [key: string]: { x: number; width: number } }>({});
+  const [filterTabLayouts, setFilterTabLayouts] = useState<{ [key: string]: { x: number; width: number } }>({});
 
   const loadSubscriptionPayments = useCallback(async () => {
     try {
@@ -282,6 +292,58 @@ export default function PaymentVerificationScreen() {
       loadBookPurchases();
     }
   }, [viewMode, isSuperAdmin, loadPayments, loadSubscriptionPayments, loadBookPurchases]);
+
+  // Animate main tab indicator
+  useEffect(() => {
+    const activeKey = viewMode === 'documents' ? 'documents' : 'platform';
+    if (mainTabLayouts[activeKey]) {
+      Animated.spring(mainTabSlideAnim, {
+        toValue: mainTabLayouts[activeKey].x,
+        useNativeDriver: false,
+        tension: 68,
+        friction: 8,
+      }).start();
+    }
+  }, [viewMode, mainTabLayouts]);
+
+  // Animate sub tab indicator
+  useEffect(() => {
+    if (subTabLayouts[subViewMode]) {
+      Animated.spring(subTabSlideAnim, {
+        toValue: subTabLayouts[subViewMode].x,
+        useNativeDriver: false,
+        tension: 68,
+        friction: 8,
+      }).start();
+    }
+  }, [subViewMode, subTabLayouts]);
+
+  // Animate filter tab indicator
+  useEffect(() => {
+    if (filterTabLayouts[filter]) {
+      Animated.spring(filterTabSlideAnim, {
+        toValue: filterTabLayouts[filter].x,
+        useNativeDriver: false,
+        tension: 68,
+        friction: 8,
+      }).start();
+    }
+  }, [filter, filterTabLayouts]);
+
+  const onMainTabLayout = (key: string, event: LayoutChangeEvent) => {
+    const { x, width } = event.nativeEvent.layout;
+    setMainTabLayouts(prev => ({ ...prev, [key]: { x, width } }));
+  };
+
+  const onSubTabLayout = (key: string, event: LayoutChangeEvent) => {
+    const { x, width } = event.nativeEvent.layout;
+    setSubTabLayouts(prev => ({ ...prev, [key]: { x, width } }));
+  };
+
+  const onFilterTabLayout = (key: string, event: LayoutChangeEvent) => {
+    const { x, width } = event.nativeEvent.layout;
+    setFilterTabLayouts(prev => ({ ...prev, [key]: { x, width } }));
+  };
 
   const handleVerifySubscription = async (payment: SubscriptionPayment, status: 'approved' | 'rejected') => {
     if (!user) return;
@@ -537,160 +599,201 @@ export default function PaymentVerificationScreen() {
         </View>
       </LinearGradient>
 
-      {/* View Mode Toggle - Simplified */}
+      {/* View Mode Toggle - With Animated Sliding Indicator */}
       <View style={[styles.viewModeContainer, { backgroundColor: theme.background.card }]}>
-        <TouchableOpacity
-          style={[
-            styles.viewModeTab,
-            {
-              backgroundColor: viewMode === 'documents' ? theme.accent.primary : theme.background.secondary,
-            },
-          ]}
-          onPress={() => setViewMode('documents')}
-        >
-          <Text
+        <View style={styles.viewModeTabsWrapper}>
+          <TouchableOpacity
             style={[
-              styles.viewModeTabText,
-              { color: viewMode === 'documents' ? '#FFF' : theme.text.primary },
+              styles.viewModeTab,
+              viewMode === 'documents' && { backgroundColor: `${theme.accent.primary}10` },
             ]}
+            onLayout={(e) => onMainTabLayout('documents', e)}
+            onPress={() => setViewMode('documents')}
+            activeOpacity={0.7}
           >
-            Customer Payments
-          </Text>
-          <Text
-            style={[
-              styles.viewModeTabSubtext,
-              { color: viewMode === 'documents' ? 'rgba(255,255,255,0.8)' : theme.text.tertiary },
-            ]}
-          >
-            Invoice/Receipt payments
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.viewModeTab,
-            {
-              backgroundColor: (viewMode === 'books' || viewMode === 'subscriptions') ? theme.accent.primary : theme.background.secondary,
-            },
-          ]}
-          onPress={() => {
-            // When selecting platform payments, default to books
-            if (viewMode === 'documents') {
-              setViewMode('books');
-              setSubViewMode('books');
-            }
-          }}
-        >
-          <Text
-            style={[
-              styles.viewModeTabText,
-              { color: (viewMode === 'books' || viewMode === 'subscriptions') ? '#FFF' : theme.text.primary },
-            ]}
-          >
-            Platform Payments
-          </Text>
-          <Text
-            style={[
-              styles.viewModeTabSubtext,
-              { color: (viewMode === 'books' || viewMode === 'subscriptions') ? 'rgba(255,255,255,0.8)' : theme.text.tertiary },
-            ]}
+            <Text
+              style={[
+                styles.viewModeTabText,
+                { color: viewMode === 'documents' ? theme.accent.primary : theme.text.primary },
+              ]}
             >
-            Books & Subscriptions
-          </Text>
-        </TouchableOpacity>
+              Customer Payments
+            </Text>
+            <Text
+              style={[
+                styles.viewModeTabSubtext,
+                { color: viewMode === 'documents' ? theme.accent.primary : theme.text.tertiary },
+              ]}
+            >
+              Invoice/Receipt payments
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.viewModeTab,
+              (viewMode === 'books' || viewMode === 'subscriptions') && { backgroundColor: `${theme.accent.primary}10` },
+            ]}
+            onLayout={(e) => onMainTabLayout('platform', e)}
+            onPress={() => {
+              if (viewMode === 'documents') {
+                setViewMode('books');
+                setSubViewMode('books');
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.viewModeTabText,
+                { color: (viewMode === 'books' || viewMode === 'subscriptions') ? theme.accent.primary : theme.text.primary },
+              ]}
+            >
+              Platform Payments
+            </Text>
+            <Text
+              style={[
+                styles.viewModeTabSubtext,
+                { color: (viewMode === 'books' || viewMode === 'subscriptions') ? theme.accent.primary : theme.text.tertiary },
+              ]}
+            >
+              Books & Subscriptions
+            </Text>
+          </TouchableOpacity>
+          {/* Animated Sliding Indicator */}
+          {mainTabLayouts[viewMode === 'documents' ? 'documents' : 'platform'] && (
+            <Animated.View
+              style={[
+                styles.tabIndicator,
+                {
+                  backgroundColor: theme.accent.primary,
+                  width: mainTabLayouts[viewMode === 'documents' ? 'documents' : 'platform']?.width || 0,
+                  transform: [{ translateX: mainTabSlideAnim }],
+                },
+              ]}
+            />
+          )}
+        </View>
       </View>
 
-      {/* Sub-category selector for Platform Payments */}
+      {/* Sub-category selector for Platform Payments - With Animated Sliding Indicator */}
       {(viewMode === 'books' || viewMode === 'subscriptions') && (
         <View style={[styles.subModeContainer, { backgroundColor: theme.background.secondary }]}>
-          <TouchableOpacity
-            style={[
-              styles.subModeTab,
-              {
-                backgroundColor: subViewMode === 'books' ? theme.accent.primary : 'transparent',
-                borderBottomColor: subViewMode === 'books' ? theme.accent.primary : 'transparent',
-              },
-            ]}
-            onPress={() => {
-              setSubViewMode('books');
-              setViewMode('books');
-            }}
-          >
-            <Text
+          <View style={styles.subModeTabsWrapper}>
+            <TouchableOpacity
               style={[
-                styles.subModeTabText,
-                { color: subViewMode === 'books' ? '#FFF' : theme.text.secondary },
+                styles.subModeTab,
+                subViewMode === 'books' && { backgroundColor: `${theme.accent.primary}10` },
               ]}
+              onLayout={(e) => onSubTabLayout('books', e)}
+              onPress={() => {
+                setSubViewMode('books');
+                setViewMode('books');
+              }}
+              activeOpacity={0.7}
             >
-              Books
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.subModeTab,
-              {
-                backgroundColor: subViewMode === 'subscriptions' ? theme.accent.primary : 'transparent',
-                borderBottomColor: subViewMode === 'subscriptions' ? theme.accent.primary : 'transparent',
-              },
-            ]}
-            onPress={() => {
-              setSubViewMode('subscriptions');
-              setViewMode('subscriptions');
-            }}
-          >
-            <Text
+              <Text
+                style={[
+                  styles.subModeTabText,
+                  { color: subViewMode === 'books' ? theme.accent.primary : theme.text.secondary },
+                ]}
+              >
+                Books
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[
-                styles.subModeTabText,
-                { color: subViewMode === 'subscriptions' ? '#FFF' : theme.text.secondary },
+                styles.subModeTab,
+                subViewMode === 'subscriptions' && { backgroundColor: `${theme.accent.primary}10` },
               ]}
+              onLayout={(e) => onSubTabLayout('subscriptions', e)}
+              onPress={() => {
+                setSubViewMode('subscriptions');
+                setViewMode('subscriptions');
+              }}
+              activeOpacity={0.7}
             >
-              Subscriptions
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.subModeTabText,
+                  { color: subViewMode === 'subscriptions' ? theme.accent.primary : theme.text.secondary },
+                ]}
+              >
+                Subscriptions
+              </Text>
+            </TouchableOpacity>
+            {/* Animated Sliding Indicator */}
+            {subTabLayouts[subViewMode] && (
+              <Animated.View
+                style={[
+                  styles.tabIndicator,
+                  {
+                    backgroundColor: theme.accent.primary,
+                    width: subTabLayouts[subViewMode]?.width || 0,
+                    transform: [{ translateX: subTabSlideAnim }],
+                  },
+                ]}
+              />
+            )}
+          </View>
         </View>
       )}
 
-      {/* Filter Tabs */}
+      {/* Filter Tabs - With Animated Sliding Indicator */}
       <View style={[styles.filterContainer, { backgroundColor: theme.background.card }]}>
-        {(viewMode === 'books' 
-          ? ['all', 'pending', 'completed', 'failed', 'refunded'] as const
-          : ['all', 'pending', 'approved', 'rejected'] as const
-        ).map((filterOption) => (
-          <TouchableOpacity
-            key={filterOption}
-            style={[
-              styles.filterTab,
-              {
-                backgroundColor: filter === filterOption ? theme.accent.primary : theme.background.secondary,
-                borderColor: filter === filterOption ? theme.accent.primary : theme.border.light,
-              }
-            ]}
-            onPress={() => setFilter(filterOption)}
-          >
-            <Text style={[
-              styles.filterTabText,
-              { color: filter === filterOption ? '#FFF' : theme.text.primary }
-            ]}>
-              {filterOption.charAt(0).toUpperCase() + filterOption.slice(1)}
-            </Text>
-            {filterOption !== 'all' && (
-              <View style={[styles.badge, { backgroundColor: filter === filterOption ? '#FFF' : theme.accent.primary }]}>
-                <Text style={[styles.badgeText, { color: filter === filterOption ? theme.accent.primary : '#FFF' }]}>
-                  {viewMode === 'documents'
-                    ? payments.filter(p => p.verificationStatus === filterOption).length
-                    : viewMode === 'subscriptions'
-                    ? subscriptionPayments.filter(p => p.verification_status === filterOption).length
-                    : bookPurchases.filter(p => {
-                        if (filterOption === 'pending') return p.payment_status === 'pending';
-                        if (filterOption === 'completed') return p.payment_status === 'completed';
-                        if (filterOption === 'failed') return p.payment_status === 'failed';
-                        if (filterOption === 'refunded') return p.payment_status === 'refunded';
-                        return false;
-                      }).length}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        ))}
+        <View style={styles.filterTabsWrapper}>
+          {(viewMode === 'books' 
+            ? ['all', 'pending', 'completed', 'failed', 'refunded'] as const
+            : ['all', 'pending', 'approved', 'rejected'] as const
+          ).map((filterOption) => (
+            <TouchableOpacity
+              key={filterOption}
+              style={[
+                styles.filterTab,
+                filter === filterOption && { backgroundColor: `${theme.accent.primary}10` },
+              ]}
+              onLayout={(e) => onFilterTabLayout(filterOption, e)}
+              onPress={() => setFilter(filterOption)}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.filterTabText,
+                { color: filter === filterOption ? theme.accent.primary : theme.text.primary }
+              ]}>
+                {filterOption.charAt(0).toUpperCase() + filterOption.slice(1)}
+              </Text>
+              {filterOption !== 'all' && (
+                <View style={[styles.badge, { backgroundColor: filter === filterOption ? theme.accent.primary : `${theme.accent.primary}20` }]}>
+                  <Text style={[styles.badgeText, { color: filter === filterOption ? '#FFF' : theme.accent.primary }]}>
+                    {viewMode === 'documents'
+                      ? payments.filter(p => p.verificationStatus === filterOption).length
+                      : viewMode === 'subscriptions'
+                      ? subscriptionPayments.filter(p => p.verification_status === filterOption).length
+                      : bookPurchases.filter(p => {
+                          if (filterOption === 'pending') return p.payment_status === 'pending';
+                          if (filterOption === 'completed') return p.payment_status === 'completed';
+                          if (filterOption === 'failed') return p.payment_status === 'failed';
+                          if (filterOption === 'refunded') return p.payment_status === 'refunded';
+                          return false;
+                        }).length}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+          {/* Animated Sliding Indicator */}
+          {filterTabLayouts[filter] && (
+            <Animated.View
+              style={[
+                styles.tabIndicator,
+                {
+                  backgroundColor: theme.accent.primary,
+                  width: filterTabLayouts[filter]?.width || 0,
+                  transform: [{ translateX: filterTabSlideAnim }],
+                },
+              ]}
+            />
+          )}
+        </View>
       </View>
 
       {isLoading ? (
@@ -1382,16 +1485,22 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   viewModeContainer: {
-    flexDirection: 'row',
     padding: 16,
     paddingTop: 8,
+  },
+  viewModeTabsWrapper: {
+    flexDirection: 'row',
+    position: 'relative',
     gap: 8,
+    paddingBottom: 4,
   },
   viewModeTab: {
     flex: 1,
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
+    backgroundColor: 'transparent',
+    zIndex: 1,
   },
   viewModeTabText: {
     fontSize: 15,
@@ -1403,43 +1512,55 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   subModeContainer: {
-    flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
+    paddingVertical: 12,
     borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  subModeTabsWrapper: {
+    flexDirection: 'row',
+    position: 'relative',
+    gap: 8,
+    paddingBottom: 4,
   },
   subModeTab: {
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
     alignItems: 'center',
-    borderBottomWidth: 2,
-    marginBottom: -1,
+    backgroundColor: 'transparent',
+    zIndex: 1,
   },
   subModeTabText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
   filterContainer: {
-    flexDirection: 'row',
     padding: 16,
     paddingTop: 12,
     paddingBottom: 12,
-    gap: 10,
+  },
+  filterTabsWrapper: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    position: 'relative',
+    gap: 8,
+    paddingBottom: 4,
   },
   filterTab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 0,
     gap: 8,
-    minHeight: 44,
+    minHeight: 40,
+    backgroundColor: 'transparent',
+    zIndex: 1,
   },
   filterTabText: {
     fontSize: 13,
@@ -1485,11 +1606,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 5,
   },
   paymentCardGradient: {
     padding: 20,
@@ -1514,11 +1630,6 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
   },
   paymentIconGradient: {
     width: '100%',
@@ -1544,11 +1655,6 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 14,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
   },
   statusBadgeGradient: {
     width: '100%',
@@ -1707,10 +1813,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     gap: 10,
     shadowColor: '#EF4444',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   approveButton: {
     flex: 1,
@@ -1721,15 +1827,22 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     gap: 10,
     shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   buttonText: {
     color: '#FFF',
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.3,
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    height: 3,
+    borderRadius: 2,
+    zIndex: 0,
   },
 });

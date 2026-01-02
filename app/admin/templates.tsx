@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
   emptyText: { fontSize: 18, fontWeight: '600', marginTop: 16 },
   emptySubtext: { fontSize: 14, marginTop: 8 },
-  templateCard: { padding: 16, borderRadius: 12, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+  templateCard: { padding: 16, borderRadius: 12, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 2, elevation: 1 },
   templateHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   templateInfo: { flex: 1, marginRight: 12 },
   templateName: { fontSize: 18, fontWeight: '700', marginBottom: 8 },

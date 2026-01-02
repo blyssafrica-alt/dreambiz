@@ -125,10 +125,10 @@ export default function TabLayout() {
           borderTopWidth: 0,
           backgroundColor: theme.background.card,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 16,
-          elevation: 12,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.02,
+          shadowRadius: 4,
+          elevation: 2,
           position: 'absolute', // Ensure tab bar stays at bottom
         },
         tabBarLabelStyle: {
