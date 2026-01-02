@@ -284,16 +284,38 @@ export default function BooksManagementScreen() {
       // The Edge Function will extract data and return it without updating database
 
       // Try to call Supabase Edge Function for PDF processing
-      // Using direct invoke with explicit auth headers
+      // Using helper function for better error handling and auth management
       try {
-        // Verify session exists before calling
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        // Import helper function
+        const { invokeEdgeFunction } = await import('@/lib/edge-function-helper');
+        
+        // Verify and refresh session if needed
+        let { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
           console.error('Session error:', sessionError);
           Alert.alert('Authentication Error', 'Please sign in to process PDF documents.');
           setIsProcessingPDF(false);
           return;
+        }
+
+        // Check if session is expired and refresh if needed
+        if (session) {
+          const expiresAt = session.expires_at ? new Date(session.expires_at * 1000) : null;
+          const now = new Date();
+          const expiresIn = expiresAt ? expiresAt.getTime() - now.getTime() : 0;
+          
+          // Refresh if expires in less than 5 minutes
+          if (expiresIn < 5 * 60 * 1000) {
+            console.log('Session expiring soon, refreshing...');
+            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+            if (!refreshError && refreshData?.session) {
+              session = refreshData.session;
+              console.log('Session refreshed successfully');
+            } else {
+              console.warn('Failed to refresh session:', refreshError);
+            }
+          }
         }
 
         if (!session) {
@@ -308,21 +330,16 @@ export default function BooksManagementScreen() {
             hasSession: !!session,
             hasAccessToken: !!session?.access_token,
             tokenPreview: session?.access_token?.substring(0, 20) + '...',
+            expiresAt: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
           });
         }
 
-        // Explicitly add Authorization header to ensure it's sent
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`, // Explicit header
-        };
-
-        const { data, error } = await supabase.functions.invoke('process-pdf', {
+        // Use helper function which handles auth headers properly
+        const { data, error } = await invokeEdgeFunction('process-pdf', {
           body: {
             pdfUrl: formData.documentFileUrl,
             bookId: editingId || null, // Optional - null for new books
           },
-          headers, // Explicit headers
         });
 
         if (__DEV__) {
