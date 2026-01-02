@@ -362,14 +362,27 @@ export default function BooksManagementScreen() {
         // Use direct fetch to ensure headers are sent correctly
         // This bypasses any potential issues with supabase.functions.invoke
         // CRITICAL: Both Authorization and apikey headers are required by Supabase
+        const requestHeaders: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`, // User's JWT token
+          'apikey': supabaseAnonKey, // CRITICAL: Required by Supabase gateway
+          'x-client-info': 'dream-biz-app/1.0', // Optional but helpful
+        };
+        
+        // Verify headers before sending (especially apikey)
+        if (__DEV__) {
+          console.log('Request headers verification:', {
+            hasAuthorization: !!requestHeaders['Authorization'],
+            hasApikey: !!requestHeaders['apikey'],
+            apikeyLength: requestHeaders['apikey']?.length || 0,
+            apikeyPreview: requestHeaders['apikey']?.substring(0, 20) + '...',
+            authorizationPreview: requestHeaders['Authorization']?.substring(0, 30) + '...',
+          });
+        }
+        
         const response = await fetch(functionUrl, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`, // User's JWT token
-            'apikey': supabaseAnonKey, // CRITICAL: Required by Supabase gateway
-            'x-client-info': 'dream-biz-app/1.0', // Optional but helpful
-          },
+          headers: requestHeaders,
           body: JSON.stringify({
             pdfUrl: formData.documentFileUrl,
             bookId: editingId || null,
