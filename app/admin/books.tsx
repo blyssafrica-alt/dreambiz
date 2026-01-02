@@ -299,7 +299,20 @@ export default function BooksManagementScreen() {
           return;
         }
         
-        const functionUrl = `${supabaseUrl}/functions/v1/process-pdf`;
+        // CRITICAL: Edge Functions URL must include /functions/v1/
+        // URL format: https://<project>.supabase.co/functions/v1/<function-name>
+        // Ensure supabaseUrl doesn't already have /functions/v1/
+        const baseUrl = supabaseUrl.replace(/\/functions\/v1\/?$/, '').replace(/\/$/, '');
+        const functionUrl = `${baseUrl}/functions/v1/process-pdf`;
+        
+        if (__DEV__) {
+          console.log('Function URL construction:', {
+            originalSupabaseUrl: supabaseUrl,
+            baseUrl,
+            functionUrl,
+            expectedFormat: 'https://<project>.supabase.co/functions/v1/process-pdf',
+          });
+        }
         
         // CRITICAL FIX: DO NOT send Authorization header at all if token might be invalid
         // Supabase gateway validates JWT and rejects with 401 if invalid
