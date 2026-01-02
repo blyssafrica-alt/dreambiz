@@ -34,7 +34,7 @@ export default {
         backgroundColor: '#ffffff',
       },
       package: 'app.dreambiz.com',
-      versionCode: 13,
+      versionCode: 14,
       permissions: [
         'android.permission.CAMERA',
         'android.permission.READ_EXTERNAL_STORAGE',
