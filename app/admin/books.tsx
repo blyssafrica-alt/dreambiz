@@ -591,10 +591,10 @@ export default function BooksManagementScreen() {
         }
         
         // Get fresh session and token - FORCE REFRESH if needed
-        let { data: { session: finalSession }, error: sessionError } = await supabase.auth.getSession();
+        let { data: { session: finalSession }, error: finalSessionError } = await supabase.auth.getSession();
         
         // If session is missing or error, try to refresh
-        if (sessionError || !finalSession?.access_token) {
+        if (finalSessionError || !finalSession?.access_token) {
           console.warn('[process-pdf] Session invalid, attempting refresh...');
           const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
           if (refreshError || !refreshData?.session) {
