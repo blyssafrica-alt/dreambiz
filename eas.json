@@ -1,8 +1,7 @@
 {
   "cli": {
     "version": ">= 5.9.0",
-    "appVersionSource": "local",
-    "packageManager": "bun"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
