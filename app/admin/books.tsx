@@ -15,11 +15,12 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Plus, Edit, Trash2, Book as BookIcon, X, ImageIcon, Save, FileText, Upload } from 'lucide-react-native';
+import { ArrowLeft, Plus, Edit, Trash2, Book as BookIcon, X, ImageIcon, Save, FileText, Upload, Check, Sparkles } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { decode } from 'base64-arraybuffer';
 import type { Book, BookFormData, BookChapter } from '@/types/books';
+import type { FeatureConfig } from '@/types/super-admin';
 
 export default function BooksManagementScreen() {
   const { theme } = useTheme();
@@ -28,6 +29,8 @@ export default function BooksManagementScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [availableFeatures, setAvailableFeatures] = useState<FeatureConfig[]>([]);
+  const [isProcessingPDF, setIsProcessingPDF] = useState(false);
   const [formData, setFormData] = useState<BookFormData>({
     slug: '',
     title: '',
@@ -43,6 +46,7 @@ export default function BooksManagementScreen() {
     saleEndDate: undefined,
     totalChapters: 0,
     chapters: [],
+    enabledFeatures: [],
     author: '',
     isbn: '',
     publicationDate: undefined,
@@ -55,7 +59,39 @@ export default function BooksManagementScreen() {
 
   useEffect(() => {
     loadBooks();
+    loadFeatures();
   }, []);
+
+  const loadFeatures = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('feature_config')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+
+      if (data) {
+        setAvailableFeatures(data.map((row: any) => ({
+          id: row.id,
+          featureId: row.feature_id,
+          name: row.name,
+          description: row.description,
+          category: row.category,
+          visibility: row.visibility || {},
+          access: row.access || {},
+          enabled: row.enabled,
+          enabledByDefault: row.enabled_by_default,
+          canBeDisabled: row.can_be_disabled,
+          updatedBy: row.updated_by,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        })));
+      }
+    } catch (error) {
+      console.error('Failed to load features:', error);
+    }
+  };
 
   const loadBooks = async () => {
     try {
@@ -83,6 +119,7 @@ export default function BooksManagementScreen() {
           saleEndDate: row.sale_end_date,
           totalChapters: row.total_chapters || 0,
           chapters: row.chapters || [],
+          enabledFeatures: row.enabled_features || [],
           author: row.author,
           isbn: row.isbn,
           publicationDate: row.publication_date,
@@ -232,6 +269,110 @@ export default function BooksManagementScreen() {
     }
   };
 
+  const processPDFDocument = async () => {
+    if (!formData.documentFileUrl) {
+      Alert.alert('No Document', 'Please upload a PDF document first');
+      return;
+    }
+
+    try {
+      setIsProcessingPDF(true);
+      
+      if (!editingId && !formData.slug) {
+        Alert.alert('Book Required', 'Please save the book first (with slug and title) before processing the PDF.');
+        setIsProcessingPDF(false);
+        return;
+      }
+
+      // Try to call Supabase Edge Function for PDF processing
+      try {
+        const { data, error } = await supabase.functions.invoke('process-pdf', {
+          body: {
+            pdfUrl: formData.documentFileUrl,
+            bookId: editingId || null, // Will be null for new books
+          },
+        });
+
+        if (error) {
+          console.error('Edge Function error:', error);
+          // Fall through to manual entry
+        } else if (data) {
+          if (data.success && data.data && data.data.chapters) {
+            // Successfully extracted chapters
+            setFormData({
+              ...formData,
+              chapters: data.data.chapters,
+              totalChapters: data.data.chapters.length,
+            });
+            Alert.alert('Success', `PDF processed successfully! Extracted ${data.data.chapters.length} chapters.`);
+            setIsProcessingPDF(false);
+            return;
+          } else if (data.requiresManualEntry) {
+            // Edge Function suggests manual entry
+            console.log('Edge Function suggests manual entry');
+            // Fall through to manual entry option
+          }
+        }
+      } catch (edgeFunctionError: any) {
+        // Edge Function might not be deployed or there's a network error
+        console.log('Edge Function not available, using manual entry:', edgeFunctionError.message);
+        // Fall through to manual entry
+      }
+
+      // Fallback to manual entry
+      Alert.alert(
+        'PDF Processing',
+        'Automatic PDF processing is not available. You can enter chapter information manually.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Enter Chapters Manually',
+            onPress: () => {
+              // Use Alert.prompt for React Native (iOS only, Android needs custom solution)
+              if (Platform.OS === 'ios') {
+                Alert.prompt(
+                  'Enter Number of Chapters',
+                  'How many chapters does this book have?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'OK',
+                      onPress: (chapterCountStr) => {
+                        const chapterCount = parseInt(chapterCountStr || '0', 10);
+                        if (chapterCount > 0) {
+                          // Create placeholder chapters
+                          const chapters: BookChapter[] = [];
+                          for (let i = 1; i <= chapterCount; i++) {
+                            chapters.push({ number: i, title: `Chapter ${i}` });
+                          }
+                          setFormData({ ...formData, chapters, totalChapters: chapterCount });
+                          Alert.alert('Chapters Added', `Added ${chapterCount} placeholder chapters. You can edit them after saving.`);
+                        }
+                      }
+                    }
+                  ],
+                  'plain-text'
+                );
+              } else {
+                // For Android, show a simpler approach
+                Alert.alert(
+                  'Manual Chapter Entry',
+                  'Please enter the total number of chapters in the "Total Chapters" field above, then save. You can edit individual chapter titles after saving.',
+                  [{ text: 'OK' }]
+                );
+              }
+            }
+          }
+        ]
+      );
+    } catch (error: any) {
+      console.error('Failed to process PDF:', error);
+      Alert.alert('Processing Error', error.message || 'Failed to process PDF document');
+    } finally {
+      setIsProcessingPDF(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!formData.slug || !formData.title) {
       Alert.alert('Missing Fields', 'Please fill in slug and title');
@@ -264,6 +405,7 @@ export default function BooksManagementScreen() {
         sale_end_date: formData.saleEndDate || null,
         total_chapters: formData.totalChapters,
         chapters: JSON.stringify(formData.chapters),
+        enabled_features: formData.enabledFeatures || [],
         author: formData.author || null,
         isbn: formData.isbn || null,
         publication_date: formData.publicationDate || null,
@@ -272,6 +414,29 @@ export default function BooksManagementScreen() {
         is_featured: formData.isFeatured,
         display_order: formData.displayOrder,
       };
+
+      // Also update feature_config to link features to this book
+      if (formData.enabledFeatures && formData.enabledFeatures.length > 0) {
+        // Update each feature's access.requiresBook to include this book's slug
+        for (const featureId of formData.enabledFeatures) {
+          const feature = availableFeatures.find(f => f.featureId === featureId);
+          if (feature) {
+            const currentRequiresBook = feature.access.requiresBook || [];
+            if (!currentRequiresBook.includes(formData.slug)) {
+              const updatedRequiresBook = [...currentRequiresBook, formData.slug];
+              await supabase
+                .from('feature_config')
+                .update({
+                  access: {
+                    ...feature.access,
+                    requiresBook: updatedRequiresBook,
+                  },
+                })
+                .eq('feature_id', featureId);
+            }
+          }
+        }
+      }
 
       if (editingId) {
         const { error } = await supabase
@@ -315,6 +480,7 @@ export default function BooksManagementScreen() {
       saleEndDate: book.saleEndDate,
       totalChapters: book.totalChapters,
       chapters: book.chapters,
+      enabledFeatures: book.enabledFeatures || [],
       author: book.author,
       isbn: book.isbn,
       publicationDate: book.publicationDate,
@@ -371,6 +537,7 @@ export default function BooksManagementScreen() {
       saleEndDate: undefined,
       totalChapters: 0,
       chapters: [],
+      enabledFeatures: [],
       author: '',
       isbn: '',
       publicationDate: undefined,
@@ -379,6 +546,21 @@ export default function BooksManagementScreen() {
       isFeatured: false,
       displayOrder: 0,
     });
+  };
+
+  const toggleFeature = (featureId: string) => {
+    const currentFeatures = formData.enabledFeatures || [];
+    if (currentFeatures.includes(featureId)) {
+      setFormData({
+        ...formData,
+        enabledFeatures: currentFeatures.filter(id => id !== featureId),
+      });
+    } else {
+      setFormData({
+        ...formData,
+        enabledFeatures: [...currentFeatures, featureId],
+      });
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -600,6 +782,24 @@ export default function BooksManagementScreen() {
                 <Text style={[styles.helperText, { color: theme.text.tertiary }]}>
                   Upload the complete book as PDF or Word document. This will be used to extract book information.
                 </Text>
+                {formData.documentFileUrl && (
+                  <TouchableOpacity
+                    style={[styles.processButton, { backgroundColor: theme.accent.primary }]}
+                    onPress={processPDFDocument}
+                    disabled={isProcessingPDF}
+                  >
+                    {isProcessingPDF ? (
+                      <ActivityIndicator color="#FFF" />
+                    ) : (
+                      <>
+                        <Sparkles size={18} color="#FFF" />
+                        <Text style={[styles.processButtonText, { color: '#FFF' }]}>
+                          Process PDF & Extract Chapters
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
 
               {/* Basic Info */}
@@ -685,6 +885,60 @@ export default function BooksManagementScreen() {
                   placeholderTextColor={theme.text.tertiary}
                   keyboardType="number-pad"
                 />
+                {formData.chapters.length > 0 && (
+                  <View style={styles.chaptersList}>
+                    {formData.chapters.map((chapter, index) => (
+                      <View key={index} style={[styles.chapterItem, { backgroundColor: theme.background.secondary }]}>
+                        <Text style={[styles.chapterNumber, { color: theme.accent.primary }]}>
+                          Ch. {chapter.number}
+                        </Text>
+                        <Text style={[styles.chapterTitle, { color: theme.text.primary }]}>
+                          {chapter.title}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* Enabled Features */}
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text.primary }]}>Features This Book Enables</Text>
+                <Text style={[styles.helperText, { color: theme.text.tertiary, marginBottom: 12 }]}>
+                  Select which features should be unlocked when users purchase/select this book
+                </Text>
+                <ScrollView style={styles.featuresList} nestedScrollEnabled>
+                  {availableFeatures.map((feature) => {
+                    const isSelected = formData.enabledFeatures?.includes(feature.featureId) || false;
+                    return (
+                      <TouchableOpacity
+                        key={feature.id}
+                        style={[
+                          styles.featureItem,
+                          {
+                            backgroundColor: isSelected ? theme.accent.primary + '20' : theme.background.secondary,
+                            borderColor: isSelected ? theme.accent.primary : theme.border.light,
+                          }
+                        ]}
+                        onPress={() => toggleFeature(feature.featureId)}
+                      >
+                        <View style={styles.featureItemContent}>
+                          <Text style={[styles.featureItemName, { color: theme.text.primary }]}>
+                            {feature.name}
+                          </Text>
+                          {feature.description && (
+                            <Text style={[styles.featureItemDesc, { color: theme.text.secondary }]} numberOfLines={1}>
+                              {feature.description}
+                            </Text>
+                          )}
+                        </View>
+                        {isSelected && (
+                          <Check size={20} color={theme.accent.primary} />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
               </View>
 
               {/* Status */}
@@ -1075,6 +1329,64 @@ const styles = StyleSheet.create({
   footerButtonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  processButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 8,
+  },
+  processButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  chaptersList: {
+    marginTop: 12,
+    gap: 8,
+  },
+  chapterItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    gap: 12,
+  },
+  chapterNumber: {
+    fontSize: 14,
+    fontWeight: '700',
+    minWidth: 50,
+  },
+  chapterTitle: {
+    fontSize: 14,
+    flex: 1,
+  },
+  featuresList: {
+    maxHeight: 200,
+    marginTop: 8,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  featureItemContent: {
+    flex: 1,
+    marginRight: 12,
+  },
+  featureItemName: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  featureItemDesc: {
+    fontSize: 12,
   },
 });
 

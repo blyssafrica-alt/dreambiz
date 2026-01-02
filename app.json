@@ -33,7 +33,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "app.dreambiz.com",
-      "versionCode": 8,
+      "versionCode": 12,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",

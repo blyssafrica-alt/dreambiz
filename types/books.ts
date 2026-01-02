@@ -26,6 +26,7 @@ export interface Book {
   saleEndDate?: string;
   totalChapters: number;
   chapters: BookChapter[];
+  enabledFeatures?: string[]; // Array of feature IDs this book enables
   author?: string;
   isbn?: string;
   publicationDate?: string;
@@ -55,6 +56,7 @@ export interface BookFormData {
   saleEndDate?: string;
   totalChapters: number;
   chapters: BookChapter[];
+  enabledFeatures?: string[]; // Array of feature IDs this book enables
   author?: string;
   isbn?: string;
   publicationDate?: string;
