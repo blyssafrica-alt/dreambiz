@@ -287,7 +287,14 @@ export default function BooksManagementScreen() {
       }
 
       // Try to call Supabase Edge Function for PDF processing
+      // Using direct invoke - Supabase client automatically includes auth headers
       try {
+        // Verify session exists before calling
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          throw new Error('No active session. Please sign in.');
+        }
+
         const { data, error } = await supabase.functions.invoke('process-pdf', {
           body: {
             pdfUrl: formData.documentFileUrl,
