@@ -534,19 +534,58 @@ serve(async (req) => {
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? apikeyHeader ?? '';
 
-    if (!supabaseUrl || !supabaseServiceKey) {
+    if (!supabaseUrl) {
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'Supabase credentials not configured',
+          error: 'Supabase URL not configured',
           requiresManualEntry: true,
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+    // Use service role key if available (bypasses RLS), otherwise use anon key
+    // Function works with or without authentication
+    const supabaseClient = supabaseServiceKey
+      ? createClient(supabaseUrl, supabaseServiceKey)
+      : createClient(supabaseUrl, supabaseAnonKey, {
+          global: {
+            headers: authHeader ? {
+              Authorization: authHeader,
+              apikey: supabaseAnonKey,
+            } : {},
+          },
+        });
+    
+    // Try to verify user if auth header exists (optional)
+    let userId: string | null = null;
+    if (authHeader && supabaseAnonKey) {
+      try {
+        const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+        if (token) {
+          const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+            global: {
+              headers: {
+                Authorization: authHeader,
+                apikey: supabaseAnonKey,
+              },
+            },
+          });
+          const { data: { user }, error: userError } = await userClient.auth.getUser();
+          if (!userError && user) {
+            userId = user.id;
+            console.log('User authenticated:', userId);
+          } else {
+            console.warn('JWT verification failed (continuing without auth):', userError?.message);
+          }
+        }
+      } catch (authError: any) {
+        console.warn('Error verifying authentication (continuing without auth):', authError?.message);
+      }
+    }
 
     // Try to extract text and metadata from PDF
     let extractedText = '';

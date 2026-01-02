@@ -297,34 +297,79 @@ export default function BooksManagementScreen() {
         }
 
         // Check if session is expired and refresh if needed
+        // Always refresh to ensure we have a valid token
         if (session) {
           const expiresAt = session.expires_at ? new Date(session.expires_at * 1000) : null;
           const now = new Date();
           const expiresIn = expiresAt ? expiresAt.getTime() - now.getTime() : 0;
           
-          // Refresh if expired or expires in less than 5 minutes
-          if (expiresIn < 5 * 60 * 1000) {
+          // Refresh if expired or expires in less than 10 minutes (more aggressive refresh)
+          if (expiresIn < 10 * 60 * 1000) {
             if (__DEV__) {
-              console.log('Session expiring soon, refreshing...');
+              console.log(`Session expiring soon (${Math.round(expiresIn / 1000)}s), refreshing...`);
             }
-            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-            if (!refreshError && refreshData?.session) {
-              session = refreshData.session;
-              if (__DEV__) {
-                console.log('Session refreshed successfully');
+            try {
+              const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+              if (!refreshError && refreshData?.session) {
+                session = refreshData.session;
+                if (__DEV__) {
+                  console.log('Session refreshed successfully');
+                }
+              } else {
+                if (__DEV__) {
+                  console.warn('Failed to refresh session:', refreshError);
+                }
+                // If refresh failed, try to get a new session
+                const { data: { session: newSession } } = await supabase.auth.getSession();
+                if (newSession) {
+                  session = newSession;
+                  if (__DEV__) {
+                    console.log('Got new session after refresh failure');
+                  }
+                }
               }
-            } else {
+            } catch (refreshException: any) {
               if (__DEV__) {
-                console.warn('Failed to refresh session:', refreshError);
+                console.warn('Exception refreshing session:', refreshException);
+              }
+              // Try to get a new session
+              const { data: { session: newSession } } = await supabase.auth.getSession();
+              if (newSession) {
+                session = newSession;
               }
             }
           }
         }
 
+        // If we still don't have a valid session, try one more time
         if (!session || !session.access_token) {
-          Alert.alert('Authentication Required', 'Please sign in to process PDF documents.');
-          setIsProcessingPDF(false);
-          return;
+          const { data: { session: finalSession } } = await supabase.auth.getSession();
+          if (finalSession && finalSession.access_token) {
+            session = finalSession;
+          } else {
+            Alert.alert('Authentication Required', 'Please sign in to process PDF documents.');
+            setIsProcessingPDF(false);
+            return;
+          }
+        }
+        
+        // Verify token is not expired
+        if (session.expires_at) {
+          const expiresAt = new Date(session.expires_at * 1000);
+          const now = new Date();
+          if (expiresAt <= now) {
+            if (__DEV__) {
+              console.warn('Token is expired, attempting refresh...');
+            }
+            const { data: refreshData } = await supabase.auth.refreshSession();
+            if (refreshData?.session) {
+              session = refreshData.session;
+            } else {
+              Alert.alert('Session Expired', 'Your session has expired. Please sign in again.');
+              setIsProcessingPDF(false);
+              return;
+            }
+          }
         }
 
         // Get Supabase URL and anon key for function URL
@@ -1003,13 +1048,13 @@ export default function BooksManagementScreen() {
           <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
             <View style={styles.modalHeader}>
               <View style={styles.headerLeft}>
-                <Text style={[styles.modalTitle, { color: theme.text.primary }]}>
+              <Text style={[styles.modalTitle, { color: theme.text.primary }]}>
                   {step === 1 && 'Basic Information'}
                   {step === 2 && 'Media & Documents'}
                   {step === 3 && 'Pricing & Metadata'}
                   {step === 4 && 'Chapters & Features'}
                   {step === 5 && 'Settings'}
-                </Text>
+              </Text>
                 <Text style={[styles.stepIndicator, { color: theme.text.secondary }]}>
                   Step {step} of {totalSteps}
                 </Text>
@@ -1102,8 +1147,8 @@ export default function BooksManagementScreen() {
                     </Text>
                   </View>
 
-                  {/* Cover Image */}
-                  <View style={styles.inputGroup}>
+              {/* Cover Image */}
+              <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: theme.text.primary }]}>Cover Image</Text>
                 {formData.coverImage ? (
                   <View style={styles.imagePreviewContainer}>
@@ -1212,72 +1257,72 @@ export default function BooksManagementScreen() {
                   <View style={styles.row}>
                 <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
                   <Text style={[styles.label, { color: theme.text.primary }]}>Price *</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                <TextInput
+                  style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
                     value={formData.price.toString()}
                     onChangeText={(text) => setFormData({ ...formData, price: parseFloat(text) || 0 })}
                     placeholder="0.00"
-                    placeholderTextColor={theme.text.tertiary}
+                  placeholderTextColor={theme.text.tertiary}
                     keyboardType="decimal-pad"
-                  />
-                </View>
+                />
+              </View>
                 <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
                   <Text style={[styles.label, { color: theme.text.primary }]}>Currency</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                <TextInput
+                  style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
                     value={formData.currency}
                     onChangeText={(text) => setFormData({ ...formData, currency: text })}
                     placeholder="USD"
-                    placeholderTextColor={theme.text.tertiary}
-                  />
+                  placeholderTextColor={theme.text.tertiary}
+                />
                 </View>
               </View>
 
-                  <View style={styles.inputGroup}>
+              <View style={styles.inputGroup}>
                     <Text style={[styles.label, { color: theme.text.primary }]}>Author</Text>
-                    <TextInput
-                      style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                <TextInput
+                  style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
                       value={formData.author}
                       onChangeText={(text) => setFormData({ ...formData, author: text })}
                       placeholder="Author name"
-                      placeholderTextColor={theme.text.tertiary}
-                    />
-                  </View>
+                  placeholderTextColor={theme.text.tertiary}
+                />
+              </View>
 
-                  <View style={styles.inputGroup}>
+              <View style={styles.inputGroup}>
                     <Text style={[styles.label, { color: theme.text.primary }]}>ISBN</Text>
-                    <TextInput
+                <TextInput
                       style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
                       value={formData.isbn}
                       onChangeText={(text) => setFormData({ ...formData, isbn: text })}
                       placeholder="ISBN number"
-                      placeholderTextColor={theme.text.tertiary}
-                    />
-                  </View>
+                  placeholderTextColor={theme.text.tertiary}
+                />
+              </View>
 
-                  <View style={styles.row}>
-                    <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+              <View style={styles.row}>
+                <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
                       <Text style={[styles.label, { color: theme.text.primary }]}>Publication Date</Text>
-                      <TextInput
-                        style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
                         value={formData.publicationDate || ''}
                         onChangeText={(text) => setFormData({ ...formData, publicationDate: text })}
                         placeholder="YYYY-MM-DD"
-                        placeholderTextColor={theme.text.tertiary}
-                      />
-                    </View>
-                    <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+                    placeholderTextColor={theme.text.tertiary}
+                  />
+                </View>
+                <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
                       <Text style={[styles.label, { color: theme.text.primary }]}>Page Count</Text>
-                      <TextInput
-                        style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
                         value={formData.pageCount?.toString() || ''}
                         onChangeText={(text) => setFormData({ ...formData, pageCount: text ? parseInt(text) : undefined })}
                         placeholder="Pages"
-                        placeholderTextColor={theme.text.tertiary}
+                    placeholderTextColor={theme.text.tertiary}
                         keyboardType="number-pad"
-                      />
-                    </View>
-                  </View>
+                  />
+                </View>
+              </View>
                 </>
               )}
 
@@ -1293,18 +1338,18 @@ export default function BooksManagementScreen() {
                     </Text>
                   </View>
 
-                  {/* Chapters */}
-                  <View style={styles.inputGroup}>
-                    <Text style={[styles.label, { color: theme.text.primary }]}>Total Chapters</Text>
+              {/* Chapters */}
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text.primary }]}>Total Chapters</Text>
                     <View style={styles.row}>
-                      <TextInput
+                <TextInput
                         style={[styles.input, { flex: 1, backgroundColor: theme.background.secondary, color: theme.text.primary, marginRight: 8 }]}
-                        value={formData.totalChapters.toString()}
-                        onChangeText={(text) => setFormData({ ...formData, totalChapters: parseInt(text) || 0 })}
-                        placeholder="0"
-                        placeholderTextColor={theme.text.tertiary}
-                        keyboardType="number-pad"
-                      />
+                  value={formData.totalChapters.toString()}
+                  onChangeText={(text) => setFormData({ ...formData, totalChapters: parseInt(text) || 0 })}
+                  placeholder="0"
+                  placeholderTextColor={theme.text.tertiary}
+                  keyboardType="number-pad"
+                />
                       <TouchableOpacity
                         style={[styles.addChaptersButton, { backgroundColor: theme.accent.primary }]}
                         onPress={() => {
@@ -1427,10 +1472,10 @@ export default function BooksManagementScreen() {
                     <Text style={[styles.stepDescription, { color: theme.text.secondary }]}>
                       Configure publication status and display options
                     </Text>
-                  </View>
+              </View>
 
-                  {/* Status */}
-                  <View style={styles.inputGroup}>
+              {/* Status */}
+              <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: theme.text.primary }]}>Status</Text>
                 <View style={styles.statusOptions}>
                   {(['draft', 'published', 'archived'] as const).map((status) => (
@@ -1516,20 +1561,20 @@ export default function BooksManagementScreen() {
                   <ChevronRight size={18} color="#FFF" />
                 </TouchableOpacity>
               ) : (
-                <TouchableOpacity
-                  style={[styles.footerButton, { backgroundColor: theme.accent.primary }]}
-                  onPress={handleSave}
-                  disabled={isUploadingDocument}
-                >
-                  {isUploadingDocument ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <>
-                      <Save size={18} color="#FFF" />
-                      <Text style={[styles.footerButtonText, { color: '#FFF' }]}>Save</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.footerButton, { backgroundColor: theme.accent.primary }]}
+                onPress={handleSave}
+                disabled={isUploadingDocument}
+              >
+                {isUploadingDocument ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <>
+                    <Save size={18} color="#FFF" />
+                    <Text style={[styles.footerButtonText, { color: '#FFF' }]}>Save</Text>
+                  </>
+                )}
+              </TouchableOpacity>
               )}
             </View>
           </View>
