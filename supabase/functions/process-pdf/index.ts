@@ -355,16 +355,8 @@ serve(async (req) => {
       );
     }
 
-    if (!bookId) {
-      return new Response(
-        JSON.stringify({ 
-          success: false,
-          error: 'Book ID is required',
-          requiresManualEntry: true,
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // bookId is optional - can process PDF for new books before saving
+    // If bookId is provided, we'll update the database; otherwise just return extracted data
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
@@ -431,45 +423,49 @@ serve(async (req) => {
       console.log(`Extracted ${chapters.length} chapters`);
     }
 
-    // Update book in database with extracted information
+    // Update book in database with extracted information (only if bookId is provided)
     // Even if chapters aren't extracted, we can still save page count
-    const updateData: any = {
-      extracted_chapters_data: {
-        fullText: extractedText,
-        extractedAt: new Date().toISOString(),
-        pageCount: pageCount,
-      },
-    };
+    if (bookId) {
+      const updateData: any = {
+        extracted_chapters_data: {
+          fullText: extractedText,
+          extractedAt: new Date().toISOString(),
+          pageCount: pageCount,
+        },
+      };
 
-    // Only add page_count if we have a valid page count
-    if (pageCount > 0) {
-      updateData.page_count = pageCount;
-    }
-
-    // If chapters were extracted, add them
-    if (chapters.length > 0) {
-      updateData.chapters = JSON.stringify(chapters);
-      updateData.total_chapters = chapters.length;
-    }
-
-    // Try to update the database
-    try {
-      const { error: updateError, data: updateResult } = await supabaseClient
-        .from('books')
-        .update(updateData)
-        .eq('id', bookId)
-        .select();
-
-      if (updateError) {
-        console.error('Database update error:', updateError);
-        // Don't throw - we can still return the extracted data
-        // The frontend can handle partial updates
-      } else {
-        console.log('Database updated successfully');
+      // Only add page_count if we have a valid page count
+      if (pageCount > 0) {
+        updateData.page_count = pageCount;
       }
-    } catch (dbError: any) {
-      console.error('Database update exception:', dbError);
-      // Continue - we can still return extracted data
+
+      // If chapters were extracted, add them
+      if (chapters.length > 0) {
+        updateData.chapters = JSON.stringify(chapters);
+        updateData.total_chapters = chapters.length;
+      }
+
+      // Try to update the database
+      try {
+        const { error: updateError, data: updateResult } = await supabaseClient
+          .from('books')
+          .update(updateData)
+          .eq('id', bookId)
+          .select();
+
+        if (updateError) {
+          console.error('Database update error:', updateError);
+          // Don't throw - we can still return the extracted data
+          // The frontend can handle partial updates
+        } else {
+          console.log('Database updated successfully');
+        }
+      } catch (dbError: any) {
+        console.error('Database update exception:', dbError);
+        // Continue - we can still return extracted data
+      }
+    } else {
+      console.log('No bookId provided - returning extracted data without database update');
     }
 
     // Return results - ALWAYS return 200 status code, use success field for status

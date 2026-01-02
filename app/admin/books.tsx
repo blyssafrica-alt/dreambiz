@@ -280,11 +280,8 @@ export default function BooksManagementScreen() {
     try {
       setIsProcessingPDF(true);
       
-      if (!editingId && !formData.slug) {
-        Alert.alert('Book Required', 'Please save the book first (with slug and title) before processing the PDF.');
-        setIsProcessingPDF(false);
-        return;
-      }
+      // bookId is now optional - we can process PDF even for new books
+      // The Edge Function will extract data and return it without updating database
 
       // Try to call Supabase Edge Function for PDF processing
       // Using direct invoke - Supabase client automatically includes auth headers
@@ -292,13 +289,15 @@ export default function BooksManagementScreen() {
         // Verify session exists before calling
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
-          throw new Error('No active session. Please sign in.');
+          Alert.alert('Authentication Required', 'Please sign in to process PDF documents.');
+          setIsProcessingPDF(false);
+          return;
         }
 
         const { data, error } = await supabase.functions.invoke('process-pdf', {
           body: {
             pdfUrl: formData.documentFileUrl,
-            bookId: editingId || null, // Will be null for new books
+            bookId: editingId || null, // Optional - null for new books
           },
         });
 
