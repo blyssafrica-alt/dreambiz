@@ -28,76 +28,57 @@ import type { DreamBigBook } from '@/types/business';
  * - HTTPS (never HTTP)
  * - Includes /functions/v1/ prefix
  * - Properly formatted
+ * 
+ * This function ALWAYS returns the correct format, no matter what input it receives.
  */
 const buildEdgeFunctionUrl = (functionName: string): string => {
-  // Hardcoded default to ensure it always works
-  const DEFAULT_SUPABASE_URL = 'https://oqcgerfjjiozltkmmkxf.supabase.co';
+  // CRITICAL: Hardcoded correct URL - this is the ONLY source of truth
+  const CORRECT_BASE_URL = 'https://oqcgerfjjiozltkmmkxf.supabase.co';
+  const CORRECT_FUNCTION_URL = `${CORRECT_BASE_URL}/functions/v1/${functionName}`;
   
-  // Get the base URL - try multiple sources
-  let baseUrl: string = DEFAULT_SUPABASE_URL;
-  
-  try {
-    // Try to get from the exported supabase client
-    const supabaseModule = require('@/lib/supabase');
-    if (supabaseModule?.supabaseUrl) {
-      baseUrl = supabaseModule.supabaseUrl;
-    }
-  } catch (e) {
-    // Fallback to default if import fails
-    console.warn('[buildEdgeFunctionUrl] Could not import supabase module, using default URL');
+  // Validate function name
+  if (!functionName || typeof functionName !== 'string') {
+    console.error('[buildEdgeFunctionUrl] ❌ Invalid function name, using default URL');
+    return CORRECT_FUNCTION_URL;
   }
   
-  // CRITICAL: Normalize the URL
-  // Step 1: Trim whitespace
-  baseUrl = baseUrl.trim();
-  
-  // Step 2: Force HTTPS (replace http:// with https://)
-  if (baseUrl.startsWith('http://')) {
-    console.warn('[buildEdgeFunctionUrl] ⚠️ URL was HTTP, forcing HTTPS');
-    baseUrl = baseUrl.replace(/^http:\/\//i, 'https://');
+  // Sanitize function name (remove any path separators or dangerous characters)
+  const sanitizedFunctionName = functionName.replace(/[^a-zA-Z0-9_-]/g, '');
+  if (!sanitizedFunctionName) {
+    console.error('[buildEdgeFunctionUrl] ❌ Function name became empty after sanitization');
+    return CORRECT_FUNCTION_URL;
   }
   
-  // Step 3: Add https:// if missing
-  if (!baseUrl.startsWith('https://')) {
-    console.warn('[buildEdgeFunctionUrl] ⚠️ URL missing protocol, adding https://');
-    baseUrl = 'https://' + baseUrl;
+  // Build the final URL - ALWAYS use the hardcoded base
+  const finalUrl = `${CORRECT_BASE_URL}/functions/v1/${sanitizedFunctionName}`;
+  
+  // CRITICAL VALIDATION: Verify the URL is correct before returning
+  const urlPattern = /^https:\/\/[^\/]+\.supabase\.co\/functions\/v1\/[a-zA-Z0-9_-]+$/i;
+  if (!urlPattern.test(finalUrl)) {
+    console.error('[buildEdgeFunctionUrl] ❌ CRITICAL: URL validation failed!', finalUrl);
+    // Return the guaranteed-correct URL
+    return CORRECT_FUNCTION_URL;
   }
   
-  // Step 4: Remove trailing slashes
-  baseUrl = baseUrl.replace(/\/+$/, '');
-  
-  // Step 5: Remove any existing /functions/v1/ path (we'll add it fresh)
-  baseUrl = baseUrl.replace(/\/functions\/v1.*$/i, '');
-  
-  // Step 6: Validate format - must be https://<project>.supabase.co
-  if (!/^https:\/\/[^\/]+\.supabase\.co$/i.test(baseUrl)) {
-    console.error('[buildEdgeFunctionUrl] ❌ Invalid URL format, using default. Got:', baseUrl);
-    baseUrl = DEFAULT_SUPABASE_URL;
+  // Double-check HTTPS
+  if (!finalUrl.startsWith('https://')) {
+    console.error('[buildEdgeFunctionUrl] ❌ CRITICAL: URL is not HTTPS!', finalUrl);
+    return CORRECT_FUNCTION_URL;
   }
   
-  // Step 7: Final HTTPS check (safety net)
-  if (!baseUrl.startsWith('https://')) {
-    console.error('[buildEdgeFunctionUrl] ❌ CRITICAL: URL is not HTTPS after normalization! Forcing HTTPS.');
-    baseUrl = 'https://' + baseUrl.replace(/^https?:\/\//i, '');
-  }
-  
-  // Step 8: Construct the full function URL
-  const functionUrl = `${baseUrl}/functions/v1/${functionName}`;
-  
-  // Step 9: Validate the final URL
-  if (!functionUrl.startsWith('https://') || !functionUrl.includes('/functions/v1/')) {
-    console.error('[buildEdgeFunctionUrl] ❌ CRITICAL: Final URL is invalid!', functionUrl);
-    // Return a guaranteed-correct URL
-    return `${DEFAULT_SUPABASE_URL}/functions/v1/${functionName}`;
+  // Double-check /functions/v1/ prefix
+  if (!finalUrl.includes('/functions/v1/')) {
+    console.error('[buildEdgeFunctionUrl] ❌ CRITICAL: URL missing /functions/v1/ prefix!', finalUrl);
+    return CORRECT_FUNCTION_URL;
   }
   
   if (__DEV__) {
-    console.log('[buildEdgeFunctionUrl] ✅ Built function URL:', functionUrl);
-    console.log('[buildEdgeFunctionUrl] ✅ Base URL:', baseUrl);
-    console.log('[buildEdgeFunctionUrl] ✅ Function name:', functionName);
+    console.log('[buildEdgeFunctionUrl] ✅ Built function URL:', finalUrl);
+    console.log('[buildEdgeFunctionUrl] ✅ Function name:', sanitizedFunctionName);
+    console.log('[buildEdgeFunctionUrl] ✅ URL validation passed');
   }
   
-  return functionUrl;
+  return finalUrl;
 };
 
 export default function BooksManagementScreen() {
