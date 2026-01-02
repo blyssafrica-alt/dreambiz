@@ -635,7 +635,7 @@ async function processPDFAsync(
   }
 }
 
-serve(async (req) => {
+serve(async (req, ctx) => {
   // Log ALL requests for debugging (including OPTIONS)
   // Extract full URL information
   const url = new URL(req.url);
