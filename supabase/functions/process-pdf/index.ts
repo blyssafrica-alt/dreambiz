@@ -472,32 +472,25 @@ serve(async (req) => {
   }
 
   try {
-    // Get authorization header - Edge Functions can be called with or without auth
-    // Function works with or without authentication
+    // Get headers - function works with or without authentication
     const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
     const apikeyHeader = req.headers.get('apikey') || req.headers.get('Apikey') || req.headers.get('APIKEY');
     
-    // Log all headers for debugging (remove in production)
-    const allHeaders: Record<string, string> = {};
-    req.headers.forEach((value, key) => {
-      allHeaders[key] = value.substring(0, 20) + (value.length > 20 ? '...' : '');
-    });
-    
-    // Log for debugging (remove sensitive data in production)
+    // Log for debugging
     console.log('Process PDF request received:', {
       method: req.method,
       hasAuth: !!authHeader,
       hasApikey: !!apikeyHeader,
       url: req.url,
-      headerNames: Array.from(req.headers.keys()),
-      apikeyHeaderValue: apikeyHeader ? apikeyHeader.substring(0, 20) + '...' : null,
-      allHeadersPreview: allHeaders,
     });
     
     // IMPORTANT: If we reach here, the Supabase gateway accepted the request
     // This means the apikey header was present and valid
-    // The 401 error happens at the gateway level BEFORE this code runs
-    // So if this code executes, authentication passed the gateway check
+    // The gateway validates JWT if Authorization header is present
+    // If JWT is invalid, gateway returns 401 BEFORE this code runs
+    // So if this code executes, either:
+    // 1. No Authorization header was sent (function works without auth)
+    // 2. Authorization header was sent AND JWT was valid
 
     // Parse request body with error handling
     let requestData;
