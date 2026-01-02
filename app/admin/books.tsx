@@ -303,75 +303,103 @@ export default function BooksManagementScreen() {
           return;
         }
 
-        // STEP 2: Validate token with Supabase using getUser()
-        // This actually validates the token with the server, not just checks cache
-        let isValidToken = false;
+        // STEP 2: Get FRESH session and token RIGHT BEFORE making the call
+        // This ensures we have the most up-to-date, valid token
         let accessToken: string | null = null;
         
-        if (session?.access_token) {
-          try {
-            // getUser() validates the token with Supabase server
-            const { data: { user }, error: userError } = await supabase.auth.getUser();
-            
-            if (userError) {
-              // Token is invalid - try to refresh
-              if (__DEV__) {
-                console.log('[process-pdf] Token invalid, refreshing...', userError.message);
-              }
-              
-              const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-              
-              if (refreshError || !refreshData?.session?.access_token) {
-                // Refresh failed - user needs to sign in again
-                console.error('[process-pdf] Session refresh failed:', refreshError);
-                Alert.alert(
-                  'Session Expired',
-                  'Your session has expired. Please sign in again to process PDF documents.'
-                );
-                setIsProcessingPDF(false);
-                return;
-              }
-              
-              // Use refreshed session
-              session = refreshData.session;
-              accessToken = refreshData.session.access_token;
-              isValidToken = true;
-              
-              if (__DEV__) {
-                console.log('[process-pdf] Session refreshed successfully');
-              }
-            } else if (user) {
-              // Token is valid
-              accessToken = session.access_token;
-              isValidToken = true;
-              
-              if (__DEV__) {
-                console.log('[process-pdf] Token validated successfully for user:', user.id);
-              }
-            }
-          } catch (authException: any) {
-            console.error('[process-pdf] Auth validation exception:', authException);
-            Alert.alert('Authentication Error', 'Failed to validate session. Please sign in again.');
+        try {
+          // Get current session (fresh from storage)
+          let { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+          
+          if (sessionError || !currentSession) {
+            console.error('[process-pdf] No session available:', sessionError);
+            Alert.alert(
+              'Authentication Required',
+              'Please sign in to process PDF documents.'
+            );
             setIsProcessingPDF(false);
             return;
           }
-        }
-        
-        // STEP 3: Final validation - ensure we have a valid token
-        if (!isValidToken || !accessToken || accessToken.length < 10) {
-          console.error('[process-pdf] CRITICAL: No valid token available');
-          Alert.alert(
-            'Authentication Required',
-            'Your session has expired. Please sign in again to process PDF documents.'
-          );
-          setIsProcessingPDF(false);
-          return;
-        }
-        
-        // STEP 4: Validate JWT format (header.payload.signature)
-        if (!accessToken.includes('.') || accessToken.split('.').length !== 3) {
-          console.error('[process-pdf] CRITICAL: Invalid token format');
-          Alert.alert('Authentication Error', 'Invalid authentication token. Please sign in again.');
+          
+          // Check if session is expiring soon and refresh proactively
+          const expiresAt = currentSession.expires_at ? new Date(currentSession.expires_at * 1000) : null;
+          const now = new Date();
+          const expiresIn = expiresAt ? expiresAt.getTime() - now.getTime() : 0;
+          
+          // Refresh if expired or expiring in less than 10 minutes
+          if (!expiresAt || expiresAt <= now || expiresIn < 10 * 60 * 1000) {
+            if (__DEV__) {
+              console.log('[process-pdf] Session expiring soon or expired, refreshing...', {
+                expiresAt: expiresAt?.toISOString(),
+                expiresInSeconds: Math.round(expiresIn / 1000),
+              });
+            }
+            
+            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+            
+            if (refreshError || !refreshData?.session?.access_token) {
+              console.error('[process-pdf] Session refresh failed:', refreshError);
+              Alert.alert(
+                'Session Expired',
+                'Your session has expired. Please sign in again to process PDF documents.'
+              );
+              setIsProcessingPDF(false);
+              return;
+            }
+            
+            // Use refreshed session
+            currentSession = refreshData.session;
+            if (__DEV__) {
+              console.log('[process-pdf] ✅ Session refreshed successfully');
+            }
+          }
+          
+          // Validate token with server using getUser() - this ensures token is actually valid
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
+          
+          if (userError || !user) {
+            console.error('[process-pdf] Token validation failed:', userError);
+            Alert.alert(
+              'Authentication Error',
+              'Your session is invalid. Please sign in again.'
+            );
+            setIsProcessingPDF(false);
+            return;
+          }
+          
+          // Get the access token from the validated session
+          accessToken = currentSession.access_token;
+          
+          if (!accessToken || accessToken.length < 10) {
+            console.error('[process-pdf] CRITICAL: No access token in session');
+            Alert.alert(
+              'Authentication Error',
+              'No access token available. Please sign in again.'
+            );
+            setIsProcessingPDF(false);
+            return;
+          }
+          
+          // Validate JWT format (header.payload.signature)
+          if (!accessToken.includes('.') || accessToken.split('.').length !== 3) {
+            console.error('[process-pdf] CRITICAL: Invalid token format');
+            Alert.alert('Authentication Error', 'Invalid authentication token. Please sign in again.');
+            setIsProcessingPDF(false);
+            return;
+          }
+          
+          if (__DEV__) {
+            console.log('[process-pdf] ✅ Token validated and ready:', {
+              userId: user.id,
+              tokenPreview: accessToken.substring(0, 20) + '...',
+              tokenLength: accessToken.length,
+              expiresAt: expiresAt?.toISOString(),
+              expiresInSeconds: expiresAt ? Math.round((expiresAt.getTime() - now.getTime()) / 1000) : null,
+            });
+          }
+        } catch (authException: any) {
+          console.error('[process-pdf] Auth exception:', authException);
+          Alert.alert('Authentication Error', 'Failed to get valid session. Please sign in again.');
           setIsProcessingPDF(false);
           return;
         }
@@ -421,19 +449,26 @@ export default function BooksManagementScreen() {
           return;
         }
         
+        // Get fresh session one more time right before the call to ensure token is current
+        const { data: { session: finalSession } } = await supabase.auth.getSession();
+        const finalToken = finalSession?.access_token || accessToken;
+        
         if (__DEV__) {
           console.log('[process-pdf] ✅ CORRECT URL constructed:', {
             functionUrl,
             baseUrl,
             expectedFormat: 'https://<project>.supabase.co/functions/v1/process-pdf',
             urlIsValid: expectedPattern.test(functionUrl),
-            tokenPreview: accessToken.substring(0, 20) + '...',
-            tokenLength: accessToken.length,
-            expiresAt: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
+            tokenPreview: finalToken.substring(0, 20) + '...',
+            tokenLength: finalToken.length,
+            expiresAt: finalSession?.expires_at ? new Date(finalSession.expires_at * 1000).toISOString() : null,
             hasApikey: !!supabaseAnonKey,
             apikeyLength: supabaseAnonKey?.length || 0,
           });
         }
+        
+        // Use the freshest token
+        accessToken = finalToken;
         
         // STEP 6: Call Edge Function using DIRECT fetch ONLY (supabase.functions.invoke has URL issues)
         // This ensures we have full control over the exact URL being called
@@ -492,12 +527,14 @@ export default function BooksManagementScreen() {
             };
             
             if (__DEV__) {
-              console.error('[process-pdf] ❌ Non-2xx response:', {
+              console.error('[process-pdf] ❌ Non-2xx response:', JSON.stringify({
                 status: response.status,
+                statusCode: response.status,
                 statusText: response.statusText,
-                errorJson,
-                responseText: responseText.substring(0, 200),
-              });
+                message: errorJson.message || errorJson.error || `HTTP ${response.status}`,
+                errorJson: errorJson,
+                responseText: responseText.substring(0, 500),
+              }, null, 2));
             }
           } else {
             // Success - parse JSON
@@ -561,22 +598,27 @@ export default function BooksManagementScreen() {
           
           // Handle 401 specifically
           if (error.status === 401 || error.statusCode === 401) {
-            console.error('[process-pdf] 401 Unauthorized - Gateway rejected request:', {
+            const errorDetails = {
               functionUrl,
+              status: error.status,
+              statusCode: error.statusCode,
               message: error.message,
               note: 'Gateway validates JWT before forwarding. Invalid/expired token causes 401.',
-              solution: 'Token was validated with getUser() - if still 401, function may not be deployed.',
+              solution: 'Token was validated with getUser() and refreshed if needed.',
               troubleshooting: [
                 '1. Verify function is deployed: supabase functions deploy process-pdf',
                 '2. Check function exists in Supabase Dashboard → Edge Functions',
                 '3. Verify SUPABASE_URL and SUPABASE_ANON_KEY are correct',
                 '4. Check Supabase logs for detailed error messages',
+                '5. Try signing out and signing in again',
               ],
-            });
+            };
+            
+            console.error('[process-pdf] 401 Unauthorized - Gateway rejected request:', JSON.stringify(errorDetails, null, 2));
             
             Alert.alert(
               'Authentication Failed',
-              `Unable to process PDF.\n\nURL: ${functionUrl}\n\nPlease ensure:\n1. You are signed in\n2. The function is deployed\n3. Try manual entry if this persists.`
+              `Unable to process PDF.\n\nError: ${error.message}\n\nURL: ${functionUrl}\n\nPlease ensure:\n1. You are signed in\n2. The function is deployed\n3. Try signing out and back in\n4. Try manual entry if this persists.`
             );
             setIsProcessingPDF(false);
             return;
