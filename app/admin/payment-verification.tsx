@@ -561,7 +561,7 @@ export default function PaymentVerificationScreen() {
           style={[
             styles.viewModeTab,
             {
-              backgroundColor: viewMode === 'books' ? theme.accent.primary : theme.background.secondary,
+              backgroundColor: (viewMode === 'books' || viewMode === 'subscriptions') ? theme.accent.primary : theme.background.secondary,
             },
           ]}
           onPress={() => {
