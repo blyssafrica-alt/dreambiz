@@ -166,16 +166,35 @@ async function extractTextFromPDF(pdfUrl: string, supabaseClient?: any): Promise
       }
     }
     
-    // Regular fetch for public URLs
-    response = await fetch(pdfUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch PDF: ${response.statusText} (${response.status})`);
-    }
+    // Regular fetch for public URLs with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    try {
+      response = await fetch(pdfUrl, { 
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'DreamBig-PDF-Processor/1.0',
+        },
+      });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch PDF: ${response.statusText} (${response.status})`);
+      }
 
-    const arrayBuffer = await response.arrayBuffer();
-    return await processPDFBuffer(arrayBuffer);
-  } catch (error) {
-    console.error('Error extracting PDF:', error);
+      const arrayBuffer = await response.arrayBuffer();
+      return await processPDFBuffer(arrayBuffer);
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        throw new Error('PDF fetch timeout - URL may be unreachable or too slow');
+      }
+      throw fetchError;
+    }
+  } catch (error: any) {
+    console.error('Error extracting PDF:', error?.message || error);
+    // Don't throw - let the caller handle it gracefully
     throw error;
   }
 }
@@ -193,19 +212,52 @@ async function processPDFBuffer(arrayBuffer: ArrayBuffer): Promise<{ text: strin
     // Try to extract text using PDF.js (optional, may not work in all Deno environments)
     try {
       // Import PDF.js from CDN (works in Deno)
-      // @ts-ignore - PDF.js from CDN
-      const pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.min.mjs');
-      
-      if (!pdfjsLib || !pdfjsLib.getDocument) {
-        throw new Error('PDF.js library not loaded correctly');
+      // Wrap in try-catch to handle import failures gracefully
+      let pdfjsLib;
+      try {
+        // @ts-ignore - PDF.js from CDN
+        pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.min.mjs');
+      } catch (importError) {
+        console.warn('Failed to import PDF.js:', importError);
+        // Return with page count only
+        return {
+          text: '',
+          pageCount: pageCount,
+        };
       }
       
-      // Load the PDF document
-      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-      const pdf = await loadingTask.promise;
+      if (!pdfjsLib || !pdfjsLib.getDocument) {
+        console.warn('PDF.js library not loaded correctly');
+        return {
+          text: '',
+          pageCount: pageCount,
+        };
+      }
+      
+      // Load the PDF document with timeout protection
+      let pdf;
+      try {
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        pdf = await Promise.race([
+          loadingTask.promise,
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('PDF loading timeout')), 30000)
+          )
+        ]) as any;
+      } catch (loadError) {
+        console.warn('Failed to load PDF with PDF.js:', loadError);
+        return {
+          text: '',
+          pageCount: pageCount,
+        };
+      }
       
       if (!pdf || !pdf.numPages) {
-        throw new Error('Failed to load PDF document');
+        console.warn('PDF document loaded but no pages found');
+        return {
+          text: '',
+          pageCount: pageCount,
+        };
       }
       
       const verifiedPageCount = pdf.numPages;
@@ -269,8 +321,12 @@ serve(async (req) => {
     } catch (jsonError) {
       console.error('Failed to parse request JSON:', jsonError);
       return new Response(
-        JSON.stringify({ error: 'Invalid JSON in request body' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: 'Invalid JSON in request body',
+          requiresManualEntry: true,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -278,15 +334,23 @@ serve(async (req) => {
 
     if (!pdfUrl) {
       return new Response(
-        JSON.stringify({ error: 'PDF URL is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: 'PDF URL is required',
+          requiresManualEntry: true,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (!bookId) {
       return new Response(
-        JSON.stringify({ error: 'Book ID is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: 'Book ID is required',
+          requiresManualEntry: true,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -296,8 +360,12 @@ serve(async (req) => {
 
     if (!supabaseUrl || !supabaseServiceKey) {
       return new Response(
-        JSON.stringify({ error: 'Supabase credentials not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: 'Supabase credentials not configured',
+          requiresManualEntry: true,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -317,15 +385,28 @@ serve(async (req) => {
       // Try to at least get page count from structure if URL fetch failed
       if (pageCount === 0) {
         try {
-          // Try direct fetch as fallback
-          const fallbackResponse = await fetch(pdfUrl);
-          if (fallbackResponse.ok) {
-            const fallbackBuffer = await fallbackResponse.arrayBuffer();
-            pageCount = extractPageCountFromPDFStructure(fallbackBuffer);
-            console.log(`Fallback: Extracted ${pageCount} pages from structure`);
+          // Try direct fetch as fallback with timeout
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout for fallback
+          
+          try {
+            const fallbackResponse = await fetch(pdfUrl, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            
+            if (fallbackResponse.ok) {
+              const fallbackBuffer = await fallbackResponse.arrayBuffer();
+              pageCount = extractPageCountFromPDFStructure(fallbackBuffer);
+              console.log(`Fallback: Extracted ${pageCount} pages from structure`);
+            }
+          } catch (fetchError: any) {
+            clearTimeout(timeoutId);
+            if (fetchError.name !== 'AbortError') {
+              console.warn('Fallback fetch failed:', fetchError?.message || fetchError);
+            }
           }
-        } catch (fallbackError) {
-          console.warn('Fallback extraction also failed:', fallbackError);
+        } catch (fallbackError: any) {
+          console.warn('Fallback extraction also failed:', fallbackError?.message || fallbackError);
+          // Continue with pageCount = 0
         }
       }
     }
@@ -379,7 +460,7 @@ serve(async (req) => {
       // Continue - we can still return extracted data
     }
 
-    // Return results
+    // Return results - ALWAYS return 200 status code, use success field for status
     if (chapters.length > 0) {
       // Successfully extracted chapters
       return new Response(
@@ -391,7 +472,7 @@ serve(async (req) => {
             pageCount: pageCount,
           },
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else if (pageCount > 0) {
       // Extracted page count but no chapters
@@ -406,17 +487,22 @@ serve(async (req) => {
           },
           requiresManualEntry: true,
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else {
-      // Could not extract anything
+      // Could not extract anything - still return 200 with success: false
       return new Response(
         JSON.stringify({
           success: false,
           message: 'Could not extract information from PDF. Please use manual entry.',
+          data: {
+            chapters: [],
+            totalChapters: 0,
+            pageCount: 0,
+          },
           requiresManualEntry: true,
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
   } catch (error: any) {
@@ -434,16 +520,23 @@ serve(async (req) => {
     const isDevelopment = Deno.env.get('DENO_ENV') === 'development' || 
                          Deno.env.get('ENVIRONMENT') === 'development';
     
-    // Return error response with proper status code
+    // ALWAYS return 200 status code - use success field to indicate failure
+    // This prevents FunctionsHttpError from being thrown
     return new Response(
       JSON.stringify({ 
         success: false,
         error: error?.message || 'Failed to process PDF',
+        message: 'An error occurred while processing the PDF. Please use manual entry.',
+        data: {
+          chapters: [],
+          totalChapters: 0,
+          pageCount: 0,
+        },
         requiresManualEntry: true,
         details: isDevelopment ? errorDetails : undefined,
       }),
       { 
-        status: 500, 
+        status: 200,  // Changed from 500 to 200
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
