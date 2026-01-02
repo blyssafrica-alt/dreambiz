@@ -105,8 +105,10 @@ Frontend → Token Invalid/Missing → Sends without Auth Header → Gateway All
 ### Flow if Gateway Still Rejects:
 If gateway still rejects, the function config needs to be applied. Check:
 1. Function is redeployed after adding config.json
-2. Config file is in correct location: `supabase/functions/process-pdf/.supabase/config.json`
+2. Config file is in correct location: `supabase/functions/process-pdf/supabase.functions.config.json`
 3. Supabase project settings allow public functions
+
+**Note:** The config file location was corrected from `.supabase/config.json` to `supabase.functions.config.json` at the function root level. This is the correct location for function-specific configuration.
 
 ## Verification
 
