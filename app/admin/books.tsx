@@ -1190,7 +1190,7 @@ export default function BooksManagementScreen() {
                     style={[styles.bookDescription, { color: theme.text.secondary }]}
                     numberOfLines={2}
                   >
-                    {book.description}
+                    {book.description || ''}
                   </Text>
                 )}
                 <View style={styles.bookStats}>
