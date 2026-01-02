@@ -1125,7 +1125,7 @@ export default function BooksManagementScreen() {
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        {books.length === 0 ? (
+        {!books || books.length === 0 ? (
           <View style={styles.emptyState}>
             <BookIcon size={48} color={theme.text.tertiary} />
             <Text style={[styles.emptyText, { color: theme.text.secondary }]}>
@@ -1137,7 +1137,7 @@ export default function BooksManagementScreen() {
           </View>
         ) : (
           <>
-            {books.map((book) => (
+            {(books || []).map((book) => (
               <TouchableOpacity
                 key={book.id}
                 style={[styles.bookCard, { backgroundColor: theme.background.card }]}
