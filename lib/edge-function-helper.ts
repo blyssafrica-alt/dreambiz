@@ -42,7 +42,7 @@ export async function invokeEdgeFunction<T = any>(
     try {
       // Get current session - supabase.functions.invoke automatically includes
       // the Authorization header from the session, but we verify it exists
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      let { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
         console.error(`Failed to get session for Edge Function ${functionName}:`, sessionError);
@@ -57,6 +57,37 @@ export async function invokeEdgeFunction<T = any>(
         };
       }
 
+      // Check if session is expired and refresh if needed
+      if (session) {
+        const expiresAt = session.expires_at ? new Date(session.expires_at * 1000) : null;
+        const now = new Date();
+        const expiresIn = expiresAt ? expiresAt.getTime() - now.getTime() : 0;
+        
+        // Refresh if expired or expires in less than 5 minutes
+        if (expiresIn < 5 * 60 * 1000) {
+          if (__DEV__) {
+            console.log(`Session expiring soon (${Math.round(expiresIn / 1000)}s), refreshing...`);
+          }
+          try {
+            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+            if (!refreshError && refreshData?.session) {
+              session = refreshData.session;
+              if (__DEV__) {
+                console.log('Session refreshed successfully');
+              }
+            } else {
+              if (__DEV__) {
+                console.warn('Failed to refresh session:', refreshError);
+              }
+            }
+          } catch (refreshException: any) {
+            if (__DEV__) {
+              console.warn('Exception refreshing session:', refreshException);
+            }
+          }
+        }
+      }
+
       if (!session) {
         // No session - return error instead of calling function
         return {
@@ -69,14 +100,24 @@ export async function invokeEdgeFunction<T = any>(
         };
       }
 
+      // Verify access token exists
+      if (!session.access_token) {
+        return {
+          data: null,
+          error: {
+            message: 'Session has no access token. Please sign in again.',
+            status: 401,
+            statusCode: 401,
+          },
+        };
+      }
+
       // Prepare headers - explicitly include Authorization header
       // supabase.functions.invoke should automatically add it, but we ensure it's there
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        // Explicitly add Authorization header to ensure it's sent
-        ...(session?.access_token && {
-          'Authorization': `Bearer ${session.access_token}`,
-        }),
+        // Always include Authorization header if session exists
+        'Authorization': `Bearer ${session.access_token}`,
         ...options.headers,
       };
 
