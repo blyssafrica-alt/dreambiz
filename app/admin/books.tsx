@@ -23,6 +23,83 @@ import type { Book, BookFormData, BookChapter } from '@/types/books';
 import type { FeatureConfig } from '@/types/super-admin';
 import type { DreamBigBook } from '@/types/business';
 
+/**
+ * Builds a robust Edge Function URL that is guaranteed to be:
+ * - HTTPS (never HTTP)
+ * - Includes /functions/v1/ prefix
+ * - Properly formatted
+ */
+const buildEdgeFunctionUrl = (functionName: string): string => {
+  // Hardcoded default to ensure it always works
+  const DEFAULT_SUPABASE_URL = 'https://oqcgerfjjiozltkmmkxf.supabase.co';
+  
+  // Get the base URL - try multiple sources
+  let baseUrl: string = DEFAULT_SUPABASE_URL;
+  
+  try {
+    // Try to get from the exported supabase client
+    const supabaseModule = require('@/lib/supabase');
+    if (supabaseModule?.supabaseUrl) {
+      baseUrl = supabaseModule.supabaseUrl;
+    }
+  } catch (e) {
+    // Fallback to default if import fails
+    console.warn('[buildEdgeFunctionUrl] Could not import supabase module, using default URL');
+  }
+  
+  // CRITICAL: Normalize the URL
+  // Step 1: Trim whitespace
+  baseUrl = baseUrl.trim();
+  
+  // Step 2: Force HTTPS (replace http:// with https://)
+  if (baseUrl.startsWith('http://')) {
+    console.warn('[buildEdgeFunctionUrl] ⚠️ URL was HTTP, forcing HTTPS');
+    baseUrl = baseUrl.replace(/^http:\/\//i, 'https://');
+  }
+  
+  // Step 3: Add https:// if missing
+  if (!baseUrl.startsWith('https://')) {
+    console.warn('[buildEdgeFunctionUrl] ⚠️ URL missing protocol, adding https://');
+    baseUrl = 'https://' + baseUrl;
+  }
+  
+  // Step 4: Remove trailing slashes
+  baseUrl = baseUrl.replace(/\/+$/, '');
+  
+  // Step 5: Remove any existing /functions/v1/ path (we'll add it fresh)
+  baseUrl = baseUrl.replace(/\/functions\/v1.*$/i, '');
+  
+  // Step 6: Validate format - must be https://<project>.supabase.co
+  if (!/^https:\/\/[^\/]+\.supabase\.co$/i.test(baseUrl)) {
+    console.error('[buildEdgeFunctionUrl] ❌ Invalid URL format, using default. Got:', baseUrl);
+    baseUrl = DEFAULT_SUPABASE_URL;
+  }
+  
+  // Step 7: Final HTTPS check (safety net)
+  if (!baseUrl.startsWith('https://')) {
+    console.error('[buildEdgeFunctionUrl] ❌ CRITICAL: URL is not HTTPS after normalization! Forcing HTTPS.');
+    baseUrl = 'https://' + baseUrl.replace(/^https?:\/\//i, '');
+  }
+  
+  // Step 8: Construct the full function URL
+  const functionUrl = `${baseUrl}/functions/v1/${functionName}`;
+  
+  // Step 9: Validate the final URL
+  if (!functionUrl.startsWith('https://') || !functionUrl.includes('/functions/v1/')) {
+    console.error('[buildEdgeFunctionUrl] ❌ CRITICAL: Final URL is invalid!', functionUrl);
+    // Return a guaranteed-correct URL
+    return `${DEFAULT_SUPABASE_URL}/functions/v1/${functionName}`;
+  }
+  
+  if (__DEV__) {
+    console.log('[buildEdgeFunctionUrl] ✅ Built function URL:', functionUrl);
+    console.log('[buildEdgeFunctionUrl] ✅ Base URL:', baseUrl);
+    console.log('[buildEdgeFunctionUrl] ✅ Function name:', functionName);
+  }
+  
+  return functionUrl;
+};
+
 export default function BooksManagementScreen() {
   const { theme } = useTheme();
   const router = useRouter();
@@ -515,8 +592,8 @@ export default function BooksManagementScreen() {
         
         // STEP 7: Create PDF processing job (returns immediately)
         // Use direct fetch with explicit headers to ensure auth works
-        const { supabaseUrl: baseUrl, supabaseAnonKey: anonKey } = await import('@/lib/supabase');
-        const functionUrl = `${baseUrl}/functions/v1/process-pdf`;
+        const { supabaseAnonKey: anonKey } = await import('@/lib/supabase');
+        const functionUrl = buildEdgeFunctionUrl('process-pdf');
         
         // Get fresh session and token
         const { data: { session: finalSession } } = await supabase.auth.getSession();
@@ -698,8 +775,8 @@ export default function BooksManagementScreen() {
           try {
             // Check job status
             // Use direct fetch for status check too
-            const { supabaseUrl: baseUrl, supabaseAnonKey: anonKey } = await import('@/lib/supabase');
-            const statusUrl = `${baseUrl}/functions/v1/process-pdf`;
+            const { supabaseAnonKey: anonKey } = await import('@/lib/supabase');
+            const statusUrl = buildEdgeFunctionUrl('process-pdf');
             const { data: { session: statusSession } } = await supabase.auth.getSession();
             
             let statusResponse: any = null;
