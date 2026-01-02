@@ -459,9 +459,8 @@ export default function BooksManagementScreen() {
               functionUrl,
               hasApikey: !!supabaseAnonKey,
               apikeyLength: supabaseAnonKey?.length || 0,
-              hasSession: !!session,
-              hasAccessToken: !!session?.access_token,
               errorMessage: errorMsg,
+              note: 'Function should work without Authorization header - check if function is deployed',
             };
             console.error('401 Unauthorized - Possible causes:', JSON.stringify(causes, null, 2));
             
