@@ -425,24 +425,31 @@ export default function BooksManagementScreen() {
         }
         
         // Build headers - BOTH apikey AND Authorization are required by Supabase gateway
-        // The gateway validates the Authorization header, but the Edge Function doesn't need to
-        // The function uses service role key which bypasses all auth checks
+        // CRITICAL: Use validToken (guaranteed to be valid and not expired)
         const requestHeaders: Record<string, string> = {
           'Content-Type': 'application/json',
           'apikey': supabaseAnonKey, // CRITICAL: Always required
-          'Authorization': `Bearer ${session.access_token}`, // CRITICAL: Required by gateway
+          'Authorization': `Bearer ${validToken}`, // CRITICAL: Must be valid, non-expired token
         };
         
         if (__DEV__) {
-          console.log('Calling function WITH Authorization header (gateway requires it, function uses service role key)');
+          const expiresAt = session.expires_at ? new Date(session.expires_at * 1000) : null;
+          const now = new Date();
+          const isExpired = expiresAt ? expiresAt <= now : false;
+          const expiresIn = expiresAt ? expiresAt.getTime() - now.getTime() : 0;
+          
+          console.log('Calling function WITH valid Authorization header');
           console.log('Request details:', {
             functionUrl,
             hasApikey: !!requestHeaders['apikey'],
             hasAuthorization: !!requestHeaders['Authorization'],
             apikeyLength: requestHeaders['apikey']?.length || 0,
-            tokenPreview: session.access_token.substring(0, 20) + '...',
-            expiresAt: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
-            note: 'Gateway validates JWT, but function uses service role key (bypasses auth)',
+            tokenPreview: validToken.substring(0, 20) + '...',
+            tokenLength: validToken.length,
+            expiresAt: expiresAt?.toISOString() || null,
+            isExpired,
+            expiresInSeconds: Math.round(expiresIn / 1000),
+            note: 'Token validated and refreshed if needed - should pass gateway validation',
           });
         }
         
