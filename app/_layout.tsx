@@ -1,6 +1,9 @@
 // Import gesture handler FIRST - this is critical for touch events
 import 'react-native-gesture-handler';
 
+// Initialize monitoring services BEFORE any other imports
+import { initMonitoring } from '@/lib/monitoring';
+
 // template
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
@@ -21,6 +24,9 @@ import { StatusBar } from 'react-native';
 import { supabase } from '@/lib/supabase';
 
 SplashScreen.preventAutoHideAsync();
+
+// Initialize monitoring (Sentry, PostHog)
+initMonitoring();
 
 const queryClient = new QueryClient();
 

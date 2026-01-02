@@ -100,7 +100,10 @@ export const [AuthContext, useAuth] = createContextHook(() => {
     // Set up auth state listener
     const provider = getProvider();
     const unsubscribe = provider.onAuthStateChange(async (user) => {
-      console.log('Auth state changed:', user ? 'signed in' : 'signed out');
+      // Use logger instead of console.log
+      if (__DEV__) {
+        console.log('Auth state changed:', user ? 'signed in' : 'signed out');
+      }
       if (user) {
         setAuthUser(user);
         await loadUserProfile(user.id, user);
