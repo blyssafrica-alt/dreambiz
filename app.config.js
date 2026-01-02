@@ -68,14 +68,19 @@ export default {
           iCloudContainerEnvironment: 'Production',
         },
       ],
-      [
-        '@sentry/react-native/expo',
-        {
-          organization: process.env.EXPO_PUBLIC_SENTRY_ORG,
-          project: process.env.EXPO_PUBLIC_SENTRY_PROJECT,
-          url: process.env.EXPO_PUBLIC_SENTRY_URL || 'https://sentry.io/',
-        },
-      ],
+      // Only include Sentry plugin if org and project are configured
+      ...(process.env.EXPO_PUBLIC_SENTRY_ORG && process.env.EXPO_PUBLIC_SENTRY_PROJECT
+        ? [
+            [
+              '@sentry/react-native/expo',
+              {
+                organization: process.env.EXPO_PUBLIC_SENTRY_ORG,
+                project: process.env.EXPO_PUBLIC_SENTRY_PROJECT,
+                url: process.env.EXPO_PUBLIC_SENTRY_URL || 'https://sentry.io/',
+              },
+            ],
+          ]
+        : []),
     ],
     experiments: {
       typedRoutes: true,

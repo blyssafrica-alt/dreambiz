@@ -4,7 +4,8 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Plus, Megaphone, TrendingUp, Eye, MousePointerClick, X, Save, Trash2, Edit, ImageIcon } from 'lucide-react-native';
+import { ArrowLeft, Plus, Megaphone, TrendingUp, Eye, MousePointerClick, X, Save, Trash2, Edit, ImageIcon, Upload } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { Advertisement, AdType, AdStatus } from '@/types/super-admin';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'react-native';
@@ -33,6 +34,7 @@ export default function AdsManagementScreen() {
     videoUrl: '',
     thumbnailUrl: '',
   });
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   useEffect(() => {
     loadAds();
@@ -133,24 +135,47 @@ export default function AdsManagementScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [16, 9],
-      quality: 0.7,
+      aspect: field === 'imageUrl' ? [16, 9] : [1, 1],
+      quality: 0.8,
       base64: true,
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
       if (asset.base64) {
-        const base64 = asset.base64;
-        const fileExt = asset.uri.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-        const filePath = `ad_images/${fileName}`;
-
+        setIsUploadingImage(true);
         try {
-          const { data, error } = await supabase.storage
+          const fileExt = asset.uri.split('.').pop()?.toLowerCase() || 'jpg';
+          const fileName = `ad-${field}-${Date.now()}.${fileExt}`;
+          const filePath = `ad_images/${fileName}`;
+
+          // Determine correct MIME type from file extension or asset.mimeType
+          let contentType = 'image/jpeg'; // default
+          if (asset.mimeType) {
+            // Extract the first valid mime type if multiple are present
+            const mimeTypes = asset.mimeType.split(',').map(m => m.trim());
+            const imageMime = mimeTypes.find(m => m.startsWith('image/'));
+            if (imageMime) {
+              contentType = imageMime;
+            }
+          }
+          
+          // Fallback to MIME type based on file extension
+          if (!contentType || contentType === 'image/jpeg') {
+            const mimeMap: Record<string, string> = {
+              'jpg': 'image/jpeg',
+              'jpeg': 'image/jpeg',
+              'png': 'image/png',
+              'webp': 'image/webp',
+              'gif': 'image/gif',
+            };
+            contentType = mimeMap[fileExt] || 'image/jpeg';
+          }
+
+          const { error } = await supabase.storage
             .from('ad_images')
-            .upload(filePath, decode(base64), {
-              contentType: asset.mimeType || 'image/jpeg',
+            .upload(filePath, decode(asset.base64), {
+              contentType,
               upsert: false,
             });
 
@@ -169,9 +194,18 @@ export default function AdsManagementScreen() {
         } catch (error) {
           console.error('Error uploading image:', error);
           Alert.alert('Upload Error', `Failed to upload image: ${(error as Error).message}`);
+        } finally {
+          setIsUploadingImage(false);
         }
       }
     }
+  };
+
+  const handleRemoveImage = (field: 'imageUrl' | 'thumbnailUrl') => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: '',
+    }));
   };
 
   const handleSave = async () => {
@@ -379,6 +413,84 @@ export default function AdsManagementScreen() {
                 ))}
               </View>
 
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Ad Image</Text>
+              {formData.imageUrl ? (
+                <View style={styles.imagePreviewContainer}>
+                  <Image source={{ uri: formData.imageUrl }} style={styles.imagePreview} />
+                  <TouchableOpacity
+                    style={styles.removeImageButton}
+                    onPress={() => handleRemoveImage('imageUrl')}
+                  >
+                    <X size={20} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.imagePickerButton, { borderColor: theme.accent.primary + '40' }]}
+                  onPress={() => handlePickImage('imageUrl')}
+                  disabled={isUploadingImage}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient
+                    colors={[theme.accent.primary + '20', theme.accent.primary + '10']}
+                    style={styles.imagePickerGradient}
+                  >
+                    {isUploadingImage ? (
+                      <ActivityIndicator size="large" color={theme.accent.primary} />
+                    ) : (
+                      <>
+                        <Upload size={32} color={theme.accent.primary} />
+                        <Text style={[styles.imagePickerButtonText, { color: theme.accent.primary }]}>
+                          Upload Ad Image
+                        </Text>
+                        <Text style={[styles.imagePickerHint, { color: theme.text.tertiary }]}>
+                          Recommended: 16:9 aspect ratio
+                        </Text>
+                      </>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Thumbnail (Optional)</Text>
+              {formData.thumbnailUrl ? (
+                <View style={[styles.imagePreviewContainer, styles.thumbnailPreview]}>
+                  <Image source={{ uri: formData.thumbnailUrl }} style={styles.imagePreview} />
+                  <TouchableOpacity
+                    style={styles.removeImageButton}
+                    onPress={() => handleRemoveImage('thumbnailUrl')}
+                  >
+                    <X size={20} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.imagePickerButton, styles.thumbnailPicker, { borderColor: theme.accent.primary + '40' }]}
+                  onPress={() => handlePickImage('thumbnailUrl')}
+                  disabled={isUploadingImage}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient
+                    colors={[theme.accent.primary + '20', theme.accent.primary + '10']}
+                    style={styles.imagePickerGradient}
+                  >
+                    {isUploadingImage ? (
+                      <ActivityIndicator size="large" color={theme.accent.primary} />
+                    ) : (
+                      <>
+                        <ImageIcon size={24} color={theme.accent.primary} />
+                        <Text style={[styles.imagePickerButtonText, { color: theme.accent.primary, fontSize: 13 }]}>
+                          Upload Thumbnail
+                        </Text>
+                        <Text style={[styles.imagePickerHint, { color: theme.text.tertiary, fontSize: 11 }]}>
+                          Square format recommended
+                        </Text>
+                      </>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+
               <Text style={[styles.label, { color: theme.text.secondary }]}>Headline</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
@@ -489,9 +601,65 @@ const styles = StyleSheet.create({
   saveButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 10, gap: 8 },
   saveButtonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
   adImage: { width: '100%', height: 200, borderRadius: 8, marginBottom: 12, resizeMode: 'cover' },
-  imagePreviewContainer: { position: 'relative', width: '100%', height: 200, borderRadius: 10, overflow: 'hidden', marginBottom: 12 },
+  imagePreviewContainer: { 
+    position: 'relative', 
+    width: '100%', 
+    height: 200, 
+    borderRadius: 12, 
+    overflow: 'hidden', 
+    marginBottom: 12,
+    backgroundColor: '#F1F5F9',
+  },
+  thumbnailPreview: {
+    height: 150,
+    width: 150,
+    alignSelf: 'center',
+    borderRadius: 12,
+  },
   imagePreview: { width: '100%', height: '100%', resizeMode: 'cover' },
-  removeImageButton: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, padding: 8 },
-  imagePickerButton: { width: '100%', height: 120, borderRadius: 10, backgroundColor: '#E0E7FF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE', borderStyle: 'dashed', marginBottom: 12 },
-  imagePickerButtonText: { fontSize: 14, marginTop: 8, fontWeight: '600' },
+  removeImageButton: { 
+    position: 'absolute', 
+    top: 10, 
+    right: 10, 
+    backgroundColor: 'rgba(239, 68, 68, 0.9)', 
+    borderRadius: 20, 
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  imagePickerButton: { 
+    width: '100%', 
+    height: 150, 
+    borderRadius: 12, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    borderWidth: 2, 
+    borderStyle: 'dashed', 
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  thumbnailPicker: {
+    height: 120,
+    width: 120,
+    alignSelf: 'center',
+  },
+  imagePickerGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  imagePickerButtonText: { 
+    fontSize: 15, 
+    marginTop: 8, 
+    fontWeight: '600',
+  },
+  imagePickerHint: {
+    fontSize: 12,
+    marginTop: 4,
+  },
 });

@@ -30,7 +30,8 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://oqcgerfjjiozltkmmkxf.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_959ZId8aR4E5IjTNoyVsJQ_xt8pelvp",
-        "EXPO_PUBLIC_OCR_SPACE_API_KEY": "K82828017188957"
+        "EXPO_PUBLIC_OCR_SPACE_API_KEY": "K82828017188957",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     }
   },
