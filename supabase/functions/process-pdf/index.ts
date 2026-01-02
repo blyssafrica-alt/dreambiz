@@ -467,9 +467,16 @@ async function processPDFBuffer(arrayBuffer: ArrayBuffer): Promise<{ text: strin
 
 serve(async (req) => {
   // Log ALL requests for debugging (including OPTIONS)
+  // Extract full URL information
+  const url = new URL(req.url);
+  const fullUrl = `${url.protocol}//${url.host}${url.pathname}${url.search}`;
+  
   console.log('=== Edge Function Request ===');
   console.log('Method:', req.method);
-  console.log('URL:', req.url);
+  console.log('Full URL:', fullUrl);
+  console.log('Path:', url.pathname);
+  console.log('Expected path: /functions/v1/process-pdf');
+  console.log('URL correct:', url.pathname === '/functions/v1/process-pdf' || url.pathname === '/process-pdf');
   console.log('Headers:', Object.fromEntries(req.headers.entries()));
   
   // Handle CORS preflight
