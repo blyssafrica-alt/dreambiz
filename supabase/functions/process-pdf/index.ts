@@ -789,7 +789,10 @@ serve(async (req, ctx) => {
       supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
       console.log('✅ Using service role key - RLS completely bypassed');
       
-      // Optionally extract user ID from JWT for logging (non-critical)
+      // Optionally extract user ID from JWT payload for logging (non-critical)
+      // DO NOT validate JWT - gateway already did this
+      // Just decode the payload to get user ID
+      const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
       if (authHeader) {
         try {
           // Extract token from Bearer header
