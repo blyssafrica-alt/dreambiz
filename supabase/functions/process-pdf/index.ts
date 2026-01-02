@@ -1000,14 +1000,26 @@ serve(async (req) => {
     });
 
     // Return immediately with job ID
+    // CRITICAL: Always return valid JSON with proper headers
+    const responseBody = {
+      success: true,
+      jobId: createdJobId,
+      status: 'pending',
+      message: 'PDF processing started. Poll job status to get results.',
+    };
+    
+    console.log('✅ Returning job ID response:', responseBody);
+    
     return new Response(
-      JSON.stringify({
-        success: true,
-        jobId: createdJobId,
-        status: 'pending',
-        message: 'PDF processing started. Poll job status to get results.',
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify(responseBody),
+      { 
+        status: 200, 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+        } 
+      }
     );
   } catch (error: any) {
     // ============================================

@@ -668,53 +668,76 @@ export default function BooksManagementScreen() {
         let jobError: any = null;
         
         try {
-          // BUILD HEADERS: Try with auth first, fallback to no auth if needed
-          const headers: Record<string, string> = {
+          // BUILD HEADERS: Function is configured with auth: false, so we can call without auth
+          // However, Gateway may still validate JWT if Authorization header is present
+          // STRATEGY: Try WITHOUT auth header first (function allows public access)
+          // If that fails, retry with auth header
+          
+          const requestBody = JSON.stringify({
+            pdfUrl: formData.documentFileUrl,
+            bookId: editingId || null,
+          });
+          
+          const baseHeaders: Record<string, string> = {
             'Content-Type': 'application/json',
             'apikey': anonKey || '',
             'Accept': 'application/json',
           };
           
-          // Add Authorization header only if we have a valid token
-          // Function is configured to work with or without auth
-          if (finalSession?.access_token) {
-            const authHeader = `Bearer ${finalSession.access_token}`.trim();
-            if (authHeader.startsWith('Bearer ') && authHeader.length >= 20) {
-              headers['Authorization'] = authHeader;
-              if (__DEV__) {
-                console.log('[process-pdf] ✅ Including Authorization header');
-              }
-            } else {
-              console.warn('[process-pdf] ⚠️ Token exists but format is invalid, calling without auth header');
-            }
-          } else {
-            console.warn('[process-pdf] ⚠️ No access token available, calling without auth header (function supports public access)');
-          }
-          
-          if (__DEV__) {
-            console.log('[process-pdf] 📤 Request headers:', {
-              hasApikey: !!headers.apikey,
-              hasAuthorization: !!headers.Authorization,
-              contentType: headers['Content-Type'],
-            });
-          }
-          
-          // Log the actual request being made
+          // FIRST ATTEMPT: Try WITHOUT Authorization header (function is configured auth: false)
+          // This avoids Gateway JWT validation entirely
+          console.log('[process-pdf] 📤 Attempting call WITHOUT Authorization header (function allows public access)');
           console.log('[process-pdf] 📤 Sending POST request to:', finalFunctionUrl);
-          console.log('[process-pdf] 📤 Request method:', 'POST');
-          console.log('[process-pdf] 📤 Request body:', JSON.stringify({
-            pdfUrl: formData.documentFileUrl,
-            bookId: editingId || null,
-          }));
+          console.log('[process-pdf] 📤 Request method: POST');
           
-          response = await fetch(finalFunctionUrl, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              pdfUrl: formData.documentFileUrl,
-              bookId: editingId || null,
-            }),
-          });
+          try {
+            response = await fetch(finalFunctionUrl, {
+              method: 'POST',
+              headers: baseHeaders,
+              body: requestBody,
+            });
+            
+            console.log('[process-pdf] 📥 Response received (no auth):');
+            console.log('[process-pdf] 📥 Response status:', response.status);
+            console.log('[process-pdf] 📥 Response URL:', response.url);
+            
+            // If 401, try with auth header as fallback
+            if (response.status === 401 && finalSession?.access_token) {
+              console.warn('[process-pdf] ⚠️ 401 received without auth, retrying WITH Authorization header');
+              
+              const authHeaders = {
+                ...baseHeaders,
+                'Authorization': `Bearer ${finalSession.access_token}`.trim(),
+              };
+              
+              response = await fetch(finalFunctionUrl, {
+                method: 'POST',
+                headers: authHeaders,
+                body: requestBody,
+              });
+              
+              console.log('[process-pdf] 📥 Response received (with auth):');
+              console.log('[process-pdf] 📥 Response status:', response.status);
+              console.log('[process-pdf] 📥 Response URL:', response.url);
+            }
+          } catch (fetchErr: any) {
+            // Network error - try once more with auth if available
+            if (finalSession?.access_token && !fetchErr.message?.includes('401')) {
+              console.warn('[process-pdf] ⚠️ Network error, retrying WITH Authorization header');
+              const authHeaders = {
+                ...baseHeaders,
+                'Authorization': `Bearer ${finalSession.access_token}`.trim(),
+              };
+              
+              response = await fetch(finalFunctionUrl, {
+                method: 'POST',
+                headers: authHeaders,
+                body: requestBody,
+              });
+            } else {
+              throw fetchErr;
+            }
+          }
           
           // Log response details
           console.log('[process-pdf] 📥 Response received:');
