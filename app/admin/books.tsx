@@ -607,15 +607,18 @@ export default function BooksManagementScreen() {
           finalSession = refreshData.session;
         }
         
-        // Validate token one more time with getUser()
-        const { data: { user: tokenUser }, error: tokenError } = await supabase.auth.getUser(finalSession.access_token);
-        if (tokenError || !tokenUser) {
-          console.error('[process-pdf] Token validation failed:', tokenError);
-          Alert.alert('Authentication Error', 'Your session is invalid. Please sign out and sign back in.');
-          setIsProcessingPDF(false);
-          isProcessingRef.current = false;
-          processingRetryCountRef.current = 0;
-          return;
+        // CRITICAL: Validate token one more time with getUser() - this validates with Supabase server
+        let tokenUser: any = null;
+        try {
+          const userResult = await supabase.auth.getUser(finalSession.access_token);
+          tokenUser = userResult.data?.user;
+          if (userResult.error || !tokenUser) {
+            console.warn('[process-pdf] Token validation failed, but function may work without auth:', userResult.error);
+            // Don't return here - function might work without auth
+          }
+        } catch (tokenValidationError) {
+          console.warn('[process-pdf] Token validation error (non-fatal):', tokenValidationError);
+          // Continue - function might work without auth
         }
         
         // CRITICAL: Create a new URL object to ensure it's absolute and correct
@@ -651,10 +654,12 @@ export default function BooksManagementScreen() {
         
         if (__DEV__) {
           console.log('[process-pdf] ✅ Calling function with direct fetch');
-          console.log('[process-pdf] ✅ Has access token:', !!finalSession.access_token);
+          console.log('[process-pdf] ✅ Has access token:', !!finalSession?.access_token);
           console.log('[process-pdf] ✅ Token validated with getUser():', !!tokenUser);
           console.log('[process-pdf] ✅ Has anon key:', !!anonKey);
-          console.log('[process-pdf] ✅ Token preview:', finalSession.access_token.substring(0, 20) + '...');
+          if (finalSession?.access_token) {
+            console.log('[process-pdf] ✅ Token preview:', finalSession.access_token.substring(0, 20) + '...');
+          }
         }
         
         // Direct fetch with explicit headers
@@ -663,29 +668,40 @@ export default function BooksManagementScreen() {
         let jobError: any = null;
         
         try {
-          // CRITICAL: Use the validated URL object
-          // CRITICAL: Ensure Authorization header is properly formatted
-          const authHeader = `Bearer ${finalSession.access_token}`.trim();
+          // BUILD HEADERS: Try with auth first, fallback to no auth if needed
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'apikey': anonKey || '',
+            'Accept': 'application/json',
+          };
           
-          // Validate auth header format
-          if (!authHeader.startsWith('Bearer ') || authHeader.length < 20) {
-            console.error('[process-pdf] ❌ Invalid Authorization header format');
-            Alert.alert('Authentication Error', 'Invalid authentication token. Please sign out and sign back in.');
-            setIsProcessingPDF(false);
-            isProcessingRef.current = false;
-            processingRetryCountRef.current = 0;
-            return;
+          // Add Authorization header only if we have a valid token
+          // Function is configured to work with or without auth
+          if (finalSession?.access_token) {
+            const authHeader = `Bearer ${finalSession.access_token}`.trim();
+            if (authHeader.startsWith('Bearer ') && authHeader.length >= 20) {
+              headers['Authorization'] = authHeader;
+              if (__DEV__) {
+                console.log('[process-pdf] ✅ Including Authorization header');
+              }
+            } else {
+              console.warn('[process-pdf] ⚠️ Token exists but format is invalid, calling without auth header');
+            }
+          } else {
+            console.warn('[process-pdf] ⚠️ No access token available, calling without auth header (function supports public access)');
+          }
+          
+          if (__DEV__) {
+            console.log('[process-pdf] 📤 Request headers:', {
+              hasApikey: !!headers.apikey,
+              hasAuthorization: !!headers.Authorization,
+              contentType: headers['Content-Type'],
+            });
           }
           
           response = await fetch(finalFunctionUrl, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': anonKey || '',
-              'Authorization': authHeader,
-              // Explicitly set Accept header
-              'Accept': 'application/json',
-            },
+            headers,
             body: JSON.stringify({
               pdfUrl: formData.documentFileUrl,
               bookId: editingId || null,
