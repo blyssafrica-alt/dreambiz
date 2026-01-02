@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -34,6 +34,10 @@ export default function BooksManagementScreen() {
   const [isProcessingPDF, setIsProcessingPDF] = useState(false);
   const [step, setStep] = useState(1);
   const totalSteps = 5;
+  
+  // Track retry count and processing state to prevent infinite loops
+  const processingRetryCountRef = useRef(0);
+  const isProcessingRef = useRef(false);
   const [formData, setFormData] = useState<BookFormData>({
     slug: '',
     title: '',
@@ -283,6 +287,12 @@ export default function BooksManagementScreen() {
       return;
     }
 
+    // Prevent multiple simultaneous calls
+    if (isProcessingRef.current) {
+      console.log('[process-pdf] Already processing, ignoring duplicate call');
+      return;
+    }
+
     // ============================================
     // RETRY GUARD - Prevent retry storms
     // ============================================
@@ -291,7 +301,11 @@ export default function BooksManagementScreen() {
     const POLL_INTERVAL = 2000; // 2 seconds
     const TIMEOUT_MS = 120000; // 2 minutes total timeout
 
-    let retryCount = 0;
+    // Reset retry count if this is a fresh call (not a retry)
+    if (processingRetryCountRef.current === 0) {
+      isProcessingRef.current = true;
+    }
+
     let pollAttempts = 0;
     const startTime = Date.now();
 
@@ -508,38 +522,50 @@ export default function BooksManagementScreen() {
         });
 
         if (jobError) {
-          // Check retry limit
-          if (retryCount >= MAX_RETRIES) {
-            console.error('[process-pdf] Max retries exceeded');
-            Alert.alert(
-              'PDF Processing Failed',
-              `Unable to start PDF processing after ${MAX_RETRIES} attempts.\n\nPlease try:\n1. Sign out and sign back in\n2. Use manual entry\n\nError: ${jobError.message || 'Unknown error'}`
-            );
-            setIsProcessingPDF(false);
-            return;
-          }
-
-          // Handle 401 - don't retry
+          // Handle 401 FIRST - don't retry at all
           if (jobError.status === 401 || jobError.statusCode === 401) {
+            // Reset retry counter and processing flag
+            processingRetryCountRef.current = 0;
+            isProcessingRef.current = false;
+            setIsProcessingPDF(false);
+            
             Alert.alert(
               'Authentication Failed',
               `Unable to process PDF. The function returned 401 Unauthorized.\n\nThis usually means:\n1. Edge Function is not deployed\n2. User session is expired/invalid\n3. Gateway rejected the request\n\nPlease try:\n1. Deploy the Edge Function (see docs/DEPLOYMENT_INSTRUCTIONS.md)\n2. Sign out and sign back in\n3. Check Supabase Dashboard → Edge Functions → Logs\n4. Use manual entry if this persists`,
               [{ text: 'OK' }]
             );
-            setIsProcessingPDF(false);
             return;
           }
 
-          // Retry with exponential backoff
-          retryCount++;
-          const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 5000);
-          console.log(`[process-pdf] Retrying in ${delay}ms (attempt ${retryCount}/${MAX_RETRIES})`);
+          // Check retry limit (for non-401 errors)
+          if (processingRetryCountRef.current >= MAX_RETRIES) {
+            console.error('[process-pdf] Max retries exceeded');
+            processingRetryCountRef.current = 0;
+            isProcessingRef.current = false;
+            setIsProcessingPDF(false);
+            
+            Alert.alert(
+              'PDF Processing Failed',
+              `Unable to start PDF processing after ${MAX_RETRIES} attempts.\n\nPlease try:\n1. Sign out and sign back in\n2. Use manual entry\n\nError: ${jobError.message || 'Unknown error'}`
+            );
+            return;
+          }
+
+          // Retry with exponential backoff (only for non-401 errors)
+          processingRetryCountRef.current++;
+          const delay = Math.min(1000 * Math.pow(2, processingRetryCountRef.current - 1), 5000);
+          console.log(`[process-pdf] Retrying in ${delay}ms (attempt ${processingRetryCountRef.current}/${MAX_RETRIES})`);
           await new Promise(resolve => setTimeout(resolve, delay));
           // Retry the entire function (will restart from beginning)
           return processPDFDocument();
         }
 
         if (!jobResponse?.success || !jobResponse?.jobId) {
+          // Reset retry counter and processing flag
+          processingRetryCountRef.current = 0;
+          isProcessingRef.current = false;
+          setIsProcessingPDF(false);
+          
           // Check if this is a deployment issue
           if (jobResponse?.deploymentIssue) {
             Alert.alert(
@@ -553,9 +579,11 @@ export default function BooksManagementScreen() {
               jobResponse?.error || 'Failed to start PDF processing job. Please try manual entry.'
             );
           }
-          setIsProcessingPDF(false);
           return;
         }
+
+        // Reset retry counter on success
+        processingRetryCountRef.current = 0;
 
         const jobId = jobResponse.jobId;
         console.log(`[process-pdf] Job created: ${jobId}, polling for status...`);
@@ -665,11 +693,20 @@ export default function BooksManagementScreen() {
         );
       } catch (edgeFunctionError: any) {
         console.error('[process-pdf] Exception:', edgeFunctionError);
+        // Reset retry counter and processing flag
+        processingRetryCountRef.current = 0;
+        isProcessingRef.current = false;
         setIsProcessingPDF(false);
+        
         Alert.alert(
           'PDF Processing Unavailable',
           `The PDF processing service is not available.\n\nError: ${edgeFunctionError?.message || 'Network error'}\n\nPlease use manual entry.`
         );
+      } finally {
+        // Ensure flags are reset even if there's an unexpected error
+        if (isProcessingRef.current) {
+          isProcessingRef.current = false;
+        }
       }
 
       // Fallback to manual entry (shouldn't reach here normally)
