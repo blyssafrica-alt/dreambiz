@@ -514,20 +514,83 @@ export default function BooksManagementScreen() {
         }
         
         // STEP 7: Create PDF processing job (returns immediately)
-        // Ensure we're using the correct URL format
-        // supabase.functions.invoke() should handle this automatically, but we log for debugging
-        if (__DEV__) {
-          const { supabaseUrl: clientUrl } = await import('@/lib/supabase');
-          console.log('[process-pdf] Calling function with client URL:', clientUrl);
-          console.log('[process-pdf] Expected function URL:', `${clientUrl}/functions/v1/process-pdf`);
+        // Use direct fetch with explicit headers to ensure auth works
+        const { supabaseUrl: baseUrl, supabaseAnonKey: anonKey } = await import('@/lib/supabase');
+        const functionUrl = `${baseUrl}/functions/v1/process-pdf`;
+        
+        // Get fresh session and token
+        const { data: { session: finalSession } } = await supabase.auth.getSession();
+        if (!finalSession?.access_token) {
+          Alert.alert('Authentication Error', 'No valid session. Please sign in again.');
+          setIsProcessingPDF(false);
+          isProcessingRef.current = false;
+          processingRetryCountRef.current = 0;
+          return;
         }
         
-        const { data: jobResponse, error: jobError } = await supabase.functions.invoke('process-pdf', {
-          body: {
-            pdfUrl: formData.documentFileUrl,
-            bookId: editingId || null,
-          },
-        });
+        if (__DEV__) {
+          console.log('[process-pdf] Calling function with direct fetch');
+          console.log('[process-pdf] URL:', functionUrl);
+          console.log('[process-pdf] Has access token:', !!finalSession.access_token);
+          console.log('[process-pdf] Has anon key:', !!anonKey);
+        }
+        
+        // Direct fetch with explicit headers
+        let response: Response;
+        let jobResponse: any;
+        let jobError: any = null;
+        
+        try {
+          response = await fetch(functionUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': anonKey || '',
+              'Authorization': `Bearer ${finalSession.access_token}`,
+            },
+            body: JSON.stringify({
+              pdfUrl: formData.documentFileUrl,
+              bookId: editingId || null,
+            }),
+          });
+          
+          const responseText = await response.text();
+          
+          if (!response.ok) {
+            jobError = {
+              status: response.status,
+              statusCode: response.status,
+              message: `HTTP ${response.status}: ${response.statusText}`,
+              responseText,
+            };
+            
+            // Try to parse error JSON
+            try {
+              const errorJson = JSON.parse(responseText);
+              jobError = { ...jobError, ...errorJson };
+            } catch {
+              // Not JSON, use text
+            }
+          } else {
+            try {
+              jobResponse = JSON.parse(responseText);
+            } catch (parseError) {
+              jobError = {
+                status: 500,
+                statusCode: 500,
+                message: 'Invalid JSON response from server',
+                responseText,
+              };
+            }
+          }
+        } catch (fetchError: any) {
+          jobError = {
+            status: fetchError.status || 500,
+            statusCode: fetchError.statusCode || 500,
+            message: fetchError.message || 'Network error',
+            originalError: fetchError,
+          };
+        }
 
         if (jobError) {
           // Handle 401 FIRST - don't retry at all
@@ -616,9 +679,42 @@ export default function BooksManagementScreen() {
 
           try {
             // Check job status
-            const { data: statusResponse, error: statusError } = await supabase.functions.invoke('process-pdf', {
-              body: { jobId },
-            });
+            // Use direct fetch for status check too
+            const { supabaseUrl: baseUrl, supabaseAnonKey: anonKey } = await import('@/lib/supabase');
+            const statusUrl = `${baseUrl}/functions/v1/process-pdf`;
+            const { data: { session: statusSession } } = await supabase.auth.getSession();
+            
+            let statusResponse: any = null;
+            let statusError: any = null;
+            
+            try {
+              const statusFetchResponse = await fetch(statusUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': anonKey || '',
+                  'Authorization': `Bearer ${statusSession?.access_token || ''}`,
+                },
+                body: JSON.stringify({ jobId }),
+              });
+              
+              const statusText = await statusFetchResponse.text();
+              
+              if (!statusFetchResponse.ok) {
+                statusError = {
+                  status: statusFetchResponse.status,
+                  statusCode: statusFetchResponse.status,
+                  message: `HTTP ${statusFetchResponse.status}`,
+                };
+              } else {
+                statusResponse = JSON.parse(statusText);
+              }
+            } catch (fetchErr: any) {
+              statusError = {
+                status: fetchErr.status || 500,
+                message: fetchErr.message || 'Network error',
+              };
+            }
 
             if (statusError) {
               console.warn(`[process-pdf] Status check error (attempt ${pollAttempts}):`, statusError);
