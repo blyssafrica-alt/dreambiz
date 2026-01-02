@@ -373,12 +373,10 @@ export default function BooksManagementScreen() {
         }
 
         // Get Supabase URL and anon key for function URL
-        // Use static import with fallback to ensure apikey is always available
         const supabaseConfig = await import('@/lib/supabase');
         const supabaseUrl = supabaseConfig.supabaseUrl || 'https://oqcgerfjjiozltkmmkxf.supabase.co';
         const supabaseAnonKey = supabaseConfig.supabaseAnonKey || 'sb_publishable_959ZId8aR4E5IjTNoyVsJQ_xt8pelvp';
         
-        // Verify we have the required values
         if (!supabaseAnonKey) {
           console.error('CRITICAL: Missing supabaseAnonKey!');
           Alert.alert('Configuration Error', 'Missing Supabase API key. Please check your settings.');
@@ -386,42 +384,48 @@ export default function BooksManagementScreen() {
           return;
         }
         
-        // CRITICAL: Edge Functions URL must include /functions/v1/
-        // URL format: https://<project>.supabase.co/functions/v1/<function-name>
         const functionUrl = `${supabaseUrl}/functions/v1/process-pdf`;
-
-        if (__DEV__) {
-          console.log('Calling process-pdf Edge Function:', {
-            pdfUrl: formData.documentFileUrl,
-            functionUrl,
-            supabaseUrl,
-            hasAnonKey: !!supabaseAnonKey,
-            anonKeyPreview: supabaseAnonKey?.substring(0, 20) + '...',
-            hasSession: !!session,
-            hasAccessToken: !!session?.access_token,
-            tokenPreview: session?.access_token?.substring(0, 20) + '...',
-            expiresAt: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
-          });
+        
+        // CRITICAL: Only send Authorization header if we have a VALID token
+        // If JWT is invalid, gateway will reject with 401
+        // So we skip Authorization header entirely if token is invalid/expired
+        let validToken: string | null = null;
+        if (session?.access_token) {
+          const expiresAt = session.expires_at ? new Date(session.expires_at * 1000) : null;
+          const now = new Date();
+          const isExpired = expiresAt ? expiresAt <= now : false;
+          const expiresIn = expiresAt ? expiresAt.getTime() - now.getTime() : 0;
+          
+          // Only use token if it's valid and not expiring soon
+          if (!isExpired && expiresIn > 60 * 1000) {
+            validToken = session.access_token;
+          }
         }
-
-        // Use direct fetch to ensure headers are sent correctly
-        // This bypasses any potential issues with supabase.functions.invoke
-        // CRITICAL: Both Authorization and apikey headers are required by Supabase
+        
+        // Build headers - ALWAYS include apikey, only include Authorization if valid
         const requestHeaders: Record<string, string> = {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`, // User's JWT token
-          'apikey': supabaseAnonKey, // CRITICAL: Required by Supabase gateway
-          'x-client-info': 'dream-biz-app/1.0', // Optional but helpful
+          'apikey': supabaseAnonKey, // CRITICAL: Always required
         };
         
-        // Verify headers before sending (especially apikey)
+        // Only add Authorization header if we have a valid token
+        if (validToken) {
+          requestHeaders['Authorization'] = `Bearer ${validToken}`;
+          if (__DEV__) {
+            console.log('Calling function WITH valid authentication');
+          }
+        } else {
+          if (__DEV__) {
+            console.log('Calling function WITHOUT authentication (no valid token)');
+          }
+        }
+        
         if (__DEV__) {
-          console.log('Request headers verification:', {
-            hasAuthorization: !!requestHeaders['Authorization'],
+          console.log('Request details:', {
+            functionUrl,
             hasApikey: !!requestHeaders['apikey'],
+            hasAuthorization: !!requestHeaders['Authorization'],
             apikeyLength: requestHeaders['apikey']?.length || 0,
-            apikeyPreview: requestHeaders['apikey']?.substring(0, 20) + '...',
-            authorizationPreview: requestHeaders['Authorization']?.substring(0, 30) + '...',
           });
         }
         
