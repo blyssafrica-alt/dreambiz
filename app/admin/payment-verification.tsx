@@ -1103,15 +1103,17 @@ export default function PaymentVerificationScreen() {
                   <TouchableOpacity
                     style={[styles.rejectButton, { backgroundColor: '#EF4444' }]}
                     onPress={() => handleVerifySubscription(selectedSubPayment, 'rejected')}
+                    activeOpacity={0.85}
                   >
-                    <X size={20} color="#FFF" />
+                    <X size={22} color="#FFF" strokeWidth={2.5} />
                     <Text style={styles.buttonText}>Reject</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.approveButton, { backgroundColor: '#10B981' }]}
                     onPress={() => handleVerifySubscription(selectedSubPayment, 'approved')}
+                    activeOpacity={0.85}
                   >
-                    <Check size={20} color="#FFF" />
+                    <Check size={22} color="#FFF" strokeWidth={2.5} />
                     <Text style={styles.buttonText}>Approve & Activate</Text>
                   </TouchableOpacity>
                 </View>
