@@ -5,18 +5,24 @@
  * - Performance monitoring
  */
 
-import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-// Dynamic import for PostHog to handle type issues
-let PostHogClass: any;
+// Dynamic import for Sentry - optional dependency
+let Sentry: any = null;
+try {
+  Sentry = require('@sentry/react-native');
+} catch (e) {
+  // Sentry not available - that's okay
+}
+
+// Dynamic import for PostHog - optional dependency
+let PostHogClass: any = null;
 try {
   const PostHogModule = require('posthog-react-native');
   PostHogClass = PostHogModule.default || PostHogModule;
 } catch (e) {
-  // PostHog not available
-  PostHogClass = null;
+  // PostHog not available - that's okay
 }
 
 // Get environment variables
@@ -36,6 +42,13 @@ let posthog: any = null;
  * Initialize Sentry for error tracking
  */
 export function initSentry() {
+  if (!Sentry) {
+    if (isDevelopment) {
+      console.warn('⚠️ Sentry package not installed. Error tracking disabled.');
+    }
+    return;
+  }
+
   if (!SENTRY_DSN) {
     if (isDevelopment) {
       console.warn('⚠️ Sentry DSN not configured. Error tracking disabled.');
@@ -123,11 +136,13 @@ export function identifyUser(userId: string, traits?: Record<string, any>) {
     posthog.identify(userId, traits);
   }
   
-  // Also identify in Sentry
-  Sentry.setUser({
-    id: userId,
-    ...traits,
-  });
+  // Also identify in Sentry if available
+  if (Sentry && typeof Sentry.setUser === 'function') {
+    Sentry.setUser({
+      id: userId,
+      ...traits,
+    });
+  }
 }
 
 /**
@@ -151,8 +166,10 @@ export function setUserProperties(properties: Record<string, any>) {
     posthog.setPersonProperties(properties);
   }
   
-  // Also set in Sentry
-  Sentry.setUser(properties);
+  // Also set in Sentry if available
+  if (Sentry && typeof Sentry.setUser === 'function') {
+    Sentry.setUser(properties);
+  }
 }
 
 /**
@@ -163,7 +180,10 @@ export function resetUser() {
     posthog.reset();
   }
   
-  Sentry.setUser(null);
+  // Reset in Sentry if available
+  if (Sentry && typeof Sentry.setUser === 'function') {
+    Sentry.setUser(null);
+  }
 }
 
 /**
@@ -180,10 +200,13 @@ export function trackScreenView(screenName: string, properties?: Record<string, 
  * Start a performance transaction
  */
 export function startTransaction(name: string, operation: string) {
-  return Sentry.startTransaction({
-    name,
-    op: operation,
-  });
+  if (Sentry && typeof Sentry.startTransaction === 'function') {
+    return Sentry.startTransaction({
+      name,
+      op: operation,
+    });
+  }
+  return null;
 }
 
 /**

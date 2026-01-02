@@ -1,19 +1,24 @@
 /**
  * Production-ready logging utility
  * - In development: Uses console.log with colors
- * - In production: Sends logs to Sentry and PostHog
+ * - In production: Sends logs to Sentry and PostHog (if available)
  */
 
-import * as Sentry from '@sentry/react-native';
+// Dynamic import for Sentry - optional dependency
+let Sentry: any = null;
+try {
+  Sentry = require('@sentry/react-native');
+} catch (e) {
+  // Sentry not available - that's okay
+}
 
-// Dynamic import for PostHog to handle type issues
-let posthogInstance: any;
+// Dynamic import for PostHog - optional dependency
+let posthogInstance: any = null;
 try {
   const PostHogModule = require('posthog-react-native');
   posthogInstance = PostHogModule.default || PostHogModule;
 } catch (e) {
-  // PostHog not available
-  posthogInstance = null;
+  // PostHog not available - that's okay
 }
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -73,13 +78,15 @@ class Logger {
     if (this.isDevelopment) {
       console.warn(`⚠️ [WARN] ${message}`, context || '');
     } else {
-      // Send warnings to Sentry with warning level
-      Sentry.captureMessage(message, {
-        level: 'warning',
-        extra: context,
-      });
+      // Send warnings to Sentry with warning level (if available)
+      if (Sentry && typeof Sentry.captureMessage === 'function') {
+        Sentry.captureMessage(message, {
+          level: 'warning',
+          extra: context,
+        });
+      }
       
-      // Track in PostHog
+      // Track in PostHog (if available)
       if (typeof posthogInstance?.capture === 'function') {
         posthogInstance.capture('log_warn', {
           message,
@@ -98,25 +105,27 @@ class Logger {
     if (this.isDevelopment) {
       console.error(`❌ [ERROR] ${message}`, error || '', context || '');
     } else {
-      // Send errors to Sentry
-      if (error instanceof Error) {
-        Sentry.captureException(error, {
-          extra: {
-            message,
-            ...context,
-          },
-        });
-      } else {
-        Sentry.captureMessage(message, {
-          level: 'error',
-          extra: {
-            error,
-            ...context,
-          },
-        });
+      // Send errors to Sentry (if available)
+      if (Sentry) {
+        if (error instanceof Error && typeof Sentry.captureException === 'function') {
+          Sentry.captureException(error, {
+            extra: {
+              message,
+              ...context,
+            },
+          });
+        } else if (typeof Sentry.captureMessage === 'function') {
+          Sentry.captureMessage(message, {
+            level: 'error',
+            extra: {
+              error,
+              ...context,
+            },
+          });
+        }
       }
       
-      // Track in PostHog
+      // Track in PostHog (if available)
       if (typeof posthogInstance?.capture === 'function') {
         posthogInstance.capture('log_error', {
           message,
@@ -136,12 +145,14 @@ class Logger {
     if (this.isDevelopment) {
       console.log(`⏱️ [PERF] ${metricName}: ${duration}ms`, context || '');
     } else {
-      // Send to Sentry as performance transaction
-      Sentry.metrics.distribution(metricName, duration, {
-        tags: context,
-      });
+      // Send to Sentry as performance transaction (if available)
+      if (Sentry && Sentry.metrics && typeof Sentry.metrics.distribution === 'function') {
+        Sentry.metrics.distribution(metricName, duration, {
+          tags: context,
+        });
+      }
       
-      // Track in PostHog
+      // Track in PostHog (if available)
       if (typeof posthogInstance?.capture === 'function') {
         posthogInstance.capture('performance_metric', {
           metric_name: metricName,
