@@ -72,7 +72,8 @@ serve(async (req) => {
       }
     }
 
-    // Extract and verify JWT token from Authorization header
+    // Extract and verify JWT token from Authorization header (OPTIONAL)
+    // Function works with or without authentication
     let userId: string | null = null;
     let userEmail: string | null = null;
     let isAuthenticated = false;
@@ -82,11 +83,8 @@ serve(async (req) => {
         // Extract Bearer token
         const token = authHeader.replace(/^Bearer\s+/i, '').trim();
         
-        if (!token) {
-          console.warn('Authorization header present but no token found');
-        } else {
+        if (token) {
           // Create a client with anon key and user's token to verify auth
-          // This is the correct way to verify user identity in Edge Functions
           const userClient = createClient(supabaseUrl, supabaseAnonKey, {
             global: {
               headers: {
@@ -97,35 +95,17 @@ serve(async (req) => {
           });
           
           // Verify the user by calling getUser() - this validates the JWT
+          // If this fails, we continue without auth (function still works)
           const { data: { user }, error: userError } = await userClient.auth.getUser();
           
           if (userError) {
-            console.error('JWT verification failed:', {
+            // Log but don't fail - function can work without auth
+            console.warn('JWT verification failed (continuing without auth):', {
               error: userError.message,
               code: userError.status,
-              hint: 'Token may be expired, invalid, or malformed',
+              hint: 'Token may be expired, invalid, or malformed - using default exchange rate',
             });
-            
-            // Return proper 401 error with details
-            return new Response(
-              JSON.stringify({
-                success: false,
-                error: 'Authentication failed',
-                message: userError.message || 'Invalid or expired authentication token',
-                code: 'AUTH_ERROR',
-                details: {
-                  status: userError.status || 401,
-                  hint: 'Please sign in again or refresh your session',
-                },
-              }),
-              { 
-                status: 200, // Always 200, use success field
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-              }
-            );
-          }
-          
-          if (user) {
+          } else if (user) {
             userId = user.id;
             userEmail = user.email || null;
             isAuthenticated = true;
@@ -133,27 +113,13 @@ serve(async (req) => {
           }
         }
       } catch (authError: any) {
-        console.error('Error verifying authentication:', {
+        // Log but don't fail - function can work without auth
+        console.warn('Error verifying authentication (continuing without auth):', {
           error: authError?.message || authError,
-          stack: authError?.stack,
         });
-        
-        // Return proper error response
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'Authentication verification failed',
-            message: authError?.message || 'Could not verify authentication token',
-            code: 'AUTH_VERIFICATION_ERROR',
-          }),
-          { 
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
       }
     } else {
-      // No auth header - function can still work with default values
+      // No auth header - function works with default values
       console.log('No authorization header - using default exchange rate');
     }
 
