@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { BarChart, TrendingUp, Package, Megaphone, FileText, AlertCircle, BookOpen, Users, Building2, DollarSign, ArrowRight } from 'lucide-react-native';
+import { BarChart, TrendingUp, Package, Megaphone, FileText, AlertCircle, BookOpen, Users, Building2, DollarSign, ArrowRight, Activity } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function AdminDashboard() {
@@ -432,6 +432,24 @@ export default function AdminDashboard() {
               <Text style={[styles.actionText, { color: theme.text.primary }]}>Payment Methods</Text>
               <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
                 Manage payment methods and options
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/monitoring' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Monitoring & Analytics</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                View errors, analytics, and performance metrics
               </Text>
             </View>
             <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>

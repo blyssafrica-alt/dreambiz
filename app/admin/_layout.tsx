@@ -3,7 +3,6 @@ import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import { useTheme } from '@/contexts/ThemeContext';
 
 export default function AdminLayout() {
   const { user, isSuperAdmin, isLoading } = useAuth();
@@ -171,6 +170,13 @@ export default function AdminLayout() {
         name="integrations" 
         options={{ 
           title: 'Integration Settings',
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
+        name="monitoring" 
+        options={{ 
+          title: 'Monitoring & Analytics',
           headerShown: false,
         }} 
       />
