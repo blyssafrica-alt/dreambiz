@@ -69,17 +69,30 @@ export async function invokeEdgeFunction<T = any>(
         };
       }
 
-      // Prepare headers
-      // Note: supabase.functions.invoke automatically adds:
-      // - Authorization: Bearer <access_token> (if session exists)
-      // - apikey: <anon_key> (always)
+      // Prepare headers - explicitly include Authorization header
+      // supabase.functions.invoke should automatically add it, but we ensure it's there
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
+        // Explicitly add Authorization header to ensure it's sent
+        ...(session?.access_token && {
+          'Authorization': `Bearer ${session.access_token}`,
+        }),
         ...options.headers,
       };
 
+      // Log auth details in development for debugging
+      if (__DEV__) {
+        console.log(`Invoking Edge Function ${functionName}:`, {
+          hasSession: !!session,
+          hasAccessToken: !!session?.access_token,
+          tokenPreview: session?.access_token?.substring(0, 20) + '...',
+          expiresAt: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
+        });
+      }
+
       // Invoke the function
       // The Supabase client will automatically include auth headers from the session
+      // But we also explicitly add it above to ensure it's sent
       const { data, error } = await supabase.functions.invoke(functionName, {
         body: options.body,
         headers,

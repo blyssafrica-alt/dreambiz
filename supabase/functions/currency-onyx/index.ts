@@ -54,22 +54,7 @@ serve(async (req) => {
       );
     }
 
-    // Create Supabase client
-    // For Edge Functions, we use service role key for database operations
-    // But we can also verify user auth if token is provided
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    
-    // Use service role key for database access (bypasses RLS if needed)
-    // Or use anon key with user's auth token for RLS-protected queries
-    const supabaseClient = supabaseServiceKey
-      ? createClient(supabaseUrl, supabaseServiceKey) // Service role - full access
-      : createClient(supabaseUrl, supabaseAnonKey, {
-          global: {
-            headers: authHeader ? { Authorization: authHeader } : {},
-          },
-        }); // Anon key with user token - RLS applies
-
-    // Parse request body
+    // Parse request body first (before auth check)
     let requestData: CurrencyRequest = {};
     if (req.method === 'POST') {
       try {
@@ -80,29 +65,109 @@ serve(async (req) => {
           JSON.stringify({ 
             success: false,
             error: 'Invalid JSON in request body',
+            message: 'Invalid request format',
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
     }
 
-    // Get user ID from auth token if available
+    // Extract and verify JWT token from Authorization header
     let userId: string | null = null;
+    let userEmail: string | null = null;
+    let isAuthenticated = false;
+    
     if (authHeader) {
       try {
-        const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-        if (!userError && user) {
-          userId = user.id;
+        // Extract Bearer token
+        const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+        
+        if (!token) {
+          console.warn('Authorization header present but no token found');
+        } else {
+          // Create a client with anon key and user's token to verify auth
+          // This is the correct way to verify user identity in Edge Functions
+          const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+            global: {
+              headers: {
+                Authorization: authHeader,
+                apikey: supabaseAnonKey,
+              },
+            },
+          });
+          
+          // Verify the user by calling getUser() - this validates the JWT
+          const { data: { user }, error: userError } = await userClient.auth.getUser();
+          
+          if (userError) {
+            console.error('JWT verification failed:', {
+              error: userError.message,
+              code: userError.status,
+              hint: 'Token may be expired, invalid, or malformed',
+            });
+            
+            // Return proper 401 error with details
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'Authentication failed',
+                message: userError.message || 'Invalid or expired authentication token',
+                code: 'AUTH_ERROR',
+                details: {
+                  status: userError.status || 401,
+                  hint: 'Please sign in again or refresh your session',
+                },
+              }),
+              { 
+                status: 200, // Always 200, use success field
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+              }
+            );
+          }
+          
+          if (user) {
+            userId = user.id;
+            userEmail = user.email || null;
+            isAuthenticated = true;
+            console.log('User authenticated:', { userId, email: userEmail });
+          }
         }
-      } catch (error) {
-        console.warn('Could not get user from auth token:', error);
-        // Continue without user - function can work with or without auth
+      } catch (authError: any) {
+        console.error('Error verifying authentication:', {
+          error: authError?.message || authError,
+          stack: authError?.stack,
+        });
+        
+        // Return proper error response
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Authentication verification failed',
+            message: authError?.message || 'Could not verify authentication token',
+            code: 'AUTH_VERIFICATION_ERROR',
+          }),
+          { 
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
       }
+    } else {
+      // No auth header - function can still work with default values
+      console.log('No authorization header - using default exchange rate');
     }
 
-    // Get latest exchange rate from database
+    // Create Supabase client for database operations
+    // Use service role key for database access (bypasses RLS)
+    // But we already verified user identity above
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabaseClient = supabaseServiceKey
+      ? createClient(supabaseUrl, supabaseServiceKey)
+      : createClient(supabaseUrl, supabaseAnonKey);
+
+    // Get latest exchange rate from database (only if user is authenticated)
     let exchangeRate = null;
-    if (userId) {
+    if (isAuthenticated && userId) {
       try {
         const { data, error } = await supabaseClient
           .from('exchange_rates')
@@ -112,14 +177,24 @@ serve(async (req) => {
           .limit(1)
           .maybeSingle();
 
-        if (!error && data) {
+        if (error) {
+          console.warn('Error fetching exchange rate from database:', {
+            error: error.message,
+            code: error.code,
+            hint: 'RLS policy may be blocking access or table may not exist',
+          });
+        } else if (data) {
           exchangeRate = {
             usdToZwl: Number(data.usd_to_zwl),
             createdAt: data.created_at,
           };
+          console.log('Fetched user-specific exchange rate:', exchangeRate);
         }
-      } catch (error) {
-        console.warn('Could not fetch exchange rate from database:', error);
+      } catch (error: any) {
+        console.warn('Exception fetching exchange rate:', {
+          error: error?.message || error,
+          hint: 'Database query failed',
+        });
       }
     }
 
