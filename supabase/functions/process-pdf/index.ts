@@ -687,12 +687,15 @@ serve(async (req) => {
 
   // Only allow POST method - but return 200 to prevent FunctionsHttpError
   if (req.method !== 'POST') {
-    console.error('Invalid method:', req.method, '- Only POST is allowed');
+    console.error('❌ Invalid method:', req.method, '- Only POST is allowed');
+    console.error('❌ Request URL:', req.url);
+    console.error('❌ Request pathname:', url.pathname);
     return new Response(
       JSON.stringify({ 
         success: false,
         error: `Method ${req.method} not allowed. Only POST is supported.`,
         requiresManualEntry: true,
+        receivedMethod: req.method,
       }),
       { 
         status: 200,  // Changed from 405 to 200 to prevent FunctionsHttpError
@@ -700,6 +703,8 @@ serve(async (req) => {
       }
     );
   }
+  
+  console.log('✅ Valid POST request received');
 
   try {
     // Get headers - function works with or without authentication

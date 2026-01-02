@@ -699,6 +699,14 @@ export default function BooksManagementScreen() {
             });
           }
           
+          // Log the actual request being made
+          console.log('[process-pdf] 📤 Sending POST request to:', finalFunctionUrl);
+          console.log('[process-pdf] 📤 Request method:', 'POST');
+          console.log('[process-pdf] 📤 Request body:', JSON.stringify({
+            pdfUrl: formData.documentFileUrl,
+            bookId: editingId || null,
+          }));
+          
           response = await fetch(finalFunctionUrl, {
             method: 'POST',
             headers,
@@ -708,7 +716,15 @@ export default function BooksManagementScreen() {
             }),
           });
           
+          // Log response details
+          console.log('[process-pdf] 📥 Response received:');
+          console.log('[process-pdf] 📥 Response status:', response.status);
+          console.log('[process-pdf] 📥 Response statusText:', response.statusText);
+          console.log('[process-pdf] 📥 Response URL:', response.url);
+          console.log('[process-pdf] 📥 Response ok:', response.ok);
+          
           const responseText = await response.text();
+          console.log('[process-pdf] 📥 Response body (first 200 chars):', responseText.substring(0, 200));
           
           if (!response.ok) {
             jobError = {
@@ -722,13 +738,17 @@ export default function BooksManagementScreen() {
             try {
               const errorJson = JSON.parse(responseText);
               jobError = { ...jobError, ...errorJson };
+              console.error('[process-pdf] ❌ Error response (parsed):', errorJson);
             } catch {
               // Not JSON, use text
+              console.error('[process-pdf] ❌ Error response (text):', responseText);
             }
           } else {
             try {
               jobResponse = JSON.parse(responseText);
+              console.log('[process-pdf] ✅ Success response:', jobResponse);
             } catch (parseError) {
+              console.error('[process-pdf] ❌ Failed to parse response JSON:', parseError);
               jobError = {
                 status: 500,
                 statusCode: 500,
