@@ -731,12 +731,34 @@ export default function BooksManagementScreen() {
                   );
                   return;
                 } else if (result.pageCount && result.pageCount > 0) {
+                  // Chapters should always be auto-created, but if somehow they're missing, create them
+                  if (!result.chapters || result.chapters.length === 0) {
+                    // Auto-create chapters based on page count (12 pages per chapter estimate)
+                    const estimatedChapters = Math.max(1, Math.ceil(result.pageCount / 12));
+                    const autoChapters: BookChapter[] = [];
+                    const pagesPerChapter = Math.ceil(result.pageCount / estimatedChapters);
+                    
+                    for (let i = 1; i <= estimatedChapters; i++) {
+                      const pageStart = (i - 1) * pagesPerChapter + 1;
+                      const pageEnd = Math.min(i * pagesPerChapter, result.pageCount);
+                      autoChapters.push({
+                        number: i,
+                        title: `Chapter ${i}`,
+                        pageStart: pageStart,
+                        pageEnd: pageEnd,
+                      });
+                    }
+                    
+                    updatedFormData.chapters = autoChapters;
+                    updatedFormData.totalChapters = autoChapters.length;
+                  }
+                  
                   updatedFormData.pageCount = result.pageCount;
                   setFormData(updatedFormData);
                   setIsProcessingPDF(false);
                   Alert.alert(
                     'PDF Processed',
-                    `PDF processed successfully!\n\n• Pages: ${result.pageCount}\n• Chapters: Please enter manually in Step 4.`
+                    `PDF processed successfully!\n\n• Pages: ${result.pageCount}\n• Chapters: ${updatedFormData.totalChapters || result.chapters?.length || 'auto-created'}`
                   );
                   return;
                 }

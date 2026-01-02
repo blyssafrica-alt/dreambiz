@@ -555,16 +555,43 @@ async function processPDFAsync(
       .update({ progress: 70 })
       .eq('id', jobId);
     
+    // Try pattern-based extraction first
     if (extractedText && extractedText.length > 0) {
       console.log(`[Job ${jobId}] Extracting chapters from ${extractedText.length} characters of text`);
       chapters = extractChaptersFromText(extractedText);
-      console.log(`[Job ${jobId}] Extracted ${chapters.length} chapters`);
+      console.log(`[Job ${jobId}] Pattern-based extraction found ${chapters.length} chapters`);
+      
       if (chapters.length === 0) {
-        console.warn(`[Job ${jobId}] No chapters found. Text preview (first 500 chars):`, extractedText.substring(0, 500));
+        console.warn(`[Job ${jobId}] No chapters found via pattern matching. Text preview (first 500 chars):`, extractedText.substring(0, 500));
       }
     } else {
-      console.warn(`[Job ${jobId}] Cannot extract chapters - extracted text is empty or null`);
+      console.warn(`[Job ${jobId}] Cannot extract chapters from text - extracted text is empty or null`);
       console.log(`[Job ${jobId}] extractedText length: ${extractedText?.length || 0}`);
+    }
+    
+    // FALLBACK: If no chapters found via pattern matching, create chapters automatically from page count
+    if (chapters.length === 0 && pageCount > 0) {
+      console.log(`[Job ${jobId}] Pattern matching failed - creating chapters automatically from page count (${pageCount} pages)`);
+      
+      // Estimate chapters: assume ~10-15 pages per chapter (typical for business books)
+      const estimatedChapters = Math.max(5, Math.ceil(pageCount / 12));
+      chapters = createChaptersFromPageCount(pageCount, estimatedChapters);
+      
+      console.log(`[Job ${jobId}] Auto-created ${chapters.length} chapters from ${pageCount} pages`);
+    }
+    
+    // Final check: ensure we have at least some chapters
+    if (chapters.length === 0 && pageCount > 0) {
+      // Last resort: create a single chapter for the entire book
+      console.log(`[Job ${jobId}] Creating single chapter as last resort`);
+      chapters = [{
+        number: 1,
+        title: 'Chapter 1',
+        description: `Complete book content (${pageCount} pages)`,
+        pageStart: 1,
+        pageEnd: pageCount,
+        content: '',
+      }];
     }
 
     // Update progress: processing complete
@@ -574,13 +601,14 @@ async function processPDFAsync(
       .eq('id', jobId);
 
     // Prepare result data
+    // Always return chapters (either extracted or auto-created) - no manual entry needed
     const resultData = {
       chapters,
       totalChapters: chapters.length,
       pageCount: pageCount,
       metadata: pdfMetadata || null,
       fullTextLength: extractedText.length,
-      requiresManualEntry: chapters.length === 0 && pageCount > 0,
+      requiresManualEntry: false, // Always false - chapters are always created automatically
     };
 
     // Update book in database if bookId provided
