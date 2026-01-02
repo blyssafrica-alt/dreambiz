@@ -1020,12 +1020,17 @@ export default function PaymentVerificationScreen() {
           <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
             {selectedSubPayment ? (
               <>
-                <View style={styles.modalHeader}>
-                  <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Subscription Payment Details</Text>
-                  <TouchableOpacity onPress={() => setShowModal(false)}>
-                    <X size={24} color={theme.text.tertiary} />
-                  </TouchableOpacity>
-                </View>
+                <LinearGradient
+                  colors={[`${theme.accent.primary}10`, 'transparent']}
+                  style={styles.modalHeaderGradient}
+                >
+                  <View style={styles.modalHeader}>
+                    <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Subscription Payment Details</Text>
+                    <TouchableOpacity onPress={() => setShowModal(false)} style={styles.modalCloseButton}>
+                      <X size={24} color={theme.text.tertiary} />
+                    </TouchableOpacity>
+                  </View>
+                </LinearGradient>
 
                 <ScrollView style={styles.modalBody}>
                   <View style={styles.detailRow}>
