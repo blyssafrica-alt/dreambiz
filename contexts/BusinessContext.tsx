@@ -133,9 +133,8 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         safeQuery(buildQuery('recurring_invoices', 'created_at', 'desc'), 'recurring_invoices'),
         safeQuery(buildQuery('payments', 'payment_date', 'desc'), 'payments'),
         safeQuery(
-          currentBusinessId 
-            ? supabase.from('exchange_rates').select('*').eq('user_id', userId).eq('business_id', currentBusinessId).order('created_at', { ascending: false }).limit(1).maybeSingle()
-            : supabase.from('exchange_rates').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+          // exchange_rates table does NOT have business_id column - only user_id
+          supabase.from('exchange_rates').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
           'exchange_rates'
         ),
       ]);
