@@ -297,39 +297,86 @@ export default function BooksManagementScreen() {
           return;
         }
 
-        // Refresh session if expired or expiring soon
+        // CRITICAL: Ensure we have a valid, non-expired token
+        // Supabase gateway validates JWT and rejects invalid tokens
+        let validToken: string | null = null;
+        
         if (session) {
           const expiresAt = session.expires_at ? new Date(session.expires_at * 1000) : null;
           const now = new Date();
+          const isExpired = expiresAt ? expiresAt <= now : false;
           const expiresIn = expiresAt ? expiresAt.getTime() - now.getTime() : 0;
           
-          // Refresh if expired or expires in less than 5 minutes
-          if (expiresIn < 5 * 60 * 1000) {
+          // Always refresh if expired or expiring soon (less than 10 minutes)
+          if (isExpired || expiresIn < 10 * 60 * 1000) {
             if (__DEV__) {
-              console.log(`Session expiring soon (${Math.round(expiresIn / 1000)}s), refreshing...`);
+              console.log(`Token ${isExpired ? 'expired' : 'expiring soon'} (${Math.round(expiresIn / 1000)}s), refreshing...`);
             }
+            
+            // Try to refresh the session
             try {
               const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-              if (!refreshError && refreshData?.session) {
+              if (!refreshError && refreshData?.session?.access_token) {
                 session = refreshData.session;
+                validToken = refreshData.session.access_token;
                 if (__DEV__) {
                   console.log('Session refreshed successfully');
                 }
               } else {
                 if (__DEV__) {
-                  console.warn('Failed to refresh session:', refreshError);
+                  console.error('Failed to refresh session:', refreshError);
+                }
+                // Try to get a new session
+                const { data: { session: newSession } } = await supabase.auth.getSession();
+                if (newSession?.access_token) {
+                  session = newSession;
+                  validToken = newSession.access_token;
+                  if (__DEV__) {
+                    console.log('Got new session after refresh failure');
+                  }
                 }
               }
             } catch (refreshException: any) {
               if (__DEV__) {
-                console.warn('Exception refreshing session:', refreshException);
+                console.error('Exception refreshing session:', refreshException);
+              }
+              // Try to get a new session
+              const { data: { session: newSession } } = await supabase.auth.getSession();
+              if (newSession?.access_token) {
+                session = newSession;
+                validToken = newSession.access_token;
               }
             }
+          } else {
+            // Token is valid and not expiring soon
+            validToken = session.access_token;
+          }
+        } else {
+          // No session - try to get one
+          const { data: { session: newSession } } = await supabase.auth.getSession();
+          if (newSession?.access_token) {
+            session = newSession;
+            validToken = newSession.access_token;
           }
         }
 
-        if (!session || !session.access_token) {
-          Alert.alert('Authentication Required', 'Please sign in to process PDF documents.');
+        // Final check - we MUST have a valid token
+        if (!validToken || !session?.access_token) {
+          Alert.alert(
+            'Authentication Required', 
+            'Your session has expired. Please sign in again to process PDF documents.'
+          );
+          setIsProcessingPDF(false);
+          return;
+        }
+        
+        // Verify token is not expired one more time
+        const finalExpiresAt = session.expires_at ? new Date(session.expires_at * 1000) : null;
+        if (finalExpiresAt && finalExpiresAt <= new Date()) {
+          Alert.alert(
+            'Session Expired',
+            'Your session has expired. Please sign in again.'
+          );
           setIsProcessingPDF(false);
           return;
         }
