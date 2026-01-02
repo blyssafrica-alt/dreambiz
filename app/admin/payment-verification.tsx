@@ -585,8 +585,8 @@ export default function PaymentVerificationScreen() {
               styles.viewModeTabSubtext,
               { color: (viewMode === 'books' || viewMode === 'subscriptions') ? 'rgba(255,255,255,0.8)' : theme.text.tertiary },
             ]}
-          >
-            {viewMode === 'books' ? 'Books' : viewMode === 'subscriptions' ? 'Subscriptions' : 'Books & Subscriptions'}
+            >
+            Books & Subscriptions
           </Text>
         </TouchableOpacity>
       </View>
