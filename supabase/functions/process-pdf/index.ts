@@ -499,7 +499,7 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  // Only allow POST method
+  // Only allow POST method - but return 200 to prevent FunctionsHttpError
   if (req.method !== 'POST') {
     console.error('Invalid method:', req.method, '- Only POST is allowed');
     return new Response(
@@ -509,9 +509,8 @@ serve(async (req) => {
         requiresManualEntry: true,
       }),
       { 
-        status: 405, 
+        status: 200,  // Changed from 405 to 200 to prevent FunctionsHttpError
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        statusText: 'Method Not Allowed',
       }
     );
   }
@@ -531,13 +530,17 @@ serve(async (req) => {
       apikeyHeaderPreview: apikeyHeader ? apikeyHeader.substring(0, 20) + '...' : null,
     });
     
-    // IMPORTANT: If we reach here, the Supabase gateway accepted the request
-    // This means the apikey header was present and valid
-    // The gateway validates JWT if Authorization header is present
-    // If JWT is invalid, gateway returns 401 BEFORE this code runs
-    // So if this code executes, either:
-    // 1. No Authorization header was sent (function works without auth)
-    // 2. Authorization header was sent AND JWT was valid
+    // IMPORTANT: Authentication handling
+    // The Supabase gateway validates JWT tokens BEFORE forwarding to this function.
+    // If JWT is invalid/expired, gateway returns 401 and this code NEVER runs.
+    // 
+    // However, if we reach here, it means:
+    // 1. The apikey header was present and valid (required by gateway)
+    // 2. Either no Authorization header was sent (function works without auth)
+    //    OR Authorization header was sent AND JWT was valid (gateway validated it)
+    //
+    // This function works with or without authentication - it uses service role key
+    // to bypass RLS when available, so user auth is optional.
 
     // Parse request body with error handling
     let requestData;

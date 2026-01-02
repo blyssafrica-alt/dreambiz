@@ -21,6 +21,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { decode } from 'base64-arraybuffer';
 import type { Book, BookFormData, BookChapter } from '@/types/books';
 import type { FeatureConfig } from '@/types/super-admin';
+import type { DreamBigBook } from '@/types/business';
 
 export default function BooksManagementScreen() {
   const { theme } = useTheme();
@@ -375,28 +376,139 @@ export default function BooksManagementScreen() {
           return;
         }
         
+        // STEP 5: Construct correct Edge Function URL
+        // Import supabase config to get URL and key
+        const supabaseConfig = await import('@/lib/supabase');
+        let functionBaseUrl = supabaseConfig.supabaseUrl || 'https://oqcgerfjjiozltkmmkxf.supabase.co';
+        const supabaseAnonKey = supabaseConfig.supabaseAnonKey || 'sb_publishable_959ZId8aR4E5IjTNoyVsJQ_xt8pelvp';
+        
+        // Normalize URL: ensure HTTPS, remove trailing slashes, remove /functions/v1/ if present
+        functionBaseUrl = functionBaseUrl.replace(/^http:\/\//, 'https://');
+        functionBaseUrl = functionBaseUrl.replace(/\/+$/, '');
+        functionBaseUrl = functionBaseUrl.replace(/\/functions\/v1\/?$/, '');
+        
+        // Construct correct Edge Function URL
+        const functionUrl = `${functionBaseUrl}/functions/v1/process-pdf`;
+        
+        // Validate URL format
+        if (!functionUrl.startsWith('https://') || !functionUrl.includes('/functions/v1/process-pdf')) {
+          console.error('[process-pdf] CRITICAL: Invalid function URL constructed:', functionUrl);
+          Alert.alert(
+            'Configuration Error',
+            `Invalid Supabase URL format.\n\nExpected: https://<project>.supabase.co/functions/v1/process-pdf\nGot: ${functionUrl}`
+          );
+          setIsProcessingPDF(false);
+          return;
+        }
+        
         if (__DEV__) {
           console.log('[process-pdf] Calling function with validated token:', {
+            functionUrl,
+            expectedFormat: 'https://<project>.supabase.co/functions/v1/process-pdf',
+            urlIsValid: functionUrl.startsWith('https://') && functionUrl.includes('/functions/v1/process-pdf'),
             tokenPreview: accessToken.substring(0, 20) + '...',
             tokenLength: accessToken.length,
             expiresAt: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
+            hasApikey: !!supabaseAnonKey,
+            apikeyLength: supabaseAnonKey?.length || 0,
           });
         }
         
-        // STEP 5: Call Edge Function using supabase.functions.invoke
-        // This method automatically includes:
-        // - Authorization: Bearer <access_token> (from current session)
-        // - apikey: <anon_key> (from client initialization)
-        // The Supabase client handles token refresh and validation automatically
-        const { data, error } = await supabase.functions.invoke('process-pdf', {
-          body: {
-            pdfUrl: formData.documentFileUrl,
-            bookId: editingId || null,
-          },
-        });
+        // STEP 6: Call Edge Function - Try supabase.functions.invoke first (handles auth automatically)
+        // Fallback to direct fetch if invoke fails
+        let data: any = null;
+        let error: any = null;
+        
+        // First, try using supabase.functions.invoke (recommended - handles auth automatically)
+        try {
+          const { data: invokeData, error: invokeError } = await supabase.functions.invoke('process-pdf', {
+            body: {
+              pdfUrl: formData.documentFileUrl,
+              bookId: editingId || null,
+            },
+          });
+          
+          if (invokeError) {
+            // If invoke fails with 401, it might be a deployment issue
+            if (invokeError.status === 401 || invokeError.statusCode === 401) {
+              if (__DEV__) {
+                console.warn('[process-pdf] supabase.functions.invoke returned 401, trying direct fetch as fallback');
+              }
+              // Fall through to direct fetch
+              throw invokeError;
+            }
+            // For other errors, use the error from invoke
+            error = invokeError;
+            data = null;
+          } else {
+            // Success from invoke
+            data = invokeData;
+            error = null;
+          }
+        } catch (invokeException: any) {
+          // invoke failed - try direct fetch as fallback
+          if (__DEV__) {
+            console.log('[process-pdf] supabase.functions.invoke failed, trying direct fetch:', invokeException?.message);
+          }
+          
+          try {
+            const response = await fetch(functionUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`, // Validated token
+                'apikey': supabaseAnonKey, // Required by Supabase gateway
+              },
+              body: JSON.stringify({
+                pdfUrl: formData.documentFileUrl,
+                bookId: editingId || null,
+              }),
+            });
+            
+            // Parse response
+            const responseText = await response.text();
+            
+            if (!response.ok) {
+              // Non-2xx response
+              let errorJson: any = {};
+              try {
+                errorJson = JSON.parse(responseText);
+              } catch {
+                errorJson = { message: responseText || `HTTP ${response.status}` };
+              }
+              
+              error = {
+                status: response.status,
+                statusCode: response.status,
+                message: errorJson.message || errorJson.error || `HTTP ${response.status}: ${response.statusText}`,
+                name: 'FunctionsHttpError',
+              };
+            } else {
+              // Success - parse JSON
+              try {
+                data = JSON.parse(responseText);
+              } catch (parseError) {
+                error = {
+                  message: 'Failed to parse response',
+                  status: 500,
+                  statusCode: 500,
+                };
+              }
+            }
+          } catch (fetchError: any) {
+            // Network error or fetch failed
+            error = {
+              status: 0,
+              statusCode: 0,
+              message: fetchError?.message || 'Network error: Failed to connect to function',
+              name: 'NetworkError',
+            };
+          }
+        }
         
         if (__DEV__) {
           console.log('[process-pdf] Function response:', { 
+            functionUrl,
             hasData: !!data, 
             hasError: !!error,
             errorStatus: error?.status,
@@ -418,14 +530,21 @@ export default function BooksManagementScreen() {
           // Handle 401 specifically
           if (error.status === 401 || error.statusCode === 401) {
             console.error('[process-pdf] 401 Unauthorized - Gateway rejected request:', {
+              functionUrl,
               message: error.message,
               note: 'Gateway validates JWT before forwarding. Invalid/expired token causes 401.',
               solution: 'Token was validated with getUser() - if still 401, function may not be deployed.',
+              troubleshooting: [
+                '1. Verify function is deployed: supabase functions deploy process-pdf',
+                '2. Check function exists in Supabase Dashboard → Edge Functions',
+                '3. Verify SUPABASE_URL and SUPABASE_ANON_KEY are correct',
+                '4. Check Supabase logs for detailed error messages',
+              ],
             });
             
             Alert.alert(
               'Authentication Failed',
-              'Unable to process PDF. Please ensure you are signed in and try again. If the problem persists, the function may not be deployed.'
+              `Unable to process PDF.\n\nURL: ${functionUrl}\n\nPlease ensure:\n1. You are signed in\n2. The function is deployed\n3. Try manual entry if this persists.`
             );
             setIsProcessingPDF(false);
             return;
@@ -623,8 +742,10 @@ export default function BooksManagementScreen() {
           const feature = availableFeatures.find(f => f.featureId === featureId);
           if (feature) {
             const currentRequiresBook = feature.access.requiresBook || [];
-            if (!currentRequiresBook.includes(formData.slug)) {
-              const updatedRequiresBook = [...currentRequiresBook, formData.slug];
+            // Cast slug to DreamBigBook since it should be one of the valid book slugs
+            const bookSlug = formData.slug as DreamBigBook;
+            if (!currentRequiresBook.includes(bookSlug)) {
+              const updatedRequiresBook = [...currentRequiresBook, bookSlug];
               await supabase
                 .from('feature_config')
                 .update({
