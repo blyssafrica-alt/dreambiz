@@ -376,36 +376,57 @@ export default function BooksManagementScreen() {
           return;
         }
         
-        // STEP 5: Construct correct Edge Function URL
-        // Import supabase config to get URL and key
+        // STEP 5: Construct CORRECT Edge Function URL - ALWAYS use direct fetch with explicit URL
+        // DO NOT use supabase.functions.invoke() as it constructs URLs incorrectly
         const supabaseConfig = await import('@/lib/supabase');
-        let functionBaseUrl = supabaseConfig.supabaseUrl || 'https://oqcgerfjjiozltkmmkxf.supabase.co';
+        
+        // Get base URL and ensure it's correct
+        let baseUrl = supabaseConfig.supabaseUrl || 'https://oqcgerfjjiozltkmmkxf.supabase.co';
         const supabaseAnonKey = supabaseConfig.supabaseAnonKey || 'sb_publishable_959ZId8aR4E5IjTNoyVsJQ_xt8pelvp';
         
-        // Normalize URL: ensure HTTPS, remove trailing slashes, remove /functions/v1/ if present
-        functionBaseUrl = functionBaseUrl.replace(/^http:\/\//, 'https://');
-        functionBaseUrl = functionBaseUrl.replace(/\/+$/, '');
-        functionBaseUrl = functionBaseUrl.replace(/\/functions\/v1\/?$/, '');
+        // CRITICAL: Normalize base URL to ensure correct format
+        // 1. Force HTTPS (never HTTP)
+        baseUrl = baseUrl.replace(/^http:\/\//i, 'https://');
+        // 2. Remove any trailing slashes
+        baseUrl = baseUrl.replace(/\/+$/, '');
+        // 3. Remove /functions/v1/ if accidentally included in base URL
+        baseUrl = baseUrl.replace(/\/functions\/v1\/?$/i, '');
+        // 4. Ensure it ends with .supabase.co (no path)
+        if (!baseUrl.match(/^https:\/\/[^\/]+\.supabase\.co$/i)) {
+          // Extract just the domain part if there's extra path
+          const match = baseUrl.match(/^(https:\/\/[^\/]+\.supabase\.co)/i);
+          if (match) {
+            baseUrl = match[1];
+          }
+        }
         
-        // Construct correct Edge Function URL
-        const functionUrl = `${functionBaseUrl}/functions/v1/process-pdf`;
+        // Construct the CORRECT Edge Function URL
+        // Format: https://<project>.supabase.co/functions/v1/process-pdf
+        const functionUrl = `${baseUrl}/functions/v1/process-pdf`;
         
-        // Validate URL format
-        if (!functionUrl.startsWith('https://') || !functionUrl.includes('/functions/v1/process-pdf')) {
-          console.error('[process-pdf] CRITICAL: Invalid function URL constructed:', functionUrl);
+        // CRITICAL VALIDATION: Ensure URL is exactly correct
+        const expectedPattern = /^https:\/\/[^\/]+\.supabase\.co\/functions\/v1\/process-pdf$/i;
+        if (!expectedPattern.test(functionUrl)) {
+          console.error('[process-pdf] CRITICAL: Invalid function URL constructed!', {
+            functionUrl,
+            baseUrl,
+            expectedPattern: 'https://<project>.supabase.co/functions/v1/process-pdf',
+            actualPattern: functionUrl.match(/^https:\/\/[^\/]+\.supabase\.co\/functions\/v1\/process-pdf$/i) ? 'MATCH' : 'NO MATCH',
+          });
           Alert.alert(
             'Configuration Error',
-            `Invalid Supabase URL format.\n\nExpected: https://<project>.supabase.co/functions/v1/process-pdf\nGot: ${functionUrl}`
+            `Invalid Supabase URL format.\n\nExpected: https://<project>.supabase.co/functions/v1/process-pdf\n\nGot: ${functionUrl}\n\nBase URL: ${baseUrl}`
           );
           setIsProcessingPDF(false);
           return;
         }
         
         if (__DEV__) {
-          console.log('[process-pdf] Calling function with validated token:', {
+          console.log('[process-pdf] ✅ CORRECT URL constructed:', {
             functionUrl,
+            baseUrl,
             expectedFormat: 'https://<project>.supabase.co/functions/v1/process-pdf',
-            urlIsValid: functionUrl.startsWith('https://') && functionUrl.includes('/functions/v1/process-pdf'),
+            urlIsValid: expectedPattern.test(functionUrl),
             tokenPreview: accessToken.substring(0, 20) + '...',
             tokenLength: accessToken.length,
             expiresAt: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
@@ -414,95 +435,106 @@ export default function BooksManagementScreen() {
           });
         }
         
-        // STEP 6: Call Edge Function - Try supabase.functions.invoke first (handles auth automatically)
-        // Fallback to direct fetch if invoke fails
+        // STEP 6: Call Edge Function using DIRECT fetch ONLY (supabase.functions.invoke has URL issues)
+        // This ensures we have full control over the exact URL being called
         let data: any = null;
         let error: any = null;
         
-        // First, try using supabase.functions.invoke (recommended - handles auth automatically)
         try {
-          const { data: invokeData, error: invokeError } = await supabase.functions.invoke('process-pdf', {
-            body: {
+          if (__DEV__) {
+            console.log('[process-pdf] Making request to:', functionUrl);
+            console.log('[process-pdf] Headers:', {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken.substring(0, 20)}...`,
+              'apikey': `${supabaseAnonKey.substring(0, 10)}...`,
+            });
+          }
+          
+          const response = await fetch(functionUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`, // Validated token
+              'apikey': supabaseAnonKey, // Required by Supabase gateway
+            },
+            body: JSON.stringify({
               pdfUrl: formData.documentFileUrl,
               bookId: editingId || null,
-            },
+            }),
           });
           
-          if (invokeError) {
-            // If invoke fails with 401, it might be a deployment issue
-            if (invokeError.status === 401 || invokeError.statusCode === 401) {
-              if (__DEV__) {
-                console.warn('[process-pdf] supabase.functions.invoke returned 401, trying direct fetch as fallback');
-              }
-              // Fall through to direct fetch
-              throw invokeError;
-            }
-            // For other errors, use the error from invoke
-            error = invokeError;
-            data = null;
-          } else {
-            // Success from invoke
-            data = invokeData;
-            error = null;
-          }
-        } catch (invokeException: any) {
-          // invoke failed - try direct fetch as fallback
           if (__DEV__) {
-            console.log('[process-pdf] supabase.functions.invoke failed, trying direct fetch:', invokeException?.message);
+            console.log('[process-pdf] Response received:', {
+              status: response.status,
+              statusText: response.statusText,
+              ok: response.ok,
+              headers: Object.fromEntries(response.headers.entries()),
+            });
           }
           
-          try {
-            const response = await fetch(functionUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`, // Validated token
-                'apikey': supabaseAnonKey, // Required by Supabase gateway
-              },
-              body: JSON.stringify({
-                pdfUrl: formData.documentFileUrl,
-                bookId: editingId || null,
-              }),
-            });
-            
-            // Parse response
-            const responseText = await response.text();
-            
-            if (!response.ok) {
-              // Non-2xx response
-              let errorJson: any = {};
-              try {
-                errorJson = JSON.parse(responseText);
-              } catch {
-                errorJson = { message: responseText || `HTTP ${response.status}` };
-              }
-              
-              error = {
-                status: response.status,
-                statusCode: response.status,
-                message: errorJson.message || errorJson.error || `HTTP ${response.status}: ${response.statusText}`,
-                name: 'FunctionsHttpError',
-              };
-            } else {
-              // Success - parse JSON
-              try {
-                data = JSON.parse(responseText);
-              } catch (parseError) {
-                error = {
-                  message: 'Failed to parse response',
-                  status: 500,
-                  statusCode: 500,
-                };
-              }
+          // Parse response
+          const responseText = await response.text();
+          
+          if (!response.ok) {
+            // Non-2xx response
+            let errorJson: any = {};
+            try {
+              errorJson = JSON.parse(responseText);
+            } catch {
+              errorJson = { message: responseText || `HTTP ${response.status}` };
             }
-          } catch (fetchError: any) {
-            // Network error or fetch failed
+            
             error = {
-              status: 0,
-              statusCode: 0,
-              message: fetchError?.message || 'Network error: Failed to connect to function',
-              name: 'NetworkError',
+              status: response.status,
+              statusCode: response.status,
+              message: errorJson.message || errorJson.error || `HTTP ${response.status}: ${response.statusText}`,
+              name: 'FunctionsHttpError',
             };
+            
+            if (__DEV__) {
+              console.error('[process-pdf] ❌ Non-2xx response:', {
+                status: response.status,
+                statusText: response.statusText,
+                errorJson,
+                responseText: responseText.substring(0, 200),
+              });
+            }
+          } else {
+            // Success - parse JSON
+            try {
+              data = JSON.parse(responseText);
+              if (__DEV__) {
+                console.log('[process-pdf] ✅ Success response:', {
+                  success: data.success,
+                  hasData: !!data.data,
+                  message: data.message,
+                });
+              }
+            } catch (parseError) {
+              error = {
+                message: 'Failed to parse response',
+                status: 500,
+                statusCode: 500,
+                responseText: responseText.substring(0, 200),
+              };
+            }
+          }
+        } catch (fetchError: any) {
+          // Network error or fetch failed
+          error = {
+            status: 0,
+            statusCode: 0,
+            message: fetchError?.message || 'Network error: Failed to connect to function',
+            name: 'NetworkError',
+            functionUrl, // Include URL in error for debugging
+          };
+          
+          if (__DEV__) {
+            console.error('[process-pdf] ❌ Fetch error:', {
+              error: fetchError,
+              message: fetchError?.message,
+              functionUrl,
+            });
           }
         }
         

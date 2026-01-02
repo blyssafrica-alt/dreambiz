@@ -480,15 +480,31 @@ serve(async (req) => {
   console.log('=== Edge Function Request ===');
   console.log('Method:', req.method);
   console.log('Full URL:', fullUrl);
-  console.log('Path:', url.pathname);
-  console.log('Expected paths:', expectedPaths);
+  console.log('Path (after gateway):', url.pathname);
+  console.log('Expected paths (gateway strips /functions/v1/):', expectedPaths);
   console.log('URL correct:', isCorrectPath);
+  console.log('⚠️ IMPORTANT: Frontend MUST call: https://<project>.supabase.co/functions/v1/process-pdf');
+  console.log('   Gateway strips /functions/v1/ prefix, so function receives: /process-pdf');
+  console.log('   If you see http:// or missing /functions/v1/, the frontend URL is WRONG!');
   
   if (!isCorrectPath) {
-    console.warn('⚠️ WARNING: Request received at unexpected path:', url.pathname);
-    console.warn('   Accepted paths:', expectedPaths);
-    console.warn('   Frontend should call: https://<project>.supabase.co/functions/v1/process-pdf');
-    console.warn('   (Gateway may strip /functions/v1/ prefix - this is normal)');
+    console.error('❌ ERROR: Request received at unexpected path:', url.pathname);
+    console.error('   Accepted paths:', expectedPaths);
+    console.error('   Frontend MUST call: https://<project>.supabase.co/functions/v1/process-pdf');
+    console.error('   (Gateway strips /functions/v1/ prefix - this is normal, but frontend must include it)');
+  }
+  
+  // Check for common URL issues
+  if (fullUrl.includes('http://') && !fullUrl.includes('localhost')) {
+    console.error('❌ CRITICAL: URL uses HTTP instead of HTTPS! Frontend URL is wrong!');
+    console.error('   Expected: https://<project>.supabase.co/functions/v1/process-pdf');
+    console.error('   Got: ' + fullUrl);
+  }
+  
+  if (!fullUrl.includes('/functions/v1/') && !fullUrl.includes('localhost')) {
+    console.error('❌ CRITICAL: URL missing /functions/v1/ prefix! Frontend URL is wrong!');
+    console.error('   Expected: https://<project>.supabase.co/functions/v1/process-pdf');
+    console.error('   Got: ' + fullUrl);
   }
   
   console.log('Headers:', Object.fromEntries(req.headers.entries()));
