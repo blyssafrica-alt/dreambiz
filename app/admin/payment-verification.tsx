@@ -778,14 +778,24 @@ export default function PaymentVerificationScreen() {
                     Ref: {purchase.payment_reference}
                   </Text>
                 )}
-                {purchase.access_granted && (
-                  <View style={styles.proofIndicator}>
-                    <CheckCircle size={16} color={theme.accent.primary} />
-                    <Text style={[styles.proofText, { color: theme.accent.primary }]}>
-                      Access granted
-                    </Text>
-                  </View>
-                )}
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                  {purchase.proof_of_payment_url && (
+                    <View style={styles.proofIndicator}>
+                      <Eye size={16} color={theme.accent.primary} />
+                      <Text style={[styles.proofText, { color: theme.accent.primary }]}>
+                        Proof attached
+                      </Text>
+                    </View>
+                  )}
+                  {purchase.access_granted && (
+                    <View style={styles.proofIndicator}>
+                      <CheckCircle size={16} color="#10B981" />
+                      <Text style={[styles.proofText, { color: '#10B981' }]}>
+                        Access granted
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </TouchableOpacity>
             );
           })}
