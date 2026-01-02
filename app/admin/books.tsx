@@ -284,7 +284,7 @@ export default function BooksManagementScreen() {
       // The Edge Function will extract data and return it without updating database
 
       // Try to call Supabase Edge Function for PDF processing
-      // Using direct invoke - Supabase client automatically includes auth headers
+      // Using helper function for better error handling
       try {
         // Verify session exists before calling
         const { data: { session } } = await supabase.auth.getSession();
@@ -294,6 +294,13 @@ export default function BooksManagementScreen() {
           return;
         }
 
+        if (__DEV__) {
+          console.log('Calling process-pdf Edge Function:', {
+            pdfUrl: formData.documentFileUrl,
+            hasSession: !!session,
+          });
+        }
+
         const { data, error } = await supabase.functions.invoke('process-pdf', {
           body: {
             pdfUrl: formData.documentFileUrl,
@@ -301,15 +308,42 @@ export default function BooksManagementScreen() {
           },
         });
 
+        if (__DEV__) {
+          console.log('process-pdf response:', { data, error });
+        }
+
         if (error) {
-          // Suppress 401 errors (function not deployed or auth issue) - expected in some cases
-          if (error.status !== 401 && error.statusCode !== 401) {
-            if (__DEV__) {
-              console.warn('Edge Function error:', error);
-            }
+          // Log error details for debugging
+          console.error('Edge Function error:', {
+            status: error.status,
+            statusCode: error.statusCode,
+            message: error.message,
+            name: error.name,
+          });
+          
+          // Check if it's a 401 (function not deployed) or network error
+          if (error.status === 401 || error.statusCode === 401) {
+            Alert.alert(
+              'Function Not Deployed',
+              'The PDF processing function is not deployed yet. Please deploy it or use manual entry.',
+              [{ text: 'OK' }]
+            );
+            setIsProcessingPDF(false);
+            return;
           }
-          // Fall through to manual entry
-        } else if (data) {
+          
+          // For other errors, show helpful message
+          Alert.alert(
+            'PDF Processing Error',
+            `Failed to process PDF: ${error.message || 'Unknown error'}\n\nPlease try manual entry.`,
+            [{ text: 'OK' }]
+          );
+          setIsProcessingPDF(false);
+          return;
+        }
+
+        if (data) {
+          // Check if function returned success
           if (data.success && data.data) {
             const extractedData = data.data;
             
@@ -326,46 +360,65 @@ export default function BooksManagementScreen() {
               updatedFormData.chapters = extractedData.chapters;
               updatedFormData.totalChapters = extractedData.chapters.length;
               setFormData(updatedFormData);
+              setIsProcessingPDF(false);
               Alert.alert(
                 'Success', 
                 `PDF processed successfully!\n\n• Pages: ${extractedData.pageCount || 'N/A'}\n• Chapters: ${extractedData.chapters.length}`
               );
+              return; // Successfully extracted chapters, don't show manual entry
             } else if (extractedData.pageCount && extractedData.pageCount > 0) {
               // Only page count extracted, no chapters
               updatedFormData.pageCount = extractedData.pageCount;
               setFormData(updatedFormData);
+              setIsProcessingPDF(false);
               Alert.alert(
                 'PDF Processed', 
                 `PDF processed successfully!\n\n• Pages: ${extractedData.pageCount}\n• Chapters: Please enter manually in Step 4.`
               );
+              return; // Page count extracted, don't show manual entry alert
             } else {
-              // No data extracted
-              if (data.requiresManualEntry) {
-                console.log('Edge Function suggests manual entry');
-                // Fall through to manual entry option
-              }
+              // No data extracted - function suggests manual entry
+              setIsProcessingPDF(false);
+              // Fall through to manual entry option below
             }
-            
+          } else if (data.success === false) {
+            // Function returned error but with success: false
             setIsProcessingPDF(false);
-            if (extractedData.chapters && extractedData.chapters.length > 0) {
-              return; // Successfully extracted chapters, don't show manual entry
-            }
-            // If only page count or nothing extracted, fall through to manual entry
-          } else if (data.requiresManualEntry) {
-            // Edge Function suggests manual entry
-            console.log('Edge Function suggests manual entry');
+            Alert.alert(
+              'PDF Processing',
+              data.message || 'Could not extract information from PDF. Please use manual entry.',
+              [{ text: 'OK' }]
+            );
+            // Fall through to manual entry option
+          } else {
+            // Unexpected response format
+            console.warn('Unexpected response format:', data);
+            setIsProcessingPDF(false);
             // Fall through to manual entry option
           }
+        } else {
+          // No data returned
+          console.warn('No data returned from Edge Function');
+          setIsProcessingPDF(false);
+          // Fall through to manual entry option
         }
       } catch (edgeFunctionError: any) {
         // Edge Function might not be deployed or there's a network error
-        // Suppress 401 errors (function not deployed) - expected in some cases
-        if (edgeFunctionError?.status !== 401 && edgeFunctionError?.statusCode !== 401) {
-          if (__DEV__) {
-            console.log('Edge Function not available, using manual entry:', edgeFunctionError.message);
-          }
-        }
-        // Fall through to manual entry
+        console.error('Exception calling Edge Function:', {
+          error: edgeFunctionError,
+          message: edgeFunctionError?.message,
+          stack: edgeFunctionError?.stack,
+        });
+        
+        setIsProcessingPDF(false);
+        
+        // Show helpful error message
+        Alert.alert(
+          'PDF Processing Unavailable',
+          `The PDF processing service is not available.\n\nError: ${edgeFunctionError?.message || 'Network or deployment error'}\n\nPlease use manual entry.`,
+          [{ text: 'OK' }]
+        );
+        // Fall through to manual entry option
       }
 
       // Fallback to manual entry
