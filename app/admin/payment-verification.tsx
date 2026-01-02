@@ -528,7 +528,7 @@ export default function PaymentVerificationScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      {/* View Mode Toggle */}
+      {/* View Mode Toggle - Simplified */}
       <View style={[styles.viewModeContainer, { backgroundColor: theme.background.card }]}>
         <TouchableOpacity
           style={[
@@ -545,25 +545,15 @@ export default function PaymentVerificationScreen() {
               { color: viewMode === 'documents' ? '#FFF' : theme.text.primary },
             ]}
           >
-            Document Payments
+            Customer Payments
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.viewModeTab,
-            {
-              backgroundColor: viewMode === 'subscriptions' ? theme.accent.primary : theme.background.secondary,
-            },
-          ]}
-          onPress={() => setViewMode('subscriptions')}
-        >
           <Text
             style={[
-              styles.viewModeTabText,
-              { color: viewMode === 'subscriptions' ? '#FFF' : theme.text.primary },
+              styles.viewModeTabSubtext,
+              { color: viewMode === 'documents' ? 'rgba(255,255,255,0.8)' : theme.text.tertiary },
             ]}
           >
-            Subscription Payments
+            Invoice/Receipt payments
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -573,18 +563,76 @@ export default function PaymentVerificationScreen() {
               backgroundColor: viewMode === 'books' ? theme.accent.primary : theme.background.secondary,
             },
           ]}
-          onPress={() => setViewMode('books')}
+          onPress={() => {
+            // When selecting platform payments, default to books
+            if (viewMode !== 'books' && viewMode !== 'subscriptions') {
+              setViewMode('books');
+            }
+            // If already on platform payments, do nothing (use sub-tabs)
+          }}
         >
           <Text
             style={[
               styles.viewModeTabText,
-              { color: viewMode === 'books' ? '#FFF' : theme.text.primary },
+              { color: (viewMode === 'books' || viewMode === 'subscriptions') ? '#FFF' : theme.text.primary },
             ]}
           >
-            Book Purchases
+            Platform Payments
+          </Text>
+          <Text
+            style={[
+              styles.viewModeTabSubtext,
+              { color: (viewMode === 'books' || viewMode === 'subscriptions') ? 'rgba(255,255,255,0.8)' : theme.text.tertiary },
+            ]}
+          >
+            {viewMode === 'books' ? 'Books' : viewMode === 'subscriptions' ? 'Subscriptions' : 'Books & Subscriptions'}
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Sub-category selector for Platform Payments */}
+      {(viewMode === 'books' || viewMode === 'subscriptions') && (
+        <View style={[styles.subModeContainer, { backgroundColor: theme.background.secondary }]}>
+          <TouchableOpacity
+            style={[
+              styles.subModeTab,
+              {
+                backgroundColor: viewMode === 'books' ? theme.accent.primary : 'transparent',
+                borderBottomColor: viewMode === 'books' ? theme.accent.primary : 'transparent',
+              },
+            ]}
+            onPress={() => setViewMode('books')}
+          >
+            <Text
+              style={[
+                styles.subModeTabText,
+                { color: viewMode === 'books' ? '#FFF' : theme.text.secondary },
+              ]}
+            >
+              Books
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.subModeTab,
+              {
+                backgroundColor: viewMode === 'subscriptions' ? theme.accent.primary : 'transparent',
+                borderBottomColor: viewMode === 'subscriptions' ? theme.accent.primary : 'transparent',
+              },
+            ]}
+            onPress={() => setViewMode('subscriptions')}
+          >
+            <Text
+              style={[
+                styles.subModeTabText,
+                { color: viewMode === 'subscriptions' ? '#FFF' : theme.text.secondary },
+              ]}
+            >
+              Subscriptions
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Filter Tabs */}
       <View style={[styles.filterContainer, { backgroundColor: theme.background.card }]}>
@@ -1157,7 +1205,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   viewModeTabText: {
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  viewModeTabSubtext: {
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  subModeContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+    borderBottomWidth: 1,
+  },
+  subModeTab: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    marginBottom: -1,
+  },
+  subModeTabText: {
+    fontSize: 13,
     fontWeight: '600',
   },
   filterContainer: {
