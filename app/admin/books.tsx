@@ -278,6 +278,18 @@ export default function BooksManagementScreen() {
       return;
     }
 
+    // ============================================
+    // RETRY GUARD - Prevent retry storms
+    // ============================================
+    const MAX_RETRIES = 3;
+    const MAX_POLL_ATTEMPTS = 60; // 60 * 2s = 2 minutes max
+    const POLL_INTERVAL = 2000; // 2 seconds
+    const TIMEOUT_MS = 120000; // 2 minutes total timeout
+
+    let retryCount = 0;
+    let pollAttempts = 0;
+    const startTime = Date.now();
+
     try {
       setIsProcessingPDF(true);
       
@@ -482,157 +494,170 @@ export default function BooksManagementScreen() {
           console.log('[process-pdf] ✅ Final token validation passed, calling function');
         }
         
-        // STEP 7: Use supabase.functions.invoke() - This automatically handles auth correctly
-        // The Supabase client manages token refresh and validation internally
-        // This is the RECOMMENDED way to call Edge Functions
-        // CRITICAL: This uses the same client that was used to authenticate, ensuring token matches project
-        const { data, error } = await supabase.functions.invoke('process-pdf', {
+        // STEP 7: Create PDF processing job (returns immediately)
+        const { data: jobResponse, error: jobError } = await supabase.functions.invoke('process-pdf', {
           body: {
             pdfUrl: formData.documentFileUrl,
             bookId: editingId || null,
           },
         });
-        
-        if (__DEV__) {
-          console.log('[process-pdf] Function response:', { 
-            hasData: !!data, 
-            hasError: !!error,
-            errorStatus: error?.status,
-            errorStatusCode: error?.statusCode,
-            errorMessage: error?.message,
-            errorName: error?.name,
-          });
-        }
 
-        if (error) {
-          // Log error with full details
-          const errorDetails = {
-            status: error.status || error.statusCode,
-            statusCode: error.statusCode || error.status,
-            message: error.message || 'Unknown error',
-            name: error.name || 'Error',
-          };
-          
-          console.error('[process-pdf] Edge Function error:', JSON.stringify(errorDetails, null, 2));
-          
-          // Handle 401 specifically
-          if (error.status === 401 || error.statusCode === 401) {
-            const troubleshootingInfo = {
-              status: error.status || error.statusCode,
-              statusCode: error.statusCode || error.status,
-              message: error.message,
-              note: 'Gateway validates JWT before forwarding. Invalid/expired token causes 401.',
-              solution: 'Token was validated with getUser() and refreshed if needed.',
-              troubleshooting: [
-                '1. Verify function is deployed: supabase functions deploy process-pdf',
-                '2. Check function exists in Supabase Dashboard → Edge Functions',
-                '3. Verify SUPABASE_URL and SUPABASE_ANON_KEY match between client and function',
-                '4. Check Supabase logs for detailed error messages',
-                '5. Try signing out and signing in again to get a fresh token',
-                '6. Verify you are logged into the correct Supabase project',
-              ],
-            };
-            
-            console.error('[process-pdf] 401 Unauthorized - Gateway rejected request:', JSON.stringify(troubleshootingInfo, null, 2));
-            
+        if (jobError) {
+          // Check retry limit
+          if (retryCount >= MAX_RETRIES) {
+            console.error('[process-pdf] Max retries exceeded');
             Alert.alert(
-              'Authentication Failed',
-              `Unable to process PDF.\n\nError: ${error.message || 'Invalid JWT'}\n\nPlease try:\n1. Sign out and sign back in\n2. Verify the function is deployed\n3. Use manual entry if this persists.`
+              'PDF Processing Failed',
+              `Unable to start PDF processing after ${MAX_RETRIES} attempts.\n\nPlease try:\n1. Sign out and sign back in\n2. Use manual entry\n\nError: ${jobError.message || 'Unknown error'}`
             );
             setIsProcessingPDF(false);
             return;
           }
-          
-          // For other errors, show helpful message
+
+          // Handle 401 - don't retry
+          if (jobError.status === 401 || jobError.statusCode === 401) {
+            Alert.alert(
+              'Authentication Failed',
+              `Unable to process PDF.\n\nPlease try:\n1. Sign out and sign back in\n2. Use manual entry`
+            );
+            setIsProcessingPDF(false);
+            return;
+          }
+
+          // Retry with exponential backoff
+          retryCount++;
+          const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 5000);
+          console.log(`[process-pdf] Retrying in ${delay}ms (attempt ${retryCount}/${MAX_RETRIES})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          // Retry the entire function (will restart from beginning)
+          return processPDFDocument();
+        }
+
+        if (!jobResponse?.success || !jobResponse?.jobId) {
           Alert.alert(
-            'PDF Processing Error',
-            `Failed to process PDF: ${error.message || 'Unknown error'}\n\nPlease try manual entry.`,
-            [{ text: 'OK' }]
+            'PDF Processing Failed',
+            'Failed to start PDF processing job. Please try manual entry.'
           );
           setIsProcessingPDF(false);
           return;
         }
 
-        if (data) {
-          // Check if function returned success
-          if (data.success && data.data) {
-            const extractedData = data.data;
-            
-            // Update form with extracted information
-            const updatedFormData: any = { ...formData };
-            
-            // Update page count if extracted
-            if (extractedData.pageCount && extractedData.pageCount > 0) {
-              updatedFormData.pageCount = extractedData.pageCount;
-            }
-            
-            // Update chapters if extracted
-            if (extractedData.chapters && extractedData.chapters.length > 0) {
-              updatedFormData.chapters = extractedData.chapters;
-              updatedFormData.totalChapters = extractedData.chapters.length;
-              setFormData(updatedFormData);
-              setIsProcessingPDF(false);
-              Alert.alert(
-                'Success', 
-                `PDF processed successfully!\n\n• Pages: ${extractedData.pageCount || 'N/A'}\n• Chapters: ${extractedData.chapters.length}`
-              );
-              return; // Successfully extracted chapters, don't show manual entry
-            } else if (extractedData.pageCount && extractedData.pageCount > 0) {
-              // Only page count extracted, no chapters
-              updatedFormData.pageCount = extractedData.pageCount;
-              setFormData(updatedFormData);
-              setIsProcessingPDF(false);
-              Alert.alert(
-                'PDF Processed', 
-                `PDF processed successfully!\n\n• Pages: ${extractedData.pageCount}\n• Chapters: Please enter manually in Step 4.`
-              );
-              return; // Page count extracted, don't show manual entry alert
-            } else {
-              // No data extracted - function suggests manual entry
-              setIsProcessingPDF(false);
-              // Fall through to manual entry option below
-            }
-          } else if (data.success === false) {
-            // Function returned error but with success: false
-            setIsProcessingPDF(false);
+        const jobId = jobResponse.jobId;
+        console.log(`[process-pdf] Job created: ${jobId}, polling for status...`);
+
+        // ============================================
+        // POLL JOB STATUS (with timeout and retry limits)
+        // ============================================
+        while (pollAttempts < MAX_POLL_ATTEMPTS) {
+          // Check timeout
+          if (Date.now() - startTime > TIMEOUT_MS) {
             Alert.alert(
-              'PDF Processing',
-              data.message || 'Could not extract information from PDF. Please use manual entry.',
-              [{ text: 'OK' }]
+              'Processing Timeout',
+              'PDF processing is taking longer than expected. You can check back later or use manual entry.'
             );
-            // Fall through to manual entry option
-          } else {
-            // Unexpected response format
-            console.warn('Unexpected response format:', data);
             setIsProcessingPDF(false);
-            // Fall through to manual entry option
+            return;
           }
-        } else {
-          // No data returned
-          console.warn('No data returned from Edge Function');
-          setIsProcessingPDF(false);
-          // Fall through to manual entry option
+
+          // Wait before polling
+          await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+          pollAttempts++;
+
+          try {
+            // Check job status
+            const { data: statusResponse, error: statusError } = await supabase.functions.invoke('process-pdf', {
+              body: { jobId },
+            });
+
+            if (statusError) {
+              console.warn(`[process-pdf] Status check error (attempt ${pollAttempts}):`, statusError);
+              continue; // Continue polling
+            }
+
+            const job = statusResponse?.job;
+            if (!job) {
+              continue; // Continue polling
+            }
+
+            // Log progress
+            if (__DEV__ && job.progress) {
+              console.log(`[process-pdf] Job ${jobId} progress: ${job.progress}% (status: ${job.status})`);
+            }
+
+            // Check job status
+            if (job.status === 'completed') {
+              const result = job.result;
+              if (result) {
+                // Update form with extracted information
+                const updatedFormData: any = { ...formData };
+
+                if (result.pageCount && result.pageCount > 0) {
+                  updatedFormData.pageCount = result.pageCount;
+                }
+
+                if (result.chapters && result.chapters.length > 0) {
+                  updatedFormData.chapters = result.chapters;
+                  updatedFormData.totalChapters = result.chapters.length;
+                  setFormData(updatedFormData);
+                  setIsProcessingPDF(false);
+                  Alert.alert(
+                    'Success',
+                    `PDF processed successfully!\n\n• Pages: ${result.pageCount || 'N/A'}\n• Chapters: ${result.chapters.length}`
+                  );
+                  return;
+                } else if (result.pageCount && result.pageCount > 0) {
+                  updatedFormData.pageCount = result.pageCount;
+                  setFormData(updatedFormData);
+                  setIsProcessingPDF(false);
+                  Alert.alert(
+                    'PDF Processed',
+                    `PDF processed successfully!\n\n• Pages: ${result.pageCount}\n• Chapters: Please enter manually in Step 4.`
+                  );
+                  return;
+                }
+              }
+
+              // Job completed but no useful data
+              setIsProcessingPDF(false);
+              Alert.alert(
+                'PDF Processing Complete',
+                'PDF processed but no chapters were detected. Please enter chapters manually in Step 4.'
+              );
+              return;
+            }
+
+            if (job.status === 'failed') {
+              setIsProcessingPDF(false);
+              Alert.alert(
+                'PDF Processing Failed',
+                `Processing failed: ${job.error || 'Unknown error'}\n\nPlease use manual entry.`
+              );
+              return;
+            }
+
+            // Status is 'pending' or 'processing' - continue polling
+          } catch (pollError: any) {
+            console.warn(`[process-pdf] Poll error (attempt ${pollAttempts}):`, pollError);
+            // Continue polling
+          }
         }
-      } catch (edgeFunctionError: any) {
-        // Edge Function might not be deployed or there's a network error
-        console.error('Exception calling Edge Function:', {
-          error: edgeFunctionError,
-          message: edgeFunctionError?.message,
-          stack: edgeFunctionError?.stack,
-        });
-        
+
+        // Max poll attempts reached
         setIsProcessingPDF(false);
-        
-        // Show helpful error message
+        Alert.alert(
+          'Processing Timeout',
+          'PDF processing is taking longer than expected. You can check back later or use manual entry.'
+        );
+      } catch (edgeFunctionError: any) {
+        console.error('[process-pdf] Exception:', edgeFunctionError);
+        setIsProcessingPDF(false);
         Alert.alert(
           'PDF Processing Unavailable',
-          `The PDF processing service is not available.\n\nError: ${edgeFunctionError?.message || 'Network or deployment error'}\n\nPlease use manual entry.`,
-          [{ text: 'OK' }]
+          `The PDF processing service is not available.\n\nError: ${edgeFunctionError?.message || 'Network error'}\n\nPlease use manual entry.`
         );
-        // Fall through to manual entry option
       }
 
-      // Fallback to manual entry
+      // Fallback to manual entry (shouldn't reach here normally)
       Alert.alert(
         'PDF Processing',
         'Automatic PDF processing is not available. You can enter chapter information manually.',
@@ -641,7 +666,6 @@ export default function BooksManagementScreen() {
           {
             text: 'Enter Chapters Manually',
             onPress: () => {
-              // Use Alert.prompt for React Native (iOS only, Android needs custom solution)
               if (Platform.OS === 'ios') {
                 Alert.prompt(
                   'Enter Number of Chapters',

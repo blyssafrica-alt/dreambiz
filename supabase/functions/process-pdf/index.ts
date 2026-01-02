@@ -465,6 +465,176 @@ async function processPDFBuffer(arrayBuffer: ArrayBuffer): Promise<{ text: strin
   }
 }
 
+/**
+ * Async PDF processing function (runs in background)
+ * This function processes PDFs without blocking the HTTP response
+ */
+async function processPDFAsync(
+  jobId: string,
+  pdfUrl: string,
+  bookId: string | null,
+  supabaseClient: any
+): Promise<void> {
+  const startTime = Date.now();
+  
+  try {
+    console.log(`[Job ${jobId}] Starting PDF processing`);
+    
+    // Update job status to processing
+    await supabaseClient
+      .from('pdf_processing_jobs')
+      .update({
+        status: 'processing',
+        started_at: new Date().toISOString(),
+        progress: 10,
+      })
+      .eq('id', jobId);
+
+    // Extract text and metadata from PDF
+    let extractedText = '';
+    let pageCount = 0;
+    let pdfMetadata: any = null;
+    
+    try {
+      // Update progress: fetching PDF
+      await supabaseClient
+        .from('pdf_processing_jobs')
+        .update({ progress: 20 })
+        .eq('id', jobId);
+
+      const extractionResult = await extractTextFromPDF(pdfUrl, supabaseClient);
+      extractedText = extractionResult.text;
+      pageCount = extractionResult.pageCount;
+      pdfMetadata = extractionResult.metadata;
+      
+      console.log(`[Job ${jobId}] Extracted ${pageCount} pages, ${extractedText.length} characters`);
+      
+      // Update progress: text extraction done
+      await supabaseClient
+        .from('pdf_processing_jobs')
+        .update({ progress: 60 })
+        .eq('id', jobId);
+    } catch (error: any) {
+      console.error(`[Job ${jobId}] PDF extraction error:`, error?.message || error);
+      // Try to get at least page count
+      if (pageCount === 0) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
+          try {
+            const fallbackResponse = await fetch(pdfUrl, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (fallbackResponse.ok) {
+              const fallbackBuffer = await fallbackResponse.arrayBuffer();
+              pageCount = extractPageCountFromPDFStructure(fallbackBuffer);
+              console.log(`[Job ${jobId}] Fallback: Extracted ${pageCount} pages from structure`);
+            }
+          } catch (fetchError: any) {
+            clearTimeout(timeoutId);
+            // Continue with pageCount = 0
+          }
+        } catch (fallbackError: any) {
+          // Continue with pageCount = 0
+        }
+      }
+    }
+
+    // Extract chapters from text
+    let chapters: Chapter[] = [];
+    
+    // Update progress: extracting chapters
+    await supabaseClient
+      .from('pdf_processing_jobs')
+      .update({ progress: 70 })
+      .eq('id', jobId);
+    
+    if (extractedText && extractedText.length > 0) {
+      chapters = extractChaptersFromText(extractedText);
+      console.log(`[Job ${jobId}] Extracted ${chapters.length} chapters`);
+    }
+
+    // Update progress: processing complete
+    await supabaseClient
+      .from('pdf_processing_jobs')
+      .update({ progress: 90 })
+      .eq('id', jobId);
+
+    // Prepare result data
+    const resultData = {
+      chapters,
+      totalChapters: chapters.length,
+      pageCount: pageCount,
+      metadata: pdfMetadata || null,
+      fullTextLength: extractedText.length,
+      requiresManualEntry: chapters.length === 0 && pageCount > 0,
+    };
+
+    // Update book in database if bookId provided
+    if (bookId) {
+      try {
+        const updateData: any = {
+          extracted_chapters_data: {
+            fullText: extractedText,
+            extractedAt: new Date().toISOString(),
+            pageCount: pageCount,
+            metadata: pdfMetadata || null,
+          },
+        };
+
+        if (pageCount > 0) {
+          updateData.page_count = pageCount;
+        }
+
+        if (chapters.length > 0) {
+          updateData.chapters = JSON.stringify(chapters);
+          updateData.total_chapters = chapters.length;
+        }
+
+        const { error: updateError } = await supabaseClient
+          .from('books')
+          .update(updateData)
+          .eq('id', bookId);
+
+        if (updateError) {
+          console.error(`[Job ${jobId}] Database update error:`, updateError);
+        } else {
+          console.log(`[Job ${jobId}] Database updated successfully`);
+        }
+      } catch (dbError: any) {
+        console.error(`[Job ${jobId}] Database update exception:`, dbError);
+      }
+    }
+
+    // Mark job as completed
+    await supabaseClient
+      .from('pdf_processing_jobs')
+      .update({
+        status: 'completed',
+        progress: 100,
+        result_data: resultData,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', jobId);
+
+    const duration = Date.now() - startTime;
+    console.log(`[Job ${jobId}] ✅ Completed in ${duration}ms`);
+  } catch (error: any) {
+    console.error(`[Job ${jobId}] ❌ Processing failed:`, error);
+    
+    // Mark job as failed
+    await supabaseClient
+      .from('pdf_processing_jobs')
+      .update({
+        status: 'failed',
+        error_message: error?.message || 'Unknown error during processing',
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', jobId);
+    
+    throw error; // Re-throw for outer error handler
+  }
+}
+
 serve(async (req) => {
   // Log ALL requests for debugging (including OPTIONS)
   // Extract full URL information
@@ -592,21 +762,18 @@ serve(async (req) => {
       );
     }
 
-    const { pdfUrl, bookId } = requestData || {};
+    const { pdfUrl, bookId, jobId: requestJobId } = requestData || {};
 
-    if (!pdfUrl) {
+    if (!pdfUrl && !requestJobId) {
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'PDF URL is required',
+          error: 'PDF URL or jobId is required',
           requiresManualEntry: true,
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // bookId is optional - can process PDF for new books before saving
-    // If bookId is provided, we'll update the database; otherwise just return extracted data
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
@@ -624,29 +791,18 @@ serve(async (req) => {
       );
     }
 
-    // ============================================
-    // SUPABASE CLIENT INITIALIZATION
-    // ============================================
-    // CRITICAL: Use service role key if available (bypasses RLS completely)
-    // If service role key not available, use anon key with auth header
-    // IMPORTANT: Gateway has already validated JWT if Authorization header was present
-    // This function NEVER returns 401 - gateway handles all auth validation
-    // ============================================
-    
+    // Initialize Supabase client (moved before job status check)
     let supabaseClient;
     let userId: string | null = null;
     
     if (supabaseServiceKey) {
-      // Use service role key - bypasses all RLS and auth checks
       supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
       console.log('Using service role key - RLS bypassed');
       
-      // Optionally try to get user ID from auth header if present
       if (authHeader) {
         try {
           const token = authHeader.replace(/^Bearer\s+/i, '').trim();
           if (token) {
-            // Create a separate client with anon key to verify user (optional, for logging)
             const userVerificationClient = createClient(supabaseUrl, supabaseAnonKey, {
               global: {
                 headers: {
@@ -660,213 +816,155 @@ serve(async (req) => {
             if (!userError && user) {
               userId = user.id;
               console.log('User authenticated (for logging):', userId);
-            } else {
-              // Not an error - function works without user context
-              console.log('User verification optional - continuing without user context');
             }
           }
         } catch (verifyError: any) {
           // Not an error - function works without user context
-          console.log('User verification optional - continuing without user context');
         }
       }
     } else {
-      // No service role key - use anon key with auth header
-      // Gateway has already validated the JWT if authHeader is present
       if (authHeader) {
         supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
           global: {
             headers: {
-              Authorization: authHeader, // Gateway already validated this
+              Authorization: authHeader,
               apikey: supabaseAnonKey,
             },
           },
         });
         
-        // Try to get user ID for context (optional)
         try {
           const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
           if (!userError && user) {
             userId = user.id;
             console.log('User authenticated:', userId);
-          } else {
-            // Gateway validated JWT, but getUser() failed - this shouldn't happen
-            // But function still works - RLS will apply based on token
-            console.warn('getUser() failed but continuing (gateway validated JWT):', userError?.message);
           }
         } catch (getUserError: any) {
-          // Not critical - function can work without user context
-          console.warn('getUser() exception (continuing):', getUserError?.message);
+          // Not critical
         }
       } else {
-        // No auth header - use anon key without auth (public access)
         supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
         console.log('No auth header - using anon key (public access)');
       }
     }
+
+    // ============================================
+    // JOB-BASED ASYNC PROCESSING PATTERN
+    // ============================================
+    // To prevent timeout (heartbeat ~60s), we use a job queue:
+    // 1. Create job record immediately (< 1s)
+    // 2. Return job ID to frontend (< 2s)
+    // 3. Process PDF asynchronously (fire and forget)
+    // 4. Update job status as processing progresses
+    // 5. Frontend polls job status
+    // ============================================
     
-    // IMPORTANT: At this point, we have a valid Supabase client
-    // The function NEVER returns 401 - all auth validation happens at gateway level
-    // If we reach here, either:
-    // 1. Gateway validated JWT successfully (if authHeader was present)
-    // 2. No auth required (if no authHeader)
-    
-    console.log('Supabase client initialized:', {
-      hasServiceRole: !!supabaseServiceKey,
-      hasAuthHeader: !!authHeader,
-      hasUserId: !!userId,
-    });
-
-    // Try to extract text and metadata from PDF
-    let extractedText = '';
-    let pageCount = 0;
-    let pdfMetadata: any = null;
-    try {
-      const extractionResult = await extractTextFromPDF(pdfUrl, supabaseClient);
-      extractedText = extractionResult.text;
-      pageCount = extractionResult.pageCount;
-      pdfMetadata = extractionResult.metadata;
-      console.log(`Extracted ${pageCount} pages, ${extractedText.length} characters`);
-      if (pdfMetadata) {
-        console.log('PDF Metadata:', pdfMetadata);
+    // If jobId provided, this is a status check or retry
+    if (requestJobId) {
+      const { data: job, error: jobError } = await supabaseClient
+        .from('pdf_processing_jobs')
+        .select('*')
+        .eq('id', requestJobId)
+        .single();
+      
+      if (jobError || !job) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Job not found',
+            jobId: requestJobId,
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
-    } catch (error: any) {
-      console.error('PDF extraction error:', error?.message || error);
-      // Continue with empty text - will return manual processing suggestion
-      // Try to at least get page count from structure if URL fetch failed
-      if (pageCount === 0) {
-        try {
-          // Try direct fetch as fallback with timeout
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout for fallback
-          
-          try {
-            const fallbackResponse = await fetch(pdfUrl, { signal: controller.signal });
-            clearTimeout(timeoutId);
-            
-            if (fallbackResponse.ok) {
-              const fallbackBuffer = await fallbackResponse.arrayBuffer();
-              pageCount = extractPageCountFromPDFStructure(fallbackBuffer);
-              console.log(`Fallback: Extracted ${pageCount} pages from structure`);
-            }
-          } catch (fetchError: any) {
-            clearTimeout(timeoutId);
-            if (fetchError.name !== 'AbortError') {
-              console.warn('Fallback fetch failed:', fetchError?.message || fetchError);
-            }
-          }
-        } catch (fallbackError: any) {
-          console.warn('Fallback extraction also failed:', fallbackError?.message || fallbackError);
-          // Continue with pageCount = 0
-        }
-      }
-    }
-
-    let chapters: Chapter[] = [];
-    
-    if (extractedText && extractedText.length > 0) {
-      // Extract chapters from text
-      chapters = extractChaptersFromText(extractedText);
-      console.log(`Extracted ${chapters.length} chapters`);
-    }
-
-    // Update book in database with extracted information (only if bookId is provided)
-    // Even if chapters aren't extracted, we can still save page count
-    if (bookId) {
-      const updateData: any = {
-        extracted_chapters_data: {
-          fullText: extractedText,
-          extractedAt: new Date().toISOString(),
-          pageCount: pageCount,
-          metadata: pdfMetadata || null,
-        },
-      };
-
-      // Only add page_count if we have a valid page count
-      if (pageCount > 0) {
-        updateData.page_count = pageCount;
-      }
-
-      // If chapters were extracted, add them
-      if (chapters.length > 0) {
-        updateData.chapters = JSON.stringify(chapters);
-        updateData.total_chapters = chapters.length;
-      }
-
-      // Try to update the database
-      try {
-        const { error: updateError, data: updateResult } = await supabaseClient
-          .from('books')
-          .update(updateData)
-          .eq('id', bookId)
-          .select();
-
-        if (updateError) {
-          console.error('Database update error:', updateError);
-          // Don't throw - we can still return the extracted data
-          // The frontend can handle partial updates
-        } else {
-          console.log('Database updated successfully');
-        }
-      } catch (dbError: any) {
-        console.error('Database update exception:', dbError);
-        // Continue - we can still return extracted data
-      }
-    } else {
-      console.log('No bookId provided - returning extracted data without database update');
-    }
-
-    // Return results - ALWAYS return 200 status code, use success field for status
-    if (chapters.length > 0) {
-      // Successfully extracted chapters
+      
+      // Return job status
       return new Response(
         JSON.stringify({
           success: true,
-          data: {
-            chapters,
-            totalChapters: chapters.length,
-            pageCount: pageCount,
-            metadata: pdfMetadata || null,
-            fullTextLength: extractedText.length,
+          job: {
+            id: job.id,
+            status: job.status,
+            progress: job.progress || 0,
+            error: job.error_message,
+            result: job.result_data,
+            startedAt: job.started_at,
+            completedAt: job.completed_at,
           },
+          jobId: requestJobId,
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-    } else if (pageCount > 0) {
-      // Extracted page count but no chapters
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: `PDF processed. Found ${pageCount} pages${extractedText.length > 0 ? ` with ${extractedText.length} characters of text` : ''}. Please enter chapters manually.`,
-          data: {
-            chapters: [],
-            totalChapters: 0,
-            pageCount: pageCount,
-            metadata: pdfMetadata || null,
-            fullTextLength: extractedText.length,
-          },
-          requiresManualEntry: true,
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } else {
-      // Could not extract anything - still return 200 with success: false
+    }
+
+
+    // ============================================
+    // CREATE JOB RECORD (FAST - < 1 second)
+    // ============================================
+    const { data: newJob, error: jobCreateError } = await supabaseClient
+      .from('pdf_processing_jobs')
+      .insert({
+        pdf_url: pdfUrl!,
+        book_id: bookId || null,
+        user_id: userId,
+        status: 'pending',
+        progress: 0,
+      })
+      .select()
+      .single();
+
+    if (jobCreateError || !newJob) {
+      console.error('Failed to create job:', jobCreateError);
+      // Fallback: try synchronous processing for small PDFs
       return new Response(
         JSON.stringify({
           success: false,
-          message: 'Could not extract information from PDF. Please use manual entry.',
-          data: {
-            chapters: [],
-            totalChapters: 0,
-            pageCount: 0,
-            metadata: null,
-            fullTextLength: 0,
-          },
+          error: 'Failed to create processing job. Please try again or use manual entry.',
           requiresManualEntry: true,
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const createdJobId = newJob.id;
+    console.log(`Job created: ${createdJobId}`);
+
+    // ============================================
+    // RETURN JOB ID IMMEDIATELY (< 2 seconds total)
+    // Frontend will poll for status
+    // ============================================
+    
+    // Start async processing (fire and forget - don't await)
+    // This allows the function to return quickly while processing continues
+    processPDFAsync(createdJobId, pdfUrl!, bookId, supabaseClient).catch((error: any) => {
+      console.error(`[Job ${createdJobId}] Async processing error:`, error);
+      // Update job status to failed
+      supabaseClient
+        .from('pdf_processing_jobs')
+        .update({
+          status: 'failed',
+          error_message: error?.message || 'Processing failed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', createdJobId)
+        .then(() => {
+          console.log(`[Job ${createdJobId}] Marked as failed`);
+        })
+        .catch((updateError: any) => {
+          console.error(`[Job ${createdJobId}] Failed to update job status:`, updateError);
+        });
+    });
+
+    // Return immediately with job ID
+    return new Response(
+      JSON.stringify({
+        success: true,
+        jobId: createdJobId,
+        status: 'pending',
+        message: 'PDF processing started. Poll job status to get results.',
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   } catch (error: any) {
     // ============================================
     // COMPREHENSIVE ERROR HANDLING
