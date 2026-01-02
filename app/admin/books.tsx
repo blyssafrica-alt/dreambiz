@@ -523,7 +523,8 @@ export default function BooksManagementScreen() {
           if (jobError.status === 401 || jobError.statusCode === 401) {
             Alert.alert(
               'Authentication Failed',
-              `Unable to process PDF.\n\nPlease try:\n1. Sign out and sign back in\n2. Use manual entry`
+              `Unable to process PDF. The function returned 401 Unauthorized.\n\nThis usually means:\n1. Edge Function is not deployed\n2. User session is expired/invalid\n3. Gateway rejected the request\n\nPlease try:\n1. Deploy the Edge Function (see docs/DEPLOYMENT_INSTRUCTIONS.md)\n2. Sign out and sign back in\n3. Check Supabase Dashboard → Edge Functions → Logs\n4. Use manual entry if this persists`,
+              [{ text: 'OK' }]
             );
             setIsProcessingPDF(false);
             return;
@@ -539,10 +540,19 @@ export default function BooksManagementScreen() {
         }
 
         if (!jobResponse?.success || !jobResponse?.jobId) {
-          Alert.alert(
-            'PDF Processing Failed',
-            'Failed to start PDF processing job. Please try manual entry.'
-          );
+          // Check if this is a deployment issue
+          if (jobResponse?.deploymentIssue) {
+            Alert.alert(
+              'Deployment Required',
+              `${jobResponse.error || 'Database or function not configured'}\n\n${jobResponse.fixInstructions || 'Please complete the deployment steps.'}\n\nSee docs/401_ERROR_DIAGNOSTIC_FIX.md for detailed instructions.`,
+              [{ text: 'OK' }]
+            );
+          } else {
+            Alert.alert(
+              'PDF Processing Failed',
+              jobResponse?.error || 'Failed to start PDF processing job. Please try manual entry.'
+            );
+          }
           setIsProcessingPDF(false);
           return;
         }

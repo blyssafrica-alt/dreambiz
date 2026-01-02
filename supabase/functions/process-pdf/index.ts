@@ -915,11 +915,50 @@ serve(async (req) => {
 
     if (jobCreateError || !newJob) {
       console.error('Failed to create job:', jobCreateError);
-      // Fallback: try synchronous processing for small PDFs
+      
+      // Check if error is due to missing table
+      const isTableMissing = jobCreateError?.code === '42P01' || 
+                            jobCreateError?.message?.includes('does not exist') ||
+                            jobCreateError?.message?.includes('relation') && jobCreateError?.message?.includes('does not exist');
+      
+      if (isTableMissing) {
+        console.error('CRITICAL: pdf_processing_jobs table does not exist. Please run the SQL migration.');
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Database table not found. Please run the SQL migration to create pdf_processing_jobs table.',
+            requiresManualEntry: true,
+            deploymentIssue: true,
+            fixInstructions: '1. Go to Supabase Dashboard → SQL Editor\n2. Run the contents of database/create_pdf_processing_jobs.sql\n3. Verify table is created\n4. Try again',
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Check if error is due to RLS/permission issue
+      const isPermissionError = jobCreateError?.code === '42501' || 
+                                jobCreateError?.message?.includes('permission denied') ||
+                                jobCreateError?.code === 'PGRST301';
+      
+      if (isPermissionError) {
+        console.error('CRITICAL: Permission error. Check RLS policies or service role key.');
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Permission denied. Please check Edge Function environment variables (SUPABASE_SERVICE_ROLE_KEY) and RLS policies.',
+            requiresManualEntry: true,
+            deploymentIssue: true,
+            fixInstructions: '1. Check SUPABASE_SERVICE_ROLE_KEY is set in Edge Function env vars\n2. Verify RLS policies in database/create_pdf_processing_jobs.sql are created\n3. Try again',
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Generic error fallback
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Failed to create processing job. Please try again or use manual entry.',
+          error: `Failed to create processing job: ${jobCreateError?.message || 'Unknown error'}. Please try again or use manual entry.`,
           requiresManualEntry: true,
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
