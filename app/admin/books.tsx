@@ -521,54 +521,51 @@ export default function BooksManagementScreen() {
                 bookId: editingId || null,
               }),
             });
+            
+            // Parse response from direct fetch
+            if (!response.ok) {
+              // Handle non-2xx responses
+              const errorText = await response.text();
+              let errorJson: any = {};
+              try {
+                errorJson = JSON.parse(errorText);
+              } catch {
+                errorJson = { message: errorText || `HTTP ${response.status}` };
+              }
+              
+              error = {
+                status: response.status,
+                statusCode: response.status,
+                message: errorJson.message || errorJson.error || `HTTP ${response.status}: ${response.statusText}`,
+                name: 'FunctionsHttpError',
+              };
+            } else {
+              // Parse successful response
+              const responseText = await response.text();
+              try {
+                data = JSON.parse(responseText);
+              } catch (parseError) {
+                error = {
+                  message: 'Failed to parse response',
+                  status: 500,
+                  statusCode: 500,
+                };
+              }
+            }
           } catch (fetchError: any) {
-          // Network error or fetch failed completely
-          console.error('Fetch error (network/fetch failed):', {
-            error: fetchError,
-            message: fetchError?.message,
-            name: fetchError?.name,
-            stack: fetchError?.stack,
-          });
-          
-          Alert.alert(
-            'Network Error',
-            `Failed to connect to PDF processing service.\n\nError: ${fetchError?.message || 'Unknown network error'}\n\nPlease check your connection and try again.`,
-            [{ text: 'OK' }]
-          );
-          setIsProcessingPDF(false);
-          return;
-        }
-
-        // Parse response
-        let data: any = null;
-        let error: any = null;
-
-        if (!response.ok) {
-          // Handle non-2xx responses
-          const errorText = await response.text();
-          let errorJson: any = {};
-          try {
-            errorJson = JSON.parse(errorText);
-          } catch {
-            errorJson = { message: errorText || `HTTP ${response.status}` };
-          }
-          
-          error = {
-            status: response.status,
-            statusCode: response.status,
-            message: errorJson.message || errorJson.error || `HTTP ${response.status}: ${response.statusText}`,
-            name: 'FunctionsHttpError',
-          };
-        } else {
-          // Parse successful response
-          const responseText = await response.text();
-          try {
-            data = JSON.parse(responseText);
-          } catch (parseError) {
+            // Network error or fetch failed completely
+            console.error('Fetch error (network/fetch failed):', {
+              error: fetchError,
+              message: fetchError?.message,
+              name: fetchError?.name,
+              stack: fetchError?.stack,
+            });
+            
             error = {
-              message: 'Failed to parse response',
-              status: 500,
-              statusCode: 500,
+              status: 0,
+              statusCode: 0,
+              message: fetchError?.message || 'Network error: Failed to connect to function',
+              name: 'NetworkError',
             };
           }
         }
