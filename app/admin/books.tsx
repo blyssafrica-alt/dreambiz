@@ -296,7 +296,12 @@ export default function BooksManagementScreen() {
         });
 
         if (error) {
-          console.error('Edge Function error:', error);
+          // Suppress 401 errors (function not deployed or auth issue) - expected in some cases
+          if (error.status !== 401 && error.statusCode !== 401) {
+            if (__DEV__) {
+              console.warn('Edge Function error:', error);
+            }
+          }
           // Fall through to manual entry
         } else if (data) {
           if (data.success && data.data) {
@@ -348,7 +353,12 @@ export default function BooksManagementScreen() {
         }
       } catch (edgeFunctionError: any) {
         // Edge Function might not be deployed or there's a network error
-        console.log('Edge Function not available, using manual entry:', edgeFunctionError.message);
+        // Suppress 401 errors (function not deployed) - expected in some cases
+        if (edgeFunctionError?.status !== 401 && edgeFunctionError?.statusCode !== 401) {
+          if (__DEV__) {
+            console.log('Edge Function not available, using manual entry:', edgeFunctionError.message);
+          }
+        }
         // Fall through to manual entry
       }
 

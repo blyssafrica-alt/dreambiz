@@ -81,12 +81,38 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       const safeQuery = async (queryPromise: Promise<any>, tableName: string) => {
         try {
           const result = await queryPromise;
-          if (result.error && result.error.code !== 'PGRST116') { // PGRST116 is "not found" which is OK for optional queries
-            console.warn(`Query error for ${tableName}:`, result.error);
+          // Suppress warnings for expected errors (404, PGRST116 = not found, 42P01 = table doesn't exist)
+          if (result.error) {
+            const errorCode = result.error.code || '';
+            const errorMessage = result.error.message || '';
+            const statusCode = result.error.status || result.error.statusCode || '';
+            
+            // Only log unexpected errors, not 404s or missing tables
+            const isExpectedError = 
+              errorCode === 'PGRST116' || // Not found (OK for optional queries)
+              errorCode === '42P01' || // Table doesn't exist
+              statusCode === 404 || // HTTP 404
+              errorMessage.includes('does not exist') ||
+              errorMessage.includes('relation') && errorMessage.includes('does not exist');
+            
+            if (!isExpectedError) {
+              // Only log unexpected errors in development
+              if (__DEV__) {
+                console.warn(`Query error for ${tableName}:`, result.error);
+              }
+            }
           }
           return result;
         } catch (error: any) {
-          console.error(`Query exception for ${tableName}:`, error);
+          // Suppress exceptions for missing tables
+          const errorMessage = error?.message || '';
+          const isExpectedError = 
+            errorMessage.includes('does not exist') ||
+            errorMessage.includes('relation') && errorMessage.includes('does not exist');
+          
+          if (!isExpectedError && __DEV__) {
+            console.error(`Query exception for ${tableName}:`, error);
+          }
           return { data: null, error: { message: error?.message || 'Query failed' } };
         }
       };
@@ -320,7 +346,10 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           updatedAt: t.updated_at,
         })));
       } else if (projectTasksRes.error) {
-        console.warn('Could not load project tasks:', projectTasksRes.error);
+        // Only log in development, suppress expected errors
+        if (__DEV__ && projectTasksRes.error.code !== 'PGRST116' && projectTasksRes.error.status !== 404) {
+          console.warn('Could not load project tasks:', projectTasksRes.error);
+        }
         setProjectTasks([]);
       }
 
@@ -345,7 +374,10 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         })));
       } else if (recurringInvoicesRes.error) {
         // Table might not exist or RLS is blocking - set empty array
-        console.warn('Could not load recurring invoices:', recurringInvoicesRes.error);
+        // Only log in development, suppress expected errors
+        if (__DEV__ && recurringInvoicesRes.error.code !== 'PGRST116' && recurringInvoicesRes.error.status !== 404) {
+          console.warn('Could not load recurring invoices:', recurringInvoicesRes.error);
+        }
         setRecurringInvoices([]);
       }
 
@@ -370,7 +402,10 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         });
       } else if (exchangeRateRes.error && exchangeRateRes.error.code !== 'PGRST116') {
         // PGRST116 is "not found" which is OK - just use default rate
-        console.warn('Could not load exchange rate:', exchangeRateRes.error);
+        // Only log unexpected errors in development
+        if (__DEV__ && exchangeRateRes.error.status !== 404) {
+          console.warn('Could not load exchange rate:', exchangeRateRes.error);
+        }
       }
     } catch (error) {
       console.error('Failed to load data:', error);
