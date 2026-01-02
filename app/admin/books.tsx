@@ -845,7 +845,7 @@ export default function BooksManagementScreen() {
             
             try {
               // Ensure valid auth header for status check
-              const statusAuthHeader = statusSession?.access_token 
+              let statusAuthHeader = statusSession?.access_token 
                 ? `Bearer ${statusSession.access_token}`.trim()
                 : '';
               
