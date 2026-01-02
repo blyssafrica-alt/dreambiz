@@ -2,10 +2,11 @@
 // This function processes uploaded PDF documents and extracts chapter information
 
 /// <reference path="./deno.d.ts" />
+/// <reference lib="dom" />
 
-// @ts-ignore - Deno std library import
+// @ts-ignore - Deno std library import (works at runtime in Deno)
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-// @ts-ignore - ESM import for Supabase client
+// @ts-ignore - ESM import for Supabase client (works at runtime)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
