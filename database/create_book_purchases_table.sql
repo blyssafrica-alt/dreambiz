@@ -77,21 +77,18 @@ CREATE POLICY "Super admins can update all book purchases"
 CREATE OR REPLACE FUNCTION update_book_sales_stats()
 RETURNS TRIGGER AS $$
 BEGIN
+  -- Only update books table stats when payment_status changes to 'completed'
   IF NEW.payment_status = 'completed' AND (OLD.payment_status IS NULL OR OLD.payment_status != 'completed') THEN
     UPDATE books
     SET 
-      total_sales = total_sales + 1,
-      total_revenue = total_revenue + NEW.total_price,
+      total_sales = COALESCE(total_sales, 0) + 1,
+      total_revenue = COALESCE(total_revenue, 0) + NEW.total_price,
       updated_at = NOW()
     WHERE id = NEW.book_id;
-    
-    -- Grant access
-    UPDATE book_purchases
-    SET 
-      access_granted = TRUE,
-      access_granted_at = NOW()
-    WHERE id = NEW.id;
   END IF;
+  
+  -- Note: access_granted and access_granted_at are set by the frontend
+  -- when payment_status is updated to 'completed', so we don't update them here
   
   RETURN NEW;
 END;
