@@ -590,10 +590,28 @@ export default function BooksManagementScreen() {
           return;
         }
         
-        // Get fresh session and token
-        const { data: { session: finalSession } } = await supabase.auth.getSession();
-        if (!finalSession?.access_token) {
-          Alert.alert('Authentication Error', 'No valid session. Please sign in again.');
+        // Get fresh session and token - FORCE REFRESH if needed
+        let { data: { session: finalSession }, error: sessionError } = await supabase.auth.getSession();
+        
+        // If session is missing or error, try to refresh
+        if (sessionError || !finalSession?.access_token) {
+          console.warn('[process-pdf] Session invalid, attempting refresh...');
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+          if (refreshError || !refreshData?.session) {
+            Alert.alert('Authentication Error', 'Your session expired. Please sign in again.');
+            setIsProcessingPDF(false);
+            isProcessingRef.current = false;
+            processingRetryCountRef.current = 0;
+            return;
+          }
+          finalSession = refreshData.session;
+        }
+        
+        // Validate token one more time with getUser()
+        const { data: { user: tokenUser }, error: tokenError } = await supabase.auth.getUser(finalSession.access_token);
+        if (tokenError || !tokenUser) {
+          console.error('[process-pdf] Token validation failed:', tokenError);
+          Alert.alert('Authentication Error', 'Your session is invalid. Please sign out and sign back in.');
           setIsProcessingPDF(false);
           isProcessingRef.current = false;
           processingRetryCountRef.current = 0;
@@ -634,6 +652,7 @@ export default function BooksManagementScreen() {
         if (__DEV__) {
           console.log('[process-pdf] ✅ Calling function with direct fetch');
           console.log('[process-pdf] ✅ Has access token:', !!finalSession.access_token);
+          console.log('[process-pdf] ✅ Token validated with getUser():', !!tokenUser);
           console.log('[process-pdf] ✅ Has anon key:', !!anonKey);
           console.log('[process-pdf] ✅ Token preview:', finalSession.access_token.substring(0, 20) + '...');
         }
@@ -645,12 +664,27 @@ export default function BooksManagementScreen() {
         
         try {
           // CRITICAL: Use the validated URL object
+          // CRITICAL: Ensure Authorization header is properly formatted
+          const authHeader = `Bearer ${finalSession.access_token}`.trim();
+          
+          // Validate auth header format
+          if (!authHeader.startsWith('Bearer ') || authHeader.length < 20) {
+            console.error('[process-pdf] ❌ Invalid Authorization header format');
+            Alert.alert('Authentication Error', 'Invalid authentication token. Please sign out and sign back in.');
+            setIsProcessingPDF(false);
+            isProcessingRef.current = false;
+            processingRetryCountRef.current = 0;
+            return;
+          }
+          
           response = await fetch(finalFunctionUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'apikey': anonKey || '',
-              'Authorization': `Bearer ${finalSession.access_token}`,
+              'Authorization': authHeader,
+              // Explicitly set Accept header
+              'Accept': 'application/json',
             },
             body: JSON.stringify({
               pdfUrl: formData.documentFileUrl,
@@ -810,12 +844,28 @@ export default function BooksManagementScreen() {
             let statusError: any = null;
             
             try {
+              // Ensure valid auth header for status check
+              const statusAuthHeader = statusSession?.access_token 
+                ? `Bearer ${statusSession.access_token}`.trim()
+                : '';
+              
+              if (!statusAuthHeader || !statusAuthHeader.startsWith('Bearer ')) {
+                console.warn('[process-pdf] Status check: Invalid or missing token, attempting refresh...');
+                const { data: refreshData } = await supabase.auth.refreshSession();
+                if (refreshData?.session?.access_token) {
+                  statusAuthHeader = `Bearer ${refreshData.session.access_token}`.trim();
+                } else {
+                  throw new Error('Unable to refresh session for status check');
+                }
+              }
+              
               const statusFetchResponse = await fetch(statusUrl, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                   'apikey': anonKey || '',
-                  'Authorization': `Bearer ${statusSession?.access_token || ''}`,
+                  'Authorization': statusAuthHeader,
+                  'Accept': 'application/json',
                 },
                 body: JSON.stringify({ jobId }),
               });
@@ -1253,7 +1303,7 @@ export default function BooksManagementScreen() {
               <View style={styles.bookInfo}>
                 <View style={styles.bookHeader}>
                   <Text style={[styles.bookTitle, { color: theme.text.primary }]}>
-                    {book.title}
+                    {book.title || 'Untitled Book'}
                   </Text>
                   {book.isFeatured && (
                     <View style={[styles.featuredBadge, { backgroundColor: theme.accent.primary + '20' }]}>
@@ -1263,15 +1313,15 @@ export default function BooksManagementScreen() {
                     </View>
                   )}
                 </View>
-                {book.subtitle && (
+                {book.subtitle ? (
                   <Text style={[styles.bookSubtitle, { color: theme.text.secondary }]}>
                     {book.subtitle}
                   </Text>
-                )}
+                ) : null}
                 <View style={styles.bookMeta}>
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(book.status) + '20' }]}>
-                    <Text style={[styles.statusText, { color: getStatusColor(book.status) }]}>
-                      {book.status.toUpperCase()}
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(book.status || 'draft') + '20' }]}>
+                    <Text style={[styles.statusText, { color: getStatusColor(book.status || 'draft') }]}>
+                      {(book.status || 'draft').toUpperCase()}
                     </Text>
                   </View>
                   <Text style={[styles.bookMetaText, { color: theme.text.tertiary }]}>
@@ -1281,22 +1331,22 @@ export default function BooksManagementScreen() {
                     ${(book.price || 0).toFixed(2)}
                   </Text>
                 </View>
-                {book.documentFileUrl && (
+                {book.documentFileUrl ? (
                   <View style={[styles.documentBadge, { backgroundColor: theme.surface.info }]}>
                     <FileText size={12} color={theme.accent.info} />
                     <Text style={[styles.documentBadgeText, { color: theme.accent.info }]}>
                       Document Available
                     </Text>
                   </View>
-                )}
-                {book.description && (
+                ) : null}
+                {book.description ? (
                   <Text 
                     style={[styles.bookDescription, { color: theme.text.secondary }]}
                     numberOfLines={2}
                   >
-                    {book.description || ''}
+                    {book.description}
                   </Text>
-                )}
+                ) : null}
                 <View style={styles.bookStats}>
                   <Text style={[styles.statText, { color: theme.text.tertiary }]}>
                     Sales: {book.totalSales || 0}
