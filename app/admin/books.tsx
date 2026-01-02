@@ -449,29 +449,62 @@ export default function BooksManagementScreen() {
 
         if (error) {
           // Log full error details for debugging (serialize properly)
-          const errorDetails = {
+          // Extract all error properties
+          const errorDetails: any = {
             status: error.status,
             statusCode: error.statusCode,
             message: error.message,
             name: error.name,
-            error: error.error ? JSON.stringify(error.error, null, 2) : undefined,
-            fullError: JSON.stringify(error, Object.getOwnPropertyNames(error), 2),
           };
           
-          console.error('Edge Function error:', errorDetails);
-          console.error('Full error object:', error);
+          // Add any additional error properties
+          if (error.error) {
+            try {
+              errorDetails.error = typeof error.error === 'object' 
+                ? JSON.stringify(error.error, null, 2)
+                : error.error;
+            } catch {
+              errorDetails.error = String(error.error);
+            }
+          }
+          
+          // Try to serialize the full error object
+          try {
+            const errorKeys = Object.keys(error);
+            const errorObj: any = {};
+            errorKeys.forEach(key => {
+              try {
+                const value = (error as any)[key];
+                if (typeof value === 'object' && value !== null) {
+                  errorObj[key] = JSON.stringify(value, null, 2);
+                } else {
+                  errorObj[key] = value;
+                }
+              } catch {
+                errorObj[key] = String((error as any)[key]);
+              }
+            });
+            errorDetails.fullError = JSON.stringify(errorObj, null, 2);
+          } catch {
+            errorDetails.fullError = String(error);
+          }
+          
+          // Log with proper serialization
+          console.error('Edge Function error:', JSON.stringify(errorDetails, null, 2));
+          console.error('Full error object (serialized):', JSON.stringify(error, null, 2));
           
           // Check if it's a 401 (function not deployed or auth issue)
           if (error.status === 401 || error.statusCode === 401) {
             const errorMsg = error.message || 'Authentication failed';
-            console.error('401 Unauthorized - Possible causes:', {
+            const causes = {
               functionUrl,
               hasApikey: !!supabaseAnonKey,
               apikeyLength: supabaseAnonKey?.length || 0,
               hasSession: !!session,
               hasAccessToken: !!session?.access_token,
               errorMessage: errorMsg,
-            });
+            };
+            console.error('401 Unauthorized - Possible causes:', JSON.stringify(causes, null, 2));
             
             Alert.alert(
               'Authentication Error',
