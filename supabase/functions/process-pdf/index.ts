@@ -470,22 +470,25 @@ serve(async (req) => {
   // Extract full URL information
   const url = new URL(req.url);
   const fullUrl = `${url.protocol}//${url.host}${url.pathname}${url.search}`;
-  const expectedPath = '/functions/v1/process-pdf';
-  const isCorrectPath = url.pathname === expectedPath;
+  
+  // NOTE: Supabase gateway may strip /functions/v1/ prefix before forwarding to function
+  // So the function receives /process-pdf instead of /functions/v1/process-pdf
+  // This is normal behavior - accept both paths
+  const expectedPaths = ['/functions/v1/process-pdf', '/process-pdf'];
+  const isCorrectPath = expectedPaths.includes(url.pathname);
   
   console.log('=== Edge Function Request ===');
   console.log('Method:', req.method);
   console.log('Full URL:', fullUrl);
   console.log('Path:', url.pathname);
-  console.log('Expected path:', expectedPath);
+  console.log('Expected paths:', expectedPaths);
   console.log('URL correct:', isCorrectPath);
   
   if (!isCorrectPath) {
-    console.error('⚠️ WARNING: Request received at wrong path!');
-    console.error('   Actual path:', url.pathname);
-    console.error('   Expected path:', expectedPath);
-    console.error('   This may cause the function to not work correctly.');
-    console.error('   Frontend should call: https://<project>.supabase.co/functions/v1/process-pdf');
+    console.warn('⚠️ WARNING: Request received at unexpected path:', url.pathname);
+    console.warn('   Accepted paths:', expectedPaths);
+    console.warn('   Frontend should call: https://<project>.supabase.co/functions/v1/process-pdf');
+    console.warn('   (Gateway may strip /functions/v1/ prefix - this is normal)');
   }
   
   console.log('Headers:', Object.fromEntries(req.headers.entries()));
