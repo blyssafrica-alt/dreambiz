@@ -144,29 +144,69 @@ function extractPageCountFromPDFStructure(arrayBuffer: ArrayBuffer): number {
  * Extract text and metadata from PDF
  * Uses PDF.js from CDN if available, otherwise extracts basic metadata
  */
-async function extractTextFromPDF(pdfUrl: string): Promise<{ text: string; pageCount: number }> {
+async function extractTextFromPDF(pdfUrl: string, supabaseClient?: any): Promise<{ text: string; pageCount: number }> {
   try {
-    // Fetch PDF
-    const response = await fetch(pdfUrl);
+    // Fetch PDF - handle Supabase Storage URLs that might need authentication
+    let response: Response;
+    
+    // Check if it's a Supabase Storage URL
+    if (pdfUrl.includes('supabase.co/storage') && supabaseClient) {
+      // Extract bucket and path from URL
+      const urlMatch = pdfUrl.match(/\/storage\/v1\/object\/public\/([^\/]+)\/(.+)$/);
+      if (urlMatch) {
+        const [, bucket, path] = urlMatch;
+        // Use Supabase client to download the file
+        const { data, error } = await supabaseClient.storage.from(bucket).download(path);
+        if (error) {
+          throw new Error(`Failed to download PDF from storage: ${error.message}`);
+        }
+        // Convert blob to arrayBuffer
+        const arrayBuffer = await data.arrayBuffer();
+        return await processPDFBuffer(arrayBuffer);
+      }
+    }
+    
+    // Regular fetch for public URLs
+    response = await fetch(pdfUrl);
     if (!response.ok) {
-      throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+      throw new Error(`Failed to fetch PDF: ${response.statusText} (${response.status})`);
     }
 
     const arrayBuffer = await response.arrayBuffer();
+    return await processPDFBuffer(arrayBuffer);
+  } catch (error) {
+    console.error('Error extracting PDF:', error);
+    throw error;
+  }
+}
+
+/**
+ * Process PDF buffer to extract text and page count
+ */
+async function processPDFBuffer(arrayBuffer: ArrayBuffer): Promise<{ text: string; pageCount: number }> {
+  try {
     console.log('PDF fetched, size:', arrayBuffer.byteLength);
     
     // First, extract page count from PDF structure (always works)
     const pageCount = extractPageCountFromPDFStructure(arrayBuffer);
     
-    // Try to extract text using PDF.js
+    // Try to extract text using PDF.js (optional, may not work in all Deno environments)
     try {
       // Import PDF.js from CDN (works in Deno)
       // @ts-ignore - PDF.js from CDN
       const pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.min.mjs');
       
+      if (!pdfjsLib || !pdfjsLib.getDocument) {
+        throw new Error('PDF.js library not loaded correctly');
+      }
+      
       // Load the PDF document
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const pdf = await loadingTask.promise;
+      
+      if (!pdf || !pdf.numPages) {
+        throw new Error('Failed to load PDF document');
+      }
       
       const verifiedPageCount = pdf.numPages;
       console.log(`PDF.js verified: ${verifiedPageCount} pages`);
@@ -176,15 +216,23 @@ async function extractTextFromPDF(pdfUrl: string): Promise<{ text: string; pageC
       const maxPages = Math.min(verifiedPageCount, 50);
       
       for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
-        const page = await pdf.getPage(pageNum);
-        const textContent = await page.getTextContent();
-        
-        // Combine all text items from the page
-        const pageText = textContent.items
-          .map((item: any) => item.str)
-          .join(' ');
-        
-        fullText += `\n--- Page ${pageNum} ---\n${pageText}\n`;
+        try {
+          const page = await pdf.getPage(pageNum);
+          const textContent = await page.getTextContent();
+          
+          // Combine all text items from the page
+          if (textContent && textContent.items) {
+            const pageText = textContent.items
+              .map((item: any) => item.str || '')
+              .filter((str: string) => str.length > 0)
+              .join(' ');
+            
+            fullText += `\n--- Page ${pageNum} ---\n${pageText}\n`;
+          }
+        } catch (pageError) {
+          console.warn(`Error extracting page ${pageNum}:`, pageError);
+          // Continue with next page
+        }
       }
       
       console.log(`Extracted ${fullText.length} characters from ${maxPages} pages`);
@@ -193,8 +241,8 @@ async function extractTextFromPDF(pdfUrl: string): Promise<{ text: string; pageC
         text: fullText,
         pageCount: verifiedPageCount,
       };
-    } catch (pdfjsError) {
-      console.warn('PDF.js extraction failed, using structure-based extraction:', pdfjsError);
+    } catch (pdfjsError: any) {
+      console.warn('PDF.js extraction failed, using structure-based extraction:', pdfjsError?.message || pdfjsError);
       // PDF.js failed, but we still have page count
       return {
         text: '',
@@ -202,7 +250,7 @@ async function extractTextFromPDF(pdfUrl: string): Promise<{ text: string; pageC
       };
     }
   } catch (error) {
-    console.error('Error extracting PDF:', error);
+    console.error('Error processing PDF buffer:', error);
     throw error;
   }
 }
@@ -214,7 +262,19 @@ serve(async (req) => {
   }
 
   try {
-    const { pdfUrl, bookId } = await req.json();
+    // Parse request body with error handling
+    let requestData;
+    try {
+      requestData = await req.json();
+    } catch (jsonError) {
+      console.error('Failed to parse request JSON:', jsonError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { pdfUrl, bookId } = requestData || {};
 
     if (!pdfUrl) {
       return new Response(
@@ -247,13 +307,27 @@ serve(async (req) => {
     let extractedText = '';
     let pageCount = 0;
     try {
-      const extractionResult = await extractTextFromPDF(pdfUrl);
+      const extractionResult = await extractTextFromPDF(pdfUrl, supabaseClient);
       extractedText = extractionResult.text;
       pageCount = extractionResult.pageCount;
       console.log(`Extracted ${pageCount} pages, ${extractedText.length} characters`);
-    } catch (error) {
-      console.error('PDF extraction error:', error);
+    } catch (error: any) {
+      console.error('PDF extraction error:', error?.message || error);
       // Continue with empty text - will return manual processing suggestion
+      // Try to at least get page count from structure if URL fetch failed
+      if (pageCount === 0) {
+        try {
+          // Try direct fetch as fallback
+          const fallbackResponse = await fetch(pdfUrl);
+          if (fallbackResponse.ok) {
+            const fallbackBuffer = await fallbackResponse.arrayBuffer();
+            pageCount = extractPageCountFromPDFStructure(fallbackBuffer);
+            console.log(`Fallback: Extracted ${pageCount} pages from structure`);
+          }
+        } catch (fallbackError) {
+          console.warn('Fallback extraction also failed:', fallbackError);
+        }
+      }
     }
 
     let chapters: Chapter[] = [];
@@ -267,7 +341,6 @@ serve(async (req) => {
     // Update book in database with extracted information
     // Even if chapters aren't extracted, we can still save page count
     const updateData: any = {
-      page_count: pageCount > 0 ? pageCount : null,
       extracted_chapters_data: {
         fullText: extractedText,
         extractedAt: new Date().toISOString(),
@@ -275,23 +348,35 @@ serve(async (req) => {
       },
     };
 
+    // Only add page_count if we have a valid page count
+    if (pageCount > 0) {
+      updateData.page_count = pageCount;
+    }
+
     // If chapters were extracted, add them
     if (chapters.length > 0) {
       updateData.chapters = JSON.stringify(chapters);
       updateData.total_chapters = chapters.length;
-    } else if (pageCount > 0) {
-      // If we have page count but no chapters, at least update the page count
-      // User can still manually enter chapters
-      updateData.total_chapters = 0; // Keep existing or set to 0
     }
 
-    const { error: updateError } = await supabaseClient
-      .from('books')
-      .update(updateData)
-      .eq('id', bookId);
+    // Try to update the database
+    try {
+      const { error: updateError, data: updateResult } = await supabaseClient
+        .from('books')
+        .update(updateData)
+        .eq('id', bookId)
+        .select();
 
-    if (updateError) {
-      throw updateError;
+      if (updateError) {
+        console.error('Database update error:', updateError);
+        // Don't throw - we can still return the extracted data
+        // The frontend can handle partial updates
+      } else {
+        console.log('Database updated successfully');
+      }
+    } catch (dbError: any) {
+      console.error('Database update exception:', dbError);
+      // Continue - we can still return extracted data
     }
 
     // Return results
@@ -336,12 +421,31 @@ serve(async (req) => {
     }
   } catch (error: any) {
     console.error('Error processing PDF:', error);
+    
+    // Log full error details for debugging
+    const errorDetails = {
+      message: error?.message || 'Unknown error',
+      stack: error?.stack || 'No stack trace',
+      name: error?.name || 'Error',
+    };
+    console.error('Error details:', JSON.stringify(errorDetails, null, 2));
+    
+    // Check if we're in development mode
+    const isDevelopment = Deno.env.get('DENO_ENV') === 'development' || 
+                         Deno.env.get('ENVIRONMENT') === 'development';
+    
+    // Return error response with proper status code
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Failed to process PDF',
+        success: false,
+        error: error?.message || 'Failed to process PDF',
         requiresManualEntry: true,
+        details: isDevelopment ? errorDetails : undefined,
       }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
     );
   }
 });
