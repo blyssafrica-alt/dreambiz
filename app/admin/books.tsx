@@ -15,7 +15,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Plus, Edit, Trash2, Book as BookIcon, X, ImageIcon, Save, FileText, Upload, Check, Sparkles } from 'lucide-react-native';
+import { ArrowLeft, Plus, Edit, Trash2, Book as BookIcon, X, ImageIcon, Save, FileText, Upload, Check, Sparkles, ChevronRight, ChevronLeft } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { decode } from 'base64-arraybuffer';
@@ -31,6 +31,8 @@ export default function BooksManagementScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [availableFeatures, setAvailableFeatures] = useState<FeatureConfig[]>([]);
   const [isProcessingPDF, setIsProcessingPDF] = useState(false);
+  const [step, setStep] = useState(1);
+  const totalSteps = 5;
   const [formData, setFormData] = useState<BookFormData>({
     slug: '',
     title: '',
@@ -465,6 +467,7 @@ export default function BooksManagementScreen() {
 
   const handleEdit = (book: Book) => {
     setEditingId(book.id);
+    setStep(1);
     setFormData({
       slug: book.slug,
       title: book.title,
@@ -522,6 +525,7 @@ export default function BooksManagementScreen() {
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingId(null);
+    setStep(1);
     setFormData({
       slug: '',
       title: '',
@@ -547,6 +551,20 @@ export default function BooksManagementScreen() {
       displayOrder: 0,
     });
   };
+
+  const handleNext = () => {
+    if (step < totalSteps) {
+      setStep(step + 1);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (step > 1) {
+      setStep(step - 1);
+    }
+  };
+
+  const progress = (step / totalSteps) * 100;
 
   const toggleFeature = (featureId: string) => {
     const currentFeatures = formData.enabledFeatures || [];
@@ -691,7 +709,7 @@ export default function BooksManagementScreen() {
         )}
       </ScrollView>
 
-      {/* Add/Edit Modal */}
+      {/* Add/Edit Modal - Step by Step Wizard */}
       <Modal
         visible={showModal}
         animationType="slide"
@@ -701,17 +719,108 @@ export default function BooksManagementScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text.primary }]}>
-                {editingId ? 'Edit Book' : 'Add New Book'}
-              </Text>
+              <View style={styles.headerLeft}>
+                <Text style={[styles.modalTitle, { color: theme.text.primary }]}>
+                  {step === 1 && 'Basic Information'}
+                  {step === 2 && 'Media & Documents'}
+                  {step === 3 && 'Pricing & Metadata'}
+                  {step === 4 && 'Chapters & Features'}
+                  {step === 5 && 'Settings'}
+                </Text>
+                <Text style={[styles.stepIndicator, { color: theme.text.secondary }]}>
+                  Step {step} of {totalSteps}
+                </Text>
+              </View>
               <TouchableOpacity onPress={handleCloseModal}>
                 <X size={24} color={theme.text.tertiary} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
-              {/* Cover Image */}
-              <View style={styles.inputGroup}>
+            {/* Progress Bar */}
+            <View style={[styles.progressBar, { backgroundColor: theme.background.secondary }]}>
+              <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: theme.accent.primary }]} />
+            </View>
+
+            <ScrollView 
+              style={styles.modalBody} 
+              contentContainerStyle={styles.modalBodyContent}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Step 1: Basic Information */}
+              {step === 1 && (
+                <>
+                  <View style={styles.stepContent}>
+                    <Text style={[styles.stepTitle, { color: theme.text.primary }]}>
+                      Book Basic Information
+                    </Text>
+                    <Text style={[styles.stepDescription, { color: theme.text.secondary }]}>
+                      Enter the essential details about your book
+                    </Text>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.label, { color: theme.text.primary }]}>Slug *</Text>
+                    <TextInput
+                      style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                      value={formData.slug}
+                      onChangeText={(text) => setFormData({ ...formData, slug: text.toLowerCase().replace(/\s+/g, '-') })}
+                      placeholder="e.g., start-your-business"
+                      placeholderTextColor={theme.text.tertiary}
+                    />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.label, { color: theme.text.primary }]}>Title *</Text>
+                    <TextInput
+                      style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                      value={formData.title}
+                      onChangeText={(text) => setFormData({ ...formData, title: text })}
+                      placeholder="Book title"
+                      placeholderTextColor={theme.text.tertiary}
+                    />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.label, { color: theme.text.primary }]}>Subtitle</Text>
+                    <TextInput
+                      style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                      value={formData.subtitle}
+                      onChangeText={(text) => setFormData({ ...formData, subtitle: text })}
+                      placeholder="Book subtitle"
+                      placeholderTextColor={theme.text.tertiary}
+                    />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.label, { color: theme.text.primary }]}>Description</Text>
+                    <TextInput
+                      style={[styles.input, styles.textArea, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                      value={formData.description}
+                      onChangeText={(text) => setFormData({ ...formData, description: text })}
+                      placeholder="Book description"
+                      placeholderTextColor={theme.text.tertiary}
+                      multiline
+                      numberOfLines={4}
+                    />
+                  </View>
+                </>
+              )}
+
+              {/* Step 2: Media & Documents */}
+              {step === 2 && (
+                <>
+                  <View style={styles.stepContent}>
+                    <Text style={[styles.stepTitle, { color: theme.text.primary }]}>
+                      Book Media & Documents
+                    </Text>
+                    <Text style={[styles.stepDescription, { color: theme.text.secondary }]}>
+                      Upload cover image and book document (PDF/Word)
+                    </Text>
+                  </View>
+
+                  {/* Cover Image */}
+                  <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: theme.text.primary }]}>Cover Image</Text>
                 {formData.coverImage ? (
                   <View style={styles.imagePreviewContainer}>
@@ -801,56 +910,23 @@ export default function BooksManagementScreen() {
                   </TouchableOpacity>
                 )}
               </View>
+                </>
+              )}
 
-              {/* Basic Info */}
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: theme.text.primary }]}>Slug *</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                  value={formData.slug}
-                  onChangeText={(text) => setFormData({ ...formData, slug: text.toLowerCase().replace(/\s+/g, '-') })}
-                  placeholder="e.g., start-your-business"
-                  placeholderTextColor={theme.text.tertiary}
-                />
-              </View>
+              {/* Step 3: Pricing & Metadata */}
+              {step === 3 && (
+                <>
+                  <View style={styles.stepContent}>
+                    <Text style={[styles.stepTitle, { color: theme.text.primary }]}>
+                      Pricing & Book Metadata
+                    </Text>
+                    <Text style={[styles.stepDescription, { color: theme.text.secondary }]}>
+                      Set pricing and additional book information
+                    </Text>
+                  </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: theme.text.primary }]}>Title *</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                  value={formData.title}
-                  onChangeText={(text) => setFormData({ ...formData, title: text })}
-                  placeholder="Book title"
-                  placeholderTextColor={theme.text.tertiary}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: theme.text.primary }]}>Subtitle</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                  value={formData.subtitle}
-                  onChangeText={(text) => setFormData({ ...formData, subtitle: text })}
-                  placeholder="Book subtitle"
-                  placeholderTextColor={theme.text.tertiary}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: theme.text.primary }]}>Description</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                  value={formData.description}
-                  onChangeText={(text) => setFormData({ ...formData, description: text })}
-                  placeholder="Book description"
-                  placeholderTextColor={theme.text.tertiary}
-                  multiline
-                  numberOfLines={4}
-                />
-              </View>
-
-              {/* Pricing */}
-              <View style={styles.row}>
+                  {/* Pricing */}
+                  <View style={styles.row}>
                 <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
                   <Text style={[styles.label, { color: theme.text.primary }]}>Price *</Text>
                   <TextInput
@@ -874,8 +950,68 @@ export default function BooksManagementScreen() {
                 </View>
               </View>
 
-              {/* Chapters */}
-              <View style={styles.inputGroup}>
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.label, { color: theme.text.primary }]}>Author</Text>
+                    <TextInput
+                      style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                      value={formData.author}
+                      onChangeText={(text) => setFormData({ ...formData, author: text })}
+                      placeholder="Author name"
+                      placeholderTextColor={theme.text.tertiary}
+                    />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.label, { color: theme.text.primary }]}>ISBN</Text>
+                    <TextInput
+                      style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                      value={formData.isbn}
+                      onChangeText={(text) => setFormData({ ...formData, isbn: text })}
+                      placeholder="ISBN number"
+                      placeholderTextColor={theme.text.tertiary}
+                    />
+                  </View>
+
+                  <View style={styles.row}>
+                    <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+                      <Text style={[styles.label, { color: theme.text.primary }]}>Publication Date</Text>
+                      <TextInput
+                        style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                        value={formData.publicationDate || ''}
+                        onChangeText={(text) => setFormData({ ...formData, publicationDate: text })}
+                        placeholder="YYYY-MM-DD"
+                        placeholderTextColor={theme.text.tertiary}
+                      />
+                    </View>
+                    <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+                      <Text style={[styles.label, { color: theme.text.primary }]}>Page Count</Text>
+                      <TextInput
+                        style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                        value={formData.pageCount?.toString() || ''}
+                        onChangeText={(text) => setFormData({ ...formData, pageCount: text ? parseInt(text) : undefined })}
+                        placeholder="Pages"
+                        placeholderTextColor={theme.text.tertiary}
+                        keyboardType="number-pad"
+                      />
+                    </View>
+                  </View>
+                </>
+              )}
+
+              {/* Step 4: Chapters & Features */}
+              {step === 4 && (
+                <>
+                  <View style={styles.stepContent}>
+                    <Text style={[styles.stepTitle, { color: theme.text.primary }]}>
+                      Chapters & Features
+                    </Text>
+                    <Text style={[styles.stepDescription, { color: theme.text.secondary }]}>
+                      Configure chapters and select which features this book enables
+                    </Text>
+                  </View>
+
+                  {/* Chapters */}
+                  <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: theme.text.primary }]}>Total Chapters</Text>
                 <TextInput
                   style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
@@ -901,8 +1037,8 @@ export default function BooksManagementScreen() {
                 )}
               </View>
 
-              {/* Enabled Features */}
-              <View style={styles.inputGroup}>
+                  {/* Enabled Features */}
+                  <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: theme.text.primary }]}>Features This Book Enables</Text>
                 <Text style={[styles.helperText, { color: theme.text.tertiary, marginBottom: 12 }]}>
                   Select which features should be unlocked when users purchase/select this book
@@ -939,10 +1075,24 @@ export default function BooksManagementScreen() {
                     );
                   })}
                 </ScrollView>
-              </View>
+                  </View>
+                </>
+              )}
 
-              {/* Status */}
-              <View style={styles.inputGroup}>
+              {/* Step 5: Settings */}
+              {step === 5 && (
+                <>
+                  <View style={styles.stepContent}>
+                    <Text style={[styles.stepTitle, { color: theme.text.primary }]}>
+                      Book Settings
+                    </Text>
+                    <Text style={[styles.stepDescription, { color: theme.text.secondary }]}>
+                      Configure publication status and display options
+                    </Text>
+                  </View>
+
+                  {/* Status */}
+                  <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: theme.text.primary }]}>Status</Text>
                 <View style={styles.statusOptions}>
                   {(['draft', 'published', 'archived'] as const).map((status) => (
@@ -1006,20 +1156,41 @@ export default function BooksManagementScreen() {
               >
                 <Text style={[styles.footerButtonText, { color: theme.text.secondary }]}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.footerButton, { backgroundColor: theme.accent.primary }]}
-                onPress={handleSave}
-                disabled={isUploadingDocument}
-              >
-                {isUploadingDocument ? (
-                  <ActivityIndicator color="#FFF" />
-                ) : (
-                  <>
-                    <Save size={18} color="#FFF" />
-                    <Text style={[styles.footerButtonText, { color: '#FFF' }]}>Save</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+              
+              {step > 1 && (
+                <TouchableOpacity
+                  style={[styles.footerButton, styles.footerButtonSecondary, { backgroundColor: theme.background.secondary }]}
+                  onPress={handlePrevious}
+                >
+                  <ChevronLeft size={18} color={theme.text.primary} />
+                  <Text style={[styles.footerButtonText, { color: theme.text.primary }]}>Previous</Text>
+                </TouchableOpacity>
+              )}
+
+              {step < totalSteps ? (
+                <TouchableOpacity
+                  style={[styles.footerButton, { backgroundColor: theme.accent.primary }]}
+                  onPress={handleNext}
+                >
+                  <Text style={[styles.footerButtonText, { color: '#FFF' }]}>Next</Text>
+                  <ChevronRight size={18} color="#FFF" />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.footerButton, { backgroundColor: theme.accent.primary }]}
+                  onPress={handleSave}
+                  disabled={isUploadingDocument}
+                >
+                  {isUploadingDocument ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <>
+                      <Save size={18} color="#FFF" />
+                      <Text style={[styles.footerButtonText, { color: '#FFF' }]}>Save</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -1181,27 +1352,60 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     maxHeight: '90%',
+    minHeight: '70%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
+  headerLeft: {
+    flex: 1,
+  },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  stepIndicator: {
+    fontSize: 14,
+  },
+  progressBar: {
+    height: 4,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
   },
   modalBody: {
     flex: 1,
   },
   modalBodyContent: {
     padding: 20,
+    paddingBottom: 40,
+  },
+  stepContent: {
+    marginBottom: 24,
+  },
+  stepTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  stepDescription: {
+    fontSize: 15,
+    lineHeight: 22,
   },
   inputGroup: {
     marginBottom: 16,
@@ -1325,6 +1529,11 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 8,
     gap: 8,
+    minWidth: 100,
+  },
+  footerButtonSecondary: {
+    flex: 0,
+    marginRight: 8,
   },
   footerButtonText: {
     fontSize: 16,
