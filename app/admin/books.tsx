@@ -284,10 +284,18 @@ export default function BooksManagementScreen() {
       // The Edge Function will extract data and return it without updating database
 
       // Try to call Supabase Edge Function for PDF processing
-      // Using helper function for better error handling
+      // Using direct invoke with explicit auth headers
       try {
         // Verify session exists before calling
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          Alert.alert('Authentication Error', 'Please sign in to process PDF documents.');
+          setIsProcessingPDF(false);
+          return;
+        }
+
         if (!session) {
           Alert.alert('Authentication Required', 'Please sign in to process PDF documents.');
           setIsProcessingPDF(false);
@@ -298,14 +306,23 @@ export default function BooksManagementScreen() {
           console.log('Calling process-pdf Edge Function:', {
             pdfUrl: formData.documentFileUrl,
             hasSession: !!session,
+            hasAccessToken: !!session?.access_token,
+            tokenPreview: session?.access_token?.substring(0, 20) + '...',
           });
         }
+
+        // Explicitly add Authorization header to ensure it's sent
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`, // Explicit header
+        };
 
         const { data, error } = await supabase.functions.invoke('process-pdf', {
           body: {
             pdfUrl: formData.documentFileUrl,
             bookId: editingId || null, // Optional - null for new books
           },
+          headers, // Explicit headers
         });
 
         if (__DEV__) {

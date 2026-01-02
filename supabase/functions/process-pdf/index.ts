@@ -473,14 +473,16 @@ serve(async (req) => {
 
   try {
     // Get authorization header - Edge Functions can be called with or without auth
+    // Function works with or without authentication
     const authHeader = req.headers.get('authorization');
     const apikeyHeader = req.headers.get('apikey');
     
     // Log for debugging (remove sensitive data in production)
-    console.log('Request received:', {
+    console.log('Process PDF request received:', {
       method: req.method,
       hasAuth: !!authHeader,
       hasApikey: !!apikeyHeader,
+      url: req.url,
     });
 
     // Parse request body with error handling
