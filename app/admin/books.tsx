@@ -942,7 +942,7 @@ export default function BooksManagementScreen() {
       saleStartDate: book.saleStartDate || undefined,
       saleEndDate: book.saleEndDate || undefined,
       totalChapters: book.totalChapters || 0,
-      chapters: book.chapters || [],
+      chapters: Array.isArray(book.chapters) ? book.chapters : [],
       enabledFeatures: book.enabledFeatures || [],
       author: book.author || '',
       isbn: book.isbn || '',
@@ -1538,7 +1538,7 @@ export default function BooksManagementScreen() {
                     <Text style={[styles.helperText, { color: theme.text.tertiary, marginTop: 8 }]}>
                       Enter the number of chapters and tap "Add Chapters" to create placeholder chapters, or process PDF from Step 2 to extract automatically.
                     </Text>
-                    {formData.chapters.length > 0 && (
+                    {Array.isArray(formData.chapters) && formData.chapters.length > 0 && (
                       <View style={styles.chaptersList}>
                         {formData.chapters.map((chapter, index) => (
                           <View key={index} style={[styles.chapterItem, { backgroundColor: theme.background.secondary }]}>
