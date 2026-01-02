@@ -380,14 +380,34 @@ export default function BooksManagementScreen() {
           });
         }
         
-        const response = await fetch(functionUrl, {
-          method: 'POST',
-          headers: requestHeaders,
-          body: JSON.stringify({
-            pdfUrl: formData.documentFileUrl,
-            bookId: editingId || null,
-          }),
-        });
+        // Make the fetch request with explicit error handling
+        let response: Response;
+        try {
+          response = await fetch(functionUrl, {
+            method: 'POST',
+            headers: requestHeaders,
+            body: JSON.stringify({
+              pdfUrl: formData.documentFileUrl,
+              bookId: editingId || null,
+            }),
+          });
+        } catch (fetchError: any) {
+          // Network error or fetch failed completely
+          console.error('Fetch error (network/fetch failed):', {
+            error: fetchError,
+            message: fetchError?.message,
+            name: fetchError?.name,
+            stack: fetchError?.stack,
+          });
+          
+          Alert.alert(
+            'Network Error',
+            `Failed to connect to PDF processing service.\n\nError: ${fetchError?.message || 'Unknown network error'}\n\nPlease check your connection and try again.`,
+            [{ text: 'OK' }]
+          );
+          setIsProcessingPDF(false);
+          return;
+        }
 
         // Parse response
         let data: any = null;
