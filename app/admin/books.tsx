@@ -328,8 +328,18 @@ export default function BooksManagementScreen() {
         }
 
         // Get Supabase URL and anon key for function URL
-        // Import from supabase config
-        const { supabaseUrl, supabaseAnonKey } = await import('@/lib/supabase');
+        // Use static import with fallback to ensure apikey is always available
+        const supabaseConfig = await import('@/lib/supabase');
+        const supabaseUrl = supabaseConfig.supabaseUrl || 'https://oqcgerfjjiozltkmmkxf.supabase.co';
+        const supabaseAnonKey = supabaseConfig.supabaseAnonKey || 'sb_publishable_959ZId8aR4E5IjTNoyVsJQ_xt8pelvp';
+        
+        // Verify we have the required values
+        if (!supabaseAnonKey) {
+          console.error('CRITICAL: Missing supabaseAnonKey!');
+          Alert.alert('Configuration Error', 'Missing Supabase API key. Please check your settings.');
+          setIsProcessingPDF(false);
+          return;
+        }
         
         // CRITICAL: Edge Functions URL must include /functions/v1/
         // URL format: https://<project>.supabase.co/functions/v1/<function-name>
