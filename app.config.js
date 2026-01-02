@@ -84,9 +84,9 @@ export default {
       EXPO_PUBLIC_SUPABASE_URL: 'https://oqcgerfjjiozltkmmkxf.supabase.co',
       EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_959ZId8aR4E5IjTNoyVsJQ_xt8pelvp',
       EXPO_PUBLIC_OCR_SPACE_API_KEY: 'K82828017188957',
-      // Monitoring configuration (from environment variables)
-      sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
-      posthogApiKey: process.env.EXPO_PUBLIC_POSTHOG_API_KEY,
+      // Monitoring configuration (from environment variables, with fallbacks)
+      sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://ddcc3b51c7eddd52998ae5bafac64081@o4510641613504512.ingest.de.sentry.io/4510641637163088',
+      posthogApiKey: process.env.EXPO_PUBLIC_POSTHOG_API_KEY || 'phc_nJp7XKtyWcArFPz0Kko7dOfq5MrKpEyMIIChHrGKsg1',
       posthogHost: process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com',
       // Sentry configuration
       sentryOrg: process.env.EXPO_PUBLIC_SENTRY_ORG,
