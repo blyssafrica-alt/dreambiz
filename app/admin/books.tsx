@@ -23,63 +23,7 @@ import type { Book, BookFormData, BookChapter } from '@/types/books';
 import type { FeatureConfig } from '@/types/super-admin';
 import type { DreamBigBook } from '@/types/business';
 
-/**
- * Builds a robust Edge Function URL that is guaranteed to be:
- * - HTTPS (never HTTP)
- * - Includes /functions/v1/ prefix
- * - Properly formatted
- * 
- * This function ALWAYS returns the correct format, no matter what input it receives.
- */
-const buildEdgeFunctionUrl = (functionName: string): string => {
-  // CRITICAL: Hardcoded correct URL - this is the ONLY source of truth
-  const CORRECT_BASE_URL = 'https://oqcgerfjjiozltkmmkxf.supabase.co';
-  const CORRECT_FUNCTION_URL = `${CORRECT_BASE_URL}/functions/v1/${functionName}`;
-  
-  // Validate function name
-  if (!functionName || typeof functionName !== 'string') {
-    console.error('[buildEdgeFunctionUrl] ❌ Invalid function name, using default URL');
-    return CORRECT_FUNCTION_URL;
-  }
-  
-  // Sanitize function name (remove any path separators or dangerous characters)
-  const sanitizedFunctionName = functionName.replace(/[^a-zA-Z0-9_-]/g, '');
-  if (!sanitizedFunctionName) {
-    console.error('[buildEdgeFunctionUrl] ❌ Function name became empty after sanitization');
-    return CORRECT_FUNCTION_URL;
-  }
-  
-  // Build the final URL - ALWAYS use the hardcoded base
-  const finalUrl = `${CORRECT_BASE_URL}/functions/v1/${sanitizedFunctionName}`;
-  
-  // CRITICAL VALIDATION: Verify the URL is correct before returning
-  const urlPattern = /^https:\/\/[^\/]+\.supabase\.co\/functions\/v1\/[a-zA-Z0-9_-]+$/i;
-  if (!urlPattern.test(finalUrl)) {
-    console.error('[buildEdgeFunctionUrl] ❌ CRITICAL: URL validation failed!', finalUrl);
-    // Return the guaranteed-correct URL
-    return CORRECT_FUNCTION_URL;
-  }
-  
-  // Double-check HTTPS
-  if (!finalUrl.startsWith('https://')) {
-    console.error('[buildEdgeFunctionUrl] ❌ CRITICAL: URL is not HTTPS!', finalUrl);
-    return CORRECT_FUNCTION_URL;
-  }
-  
-  // Double-check /functions/v1/ prefix
-  if (!finalUrl.includes('/functions/v1/')) {
-    console.error('[buildEdgeFunctionUrl] ❌ CRITICAL: URL missing /functions/v1/ prefix!', finalUrl);
-    return CORRECT_FUNCTION_URL;
-  }
-  
-  if (__DEV__) {
-    console.log('[buildEdgeFunctionUrl] ✅ Built function URL:', finalUrl);
-    console.log('[buildEdgeFunctionUrl] ✅ Function name:', sanitizedFunctionName);
-    console.log('[buildEdgeFunctionUrl] ✅ URL validation passed');
-  }
-  
-  return finalUrl;
-};
+// NOTE: buildEdgeFunctionUrl removed - we use supabase.functions.invoke() instead
 
 export default function BooksManagementScreen() {
   const { theme } = useTheme();
