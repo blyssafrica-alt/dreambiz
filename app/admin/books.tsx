@@ -58,6 +58,11 @@ export default function BooksManagementScreen() {
     isFeatured: false,
     displayOrder: 0,
   });
+
+  // Helper to ensure string values are never null/undefined
+  const ensureString = (value: string | null | undefined): string => {
+    return value ?? '';
+  };
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
 
   useEffect(() => {
@@ -109,25 +114,25 @@ export default function BooksManagementScreen() {
       if (data) {
         setBooks(data.map((row: any) => ({
           id: row.id,
-          slug: row.slug,
-          title: row.title,
-          subtitle: row.subtitle,
-          description: row.description,
-          coverImage: row.cover_image,
-          documentFileUrl: row.document_file_url,
+          slug: row.slug || '',
+          title: row.title || '',
+          subtitle: row.subtitle || '',
+          description: row.description || '',
+          coverImage: row.cover_image || undefined,
+          documentFileUrl: row.document_file_url || undefined,
           price: parseFloat(row.price || '0'),
           currency: row.currency || 'USD',
           salePrice: row.sale_price ? parseFloat(row.sale_price) : undefined,
-          saleStartDate: row.sale_start_date,
-          saleEndDate: row.sale_end_date,
+          saleStartDate: row.sale_start_date || undefined,
+          saleEndDate: row.sale_end_date || undefined,
           totalChapters: row.total_chapters || 0,
           chapters: row.chapters || [],
           enabledFeatures: row.enabled_features || [],
-          author: row.author,
-          isbn: row.isbn,
-          publicationDate: row.publication_date,
-          pageCount: row.page_count,
-          status: row.status,
+          author: row.author || '',
+          isbn: row.isbn || '',
+          publicationDate: row.publication_date || undefined,
+          pageCount: row.page_count || undefined,
+          status: row.status || 'draft',
           isFeatured: row.is_featured || false,
           displayOrder: row.display_order || 0,
           totalSales: row.total_sales || 0,
@@ -806,28 +811,28 @@ export default function BooksManagementScreen() {
     setEditingId(book.id);
     setStep(1);
     setFormData({
-      slug: book.slug,
-      title: book.title,
-      subtitle: book.subtitle,
-      description: book.description,
-      coverImage: book.coverImage,
+      slug: book.slug || '',
+      title: book.title || '',
+      subtitle: book.subtitle || '',
+      description: book.description || '',
+      coverImage: book.coverImage || undefined,
       documentFile: undefined,
-      documentFileUrl: book.documentFileUrl,
-      price: book.price,
-      currency: book.currency,
-      salePrice: book.salePrice,
-      saleStartDate: book.saleStartDate,
-      saleEndDate: book.saleEndDate,
-      totalChapters: book.totalChapters,
-      chapters: book.chapters,
+      documentFileUrl: book.documentFileUrl || undefined,
+      price: book.price || 0,
+      currency: book.currency || 'USD',
+      salePrice: book.salePrice || undefined,
+      saleStartDate: book.saleStartDate || undefined,
+      saleEndDate: book.saleEndDate || undefined,
+      totalChapters: book.totalChapters || 0,
+      chapters: book.chapters || [],
       enabledFeatures: book.enabledFeatures || [],
-      author: book.author,
-      isbn: book.isbn,
-      publicationDate: book.publicationDate,
-      pageCount: book.pageCount,
-      status: book.status,
-      isFeatured: book.isFeatured,
-      displayOrder: book.displayOrder,
+      author: book.author || '',
+      isbn: book.isbn || '',
+      publicationDate: book.publicationDate || undefined,
+      pageCount: book.pageCount || undefined,
+      status: book.status || 'draft',
+      isFeatured: book.isFeatured || false,
+      displayOrder: book.displayOrder || 0,
     });
     setShowModal(true);
   };
@@ -1100,7 +1105,7 @@ export default function BooksManagementScreen() {
                     <Text style={[styles.label, { color: theme.text.primary }]}>Slug *</Text>
                     <TextInput
                       style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                      value={formData.slug}
+                      value={ensureString(formData.slug)}
                       onChangeText={(text) => setFormData({ ...formData, slug: text.toLowerCase().replace(/\s+/g, '-') })}
                       placeholder="e.g., start-your-business"
                       placeholderTextColor={theme.text.tertiary}
@@ -1111,7 +1116,7 @@ export default function BooksManagementScreen() {
                     <Text style={[styles.label, { color: theme.text.primary }]}>Title *</Text>
                     <TextInput
                       style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                      value={formData.title}
+                      value={ensureString(formData.title)}
                       onChangeText={(text) => setFormData({ ...formData, title: text })}
                       placeholder="Book title"
                       placeholderTextColor={theme.text.tertiary}
@@ -1122,7 +1127,7 @@ export default function BooksManagementScreen() {
                     <Text style={[styles.label, { color: theme.text.primary }]}>Subtitle</Text>
                     <TextInput
                       style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                      value={formData.subtitle}
+                      value={ensureString(formData.subtitle)}
                       onChangeText={(text) => setFormData({ ...formData, subtitle: text })}
                       placeholder="Book subtitle"
                       placeholderTextColor={theme.text.tertiary}
@@ -1133,7 +1138,7 @@ export default function BooksManagementScreen() {
                     <Text style={[styles.label, { color: theme.text.primary }]}>Description</Text>
                     <TextInput
                       style={[styles.input, styles.textArea, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                      value={formData.description}
+                      value={ensureString(formData.description)}
                       onChangeText={(text) => setFormData({ ...formData, description: text })}
                       placeholder="Book description"
                       placeholderTextColor={theme.text.tertiary}
@@ -1279,7 +1284,7 @@ export default function BooksManagementScreen() {
                   <Text style={[styles.label, { color: theme.text.primary }]}>Currency</Text>
                 <TextInput
                   style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                    value={formData.currency}
+                    value={ensureString(formData.currency)}
                     onChangeText={(text) => setFormData({ ...formData, currency: text })}
                     placeholder="USD"
                   placeholderTextColor={theme.text.tertiary}
@@ -1291,7 +1296,7 @@ export default function BooksManagementScreen() {
                     <Text style={[styles.label, { color: theme.text.primary }]}>Author</Text>
                 <TextInput
                   style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                      value={formData.author}
+                      value={ensureString(formData.author)}
                       onChangeText={(text) => setFormData({ ...formData, author: text })}
                       placeholder="Author name"
                   placeholderTextColor={theme.text.tertiary}
@@ -1302,7 +1307,7 @@ export default function BooksManagementScreen() {
                     <Text style={[styles.label, { color: theme.text.primary }]}>ISBN</Text>
                 <TextInput
                       style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                      value={formData.isbn}
+                      value={ensureString(formData.isbn)}
                       onChangeText={(text) => setFormData({ ...formData, isbn: text })}
                       placeholder="ISBN number"
                   placeholderTextColor={theme.text.tertiary}
@@ -1314,8 +1319,8 @@ export default function BooksManagementScreen() {
                       <Text style={[styles.label, { color: theme.text.primary }]}>Publication Date</Text>
                   <TextInput
                     style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                        value={formData.publicationDate || ''}
-                        onChangeText={(text) => setFormData({ ...formData, publicationDate: text })}
+                        value={formData.publicationDate ?? ''}
+                        onChangeText={(text) => setFormData({ ...formData, publicationDate: text || undefined })}
                         placeholder="YYYY-MM-DD"
                     placeholderTextColor={theme.text.tertiary}
                   />
