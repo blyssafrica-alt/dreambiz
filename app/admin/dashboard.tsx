@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { BarChart, TrendingUp, Package, Megaphone, FileText, AlertCircle, BookOpen } from 'lucide-react-native';
+import { BarChart, TrendingUp, Package, Megaphone, FileText, AlertCircle, BookOpen, Users, Building2, DollarSign, ArrowRight } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function AdminDashboard() {
@@ -20,10 +20,17 @@ export default function AdminDashboard() {
     totalRevenue: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadStats();
   }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadStats();
+    setRefreshing(false);
+  };
 
   const loadStats = async () => {
     try {
@@ -94,27 +101,41 @@ export default function AdminDashboard() {
     }
   };
 
-  const StatCard = ({ icon: Icon, title, value, color, onPress }: any) => (
+  const StatCard = ({ icon: Icon, title, value, color, gradient, onPress }: any) => (
     <TouchableOpacity 
-      style={[styles.statCard, { backgroundColor: theme.background.card }]}
+      style={[styles.statCard]}
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.85}
     >
       <LinearGradient
-        colors={[`${color}20`, `${color}10`]}
-        style={styles.iconContainer}
+        colors={gradient || [`${color}15`, `${color}05`]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.statCardGradient}
       >
-        <Icon size={24} color={color} />
+        <View style={styles.statCardContent}>
+          <View style={styles.statCardHeader}>
+            <LinearGradient
+              colors={[color, `${color}DD`]}
+              style={styles.iconContainer}
+            >
+              <Icon size={22} color="#FFFFFF" strokeWidth={2.5} />
+            </LinearGradient>
+          </View>
+          <View style={styles.statCardBody}>
+            <Text style={[styles.statValue, { color: theme.text.primary }]}>{value}</Text>
+            <Text style={[styles.statTitle, { color: theme.text.secondary }]}>{title}</Text>
+          </View>
+        </View>
       </LinearGradient>
-      <Text style={[styles.statValue, { color: theme.text.primary }]}>{value}</Text>
-      <Text style={[styles.statTitle, { color: theme.text.secondary }]}>{title}</Text>
     </TouchableOpacity>
   );
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
+      <View style={[styles.container, styles.loadingContainer, { backgroundColor: theme.background.primary }]}>
         <ActivityIndicator size="large" color={theme.accent.primary} />
+        <Text style={[styles.loadingText, { color: theme.text.secondary }]}>Loading dashboard...</Text>
       </View>
     );
   }
@@ -123,20 +144,38 @@ export default function AdminDashboard() {
     <ScrollView 
       style={[styles.container, { backgroundColor: theme.background.primary }]}
       contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={theme.accent.primary}
+          colors={[theme.accent.primary]}
+        />
+      }
     >
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text.primary }]}>Admin Dashboard</Text>
-        <Text style={[styles.subtitle, { color: theme.text.secondary }]}>
-          Platform Overview
-        </Text>
-      </View>
+      {/* Header with Gradient */}
+      <LinearGradient
+        colors={[`${theme.accent.primary}15`, 'transparent']}
+        style={styles.headerGradient}
+      >
+        <View style={styles.header}>
+          <View>
+            <Text style={[styles.title, { color: theme.text.primary }]}>Admin Dashboard</Text>
+            <Text style={[styles.subtitle, { color: theme.text.secondary }]}>
+              Platform Overview
+            </Text>
+          </View>
+        </View>
+      </LinearGradient>
 
+      {/* Stats Grid */}
       <View style={styles.statsGrid}>
         <StatCard
-          icon={BarChart}
+          icon={Users}
           title="Total Users"
           value={stats.totalUsers.toLocaleString()}
           color="#0066CC"
+          gradient={['#0066CC15', '#0066CC05']}
           onPress={() => router.push('/admin/users' as any)}
         />
         <StatCard
@@ -144,12 +183,14 @@ export default function AdminDashboard() {
           title="Active Users"
           value={stats.activeUsers.toLocaleString()}
           color="#10B981"
+          gradient={['#10B98115', '#10B98105']}
         />
         <StatCard
           icon={Package}
           title="Products"
           value={stats.totalProducts.toLocaleString()}
           color="#F59E0B"
+          gradient={['#F59E0B15', '#F59E0B05']}
           onPress={() => router.push('/admin/products' as any)}
         />
         <StatCard
@@ -157,28 +198,36 @@ export default function AdminDashboard() {
           title="Advertisements"
           value={stats.totalAds.toLocaleString()}
           color="#EC4899"
+          gradient={['#EC489915', '#EC489905']}
           onPress={() => router.push('/admin/ads' as any)}
         />
         <StatCard
-          icon={FileText}
+          icon={Building2}
           title="Businesses"
           value={stats.totalBusinesses.toLocaleString()}
           color="#8B5CF6"
+          gradient={['#8B5CF615', '#8B5CF605']}
         />
         <StatCard
-          icon={TrendingUp}
+          icon={DollarSign}
           title="Revenue"
           value={`$${stats.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           color="#10B981"
+          gradient={['#10B98115', '#10B98105']}
         />
       </View>
 
+      {/* Quick Actions Section */}
       <View style={styles.quickActions}>
-        <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Quick Actions</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Quick Actions</Text>
+          <View style={[styles.sectionUnderline, { backgroundColor: theme.accent.primary }]} />
+        </View>
         
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          style={[styles.actionButton, { backgroundColor: theme.background.card, borderLeftWidth: 3, borderLeftColor: theme.accent.primary }]}
           onPress={() => router.push('/admin/features' as any)}
+          activeOpacity={0.7}
         >
           <View style={styles.actionContent}>
             <View style={styles.actionLeft}>
@@ -187,13 +236,16 @@ export default function AdminDashboard() {
                 Enable/disable features and set visibility rules
               </Text>
             </View>
-            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/product-categories' as any)}
+          activeOpacity={0.7}
         >
           <View style={styles.actionContent}>
             <View style={styles.actionLeft}>
@@ -202,13 +254,16 @@ export default function AdminDashboard() {
                 Create and manage product categories
               </Text>
             </View>
-            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/products' as any)}
+          activeOpacity={0.7}
         >
           <View style={styles.actionContent}>
             <View style={styles.actionLeft}>
@@ -217,13 +272,16 @@ export default function AdminDashboard() {
                 Create and manage platform products
               </Text>
             </View>
-            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/ads' as any)}
+          activeOpacity={0.7}
         >
           <View style={styles.actionContent}>
             <View style={styles.actionLeft}>
@@ -232,13 +290,16 @@ export default function AdminDashboard() {
                 Create global and targeted ads
               </Text>
             </View>
-            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/templates' as any)}
+          activeOpacity={0.7}
         >
           <View style={styles.actionContent}>
             <View style={styles.actionLeft}>
@@ -247,13 +308,16 @@ export default function AdminDashboard() {
                 Configure document templates
               </Text>
             </View>
-            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/alerts' as any)}
+          activeOpacity={0.7}
         >
           <View style={styles.actionContent}>
             <View style={styles.actionLeft}>
@@ -262,13 +326,16 @@ export default function AdminDashboard() {
                 Configure mistake prevention alerts
               </Text>
             </View>
-            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/books' as any)}
+          activeOpacity={0.7}
         >
           <View style={styles.actionContent}>
             <View style={styles.actionLeft}>
@@ -277,13 +344,16 @@ export default function AdminDashboard() {
                 Add and manage DreamBig books
               </Text>
             </View>
-            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/help-content' as any)}
+          activeOpacity={0.7}
         >
           <View style={styles.actionContent}>
             <View style={styles.actionLeft}>
@@ -292,13 +362,16 @@ export default function AdminDashboard() {
                 Edit FAQs, support options, and tips
               </Text>
             </View>
-            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/payment-verification' as any)}
+          activeOpacity={0.7}
         >
           <View style={styles.actionContent}>
             <View style={styles.actionLeft}>
@@ -307,13 +380,16 @@ export default function AdminDashboard() {
                 Verify payments and approve access
               </Text>
             </View>
-            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/users' as any)}
+          activeOpacity={0.7}
         >
           <View style={styles.actionContent}>
             <View style={styles.actionLeft}>
@@ -322,13 +398,16 @@ export default function AdminDashboard() {
                 View and manage all users
               </Text>
             </View>
-            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/premium' as any)}
+          activeOpacity={0.7}
         >
           <View style={styles.actionContent}>
             <View style={styles.actionLeft}>
@@ -337,13 +416,16 @@ export default function AdminDashboard() {
                 Manage subscriptions, trials, and discounts
               </Text>
             </View>
-            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/payment-methods' as any)}
+          activeOpacity={0.7}
         >
           <View style={styles.actionContent}>
             <View style={styles.actionLeft}>
@@ -352,13 +434,16 @@ export default function AdminDashboard() {
                 Manage payment methods and options
               </Text>
             </View>
-            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/integrations' as any)}
+          activeOpacity={0.7}
         >
           <View style={styles.actionContent}>
             <View style={styles.actionLeft}>
@@ -367,7 +452,9 @@ export default function AdminDashboard() {
                 Configure API keys and webhook URLs
               </Text>
             </View>
-            <Text style={[styles.actionArrow, { color: theme.text.tertiary }]}>→</Text>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
           </View>
         </TouchableOpacity>
       </View>
@@ -381,17 +468,36 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+    paddingBottom: 32,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+  },
+  headerGradient: {
+    borderRadius: 20,
+    marginBottom: 24,
+    overflow: 'hidden',
   },
   header: {
-    marginBottom: 24,
+    padding: 24,
+    paddingBottom: 20,
   },
   title: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '800',
-    marginBottom: 8,
+    marginBottom: 6,
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
+    fontWeight: '500',
+    opacity: 0.7,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -401,69 +507,106 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: '48%',
-    padding: 16,
-    borderRadius: 16,
     marginBottom: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  statCardGradient: {
+    padding: 18,
+    borderRadius: 20,
+  },
+  statCardContent: {
+    gap: 12,
+  },
+  statCardHeader: {
+    alignSelf: 'flex-start',
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 52,
+    height: 52,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statCardBody: {
+    gap: 4,
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 4,
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   statTitle: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
+    opacity: 0.7,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   quickActions: {
     marginTop: 8,
   },
+  sectionHeader: {
+    marginBottom: 20,
+  },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 16,
+    fontSize: 22,
+    fontWeight: '800',
+    marginBottom: 8,
+    letterSpacing: -0.3,
+  },
+  sectionUnderline: {
+    height: 3,
+    width: 50,
+    borderRadius: 2,
   },
   actionButton: {
-    padding: 16,
-    borderRadius: 12,
+    padding: 18,
+    borderRadius: 16,
     marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     elevation: 2,
   },
   actionContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
   },
   actionLeft: {
     flex: 1,
+    gap: 4,
   },
   actionText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
   actionSubtext: {
-    fontSize: 13,
+    fontSize: 14,
+    opacity: 0.7,
+    lineHeight: 20,
   },
-  actionArrow: {
-    fontSize: 20,
-    marginLeft: 12,
+  actionArrowContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
+
 

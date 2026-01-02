@@ -73,6 +73,7 @@ export default function PaymentVerificationScreen() {
   const [verificationNotes, setVerificationNotes] = useState('');
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'completed' | 'failed' | 'refunded'>('pending');
   const [viewMode, setViewMode] = useState<'documents' | 'subscriptions' | 'books'>('documents');
+  const [subViewMode, setSubViewMode] = useState<'books' | 'subscriptions'>('books');
 
   const loadSubscriptionPayments = useCallback(async () => {
     try {
@@ -565,10 +566,10 @@ export default function PaymentVerificationScreen() {
           ]}
           onPress={() => {
             // When selecting platform payments, default to books
-            if (viewMode !== 'books' && viewMode !== 'subscriptions') {
+            if (viewMode === 'documents') {
               setViewMode('books');
+              setSubViewMode('books');
             }
-            // If already on platform payments, do nothing (use sub-tabs)
           }}
         >
           <Text
@@ -597,16 +598,19 @@ export default function PaymentVerificationScreen() {
             style={[
               styles.subModeTab,
               {
-                backgroundColor: viewMode === 'books' ? theme.accent.primary : 'transparent',
-                borderBottomColor: viewMode === 'books' ? theme.accent.primary : 'transparent',
+                backgroundColor: subViewMode === 'books' ? theme.accent.primary : 'transparent',
+                borderBottomColor: subViewMode === 'books' ? theme.accent.primary : 'transparent',
               },
             ]}
-            onPress={() => setViewMode('books')}
+            onPress={() => {
+              setSubViewMode('books');
+              setViewMode('books');
+            }}
           >
             <Text
               style={[
                 styles.subModeTabText,
-                { color: viewMode === 'books' ? '#FFF' : theme.text.secondary },
+                { color: subViewMode === 'books' ? '#FFF' : theme.text.secondary },
               ]}
             >
               Books
@@ -616,16 +620,19 @@ export default function PaymentVerificationScreen() {
             style={[
               styles.subModeTab,
               {
-                backgroundColor: viewMode === 'subscriptions' ? theme.accent.primary : 'transparent',
-                borderBottomColor: viewMode === 'subscriptions' ? theme.accent.primary : 'transparent',
+                backgroundColor: subViewMode === 'subscriptions' ? theme.accent.primary : 'transparent',
+                borderBottomColor: subViewMode === 'subscriptions' ? theme.accent.primary : 'transparent',
               },
             ]}
-            onPress={() => setViewMode('subscriptions')}
+            onPress={() => {
+              setSubViewMode('subscriptions');
+              setViewMode('subscriptions');
+            }}
           >
             <Text
               style={[
                 styles.subModeTabText,
-                { color: viewMode === 'subscriptions' ? '#FFF' : theme.text.secondary },
+                { color: subViewMode === 'subscriptions' ? '#FFF' : theme.text.secondary },
               ]}
             >
               Subscriptions
