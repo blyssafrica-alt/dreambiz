@@ -576,6 +576,20 @@ export default function BooksManagementScreen() {
         const { supabaseAnonKey: anonKey } = await import('@/lib/supabase');
         const functionUrl = buildEdgeFunctionUrl('process-pdf');
         
+        // CRITICAL: Log the URL to verify it's correct
+        console.log('[process-pdf] 🔍 VERIFYING URL:', functionUrl);
+        console.log('[process-pdf] 🔍 URL starts with https://:', functionUrl.startsWith('https://'));
+        console.log('[process-pdf] 🔍 URL includes /functions/v1/:', functionUrl.includes('/functions/v1/'));
+        console.log('[process-pdf] 🔍 Expected format: https://oqcgerfjjiozltkmmkxf.supabase.co/functions/v1/process-pdf');
+        if (!functionUrl.startsWith('https://') || !functionUrl.includes('/functions/v1/')) {
+          console.error('[process-pdf] ❌❌❌ CRITICAL URL ERROR - URL is WRONG!', functionUrl);
+          Alert.alert('Configuration Error', `Invalid function URL: ${functionUrl}\n\nThis is a code error - please report this.`);
+          setIsProcessingPDF(false);
+          isProcessingRef.current = false;
+          processingRetryCountRef.current = 0;
+          return;
+        }
+        
         // Get fresh session and token
         const { data: { session: finalSession } } = await supabase.auth.getSession();
         if (!finalSession?.access_token) {
@@ -587,10 +601,10 @@ export default function BooksManagementScreen() {
         }
         
         if (__DEV__) {
-          console.log('[process-pdf] Calling function with direct fetch');
-          console.log('[process-pdf] URL:', functionUrl);
-          console.log('[process-pdf] Has access token:', !!finalSession.access_token);
-          console.log('[process-pdf] Has anon key:', !!anonKey);
+          console.log('[process-pdf] ✅ Calling function with direct fetch');
+          console.log('[process-pdf] ✅ URL:', functionUrl);
+          console.log('[process-pdf] ✅ Has access token:', !!finalSession.access_token);
+          console.log('[process-pdf] ✅ Has anon key:', !!anonKey);
         }
         
         // Direct fetch with explicit headers
