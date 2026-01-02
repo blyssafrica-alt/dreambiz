@@ -474,8 +474,14 @@ serve(async (req) => {
   try {
     // Get authorization header - Edge Functions can be called with or without auth
     // Function works with or without authentication
-    const authHeader = req.headers.get('authorization');
-    const apikeyHeader = req.headers.get('apikey');
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
+    const apikeyHeader = req.headers.get('apikey') || req.headers.get('Apikey') || req.headers.get('APIKEY');
+    
+    // Log all headers for debugging (remove in production)
+    const allHeaders: Record<string, string> = {};
+    req.headers.forEach((value, key) => {
+      allHeaders[key] = value.substring(0, 20) + (value.length > 20 ? '...' : '');
+    });
     
     // Log for debugging (remove sensitive data in production)
     console.log('Process PDF request received:', {
@@ -483,6 +489,9 @@ serve(async (req) => {
       hasAuth: !!authHeader,
       hasApikey: !!apikeyHeader,
       url: req.url,
+      headerNames: Array.from(req.headers.keys()),
+      apikeyHeaderValue: apikeyHeader ? apikeyHeader.substring(0, 20) + '...' : null,
+      allHeadersPreview: allHeaders,
     });
 
     // Parse request body with error handling
