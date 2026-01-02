@@ -670,63 +670,22 @@ export default function BooksManagementScreen() {
           pollAttempts++;
 
           try {
-            // Check job status
-            // Use direct fetch for status check too
-            const { supabaseAnonKey: anonKey } = await import('@/lib/supabase');
-            const statusUrl = buildEdgeFunctionUrl('process-pdf');
-            const { data: { session: statusSession } } = await supabase.auth.getSession();
+            // Check job status using supabase.functions.invoke() ONLY
+            console.log(`[process-pdf] Polling job status: ${jobId}`);
+            
+            const { data: statusData, error: statusError } = await supabase.functions.invoke('process-pdf', {
+              body: {
+                jobId: jobId,
+              },
+            });
             
             let statusResponse: any = null;
-            let statusError: any = null;
             
-            try {
-              // Ensure valid auth header for status check
-              let statusAuthHeader = statusSession?.access_token 
-                ? `Bearer ${statusSession.access_token}`.trim()
-                : '';
-              
-              if (!statusAuthHeader || !statusAuthHeader.startsWith('Bearer ')) {
-                console.warn('[process-pdf] Status check: Invalid or missing token, attempting refresh...');
-                const { data: refreshData } = await supabase.auth.refreshSession();
-                if (refreshData?.session?.access_token) {
-                  statusAuthHeader = `Bearer ${refreshData.session.access_token}`.trim();
-                } else {
-                  throw new Error('Unable to refresh session for status check');
-                }
-              }
-              
-              const statusFetchResponse = await fetch(statusUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'apikey': anonKey || '',
-                  'Authorization': statusAuthHeader,
-                  'Accept': 'application/json',
-                },
-                body: JSON.stringify({ jobId }),
-              });
-              
-              const statusText = await statusFetchResponse.text();
-              
-              if (!statusFetchResponse.ok) {
-                statusError = {
-                  status: statusFetchResponse.status,
-                  statusCode: statusFetchResponse.status,
-                  message: `HTTP ${statusFetchResponse.status}`,
-                };
-              } else {
-                statusResponse = JSON.parse(statusText);
-              }
-            } catch (fetchErr: any) {
-              statusError = {
-                status: fetchErr.status || 500,
-                message: fetchErr.message || 'Network error',
-              };
-            }
-
             if (statusError) {
               console.warn(`[process-pdf] Status check error (attempt ${pollAttempts}):`, statusError);
-              continue; // Continue polling
+              continue; // Continue polling (might be temporary)
+            } else {
+              statusResponse = statusData;
             }
 
             const job = statusResponse?.job;
