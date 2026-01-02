@@ -832,23 +832,8 @@ serve(async (req, ctx) => {
       console.warn('⚠️ Service role key not found - using anon key (RLS may apply)');
       supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
       
-      // Try to get user if auth header present (optional)
-      if (authHeader) {
-        try {
-          const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
-            global: {
-              headers: {
-                Authorization: authHeader,
-                apikey: supabaseAnonKey,
-              },
-            },
-          });
-          const { data: { user } } = await tempClient.auth.getUser();
-          userId = user?.id || null;
-        } catch {
-          // Ignore - not critical
-        }
-      }
+      // DO NOT call auth.getUser() here - gateway already validated auth
+      // Service role key should always be available in production
     }
     
     console.log('✅ Supabase client initialized');
