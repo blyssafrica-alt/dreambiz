@@ -1012,30 +1012,85 @@ export default function BooksManagementScreen() {
 
                   {/* Chapters */}
                   <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: theme.text.primary }]}>Total Chapters</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                  value={formData.totalChapters.toString()}
-                  onChangeText={(text) => setFormData({ ...formData, totalChapters: parseInt(text) || 0 })}
-                  placeholder="0"
-                  placeholderTextColor={theme.text.tertiary}
-                  keyboardType="number-pad"
-                />
-                {formData.chapters.length > 0 && (
-                  <View style={styles.chaptersList}>
-                    {formData.chapters.map((chapter, index) => (
-                      <View key={index} style={[styles.chapterItem, { backgroundColor: theme.background.secondary }]}>
-                        <Text style={[styles.chapterNumber, { color: theme.accent.primary }]}>
-                          Ch. {chapter.number}
+                    <Text style={[styles.label, { color: theme.text.primary }]}>Total Chapters</Text>
+                    <View style={styles.row}>
+                      <TextInput
+                        style={[styles.input, { flex: 1, backgroundColor: theme.background.secondary, color: theme.text.primary, marginRight: 8 }]}
+                        value={formData.totalChapters.toString()}
+                        onChangeText={(text) => setFormData({ ...formData, totalChapters: parseInt(text) || 0 })}
+                        placeholder="0"
+                        placeholderTextColor={theme.text.tertiary}
+                        keyboardType="number-pad"
+                      />
+                      <TouchableOpacity
+                        style={[styles.addChaptersButton, { backgroundColor: theme.accent.primary }]}
+                        onPress={() => {
+                          // Manual chapter entry
+                          if (Platform.OS === 'ios') {
+                            Alert.prompt(
+                              'Enter Number of Chapters',
+                              'How many chapters does this book have?',
+                              [
+                                { text: 'Cancel', style: 'cancel' },
+                                {
+                                  text: 'OK',
+                                  onPress: (chapterCountStr) => {
+                                    const chapterCount = parseInt(chapterCountStr || '0', 10);
+                                    if (chapterCount > 0) {
+                                      // Create placeholder chapters
+                                      const chapters: BookChapter[] = [];
+                                      for (let i = 1; i <= chapterCount; i++) {
+                                        chapters.push({ number: i, title: `Chapter ${i}` });
+                                      }
+                                      setFormData({ ...formData, chapters, totalChapters: chapterCount });
+                                      Alert.alert('Chapters Added', `Added ${chapterCount} placeholder chapters. You can edit them after saving.`);
+                                    }
+                                  }
+                                }
+                              ],
+                              'plain-text'
+                            );
+                          } else {
+                            // For Android, use the total chapters field
+                            Alert.alert(
+                              'Manual Chapter Entry',
+                              'Enter the total number of chapters in the field above, then tap "Add Chapters" again to create placeholder chapters.',
+                              [{ text: 'OK' }]
+                            );
+                            // Auto-create chapters if totalChapters is set
+                            if (formData.totalChapters > 0) {
+                              const chapters: BookChapter[] = [];
+                              for (let i = 1; i <= formData.totalChapters; i++) {
+                                chapters.push({ number: i, title: `Chapter ${i}` });
+                              }
+                              setFormData({ ...formData, chapters });
+                            }
+                          }
+                        }}
+                      >
+                        <Text style={[styles.addChaptersButtonText, { color: '#FFF' }]}>
+                          Add Chapters
                         </Text>
-                        <Text style={[styles.chapterTitle, { color: theme.text.primary }]}>
-                          {chapter.title}
-                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={[styles.helperText, { color: theme.text.tertiary, marginTop: 8 }]}>
+                      Enter the number of chapters and tap "Add Chapters" to create placeholder chapters, or process PDF from Step 2 to extract automatically.
+                    </Text>
+                    {formData.chapters.length > 0 && (
+                      <View style={styles.chaptersList}>
+                        {formData.chapters.map((chapter, index) => (
+                          <View key={index} style={[styles.chapterItem, { backgroundColor: theme.background.secondary }]}>
+                            <Text style={[styles.chapterNumber, { color: theme.accent.primary }]}>
+                              Ch. {chapter.number}
+                            </Text>
+                            <Text style={[styles.chapterTitle, { color: theme.text.primary }]}>
+                              {chapter.title}
+                            </Text>
+                          </View>
+                        ))}
                       </View>
-                    ))}
+                    )}
                   </View>
-                )}
-              </View>
 
                   {/* Enabled Features */}
                   <View style={styles.inputGroup}>
@@ -1596,6 +1651,17 @@ const styles = StyleSheet.create({
   },
   featureItemDesc: {
     fontSize: 12,
+  },
+  addChaptersButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addChaptersButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 
