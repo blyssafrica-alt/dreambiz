@@ -571,185 +571,54 @@ export default function BooksManagementScreen() {
           console.log('[process-pdf] ✅ Final token validation passed, calling function');
         }
         
-        // STEP 7: Create PDF processing job (returns immediately)
-        // Use direct fetch with explicit headers to ensure auth works
-        const { supabaseAnonKey: anonKey } = await import('@/lib/supabase');
-        const functionUrl = buildEdgeFunctionUrl('process-pdf');
+        // ============================================
+        // STEP 7: CALL EDGE FUNCTION USING supabase.functions.invoke() ONLY
+        // ============================================
+        // This is the ONLY way to call Edge Functions - automatic auth handling
+        // DO NOT use manual fetch() - it bypasses automatic auth injection
+        // ============================================
         
-        // CRITICAL: Log the URL to verify it's correct
-        console.log('[process-pdf] 🔍 VERIFYING URL:', functionUrl);
-        console.log('[process-pdf] 🔍 URL starts with https://:', functionUrl.startsWith('https://'));
-        console.log('[process-pdf] 🔍 URL includes /functions/v1/:', functionUrl.includes('/functions/v1/'));
-        console.log('[process-pdf] 🔍 Expected format: https://oqcgerfjjiozltkmmkxf.supabase.co/functions/v1/process-pdf');
-        if (!functionUrl.startsWith('https://') || !functionUrl.includes('/functions/v1/')) {
-          console.error('[process-pdf] ❌❌❌ CRITICAL URL ERROR - URL is WRONG!', functionUrl);
-          Alert.alert('Configuration Error', `Invalid function URL: ${functionUrl}\n\nThis is a code error - please report this.`);
-          setIsProcessingPDF(false);
-          isProcessingRef.current = false;
-          processingRetryCountRef.current = 0;
-          return;
-        }
-        
-        // Get fresh session and token - FORCE REFRESH if needed
-        let { data: { session: finalSession }, error: finalSessionError } = await supabase.auth.getSession();
-        
-        // If session is missing or error, try to refresh
-        if (finalSessionError || !finalSession?.access_token) {
-          console.warn('[process-pdf] Session invalid, attempting refresh...');
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-          if (refreshError || !refreshData?.session) {
-            Alert.alert('Authentication Error', 'Your session expired. Please sign in again.');
-            setIsProcessingPDF(false);
-            isProcessingRef.current = false;
-            processingRetryCountRef.current = 0;
-            return;
-          }
-          finalSession = refreshData.session;
-        }
-        
-        // CRITICAL: Validate token one more time with getUser() - this validates with Supabase server
-        let tokenUser: any = null;
-        try {
-          const userResult = await supabase.auth.getUser(finalSession.access_token);
-          tokenUser = userResult.data?.user;
-          if (userResult.error || !tokenUser) {
-            console.warn('[process-pdf] Token validation failed, but function may work without auth:', userResult.error);
-            // Don't return here - function might work without auth
-          }
-        } catch (tokenValidationError) {
-          console.warn('[process-pdf] Token validation error (non-fatal):', tokenValidationError);
-          // Continue - function might work without auth
-        }
-        
-        // CRITICAL: Create a new URL object to ensure it's absolute and correct
-        // This prevents any URL modification issues
-        let finalFunctionUrl: string;
-        try {
-          const urlObj = new URL(functionUrl);
-          // CRITICAL: Force HTTPS (never HTTP)
-          urlObj.protocol = 'https:';
-          // CRITICAL: Ensure path includes /functions/v1/
-          if (!urlObj.pathname.includes('/functions/v1/')) {
-            const functionName = urlObj.pathname.replace(/^\/+|\/+$/g, '').replace(/^functions\/v1\//, '');
-            urlObj.pathname = `/functions/v1/${functionName}`;
-          }
-          finalFunctionUrl = urlObj.toString();
-          
-          // Final validation - if anything is wrong, use hardcoded URL
-          if (!finalFunctionUrl.startsWith('https://') || !finalFunctionUrl.includes('/functions/v1/')) {
-            console.error('[process-pdf] ❌❌❌ URL OBJECT VALIDATION FAILED!', finalFunctionUrl);
-            // Use hardcoded fallback
-            finalFunctionUrl = 'https://oqcgerfjjiozltkmmkxf.supabase.co/functions/v1/process-pdf';
-          }
-        } catch (urlError) {
-          console.error('[process-pdf] ❌ Failed to create URL object:', urlError);
-          // Use hardcoded fallback
-          finalFunctionUrl = 'https://oqcgerfjjiozltkmmkxf.supabase.co/functions/v1/process-pdf';
-        }
-        
-        // Log the FINAL URL that will be sent
-        console.log('[process-pdf] 🔍 FINAL URL TO SEND:', finalFunctionUrl);
-        console.log('[process-pdf] 🔍 URL starts with https://:', finalFunctionUrl.startsWith('https://'));
-        console.log('[process-pdf] 🔍 URL includes /functions/v1/:', finalFunctionUrl.includes('/functions/v1/'));
-        
-        if (__DEV__) {
-          console.log('[process-pdf] ✅ Calling function with direct fetch');
-          console.log('[process-pdf] ✅ Has access token:', !!finalSession?.access_token);
-          console.log('[process-pdf] ✅ Token validated with getUser():', !!tokenUser);
-          console.log('[process-pdf] ✅ Has anon key:', !!anonKey);
-          if (finalSession?.access_token) {
-            console.log('[process-pdf] ✅ Token preview:', finalSession.access_token.substring(0, 20) + '...');
-          }
-        }
-        
-        // Direct fetch with explicit headers
-        let response: Response;
         let jobResponse: any;
         let jobError: any = null;
         
         try {
-          // ============================================
-          // SIMPLIFIED REQUEST STRATEGY
-          // ============================================
-          // Function is configured with verify_jwt = false in config.toml
-          // Gateway will NOT validate JWT - function accepts public requests
-          // Send request WITHOUT Authorization header to avoid any JWT validation
-          // Function uses service role key internally (bypasses RLS)
-          // ============================================
+          console.log('[process-pdf] 📤 Calling Edge Function via supabase.functions.invoke()');
+          console.log('[process-pdf] 📤 Function: process-pdf');
+          console.log('[process-pdf] 📤 Has valid session:', !!session?.access_token);
           
-          const requestBody = JSON.stringify({
-            pdfUrl: formData.documentFileUrl,
-            bookId: editingId || null,
+          // Use supabase.functions.invoke() - handles auth automatically
+          const { data, error } = await supabase.functions.invoke('process-pdf', {
+            body: {
+              pdfUrl: formData.documentFileUrl,
+              bookId: editingId || null,
+            },
           });
           
-          // Build headers - NO Authorization header (function configured for public access)
-          const headers: Record<string, string> = {
-            'Content-Type': 'application/json',
-            'apikey': anonKey || '',
-            'Accept': 'application/json',
-          };
-          
-          console.log('[process-pdf] 📤 Sending POST request (public access, no JWT):');
-          console.log('[process-pdf] 📤 URL:', finalFunctionUrl);
-          console.log('[process-pdf] 📤 Method: POST');
-          console.log('[process-pdf] 📤 Headers:', { 
-            hasApikey: !!headers.apikey,
-            hasAuthorization: false,
-            contentType: headers['Content-Type'],
-          });
-          
-          response = await fetch(finalFunctionUrl, {
-            method: 'POST',
-            headers,
-            body: requestBody,
-          });
-          
-          console.log('[process-pdf] 📥 Response received:');
-          console.log('[process-pdf] 📥 Status:', response.status);
-          console.log('[process-pdf] 📥 StatusText:', response.statusText);
-          console.log('[process-pdf] 📥 URL:', response.url);
-          console.log('[process-pdf] 📥 OK:', response.ok);
-          
-          const responseText = await response.text();
-          console.log('[process-pdf] 📥 Response body (first 200 chars):', responseText.substring(0, 200));
-          
-          if (!response.ok) {
+          if (error) {
+            console.error('[process-pdf] ❌ Function invoke error:', error);
             jobError = {
-              status: response.status,
-              statusCode: response.status,
-              message: `HTTP ${response.status}: ${response.statusText}`,
-              responseText,
+              status: error.status || 500,
+              statusCode: error.status || 500,
+              message: error.message || 'Unknown error',
+              error: error,
             };
             
-            // Try to parse error JSON
-            try {
-              const errorJson = JSON.parse(responseText);
-              jobError = { ...jobError, ...errorJson };
-              console.error('[process-pdf] ❌ Error response (parsed):', errorJson);
-            } catch {
-              // Not JSON, use text
-              console.error('[process-pdf] ❌ Error response (text):', responseText);
+            // Check for 401 specifically
+            if (error.status === 401 || error.statusCode === 401) {
+              jobError.message = 'Authentication failed. Please sign out and sign back in.';
+              jobError.requiresReauth = true;
             }
           } else {
-            try {
-              jobResponse = JSON.parse(responseText);
-              console.log('[process-pdf] ✅ Success response:', jobResponse);
-            } catch (parseError) {
-              console.error('[process-pdf] ❌ Failed to parse response JSON:', parseError);
-              jobError = {
-                status: 500,
-                statusCode: 500,
-                message: 'Invalid JSON response from server',
-                responseText,
-              };
-            }
+            jobResponse = data;
+            console.log('[process-pdf] ✅ Function invoke success:', jobResponse);
           }
-        } catch (fetchError: any) {
+        } catch (invokeError: any) {
+          console.error('[process-pdf] ❌ Function invoke exception:', invokeError);
           jobError = {
-            status: fetchError.status || 500,
-            statusCode: fetchError.statusCode || 500,
-            message: fetchError.message || 'Network error',
-            originalError: fetchError,
+            status: invokeError.status || 500,
+            statusCode: invokeError.statusCode || 500,
+            message: invokeError.message || 'Function call failed',
+            originalError: invokeError,
           };
         }
 
