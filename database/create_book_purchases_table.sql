@@ -61,6 +61,18 @@ CREATE POLICY "Super admins can view all book purchases"
     )
   );
 
+-- Policy: Super admins can update all purchases (for payment verification)
+CREATE POLICY "Super admins can update all book purchases"
+  ON book_purchases
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM users
+      WHERE users.id = auth.uid()
+      AND users.is_super_admin = TRUE
+    )
+  );
+
 -- Trigger to update books sales stats when purchase is completed
 CREATE OR REPLACE FUNCTION update_book_sales_stats()
 RETURNS TRIGGER AS $$

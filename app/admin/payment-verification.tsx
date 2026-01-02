@@ -38,18 +38,40 @@ interface SubscriptionPayment {
   created_at: string;
 }
 
+interface BookPurchase {
+  id: string;
+  book_id: string;
+  book_title?: string;
+  user_id: string;
+  user_email?: string;
+  business_id: string;
+  unit_price: number;
+  total_price: number;
+  currency: string;
+  payment_method?: string;
+  payment_status: 'pending' | 'completed' | 'failed' | 'refunded';
+  payment_reference?: string;
+  payment_notes?: string;
+  access_granted: boolean;
+  access_granted_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function PaymentVerificationScreen() {
   const { theme } = useTheme();
   const { user, isSuperAdmin } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [subscriptionPayments, setSubscriptionPayments] = useState<SubscriptionPayment[]>([]);
+  const [bookPurchases, setBookPurchases] = useState<BookPurchase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [selectedSubPayment, setSelectedSubPayment] = useState<SubscriptionPayment | null>(null);
+  const [selectedBookPurchase, setSelectedBookPurchase] = useState<BookPurchase | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [verificationNotes, setVerificationNotes] = useState('');
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
-  const [viewMode, setViewMode] = useState<'documents' | 'subscriptions'>('documents');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'completed' | 'failed' | 'refunded'>('pending');
+  const [viewMode, setViewMode] = useState<'documents' | 'subscriptions' | 'books'>('documents');
 
   const loadSubscriptionPayments = useCallback(async () => {
     try {
@@ -160,6 +182,74 @@ export default function PaymentVerificationScreen() {
     }
   }, [filter]);
 
+  const loadBookPurchases = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      console.log('Loading book purchases with filter:', filter);
+      
+      let query = supabase
+        .from('book_purchases')
+        .select(`
+          *,
+          books(title),
+          users(email)
+        `)
+        .order('created_at', { ascending: false });
+
+      // Map filter to payment_status for book purchases
+      if (filter !== 'all') {
+        if (filter === 'pending') {
+          query = query.eq('payment_status', 'pending');
+        } else if (filter === 'approved' || filter === 'completed') {
+          query = query.eq('payment_status', 'completed');
+        } else if (filter === 'rejected' || filter === 'failed') {
+          query = query.in('payment_status', ['failed', 'refunded']);
+        }
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Book purchases query error:', error);
+        throw error;
+      }
+
+      console.log('Book purchases loaded:', data?.length || 0, 'purchases');
+
+      if (data) {
+        const mappedPurchases = data.map((row: any) => ({
+          id: row.id,
+          book_id: row.book_id,
+          book_title: row.books?.title || 'Unknown Book',
+          user_id: row.user_id,
+          user_email: row.users?.email || undefined,
+          business_id: row.business_id,
+          unit_price: Number(row.unit_price),
+          total_price: Number(row.total_price),
+          currency: row.currency,
+          payment_method: row.payment_method || undefined,
+          payment_status: row.payment_status || 'pending',
+          payment_reference: row.payment_reference || undefined,
+          payment_notes: row.payment_notes || undefined,
+          access_granted: row.access_granted || false,
+          access_granted_at: row.access_granted_at || undefined,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+        }));
+        
+        setBookPurchases(mappedPurchases);
+      } else {
+        setBookPurchases([]);
+      }
+    } catch (error: any) {
+      console.error('Failed to load book purchases:', error);
+      Alert.alert('Error', 'Failed to load book purchases');
+      setBookPurchases([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [filter]);
+
   useEffect(() => {
     if (!isSuperAdmin) {
       Alert.alert('Access Denied', 'Only super admins can access this page');
@@ -167,11 +257,12 @@ export default function PaymentVerificationScreen() {
       return;
     }
     
-    // Load both types of payments when component mounts or filter changes
+    // Load all types of payments when component mounts or filter changes
     // This ensures data is available when switching tabs
     loadPayments();
     loadSubscriptionPayments();
-  }, [filter, isSuperAdmin, loadPayments, loadSubscriptionPayments]);
+    loadBookPurchases();
+  }, [filter, isSuperAdmin, loadPayments, loadSubscriptionPayments, loadBookPurchases]);
 
   // Reload when viewMode changes
   useEffect(() => {
@@ -179,10 +270,12 @@ export default function PaymentVerificationScreen() {
     
     if (viewMode === 'documents') {
       loadPayments();
-    } else {
+    } else if (viewMode === 'subscriptions') {
       loadSubscriptionPayments();
+    } else if (viewMode === 'books') {
+      loadBookPurchases();
     }
-  }, [viewMode, isSuperAdmin, loadPayments, loadSubscriptionPayments]);
+  }, [viewMode, isSuperAdmin, loadPayments, loadSubscriptionPayments, loadBookPurchases]);
 
   const handleVerifySubscription = async (payment: SubscriptionPayment, status: 'approved' | 'rejected') => {
     if (!user) return;
@@ -251,6 +344,45 @@ export default function PaymentVerificationScreen() {
     }
   };
 
+  const handleVerifyBookPurchase = async (purchase: BookPurchase, status: 'completed' | 'failed' | 'refunded') => {
+    if (!user) return;
+
+    try {
+      const updateData: any = {
+        payment_status: status,
+        updated_at: new Date().toISOString(),
+      };
+
+      // If completing the purchase, grant access
+      if (status === 'completed') {
+        updateData.access_granted = true;
+        updateData.access_granted_at = new Date().toISOString();
+      }
+
+      if (verificationNotes) {
+        updateData.payment_notes = verificationNotes;
+      }
+
+      const { error: updateError } = await supabase
+        .from('book_purchases')
+        .update(updateData)
+        .eq('id', purchase.id);
+
+      if (updateError) throw updateError;
+
+      // The trigger will update book sales stats automatically when payment_status = 'completed'
+
+      setShowModal(false);
+      setSelectedBookPurchase(null);
+      setVerificationNotes('');
+      await loadBookPurchases();
+      Alert.alert('Success', `Book purchase ${status === 'completed' ? 'approved and access granted' : status === 'failed' ? 'marked as failed' : 'refunded'} successfully`);
+    } catch (error: any) {
+      console.error('Failed to verify book purchase:', error);
+      Alert.alert('Error', error.message || 'Failed to verify book purchase');
+    }
+  };
+
   const handleVerify = async (payment: Payment, status: 'approved' | 'rejected') => {
     if (!user) return;
 
@@ -309,6 +441,7 @@ export default function PaymentVerificationScreen() {
   const openPaymentModal = (payment: Payment) => {
     setSelectedPayment(payment);
     setSelectedSubPayment(null);
+    setSelectedBookPurchase(null);
     setVerificationNotes(payment.verificationNotes || '');
     setShowModal(true);
   };
@@ -316,15 +449,27 @@ export default function PaymentVerificationScreen() {
   const openSubPaymentModal = (payment: SubscriptionPayment) => {
     setSelectedSubPayment(payment);
     setSelectedPayment(null);
+    setSelectedBookPurchase(null);
     setVerificationNotes(payment.verification_notes || '');
+    setShowModal(true);
+  };
+
+  const openBookPurchaseModal = (purchase: BookPurchase) => {
+    setSelectedBookPurchase(purchase);
+    setSelectedPayment(null);
+    setSelectedSubPayment(null);
+    setVerificationNotes(purchase.payment_notes || '');
     setShowModal(true);
   };
 
   const getStatusColor = (status?: string) => {
     switch (status) {
       case 'approved':
+      case 'completed':
         return '#10B981';
       case 'rejected':
+      case 'failed':
+      case 'refunded':
         return '#EF4444';
       default:
         return '#F59E0B';
@@ -334,8 +479,11 @@ export default function PaymentVerificationScreen() {
   const getStatusIcon = (status?: string) => {
     switch (status) {
       case 'approved':
+      case 'completed':
         return CheckCircle;
       case 'rejected':
+      case 'failed':
+      case 'refunded':
         return XCircle;
       default:
         return Clock;
@@ -350,6 +498,16 @@ export default function PaymentVerificationScreen() {
   const filteredSubPayments = subscriptionPayments.filter(p => {
     if (filter === 'all') return true;
     return p.verification_status === filter;
+  });
+
+  const filteredBookPurchases = bookPurchases.filter(p => {
+    if (filter === 'all') return true;
+    // Map filter to payment_status for book purchases
+    if (filter === 'pending') return p.payment_status === 'pending';
+    if (filter === 'approved' || filter === 'completed') return p.payment_status === 'completed';
+    if (filter === 'rejected' || filter === 'failed') return p.payment_status === 'failed';
+    if (filter === 'refunded') return p.payment_status === 'refunded';
+    return false;
   });
 
   if (!isSuperAdmin) {
@@ -406,11 +564,32 @@ export default function PaymentVerificationScreen() {
             Subscription Payments
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.viewModeTab,
+            {
+              backgroundColor: viewMode === 'books' ? theme.accent.primary : theme.background.secondary,
+            },
+          ]}
+          onPress={() => setViewMode('books')}
+        >
+          <Text
+            style={[
+              styles.viewModeTabText,
+              { color: viewMode === 'books' ? '#FFF' : theme.text.primary },
+            ]}
+          >
+            Book Purchases
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Filter Tabs */}
       <View style={[styles.filterContainer, { backgroundColor: theme.background.card }]}>
-        {(['all', 'pending', 'approved', 'rejected'] as const).map((filterOption) => (
+        {(viewMode === 'books' 
+          ? ['all', 'pending', 'completed', 'failed', 'refunded'] as const
+          : ['all', 'pending', 'approved', 'rejected'] as const
+        ).map((filterOption) => (
           <TouchableOpacity
             key={filterOption}
             style={[
@@ -433,7 +612,15 @@ export default function PaymentVerificationScreen() {
                 <Text style={[styles.badgeText, { color: filter === filterOption ? theme.accent.primary : '#FFF' }]}>
                   {viewMode === 'documents'
                     ? payments.filter(p => p.verificationStatus === filterOption).length
-                    : subscriptionPayments.filter(p => p.verification_status === filterOption).length}
+                    : viewMode === 'subscriptions'
+                    ? subscriptionPayments.filter(p => p.verification_status === filterOption).length
+                    : bookPurchases.filter(p => {
+                        if (filterOption === 'pending') return p.payment_status === 'pending';
+                        if (filterOption === 'completed') return p.payment_status === 'completed';
+                        if (filterOption === 'failed') return p.payment_status === 'failed';
+                        if (filterOption === 'refunded') return p.payment_status === 'refunded';
+                        return false;
+                      }).length}
                 </Text>
               </View>
             )}
@@ -457,6 +644,13 @@ export default function PaymentVerificationScreen() {
           <Clock size={64} color={theme.text.tertiary} />
           <Text style={[styles.emptyText, { color: theme.text.secondary }]}>
             No {filter === 'all' ? '' : filter} subscription payments found
+          </Text>
+        </View>
+      ) : viewMode === 'books' && filteredBookPurchases.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Clock size={64} color={theme.text.tertiary} />
+          <Text style={[styles.emptyText, { color: theme.text.secondary }]}>
+            No {filter === 'all' ? '' : filter} book purchases found
           </Text>
         </View>
       ) : (
@@ -502,7 +696,7 @@ export default function PaymentVerificationScreen() {
                 )}
               </TouchableOpacity>
             );
-          }) : filteredSubPayments.map((payment) => {
+          }) : viewMode === 'subscriptions' ? filteredSubPayments.map((payment) => {
             const StatusIcon = getStatusIcon(payment.verification_status);
             const statusColor = getStatusColor(payment.verification_status);
 
@@ -541,6 +735,52 @@ export default function PaymentVerificationScreen() {
                     <Eye size={16} color={theme.accent.primary} />
                     <Text style={[styles.proofText, { color: theme.accent.primary }]}>
                       Proof attached
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          }) : filteredBookPurchases.map((purchase) => {
+            const StatusIcon = getStatusIcon(purchase.payment_status);
+            const statusColor = getStatusColor(purchase.payment_status);
+
+            return (
+              <TouchableOpacity
+                key={purchase.id}
+                style={[styles.paymentCard, { backgroundColor: theme.background.card }]}
+                onPress={() => openBookPurchaseModal(purchase)}
+              >
+                <View style={styles.paymentHeader}>
+                  <View style={styles.paymentInfo}>
+                    <Text style={[styles.paymentAmount, { color: theme.text.primary }]}>
+                      {purchase.currency} {purchase.total_price.toFixed(2)}
+                    </Text>
+                    <Text style={[styles.paymentMethod, { color: theme.accent.primary }]}>
+                      {purchase.book_title}
+                    </Text>
+                    {purchase.payment_method && (
+                      <Text style={[styles.paymentMethod, { color: theme.text.secondary }]}>
+                        {purchase.payment_method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </Text>
+                    )}
+                    <Text style={[styles.paymentDate, { color: theme.text.tertiary }]}>
+                      {new Date(purchase.created_at).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
+                    <StatusIcon size={20} color={statusColor} />
+                  </View>
+                </View>
+                {purchase.payment_reference && (
+                  <Text style={[styles.paymentReference, { color: theme.text.secondary }]}>
+                    Ref: {purchase.payment_reference}
+                  </Text>
+                )}
+                {purchase.access_granted && (
+                  <View style={styles.proofIndicator}>
+                    <CheckCircle size={16} color={theme.accent.primary} />
+                    <Text style={[styles.proofText, { color: theme.accent.primary }]}>
+                      Access granted
                     </Text>
                   </View>
                 )}
@@ -650,6 +890,123 @@ export default function PaymentVerificationScreen() {
                     <Check size={20} color="#FFF" />
                     <Text style={styles.buttonText}>Approve & Activate</Text>
                   </TouchableOpacity>
+                </View>
+              </>
+            ) : selectedBookPurchase ? (
+              <>
+                <View style={styles.modalHeader}>
+                  <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Book Purchase Details</Text>
+                  <TouchableOpacity onPress={() => setShowModal(false)}>
+                    <X size={24} color={theme.text.tertiary} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView style={styles.modalBody}>
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>Book</Text>
+                    <Text style={[styles.detailValue, { color: theme.text.primary }]}>
+                      {selectedBookPurchase.book_title}
+                    </Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>Amount</Text>
+                    <Text style={[styles.detailValue, { color: theme.text.primary }]}>
+                      {selectedBookPurchase.currency} {selectedBookPurchase.total_price.toFixed(2)}
+                    </Text>
+                  </View>
+                  {selectedBookPurchase.payment_method && (
+                    <View style={styles.detailRow}>
+                      <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>Method</Text>
+                      <Text style={[styles.detailValue, { color: theme.text.primary }]}>
+                        {selectedBookPurchase.payment_method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>Status</Text>
+                    <Text style={[styles.detailValue, { color: getStatusColor(selectedBookPurchase.payment_status) }]}>
+                      {selectedBookPurchase.payment_status.charAt(0).toUpperCase() + selectedBookPurchase.payment_status.slice(1)}
+                    </Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>Date</Text>
+                    <Text style={[styles.detailValue, { color: theme.text.primary }]}>
+                      {new Date(selectedBookPurchase.created_at).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  {selectedBookPurchase.user_email && (
+                    <View style={styles.detailRow}>
+                      <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>User</Text>
+                      <Text style={[styles.detailValue, { color: theme.text.primary }]}>
+                        {selectedBookPurchase.user_email}
+                      </Text>
+                    </View>
+                  )}
+                  {selectedBookPurchase.payment_reference && (
+                    <View style={styles.detailRow}>
+                      <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>Reference</Text>
+                      <Text style={[styles.detailValue, { color: theme.text.primary }]}>
+                        {selectedBookPurchase.payment_reference}
+                      </Text>
+                    </View>
+                  )}
+                  {selectedBookPurchase.payment_notes && (
+                    <View style={styles.detailRow}>
+                      <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>Notes</Text>
+                      <Text style={[styles.detailValue, { color: theme.text.primary }]}>
+                        {selectedBookPurchase.payment_notes}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>Access Granted</Text>
+                    <Text style={[styles.detailValue, { color: selectedBookPurchase.access_granted ? '#10B981' : '#F59E0B' }]}>
+                      {selectedBookPurchase.access_granted ? 'Yes' : 'No'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.label, { color: theme.text.primary }]}>Verification Notes</Text>
+                    <TextInput
+                      style={[styles.input, styles.textArea, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                      value={verificationNotes}
+                      onChangeText={setVerificationNotes}
+                      placeholder="Add notes about verification..."
+                      placeholderTextColor={theme.text.tertiary}
+                      multiline
+                      numberOfLines={3}
+                    />
+                  </View>
+                </ScrollView>
+
+                <View style={styles.modalFooter}>
+                  {selectedBookPurchase.payment_status === 'pending' && (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.rejectButton, { backgroundColor: '#EF4444' }]}
+                        onPress={() => handleVerifyBookPurchase(selectedBookPurchase, 'failed')}
+                      >
+                        <X size={20} color="#FFF" />
+                        <Text style={styles.buttonText}>Mark Failed</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.approveButton, { backgroundColor: '#10B981' }]}
+                        onPress={() => handleVerifyBookPurchase(selectedBookPurchase, 'completed')}
+                      >
+                        <Check size={20} color="#FFF" />
+                        <Text style={styles.buttonText}>Approve & Grant Access</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                  {selectedBookPurchase.payment_status === 'completed' && (
+                    <TouchableOpacity
+                      style={[styles.rejectButton, { backgroundColor: '#F59E0B', flex: 1 }]}
+                      onPress={() => handleVerifyBookPurchase(selectedBookPurchase, 'refunded')}
+                    >
+                      <X size={20} color="#FFF" />
+                      <Text style={styles.buttonText}>Mark as Refunded</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </>
             ) : selectedPayment && (
