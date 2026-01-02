@@ -523,13 +523,18 @@ export default function PaymentVerificationScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background.secondary }]} edges={['top']}>
       <Stack.Screen options={{ title: 'Payment Verification', headerShown: false }} />
       
-      <View style={[styles.header, { backgroundColor: theme.background.card }]}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <ArrowLeft size={24} color={theme.text.primary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Payment Verification</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <LinearGradient
+        colors={[`${theme.accent.primary}10`, 'transparent']}
+        style={styles.headerGradient}
+      >
+        <View style={[styles.header, { backgroundColor: theme.background.card }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+            <ArrowLeft size={24} color={theme.text.primary} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Payment Verification</Text>
+          <View style={{ width: 40 }} />
+        </View>
+      </LinearGradient>
 
       {/* View Mode Toggle - Simplified */}
       <View style={[styles.viewModeContainer, { backgroundColor: theme.background.card }]}>
