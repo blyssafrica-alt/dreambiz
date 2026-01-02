@@ -8,11 +8,43 @@ import Constants from 'expo-constants';
 const DEFAULT_SUPABASE_URL = 'https://oqcgerfjjiozltkmmkxf.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_959ZId8aR4E5IjTNoyVsJQ_xt8pelvp';
 
-const supabaseUrl = 
+// Ensure URL is always HTTPS and properly formatted
+let supabaseUrl = 
   Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL ||
   Constants.manifest?.extra?.EXPO_PUBLIC_SUPABASE_URL ||
   process.env.EXPO_PUBLIC_SUPABASE_URL || 
   DEFAULT_SUPABASE_URL;
+
+// CRITICAL: Force HTTPS and normalize URL
+// This is essential because React Native/Expo might not preserve HTTPS
+supabaseUrl = supabaseUrl.trim();
+if (supabaseUrl.startsWith('http://')) {
+  console.warn('[Supabase] ⚠️ URL was HTTP, forcing HTTPS');
+  supabaseUrl = supabaseUrl.replace('http://', 'https://');
+}
+if (!supabaseUrl.startsWith('https://')) {
+  supabaseUrl = 'https://' + supabaseUrl;
+}
+// Remove trailing slash and any path components
+supabaseUrl = supabaseUrl.replace(/\/+$/, '');
+// Ensure it's just the base domain (no /functions/v1/ or other paths)
+supabaseUrl = supabaseUrl.replace(/\/functions\/v1.*$/i, '');
+
+// Final validation: must be in format https://<project>.supabase.co
+if (!/^https:\/\/[^\/]+\.supabase\.co$/i.test(supabaseUrl)) {
+  console.error('[Supabase] ❌ Invalid URL format, using default. Got:', supabaseUrl);
+  supabaseUrl = DEFAULT_SUPABASE_URL;
+}
+
+// CRITICAL: Final HTTPS check - must be HTTPS
+if (!supabaseUrl.startsWith('https://')) {
+  console.error('[Supabase] ❌ CRITICAL: URL is not HTTPS after normalization! Forcing HTTPS.');
+  supabaseUrl = 'https://' + supabaseUrl.replace(/^https?:\/\//, '');
+}
+
+// Log the final URL for verification
+console.log('[Supabase Client] ✅ Final configured URL:', supabaseUrl);
+console.log('[Supabase Client] ✅ Functions will be called at:', `${supabaseUrl}/functions/v1/`);
 
 const supabaseAnonKey = 
   Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
@@ -36,7 +68,26 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+  // Ensure function URLs are constructed correctly
+  global: {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  },
 });
+
+// Log the configured URL for debugging
+// Check if we're in development (React Native compatible)
+const isDev = typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV === 'development';
+if (isDev) {
+  console.log('[Supabase Client] Configured URL:', supabaseUrl);
+  console.log('[Supabase Client] Functions will be called at:', `${supabaseUrl}/functions/v1/`);
+  
+  // Verify URL is HTTPS
+  if (!supabaseUrl.startsWith('https://')) {
+    console.error('[Supabase Client] ❌ ERROR: URL is not HTTPS!', supabaseUrl);
+  }
+}
 
 // Export URL and key for direct Edge Function calls
 export { supabaseUrl, supabaseAnonKey };

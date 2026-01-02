@@ -514,6 +514,14 @@ export default function BooksManagementScreen() {
         }
         
         // STEP 7: Create PDF processing job (returns immediately)
+        // Ensure we're using the correct URL format
+        // supabase.functions.invoke() should handle this automatically, but we log for debugging
+        if (__DEV__) {
+          const { supabaseUrl: clientUrl } = await import('@/lib/supabase');
+          console.log('[process-pdf] Calling function with client URL:', clientUrl);
+          console.log('[process-pdf] Expected function URL:', `${clientUrl}/functions/v1/process-pdf`);
+        }
+        
         const { data: jobResponse, error: jobError } = await supabase.functions.invoke('process-pdf', {
           body: {
             pdfUrl: formData.documentFileUrl,
