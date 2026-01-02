@@ -32,12 +32,13 @@ export default function AdminDashboard() {
       // Load all stats in parallel
       // Note: For users count, we need to check if user is super admin
       // If not super admin, the RLS policy will only return their own profile
-      const [usersResult, businessesResult, productsResult, adsResult, purchasesResult] = await Promise.all([
+      const [usersResult, businessesResult, productsResult, adsResult, purchasesResult, bookPurchasesResult] = await Promise.all([
         supabase.from('users').select('id', { count: 'exact' }),
         supabase.from('business_profiles').select('id', { count: 'exact' }),
         supabase.from('platform_products').select('id', { count: 'exact' }),
         supabase.from('advertisements').select('id', { count: 'exact' }).eq('status', 'active'),
         supabase.from('product_purchases').select('total_price, payment_status'),
+        supabase.from('book_purchases').select('total_price, payment_status'),
       ]);
       
       // Also load subscription payments in parallel
@@ -58,13 +59,17 @@ export default function AdminDashboard() {
       const totalProducts = productsResult.count || 0;
       const totalAds = adsResult.count || 0;
 
-      // Calculate revenue from completed purchases
-      const completedPurchases = purchasesResult.data?.filter(p => p.payment_status === 'completed') || [];
-      const productRevenue = completedPurchases.reduce((sum, p) => sum + parseFloat(p.total_price || '0'), 0);
+      // Calculate revenue from completed product purchases
+      const completedProductPurchases = purchasesResult.data?.filter(p => p.payment_status === 'completed') || [];
+      const productRevenue = completedProductPurchases.reduce((sum, p) => sum + parseFloat(String(p.total_price || '0')), 0);
+      
+      // Calculate revenue from completed book purchases
+      const completedBookPurchases = bookPurchasesResult.data?.filter(p => p.payment_status === 'completed') || [];
+      const bookRevenue = completedBookPurchases.reduce((sum, p) => sum + parseFloat(String(p.total_price || '0')), 0);
       
       // Include subscription payments revenue
-      const subscriptionRevenue = subscriptionPayments?.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0) || 0;
-      const totalRevenue = productRevenue + subscriptionRevenue;
+      const subscriptionRevenue = subscriptionPayments?.reduce((sum, p) => sum + parseFloat(String(p.amount || '0')), 0) || 0;
+      const totalRevenue = productRevenue + bookRevenue + subscriptionRevenue;
 
       // Active users (users who logged in within last 30 days)
       const thirtyDaysAgo = new Date();
