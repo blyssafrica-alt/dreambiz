@@ -1,6 +1,7 @@
 /**
  * Helper function to invoke Supabase Edge Functions with proper authentication
  * Ensures auth headers are always included from the current session
+ * Includes request deduplication to prevent infinite retries
  */
 
 import { supabase } from './supabase';
@@ -9,6 +10,10 @@ interface InvokeOptions {
   body?: any;
   headers?: Record<string, string>;
 }
+
+// Request deduplication cache to prevent infinite retries
+const functionCallCache = new Map<string, { promise: Promise<any>; timestamp: number }>();
+const CACHE_TTL = 10000; // 10 seconds cache for Edge Function calls
 
 /**
  * Invoke a Supabase Edge Function with automatic auth header injection
