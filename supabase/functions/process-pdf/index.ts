@@ -194,6 +194,40 @@ function extractChaptersFromText(text: string): Chapter[] {
 }
 
 /**
+ * Fallback: Create chapters automatically by dividing PDF into equal sections
+ * Used when pattern matching fails but we have page count
+ */
+function createChaptersFromPageCount(pageCount: number, estimatedChapters: number = 10): Chapter[] {
+  const chapters: Chapter[] = [];
+  
+  if (pageCount <= 0) {
+    return chapters;
+  }
+  
+  // Estimate reasonable number of chapters (10-15 pages per chapter is typical)
+  const pagesPerChapter = Math.max(5, Math.ceil(pageCount / estimatedChapters));
+  const actualChapterCount = Math.ceil(pageCount / pagesPerChapter);
+  
+  for (let i = 1; i <= actualChapterCount; i++) {
+    const pageStart = (i - 1) * pagesPerChapter + 1;
+    const pageEnd = Math.min(i * pagesPerChapter, pageCount);
+    
+    chapters.push({
+      number: i,
+      title: `Chapter ${i}`,
+      description: `Content from pages ${pageStart} to ${pageEnd}`,
+      pageStart: pageStart,
+      pageEnd: pageEnd,
+      content: '',
+    });
+  }
+  
+  console.log(`[createChaptersFromPageCount] Created ${chapters.length} chapters from ${pageCount} pages (${pagesPerChapter} pages per chapter)`);
+  
+  return chapters;
+}
+
+/**
  * Extract page count from PDF structure
  * Parses PDF binary to find page count without requiring PDF.js
  */
