@@ -38,6 +38,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+// Export URL and key for direct Edge Function calls
+export { supabaseUrl, supabaseAnonKey };
+
 export type Database = {
   public: {
     Tables: {

@@ -284,12 +284,9 @@ export default function BooksManagementScreen() {
       // The Edge Function will extract data and return it without updating database
 
       // Try to call Supabase Edge Function for PDF processing
-      // Using helper function for better error handling and auth management
+      // Using direct fetch with explicit headers to ensure auth is sent correctly
       try {
-        // Import helper function
-        const { invokeEdgeFunction } = await import('@/lib/edge-function-helper');
-        
-        // Verify and refresh session if needed
+        // Get and verify session
         let { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
@@ -305,28 +302,40 @@ export default function BooksManagementScreen() {
           const now = new Date();
           const expiresIn = expiresAt ? expiresAt.getTime() - now.getTime() : 0;
           
-          // Refresh if expires in less than 5 minutes
+          // Refresh if expired or expires in less than 5 minutes
           if (expiresIn < 5 * 60 * 1000) {
-            console.log('Session expiring soon, refreshing...');
+            if (__DEV__) {
+              console.log('Session expiring soon, refreshing...');
+            }
             const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
             if (!refreshError && refreshData?.session) {
               session = refreshData.session;
-              console.log('Session refreshed successfully');
+              if (__DEV__) {
+                console.log('Session refreshed successfully');
+              }
             } else {
-              console.warn('Failed to refresh session:', refreshError);
+              if (__DEV__) {
+                console.warn('Failed to refresh session:', refreshError);
+              }
             }
           }
         }
 
-        if (!session) {
+        if (!session || !session.access_token) {
           Alert.alert('Authentication Required', 'Please sign in to process PDF documents.');
           setIsProcessingPDF(false);
           return;
         }
 
+        // Get Supabase URL and anon key for function URL
+        // Import from supabase config
+        const { supabaseUrl, supabaseAnonKey } = await import('@/lib/supabase');
+        const functionUrl = `${supabaseUrl}/functions/v1/process-pdf`;
+
         if (__DEV__) {
           console.log('Calling process-pdf Edge Function:', {
             pdfUrl: formData.documentFileUrl,
+            functionUrl,
             hasSession: !!session,
             hasAccessToken: !!session?.access_token,
             tokenPreview: session?.access_token?.substring(0, 20) + '...',
@@ -334,13 +343,54 @@ export default function BooksManagementScreen() {
           });
         }
 
-        // Use helper function which handles auth headers properly
-        const { data, error } = await invokeEdgeFunction('process-pdf', {
-          body: {
-            pdfUrl: formData.documentFileUrl,
-            bookId: editingId || null, // Optional - null for new books
+        // Use direct fetch to ensure headers are sent correctly
+        // This bypasses any potential issues with supabase.functions.invoke
+        const response = await fetch(functionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`, // Explicit auth header
+            'apikey': supabaseAnonKey, // Required by Supabase
           },
+          body: JSON.stringify({
+            pdfUrl: formData.documentFileUrl,
+            bookId: editingId || null,
+          }),
         });
+
+        // Parse response
+        let data: any = null;
+        let error: any = null;
+
+        if (!response.ok) {
+          // Handle non-2xx responses
+          const errorText = await response.text();
+          let errorJson: any = {};
+          try {
+            errorJson = JSON.parse(errorText);
+          } catch {
+            errorJson = { message: errorText || `HTTP ${response.status}` };
+          }
+          
+          error = {
+            status: response.status,
+            statusCode: response.status,
+            message: errorJson.message || errorJson.error || `HTTP ${response.status}: ${response.statusText}`,
+            name: 'FunctionsHttpError',
+          };
+        } else {
+          // Parse successful response
+          const responseText = await response.text();
+          try {
+            data = JSON.parse(responseText);
+          } catch (parseError) {
+            error = {
+              message: 'Failed to parse response',
+              status: 500,
+              statusCode: 500,
+            };
+          }
+        }
 
         if (__DEV__) {
           console.log('process-pdf response:', { data, error });
