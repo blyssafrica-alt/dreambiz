@@ -299,16 +299,47 @@ export default function BooksManagementScreen() {
           console.error('Edge Function error:', error);
           // Fall through to manual entry
         } else if (data) {
-          if (data.success && data.data && data.data.chapters) {
-            // Successfully extracted chapters
-            setFormData({
-              ...formData,
-              chapters: data.data.chapters,
-              totalChapters: data.data.chapters.length,
-            });
-            Alert.alert('Success', `PDF processed successfully! Extracted ${data.data.chapters.length} chapters.`);
+          if (data.success && data.data) {
+            const extractedData = data.data;
+            
+            // Update form with extracted information
+            const updatedFormData: any = { ...formData };
+            
+            // Update page count if extracted
+            if (extractedData.pageCount && extractedData.pageCount > 0) {
+              updatedFormData.pageCount = extractedData.pageCount;
+            }
+            
+            // Update chapters if extracted
+            if (extractedData.chapters && extractedData.chapters.length > 0) {
+              updatedFormData.chapters = extractedData.chapters;
+              updatedFormData.totalChapters = extractedData.chapters.length;
+              setFormData(updatedFormData);
+              Alert.alert(
+                'Success', 
+                `PDF processed successfully!\n\n• Pages: ${extractedData.pageCount || 'N/A'}\n• Chapters: ${extractedData.chapters.length}`
+              );
+            } else if (extractedData.pageCount && extractedData.pageCount > 0) {
+              // Only page count extracted, no chapters
+              updatedFormData.pageCount = extractedData.pageCount;
+              setFormData(updatedFormData);
+              Alert.alert(
+                'PDF Processed', 
+                `PDF processed successfully!\n\n• Pages: ${extractedData.pageCount}\n• Chapters: Please enter manually in Step 4.`
+              );
+            } else {
+              // No data extracted
+              if (data.requiresManualEntry) {
+                console.log('Edge Function suggests manual entry');
+                // Fall through to manual entry option
+              }
+            }
+            
             setIsProcessingPDF(false);
-            return;
+            if (extractedData.chapters && extractedData.chapters.length > 0) {
+              return; // Successfully extracted chapters, don't show manual entry
+            }
+            // If only page count or nothing extracted, fall through to manual entry
           } else if (data.requiresManualEntry) {
             // Edge Function suggests manual entry
             console.log('Edge Function suggests manual entry');

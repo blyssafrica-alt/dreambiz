@@ -27,6 +27,7 @@ interface PDFExtractionResult {
   chapters: Chapter[];
   fullText: string;
   totalPages: number;
+  pageCount: number;
 }
 
 /**
@@ -100,11 +101,50 @@ function extractChaptersFromText(text: string): Chapter[] {
 }
 
 /**
- * Extract text from PDF using PDF.js
- * Note: This is a simplified version. For production, you may want to use
- * a more robust PDF processing library or service.
+ * Extract page count from PDF structure
+ * Parses PDF binary to find page count without requiring PDF.js
  */
-async function extractTextFromPDF(pdfUrl: string): Promise<string> {
+function extractPageCountFromPDFStructure(arrayBuffer: ArrayBuffer): number {
+  try {
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const pdfString = new TextDecoder('latin1').decode(uint8Array);
+    
+    // Method 1: Look for /Count in pages object (most reliable)
+    const countMatches = pdfString.match(/\/Count\s+(\d+)/g);
+    if (countMatches && countMatches.length > 0) {
+      // Get the last match (usually the root pages count)
+      const lastMatch = countMatches[countMatches.length - 1];
+      const pageCount = parseInt(lastMatch.match(/\d+/)?.[0] || '0', 10);
+      if (pageCount > 0) {
+        console.log(`Extracted page count from /Count: ${pageCount}`);
+        return pageCount;
+      }
+    }
+    
+    // Method 2: Look for /Type /Page objects (count page objects)
+    const pageMatches = pdfString.match(/\/Type\s*\/Page[^s]/g);
+    if (pageMatches) {
+      const pageCount = pageMatches.length;
+      console.log(`Extracted page count from /Type /Page: ${pageCount}`);
+      return pageCount;
+    }
+    
+    // Method 3: Estimate based on file size (rough estimate: ~50KB per page for text, ~200KB for images)
+    const estimatedPages = Math.max(1, Math.ceil(arrayBuffer.byteLength / 50000));
+    console.log(`Estimated page count from size: ${estimatedPages}`);
+    return estimatedPages;
+  } catch (error) {
+    console.error('Error extracting page count:', error);
+    // Fallback: estimate based on file size
+    return Math.max(1, Math.ceil(arrayBuffer.byteLength / 50000));
+  }
+}
+
+/**
+ * Extract text and metadata from PDF
+ * Uses PDF.js from CDN if available, otherwise extracts basic metadata
+ */
+async function extractTextFromPDF(pdfUrl: string): Promise<{ text: string; pageCount: number }> {
   try {
     // Fetch PDF
     const response = await fetch(pdfUrl);
@@ -113,22 +153,56 @@ async function extractTextFromPDF(pdfUrl: string): Promise<string> {
     }
 
     const arrayBuffer = await response.arrayBuffer();
-    
-    // For Deno, we'll use a simple approach
-    // In production, you might want to use:
-    // - pdf.js (via npm:jsr or similar)
-    // - External API (Google Document AI, AWS Textract, etc.)
-    // - Native Deno PDF library
-    
-    // For now, return empty string - this will trigger manual entry
-    // TODO: Integrate actual PDF parsing library
     console.log('PDF fetched, size:', arrayBuffer.byteLength);
     
-    // Placeholder: Return empty to indicate manual processing needed
-    // In production, replace this with actual PDF text extraction
-    return '';
+    // First, extract page count from PDF structure (always works)
+    const pageCount = extractPageCountFromPDFStructure(arrayBuffer);
+    
+    // Try to extract text using PDF.js
+    try {
+      // Import PDF.js from CDN (works in Deno)
+      // @ts-ignore - PDF.js from CDN
+      const pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.min.mjs');
+      
+      // Load the PDF document
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      
+      const verifiedPageCount = pdf.numPages;
+      console.log(`PDF.js verified: ${verifiedPageCount} pages`);
+      
+      // Extract text from all pages (limit to first 50 pages for performance)
+      let fullText = '';
+      const maxPages = Math.min(verifiedPageCount, 50);
+      
+      for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        
+        // Combine all text items from the page
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        
+        fullText += `\n--- Page ${pageNum} ---\n${pageText}\n`;
+      }
+      
+      console.log(`Extracted ${fullText.length} characters from ${maxPages} pages`);
+      
+      return {
+        text: fullText,
+        pageCount: verifiedPageCount,
+      };
+    } catch (pdfjsError) {
+      console.warn('PDF.js extraction failed, using structure-based extraction:', pdfjsError);
+      // PDF.js failed, but we still have page count
+      return {
+        text: '',
+        pageCount: pageCount,
+      };
+    }
   } catch (error) {
-    console.error('Error fetching PDF:', error);
+    console.error('Error extracting PDF:', error);
     throw error;
   }
 }
@@ -169,10 +243,14 @@ serve(async (req) => {
 
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Try to extract text from PDF
+    // Try to extract text and metadata from PDF
     let extractedText = '';
+    let pageCount = 0;
     try {
-      extractedText = await extractTextFromPDF(pdfUrl);
+      const extractionResult = await extractTextFromPDF(pdfUrl);
+      extractedText = extractionResult.text;
+      pageCount = extractionResult.pageCount;
+      console.log(`Extracted ${pageCount} pages, ${extractedText.length} characters`);
     } catch (error) {
       console.error('PDF extraction error:', error);
       // Continue with empty text - will return manual processing suggestion
@@ -183,47 +261,79 @@ serve(async (req) => {
     if (extractedText && extractedText.length > 0) {
       // Extract chapters from text
       chapters = extractChaptersFromText(extractedText);
+      console.log(`Extracted ${chapters.length} chapters`);
     }
 
-    // If no chapters extracted, return suggestion for manual entry
-    if (chapters.length === 0) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Automatic chapter extraction not available. Please use manual entry.',
-          requiresManualEntry: true,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Update book in database with extracted information
+    // Even if chapters aren't extracted, we can still save page count
+    const updateData: any = {
+      page_count: pageCount > 0 ? pageCount : null,
+      extracted_chapters_data: {
+        fullText: extractedText,
+        extractedAt: new Date().toISOString(),
+        pageCount: pageCount,
+      },
+    };
+
+    // If chapters were extracted, add them
+    if (chapters.length > 0) {
+      updateData.chapters = JSON.stringify(chapters);
+      updateData.total_chapters = chapters.length;
+    } else if (pageCount > 0) {
+      // If we have page count but no chapters, at least update the page count
+      // User can still manually enter chapters
+      updateData.total_chapters = 0; // Keep existing or set to 0
     }
 
-    // Update book in database with extracted chapters
     const { error: updateError } = await supabaseClient
       .from('books')
-      .update({
-        chapters: JSON.stringify(chapters),
-        total_chapters: chapters.length,
-        extracted_chapters_data: {
-          fullText: extractedText,
-          extractedAt: new Date().toISOString(),
-        },
-      })
+      .update(updateData)
       .eq('id', bookId);
 
     if (updateError) {
       throw updateError;
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        data: {
-          chapters,
-          totalChapters: chapters.length,
-        },
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    // Return results
+    if (chapters.length > 0) {
+      // Successfully extracted chapters
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            chapters,
+            totalChapters: chapters.length,
+            pageCount: pageCount,
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } else if (pageCount > 0) {
+      // Extracted page count but no chapters
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `PDF processed. Found ${pageCount} pages. Please enter chapters manually.`,
+          data: {
+            chapters: [],
+            totalChapters: 0,
+            pageCount: pageCount,
+          },
+          requiresManualEntry: true,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } else {
+      // Could not extract anything
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Could not extract information from PDF. Please use manual entry.',
+          requiresManualEntry: true,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
   } catch (error: any) {
     console.error('Error processing PDF:', error);
     return new Response(
