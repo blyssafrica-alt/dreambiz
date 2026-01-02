@@ -345,7 +345,7 @@ export default function BooksManagementScreen() {
         }
         
         // STEP 3: Validate token with server using getUser() - CRITICAL STEP
-        // This actually validates the token with Supabase server, not just checks cache
+        // This validates the token AND ensures it matches the current session
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         
         if (userError || !user) {
@@ -380,260 +380,127 @@ export default function BooksManagementScreen() {
           }
         }
         
-        // STEP 4: Get access token and validate format
-        let accessToken = session.access_token;
-        
-        if (!accessToken || typeof accessToken !== 'string' || accessToken.length < 10) {
-          console.error('[process-pdf] CRITICAL: Invalid access token', {
-            hasToken: !!accessToken,
-            tokenType: typeof accessToken,
-            tokenLength: accessToken?.length || 0,
-          });
-          Alert.alert(
-            'Authentication Error',
-            'No valid access token available. Please sign in again.'
-          );
-          setIsProcessingPDF(false);
-          return;
-        }
-        
-        // Validate JWT format (header.payload.signature)
-        const tokenParts = accessToken.split('.');
-        if (tokenParts.length !== 3) {
-          console.error('[process-pdf] CRITICAL: Invalid JWT format', {
-            parts: tokenParts.length,
-            expected: 3,
-          });
-          Alert.alert('Authentication Error', 'Invalid authentication token format. Please sign in again.');
-          setIsProcessingPDF(false);
-          return;
-        }
-        
-        // STEP 5: Get FRESH session ONE MORE TIME right before the call
-        // This ensures we have the absolute latest token
-        const { data: { session: finalSession }, error: finalSessionError } = await supabase.auth.getSession();
-        
-        if (finalSessionError || !finalSession?.access_token) {
-          console.error('[process-pdf] Failed to get final session:', finalSessionError);
-          // Use the validated token we already have
-          if (__DEV__) {
-            console.warn('[process-pdf] Using previously validated token');
-          }
-        } else {
-          // Use the freshest token
-          accessToken = finalSession.access_token;
-          if (__DEV__) {
-            console.log('[process-pdf] ✅ Using fresh token from final session check');
-          }
-        }
-        
-        if (__DEV__) {
-          const finalExpiresAt = finalSession?.expires_at ? new Date(finalSession.expires_at * 1000) : expiresAt;
-          const finalExpiresIn = finalExpiresAt ? finalExpiresAt.getTime() - new Date().getTime() : 0;
-          console.log('[process-pdf] ✅ Token ready for request:', {
-            userId: user?.id,
-            tokenPreview: accessToken.substring(0, 20) + '...',
-            tokenLength: accessToken.length,
-            expiresAt: finalExpiresAt?.toISOString(),
-            expiresInSeconds: Math.round(finalExpiresIn / 1000),
-            tokenFormat: 'JWT (3 parts)',
-          });
-        }
-        
-        // STEP 5: Construct CORRECT Edge Function URL - ALWAYS use direct fetch with explicit URL
-        // DO NOT use supabase.functions.invoke() as it constructs URLs incorrectly
-        const supabaseConfig = await import('@/lib/supabase');
-        
-        // Get base URL and ensure it's correct
-        let baseUrl = supabaseConfig.supabaseUrl || 'https://oqcgerfjjiozltkmmkxf.supabase.co';
-        const supabaseAnonKey = supabaseConfig.supabaseAnonKey || 'sb_publishable_959ZId8aR4E5IjTNoyVsJQ_xt8pelvp';
-        
-        // CRITICAL: Normalize base URL to ensure correct format
-        // 1. Force HTTPS (never HTTP)
-        baseUrl = baseUrl.replace(/^http:\/\//i, 'https://');
-        // 2. Remove any trailing slashes
-        baseUrl = baseUrl.replace(/\/+$/, '');
-        // 3. Remove /functions/v1/ if accidentally included in base URL
-        baseUrl = baseUrl.replace(/\/functions\/v1\/?$/i, '');
-        // 4. Ensure it ends with .supabase.co (no path)
-        if (!baseUrl.match(/^https:\/\/[^\/]+\.supabase\.co$/i)) {
-          // Extract just the domain part if there's extra path
-          const match = baseUrl.match(/^(https:\/\/[^\/]+\.supabase\.co)/i);
-          if (match) {
-            baseUrl = match[1];
-          }
-        }
-        
-        // Construct the CORRECT Edge Function URL
-        // Format: https://<project>.supabase.co/functions/v1/process-pdf
-        const functionUrl = `${baseUrl}/functions/v1/process-pdf`;
-        
-        // CRITICAL VALIDATION: Ensure URL is exactly correct
-        const expectedPattern = /^https:\/\/[^\/]+\.supabase\.co\/functions\/v1\/process-pdf$/i;
-        if (!expectedPattern.test(functionUrl)) {
-          console.error('[process-pdf] CRITICAL: Invalid function URL constructed!', {
-            functionUrl,
-            baseUrl,
-            expectedPattern: 'https://<project>.supabase.co/functions/v1/process-pdf',
-            actualPattern: functionUrl.match(/^https:\/\/[^\/]+\.supabase\.co\/functions\/v1\/process-pdf$/i) ? 'MATCH' : 'NO MATCH',
-          });
-          Alert.alert(
-            'Configuration Error',
-            `Invalid Supabase URL format.\n\nExpected: https://<project>.supabase.co/functions/v1/process-pdf\n\nGot: ${functionUrl}\n\nBase URL: ${baseUrl}`
-          );
-          setIsProcessingPDF(false);
-          return;
-        }
-        
-        if (__DEV__) {
-          console.log('[process-pdf] ✅ CORRECT URL constructed:', {
-            functionUrl,
-            baseUrl,
-            expectedFormat: 'https://<project>.supabase.co/functions/v1/process-pdf',
-            urlIsValid: expectedPattern.test(functionUrl),
-            tokenPreview: accessToken.substring(0, 20) + '...',
-            tokenLength: accessToken.length,
-            hasApikey: !!supabaseAnonKey,
-            apikeyLength: supabaseAnonKey?.length || 0,
-            headersReady: true,
-          });
-        }
-        
-        // STEP 6: Call Edge Function using DIRECT fetch ONLY (supabase.functions.invoke has URL issues)
-        // This ensures we have full control over the exact URL being called
-        let data: any = null;
-        let error: any = null;
-        
-        try {
-          if (__DEV__) {
-            console.log('[process-pdf] Making request to:', functionUrl);
-            console.log('[process-pdf] Headers:', {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${accessToken.substring(0, 20)}...`,
-              'apikey': `${supabaseAnonKey.substring(0, 10)}...`,
-            });
-          }
-          
-          // CRITICAL: Build headers object to ensure no undefined/null values
-          const requestHeaders: Record<string, string> = {
-            'Content-Type': 'application/json',
-          };
-          
-          // Add Authorization header - MUST be valid, non-null, non-undefined
-          if (!accessToken || typeof accessToken !== 'string') {
-            throw new Error('Invalid access token: token is null, undefined, or not a string');
-          }
-          requestHeaders['Authorization'] = `Bearer ${accessToken.trim()}`;
-          
-          // Add apikey header - MUST be present
-          if (!supabaseAnonKey || typeof supabaseAnonKey !== 'string') {
-            throw new Error('Invalid apikey: key is null, undefined, or not a string');
-          }
-          requestHeaders['apikey'] = supabaseAnonKey.trim();
-          
-          if (__DEV__) {
-            console.log('[process-pdf] Request headers validated:', {
-              hasAuthorization: !!requestHeaders['Authorization'],
-              authorizationLength: requestHeaders['Authorization']?.length || 0,
-              hasApikey: !!requestHeaders['apikey'],
-              apikeyLength: requestHeaders['apikey']?.length || 0,
-              authorizationPreview: requestHeaders['Authorization']?.substring(0, 30) + '...',
-            });
-          }
-          
-          const response = await fetch(functionUrl, {
-            method: 'POST',
-            headers: requestHeaders,
-            body: JSON.stringify({
-              pdfUrl: formData.documentFileUrl,
-              bookId: editingId || null,
-            }),
-          });
-          
-          if (__DEV__) {
-            console.log('[process-pdf] Response received:', {
-              status: response.status,
-              statusText: response.statusText,
-              ok: response.ok,
-              headers: Object.fromEntries(response.headers.entries()),
-            });
-          }
-          
-          // Parse response
-          const responseText = await response.text();
-          
-          if (!response.ok) {
-            // Non-2xx response
-            let errorJson: any = {};
-            try {
-              errorJson = JSON.parse(responseText);
-            } catch {
-              errorJson = { message: responseText || `HTTP ${response.status}` };
-            }
-            
-            error = {
-              status: response.status,
-              statusCode: response.status,
-              message: errorJson.message || errorJson.error || `HTTP ${response.status}: ${response.statusText}`,
-              name: 'FunctionsHttpError',
-            };
-            
-            if (__DEV__) {
-              console.error('[process-pdf] ❌ Non-2xx response:', JSON.stringify({
-                status: response.status,
-                statusCode: response.status,
-                statusText: response.statusText,
-                message: errorJson.message || errorJson.error || `HTTP ${response.status}`,
-                errorJson: errorJson,
-                responseText: responseText.substring(0, 500),
-              }, null, 2));
-            }
-          } else {
-            // Success - parse JSON
-            try {
-              data = JSON.parse(responseText);
-              if (__DEV__) {
-                console.log('[process-pdf] ✅ Success response:', {
-                  success: data.success,
-                  hasData: !!data.data,
-                  message: data.message,
+        // STEP 4: Verify token is valid and not expired RIGHT NOW
+        // Decode JWT to check expiration
+        let tokenExpired = false;
+        if (session?.access_token) {
+          try {
+            const tokenParts = session.access_token.split('.');
+            if (tokenParts.length === 3) {
+              const payload = JSON.parse(atob(tokenParts[1]));
+              const tokenExp = payload.exp ? new Date(payload.exp * 1000) : null;
+              const now = new Date();
+              
+              if (tokenExp && tokenExp <= now) {
+                tokenExpired = true;
+                if (__DEV__) {
+                  console.error('[process-pdf] Token is EXPIRED:', {
+                    tokenExp: tokenExp.toISOString(),
+                    now: now.toISOString(),
+                    expiredBy: Math.round((now.getTime() - tokenExp.getTime()) / 1000) + ' seconds',
+                  });
+                }
+                
+                // Force refresh if expired
+                const { data: forceRefresh, error: forceRefreshError } = await supabase.auth.refreshSession();
+                if (forceRefreshError || !forceRefresh?.session?.access_token) {
+                  Alert.alert(
+                    'Session Expired',
+                    'Your session has expired. Please sign in again.'
+                  );
+                  setIsProcessingPDF(false);
+                  return;
+                }
+                session = forceRefresh.session;
+                
+                if (__DEV__) {
+                  console.log('[process-pdf] ✅ Token refreshed after expiration check');
+                }
+              } else if (__DEV__) {
+                console.log('[process-pdf] Token expiration check:', {
+                  tokenExp: tokenExp?.toISOString(),
+                  now: now.toISOString(),
+                  expiresIn: tokenExp ? Math.round((tokenExp.getTime() - now.getTime()) / 1000) + ' seconds' : 'unknown',
+                  isExpired: false,
                 });
               }
-            } catch (parseError) {
-              error = {
-                message: 'Failed to parse response',
-                status: 500,
-                statusCode: 500,
-                responseText: responseText.substring(0, 200),
-              };
+            }
+          } catch (decodeError) {
+            if (__DEV__) {
+              console.warn('[process-pdf] Could not decode token for expiration check:', decodeError);
             }
           }
-        } catch (fetchError: any) {
-          // Network error or fetch failed
-          error = {
-            status: 0,
-            statusCode: 0,
-            message: fetchError?.message || 'Network error: Failed to connect to function',
-            name: 'NetworkError',
-            functionUrl, // Include URL in error for debugging
-          };
-          
-          if (__DEV__) {
-            console.error('[process-pdf] ❌ Fetch error:', {
-              error: fetchError,
-              message: fetchError?.message,
-              functionUrl,
-            });
-          }
         }
+        
+        // STEP 5: Verify Supabase client configuration
+        const supabaseConfig = await import('@/lib/supabase');
+        const clientUrl = supabaseConfig.supabaseUrl || 'https://oqcgerfjjiozltkmmkxf.supabase.co';
+        const clientAnonKey = supabaseConfig.supabaseAnonKey || 'sb_publishable_959ZId8aR4E5IjTNoyVsJQ_xt8pelvp';
+        
+        if (__DEV__) {
+          console.log('[process-pdf] Using supabase.functions.invoke() - automatic auth handling');
+          console.log('[process-pdf] Client configuration:', {
+            clientUrl,
+            clientAnonKeyLength: clientAnonKey?.length || 0,
+            hasSession: !!session,
+            hasAccessToken: !!session?.access_token,
+            tokenLength: session?.access_token?.length || 0,
+            userId: user?.id,
+            expiresAt: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
+            tokenWasExpired: tokenExpired,
+          });
+        }
+        
+        // STEP 6: FINAL check - Get session one last time and validate token is still valid
+        // This ensures we use the absolute freshest token right before the call
+        const { data: { session: finalCheckSession }, error: finalCheckError } = await supabase.auth.getSession();
+        
+        if (finalCheckError || !finalCheckSession?.access_token) {
+          console.error('[process-pdf] Final session check failed:', finalCheckError);
+          Alert.alert(
+            'Authentication Error',
+            'Unable to get valid session. Please sign in again.'
+          );
+          setIsProcessingPDF(false);
+          return;
+        }
+        
+        // Validate final token with getUser() one more time
+        const { data: { user: finalUser }, error: finalUserError } = await supabase.auth.getUser();
+        
+        if (finalUserError || !finalUser) {
+          console.error('[process-pdf] Final token validation failed:', finalUserError);
+          Alert.alert(
+            'Authentication Error',
+            'Your session is invalid. Please sign out and sign back in.'
+          );
+          setIsProcessingPDF(false);
+          return;
+        }
+        
+        if (__DEV__) {
+          console.log('[process-pdf] ✅ Final token validation passed, calling function');
+        }
+        
+        // STEP 7: Use supabase.functions.invoke() - This automatically handles auth correctly
+        // The Supabase client manages token refresh and validation internally
+        // This is the RECOMMENDED way to call Edge Functions
+        // CRITICAL: This uses the same client that was used to authenticate, ensuring token matches project
+        const { data, error } = await supabase.functions.invoke('process-pdf', {
+          body: {
+            pdfUrl: formData.documentFileUrl,
+            bookId: editingId || null,
+          },
+        });
         
         if (__DEV__) {
           console.log('[process-pdf] Function response:', { 
-            functionUrl,
             hasData: !!data, 
             hasError: !!error,
             errorStatus: error?.status,
+            errorStatusCode: error?.statusCode,
             errorMessage: error?.message,
+            errorName: error?.name,
           });
         }
 
@@ -650,27 +517,27 @@ export default function BooksManagementScreen() {
           
           // Handle 401 specifically
           if (error.status === 401 || error.statusCode === 401) {
-            const errorDetails = {
-              functionUrl,
-              status: error.status,
-              statusCode: error.statusCode,
+            const troubleshootingInfo = {
+              status: error.status || error.statusCode,
+              statusCode: error.statusCode || error.status,
               message: error.message,
               note: 'Gateway validates JWT before forwarding. Invalid/expired token causes 401.',
               solution: 'Token was validated with getUser() and refreshed if needed.',
               troubleshooting: [
                 '1. Verify function is deployed: supabase functions deploy process-pdf',
                 '2. Check function exists in Supabase Dashboard → Edge Functions',
-                '3. Verify SUPABASE_URL and SUPABASE_ANON_KEY are correct',
+                '3. Verify SUPABASE_URL and SUPABASE_ANON_KEY match between client and function',
                 '4. Check Supabase logs for detailed error messages',
-                '5. Try signing out and signing in again',
+                '5. Try signing out and signing in again to get a fresh token',
+                '6. Verify you are logged into the correct Supabase project',
               ],
             };
             
-            console.error('[process-pdf] 401 Unauthorized - Gateway rejected request:', JSON.stringify(errorDetails, null, 2));
+            console.error('[process-pdf] 401 Unauthorized - Gateway rejected request:', JSON.stringify(troubleshootingInfo, null, 2));
             
             Alert.alert(
               'Authentication Failed',
-              `Unable to process PDF.\n\nError: ${error.message}\n\nURL: ${functionUrl}\n\nPlease ensure:\n1. You are signed in\n2. The function is deployed\n3. Try signing out and back in\n4. Try manual entry if this persists.`
+              `Unable to process PDF.\n\nError: ${error.message || 'Invalid JWT'}\n\nPlease try:\n1. Sign out and sign back in\n2. Verify the function is deployed\n3. Use manual entry if this persists.`
             );
             setIsProcessingPDF(false);
             return;
