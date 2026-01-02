@@ -1136,12 +1136,13 @@ export default function BooksManagementScreen() {
             </Text>
           </View>
         ) : (
-          books.map((book) => (
-            <TouchableOpacity
-              key={book.id}
-              style={[styles.bookCard, { backgroundColor: theme.background.card }]}
-              onPress={() => handleEdit(book)}
-            >
+          <>
+            {books.map((book) => (
+              <TouchableOpacity
+                key={book.id}
+                style={[styles.bookCard, { backgroundColor: theme.background.card }]}
+                onPress={() => handleEdit(book)}
+              >
               {book.coverImage && (
                 <Image source={{ uri: book.coverImage }} style={styles.bookCover} />
               )}
@@ -1215,8 +1216,9 @@ export default function BooksManagementScreen() {
                   <Trash2 size={18} color={theme.accent.danger} />
                 </TouchableOpacity>
               </View>
-            </TouchableOpacity>
-          ))
+              </TouchableOpacity>
+            ))}
+          </>
         )}
       </ScrollView>
 
