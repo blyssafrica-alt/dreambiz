@@ -708,38 +708,21 @@ serve(async (req, ctx) => {
 
   try {
     // ============================================
-    // AUTHENTICATION - REQUIRED
+    // AUTHENTICATION - AUTOMATIC VIA SUPABASE GATEWAY
     // ============================================
     // Function is configured with verify_jwt = true in config.toml
     // Gateway validates JWT BEFORE forwarding to function
     // If we reach here, JWT is VALID and user is authenticated
+    // DO NOT re-validate auth - gateway already did this
+    // DO NOT check Authorization header - gateway handles this
     // Function uses service role key for database operations (bypasses RLS)
-    // User JWT is available in headers for user identification
     // ============================================
     
-    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
     const apikeyHeader = req.headers.get('apikey') || req.headers.get('Apikey') || req.headers.get('APIKEY');
-    
-    // Validate that Authorization header is present (should always be if we reach here)
-    if (!authHeader) {
-      console.error('❌ Missing Authorization header - Gateway should have rejected this');
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Missing authorization header. This should not happen - please report this error.',
-          requiresManualEntry: true,
-        }),
-        { 
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
     
     console.log('✅ Edge Function request received (JWT validated by Gateway)');
     console.log('Request details:', {
       method: req.method,
-      hasAuth: !!authHeader,
       hasApikey: !!apikeyHeader,
       path: url.pathname,
     });
