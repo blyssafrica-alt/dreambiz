@@ -483,18 +483,45 @@ export default function BooksManagementScreen() {
           });
         }
         
-        // Make the fetch request with explicit error handling
-        let response: Response;
+        // Use supabase.functions.invoke instead of direct fetch
+        // This ensures proper authentication handling and token management
+        // The Supabase client automatically handles token refresh and validation
+        let data: any = null;
+        let error: any = null;
+        
         try {
-          response = await fetch(functionUrl, {
-            method: 'POST',
-            headers: requestHeaders,
-            body: JSON.stringify({
+          // Use supabase.functions.invoke which handles auth automatically
+          const { data: invokeData, error: invokeError } = await supabase.functions.invoke('process-pdf', {
+            body: {
               pdfUrl: formData.documentFileUrl,
               bookId: editingId || null,
-            }),
+            },
           });
-        } catch (fetchError: any) {
+          
+          data = invokeData;
+          error = invokeError;
+          
+          if (__DEV__) {
+            console.log('supabase.functions.invoke result:', { data, error });
+          }
+        } catch (invokeException: any) {
+          // Fallback to direct fetch if invoke fails
+          if (__DEV__) {
+            console.warn('supabase.functions.invoke failed, trying direct fetch:', invokeException);
+          }
+          
+          // Make the fetch request with explicit error handling
+          let response: Response;
+          try {
+            response = await fetch(functionUrl, {
+              method: 'POST',
+              headers: requestHeaders,
+              body: JSON.stringify({
+                pdfUrl: formData.documentFileUrl,
+                bookId: editingId || null,
+              }),
+            });
+          } catch (fetchError: any) {
           // Network error or fetch failed completely
           console.error('Fetch error (network/fetch failed):', {
             error: fetchError,
