@@ -1202,6 +1202,8 @@ export default function BooksManagementScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
+                </>
+              )}
             </ScrollView>
 
             <View style={[styles.modalFooter, { borderTopColor: theme.border.light }]}>
