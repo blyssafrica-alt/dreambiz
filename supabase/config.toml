@@ -2,5 +2,5 @@
 # This file configures Edge Functions authentication behavior
 
 [functions.process-pdf]
-verify_jwt = true
+verify_jwt = false
 
