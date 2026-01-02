@@ -361,7 +361,18 @@ export default function BooksManagementScreen() {
         }
 
         // Final check - we MUST have a valid token
-        if (!validToken || !session?.access_token) {
+        // Ensure validToken is set from session if not already set
+        if (!validToken && session?.access_token) {
+          validToken = session.access_token;
+        }
+        
+        if (!validToken || !session?.access_token || validToken.length < 10) {
+          console.error('CRITICAL: No valid token available:', {
+            hasValidToken: !!validToken,
+            validTokenLength: validToken?.length || 0,
+            hasSession: !!session,
+            hasAccessToken: !!session?.access_token,
+          });
           Alert.alert(
             'Authentication Required', 
             'Your session has expired. Please sign in again to process PDF documents.'
@@ -373,9 +384,28 @@ export default function BooksManagementScreen() {
         // Verify token is not expired one more time
         const finalExpiresAt = session.expires_at ? new Date(session.expires_at * 1000) : null;
         if (finalExpiresAt && finalExpiresAt <= new Date()) {
+          console.error('CRITICAL: Token is expired:', {
+            expiresAt: finalExpiresAt.toISOString(),
+            now: new Date().toISOString(),
+          });
           Alert.alert(
             'Session Expired',
             'Your session has expired. Please sign in again.'
+          );
+          setIsProcessingPDF(false);
+          return;
+        }
+        
+        // Final validation - ensure token looks valid (JWT format: header.payload.signature)
+        if (!validToken.includes('.') || validToken.split('.').length !== 3) {
+          console.error('CRITICAL: Token format invalid (not a valid JWT):', {
+            tokenPreview: validToken.substring(0, 20) + '...',
+            tokenLength: validToken.length,
+            parts: validToken.split('.').length,
+          });
+          Alert.alert(
+            'Authentication Error',
+            'Invalid authentication token. Please sign in again.'
           );
           setIsProcessingPDF(false);
           return;
