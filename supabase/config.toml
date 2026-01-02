@@ -1,0 +1,6 @@
+# Supabase Edge Functions Configuration
+# This file configures Edge Functions authentication behavior
+
+[functions.process-pdf]
+verify_jwt = false
+

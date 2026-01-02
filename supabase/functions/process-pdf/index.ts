@@ -707,49 +707,25 @@ serve(async (req) => {
   console.log('✅ Valid POST request received');
 
   try {
-    // Get headers - function works with or without authentication
+    // ============================================
+    // AUTHENTICATION - SIMPLIFIED MODEL
+    // ============================================
+    // Function is configured with verify_jwt = false in config.toml
+    // Gateway does NOT validate JWT - request reaches function regardless
+    // Function uses service role key for all operations (bypasses RLS)
+    // User JWT is optional - only used for logging/auditing if present
+    // ============================================
+    
     const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
     const apikeyHeader = req.headers.get('apikey') || req.headers.get('Apikey') || req.headers.get('APIKEY');
     
-    // Log for debugging
-    console.log('Process PDF request received:', {
+    console.log('✅ Edge Function request received (JWT validation bypassed by config)');
+    console.log('Request details:', {
       method: req.method,
       hasAuth: !!authHeader,
       hasApikey: !!apikeyHeader,
-      url: req.url,
-      authHeaderPreview: authHeader ? authHeader.substring(0, 30) + '...' : null,
-      apikeyHeaderPreview: apikeyHeader ? apikeyHeader.substring(0, 20) + '...' : null,
+      path: url.pathname,
     });
-    
-    // ============================================
-    // AUTHENTICATION HANDLING - CRITICAL
-    // ============================================
-    // The Supabase gateway validates JWT tokens BEFORE forwarding to this function.
-    // 
-    // GATEWAY BEHAVIOR:
-    // - If Authorization header is MISSING → Gateway may reject (depending on function config)
-    // - If Authorization header is INVALID/EXPIRED → Gateway returns 401 (function NEVER runs)
-    // - If Authorization header is VALID → Gateway forwards to function (this code runs)
-    // - If no Authorization header → Gateway may allow (if function allows public access)
-    //
-    // IF WE REACH HERE, IT MEANS:
-    // 1. The apikey header was present and valid (always required by gateway)
-    // 2. Either:
-    //    - No Authorization header was sent (function allows public access), OR
-    //    - Authorization header was sent AND JWT was VALID (gateway validated it)
-    //
-    // THIS FUNCTION:
-    // - Works with OR without authentication
-    // - Uses service role key when available (bypasses RLS completely)
-    // - NEVER returns 401 - gateway handles all auth validation
-    // - If auth header exists, gateway has already validated it
-    // ============================================
-    
-    if (!authHeader) {
-      console.log('⚠️ No Authorization header - function allowing public access');
-    } else {
-      console.log('✅ Authorization header present - gateway has validated JWT');
-    }
 
     // Parse request body with error handling
     let requestData;
@@ -796,62 +772,69 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Supabase client (moved before job status check)
+    // ============================================
+    // SUPABASE CLIENT INITIALIZATION
+    // ============================================
+    // ALWAYS use service role key if available
+    // Service role key bypasses ALL RLS policies
+    // User JWT is NOT validated - only extracted for logging if present
+    // ============================================
+    
     let supabaseClient;
     let userId: string | null = null;
     
+    // CRITICAL: Always use service role key when available
+    // This bypasses ALL RLS and works regardless of user auth
     if (supabaseServiceKey) {
       supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
-      console.log('Using service role key - RLS bypassed');
+      console.log('✅ Using service role key - RLS completely bypassed');
       
+      // Optionally extract user ID from JWT for logging (non-critical)
       if (authHeader) {
         try {
+          // Extract token from Bearer header
           const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-          if (token) {
-            const userVerificationClient = createClient(supabaseUrl, supabaseAnonKey, {
-              global: {
-                headers: {
-                  Authorization: authHeader,
-                  apikey: supabaseAnonKey,
-                },
-              },
-            });
-            
-            const { data: { user }, error: userError } = await userVerificationClient.auth.getUser();
-            if (!userError && user) {
-              userId = user.id;
-              console.log('User authenticated (for logging):', userId);
+          if (token && token.length > 20) {
+            // Decode JWT payload (simple base64 decode - no validation)
+            const parts = token.split('.');
+            if (parts.length === 3) {
+              const payload = JSON.parse(atob(parts[1]));
+              userId = payload.sub || payload.user_id || null;
+              if (userId) {
+                console.log('✅ User ID extracted from JWT (for logging):', userId);
+              }
             }
           }
-        } catch (verifyError: any) {
-          // Not an error - function works without user context
+        } catch (decodeError: any) {
+          // Non-critical - continue without user ID
+          console.log('ℹ️ Could not extract user ID from JWT (non-critical)');
         }
       }
     } else {
+      // Fallback: Use anon key (should not happen in production)
+      console.warn('⚠️ Service role key not found - using anon key (RLS may apply)');
+      supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+      
+      // Try to get user if auth header present (optional)
       if (authHeader) {
-        supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-          global: {
-            headers: {
-              Authorization: authHeader,
-              apikey: supabaseAnonKey,
-            },
-          },
-        });
-        
         try {
-          const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-          if (!userError && user) {
-            userId = user.id;
-            console.log('User authenticated:', userId);
-          }
-        } catch (getUserError: any) {
-          // Not critical
+          const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
+            global: {
+              headers: {
+                Authorization: authHeader,
+                apikey: supabaseAnonKey,
+              },
+            },
+          });
+          const { data: { user } } = await tempClient.auth.getUser();
+          userId = user?.id || null;
+        } catch {
+          // Ignore - not critical
         }
-      } else {
-        supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-        console.log('No auth header - using anon key (public access)');
       }
     }
+    
+    console.log('✅ Supabase client initialized');
 
     // ============================================
     // JOB-BASED ASYNC PROCESSING PATTERN
