@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Check, X, Eye, Clock, CheckCircle, XCircle } from 'lucide-react-native';
+import { ArrowLeft, Check, X, Eye, Clock, CheckCircle, XCircle, FileText, BookOpen, CreditCard, RefreshCw } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import type { Payment } from '@/types/payments';
@@ -74,6 +75,7 @@ export default function PaymentVerificationScreen() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'completed' | 'failed' | 'refunded'>('pending');
   const [viewMode, setViewMode] = useState<'documents' | 'subscriptions' | 'books'>('documents');
   const [subViewMode, setSubViewMode] = useState<'books' | 'subscriptions'>('books');
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadSubscriptionPayments = useCallback(async () => {
     try {
@@ -711,146 +713,291 @@ export default function PaymentVerificationScreen() {
           </Text>
         </View>
       ) : (
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={async () => {
+                setRefreshing(true);
+                if (viewMode === 'documents') await loadPayments();
+                else if (viewMode === 'subscriptions') await loadSubscriptionPayments();
+                else await loadBookPurchases();
+                setRefreshing(false);
+              }}
+              tintColor={theme.accent.primary}
+            />
+          }
+        >
           {viewMode === 'documents' ? filteredPayments.map((payment) => {
             const StatusIcon = getStatusIcon(payment.verificationStatus);
             const statusColor = getStatusColor(payment.verificationStatus);
+            const statusGradient = payment.verificationStatus === 'approved' 
+              ? ['#10B981', '#059669'] 
+              : payment.verificationStatus === 'rejected' 
+              ? ['#EF4444', '#DC2626']
+              : ['#F59E0B', '#D97706'];
 
             return (
               <TouchableOpacity
                 key={payment.id}
-                style={[styles.paymentCard, { backgroundColor: theme.background.card }]}
+                style={[styles.paymentCard]}
                 onPress={() => openPaymentModal(payment)}
+                activeOpacity={0.8}
               >
-                <View style={styles.paymentHeader}>
-                  <View style={styles.paymentInfo}>
-                    <Text style={[styles.paymentAmount, { color: theme.text.primary }]}>
-                      {payment.currency} {payment.amount.toFixed(2)}
-                    </Text>
-                    <Text style={[styles.paymentMethod, { color: theme.text.secondary }]}>
-                      {payment.paymentMethod.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </Text>
-                    <Text style={[styles.paymentDate, { color: theme.text.tertiary }]}>
-                      {new Date(payment.paymentDate).toLocaleDateString()}
-                    </Text>
+                <LinearGradient
+                  colors={[`${statusColor}08`, `${statusColor}03`]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.paymentCardGradient}
+                >
+                  <View style={styles.paymentCardContent}>
+                    <View style={styles.paymentCardHeader}>
+                      <View style={styles.paymentMainInfo}>
+                        <View style={styles.paymentIconContainer}>
+                          <LinearGradient
+                            colors={statusGradient}
+                            style={styles.paymentIconGradient}
+                          >
+                            <FileText size={20} color="#FFF" />
+                          </LinearGradient>
+                        </View>
+                        <View style={styles.paymentAmountContainer}>
+                          <Text style={[styles.paymentAmount, { color: theme.text.primary }]}>
+                            {payment.currency} {payment.amount.toFixed(2)}
+                          </Text>
+                          <Text style={[styles.paymentMethod, { color: theme.text.secondary }]}>
+                            {payment.paymentMethod.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={[styles.statusBadgeContainer]}>
+                        <LinearGradient
+                          colors={[statusColor, `${statusColor}DD`]}
+                          style={styles.statusBadgeGradient}
+                        >
+                          <StatusIcon size={18} color="#FFF" strokeWidth={2.5} />
+                        </LinearGradient>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.paymentCardFooter}>
+                      <View style={styles.paymentMetaRow}>
+                        <Clock size={14} color={theme.text.tertiary} />
+                        <Text style={[styles.paymentDate, { color: theme.text.tertiary }]}>
+                          {new Date(payment.paymentDate).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                          })}
+                        </Text>
+                      </View>
+                      {payment.reference && (
+                        <View style={styles.paymentMetaRow}>
+                          <CreditCard size={14} color={theme.text.tertiary} />
+                          <Text style={[styles.paymentReference, { color: theme.text.secondary }]}>
+                            {payment.reference}
+                          </Text>
+                        </View>
+                      )}
+                      {payment.proofOfPaymentUrl && (
+                        <View style={[styles.proofBadge, { backgroundColor: `${theme.accent.primary}15` }]}>
+                          <Eye size={14} color={theme.accent.primary} />
+                          <Text style={[styles.proofText, { color: theme.accent.primary }]}>
+                            Proof
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
-                  <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
-                    <StatusIcon size={20} color={statusColor} />
-                  </View>
-                </View>
-                {payment.reference && (
-                  <Text style={[styles.paymentReference, { color: theme.text.secondary }]}>
-                    Ref: {payment.reference}
-                  </Text>
-                )}
-                {payment.proofOfPaymentUrl && (
-                  <View style={styles.proofIndicator}>
-                    <Eye size={16} color={theme.accent.primary} />
-                    <Text style={[styles.proofText, { color: theme.accent.primary }]}>
-                      Proof attached
-                    </Text>
-                  </View>
-                )}
+                </LinearGradient>
               </TouchableOpacity>
             );
           }) : viewMode === 'subscriptions' ? filteredSubPayments.map((payment) => {
             const StatusIcon = getStatusIcon(payment.verification_status);
             const statusColor = getStatusColor(payment.verification_status);
+            const statusGradient = payment.verification_status === 'approved' 
+              ? ['#10B981', '#059669'] 
+              : payment.verification_status === 'rejected' 
+              ? ['#EF4444', '#DC2626']
+              : ['#F59E0B', '#D97706'];
 
             return (
               <TouchableOpacity
                 key={payment.id}
-                style={[styles.paymentCard, { backgroundColor: theme.background.card }]}
+                style={[styles.paymentCard]}
                 onPress={() => openSubPaymentModal(payment)}
+                activeOpacity={0.8}
               >
-                <View style={styles.paymentHeader}>
-                  <View style={styles.paymentInfo}>
-                    <Text style={[styles.paymentAmount, { color: theme.text.primary }]}>
-                      {payment.currency} {payment.amount.toFixed(2)}
-                    </Text>
-                    <Text style={[styles.paymentMethod, { color: theme.accent.primary }]}>
-                      {payment.plan_name}
-                    </Text>
-                    <Text style={[styles.paymentMethod, { color: theme.text.secondary }]}>
-                      {payment.payment_method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </Text>
-                    <Text style={[styles.paymentDate, { color: theme.text.tertiary }]}>
-                      {new Date(payment.payment_date).toLocaleDateString()}
-                    </Text>
+                <LinearGradient
+                  colors={[`${statusColor}08`, `${statusColor}03`]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.paymentCardGradient}
+                >
+                  <View style={styles.paymentCardContent}>
+                    <View style={styles.paymentCardHeader}>
+                      <View style={styles.paymentMainInfo}>
+                        <View style={styles.paymentIconContainer}>
+                          <LinearGradient
+                            colors={statusGradient}
+                            style={styles.paymentIconGradient}
+                          >
+                            <CreditCard size={20} color="#FFF" />
+                          </LinearGradient>
+                        </View>
+                        <View style={styles.paymentAmountContainer}>
+                          <Text style={[styles.paymentAmount, { color: theme.text.primary }]}>
+                            {payment.currency} {payment.amount.toFixed(2)}
+                          </Text>
+                          <Text style={[styles.paymentMethod, { color: theme.accent.primary, fontWeight: '600' }]}>
+                            {payment.plan_name}
+                          </Text>
+                          <Text style={[styles.paymentMethod, { color: theme.text.secondary, fontSize: 13 }]}>
+                            {payment.payment_method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={[styles.statusBadgeContainer]}>
+                        <LinearGradient
+                          colors={[statusColor, `${statusColor}DD`]}
+                          style={styles.statusBadgeGradient}
+                        >
+                          <StatusIcon size={18} color="#FFF" strokeWidth={2.5} />
+                        </LinearGradient>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.paymentCardFooter}>
+                      <View style={styles.paymentMetaRow}>
+                        <Clock size={14} color={theme.text.tertiary} />
+                        <Text style={[styles.paymentDate, { color: theme.text.tertiary }]}>
+                          {new Date(payment.payment_date).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                          })}
+                        </Text>
+                      </View>
+                      {payment.reference && (
+                        <View style={styles.paymentMetaRow}>
+                          <CreditCard size={14} color={theme.text.tertiary} />
+                          <Text style={[styles.paymentReference, { color: theme.text.secondary }]}>
+                            {payment.reference}
+                          </Text>
+                        </View>
+                      )}
+                      {payment.proof_of_payment_url && (
+                        <View style={[styles.proofBadge, { backgroundColor: `${theme.accent.primary}15` }]}>
+                          <Eye size={14} color={theme.accent.primary} />
+                          <Text style={[styles.proofText, { color: theme.accent.primary }]}>
+                            Proof
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
-                  <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
-                    <StatusIcon size={20} color={statusColor} />
-                  </View>
-                </View>
-                {payment.reference && (
-                  <Text style={[styles.paymentReference, { color: theme.text.secondary }]}>
-                    Ref: {payment.reference}
-                  </Text>
-                )}
-                {payment.proof_of_payment_url && (
-                  <View style={styles.proofIndicator}>
-                    <Eye size={16} color={theme.accent.primary} />
-                    <Text style={[styles.proofText, { color: theme.accent.primary }]}>
-                      Proof attached
-                    </Text>
-                  </View>
-                )}
+                </LinearGradient>
               </TouchableOpacity>
             );
           }) : filteredBookPurchases.map((purchase) => {
             const StatusIcon = getStatusIcon(purchase.payment_status);
             const statusColor = getStatusColor(purchase.payment_status);
+            const statusGradient = purchase.payment_status === 'completed' 
+              ? ['#10B981', '#059669'] 
+              : purchase.payment_status === 'failed' || purchase.payment_status === 'refunded'
+              ? ['#EF4444', '#DC2626']
+              : ['#F59E0B', '#D97706'];
 
             return (
               <TouchableOpacity
                 key={purchase.id}
-                style={[styles.paymentCard, { backgroundColor: theme.background.card }]}
+                style={[styles.paymentCard]}
                 onPress={() => openBookPurchaseModal(purchase)}
+                activeOpacity={0.8}
               >
-                <View style={styles.paymentHeader}>
-                  <View style={styles.paymentInfo}>
-                    <Text style={[styles.paymentAmount, { color: theme.text.primary }]}>
-                      {purchase.currency} {purchase.total_price.toFixed(2)}
-                    </Text>
-                    <Text style={[styles.paymentMethod, { color: theme.accent.primary }]}>
-                      {purchase.book_title}
-                    </Text>
-                    {purchase.payment_method && (
-                      <Text style={[styles.paymentMethod, { color: theme.text.secondary }]}>
-                        {purchase.payment_method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </Text>
-                    )}
-                    <Text style={[styles.paymentDate, { color: theme.text.tertiary }]}>
-                      {new Date(purchase.created_at).toLocaleDateString()}
-                    </Text>
-                  </View>
-                  <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
-                    <StatusIcon size={20} color={statusColor} />
-                  </View>
-                </View>
-                {purchase.payment_reference && (
-                  <Text style={[styles.paymentReference, { color: theme.text.secondary }]}>
-                    Ref: {purchase.payment_reference}
-                  </Text>
-                )}
-                <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
-                  {purchase.proof_of_payment_url && (
-                    <View style={styles.proofIndicator}>
-                      <Eye size={16} color={theme.accent.primary} />
-                      <Text style={[styles.proofText, { color: theme.accent.primary }]}>
-                        Proof attached
-                      </Text>
+                <LinearGradient
+                  colors={[`${statusColor}08`, `${statusColor}03`]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.paymentCardGradient}
+                >
+                  <View style={styles.paymentCardContent}>
+                    <View style={styles.paymentCardHeader}>
+                      <View style={styles.paymentMainInfo}>
+                        <View style={styles.paymentIconContainer}>
+                          <LinearGradient
+                            colors={statusGradient}
+                            style={styles.paymentIconGradient}
+                          >
+                            <BookOpen size={20} color="#FFF" />
+                          </LinearGradient>
+                        </View>
+                        <View style={styles.paymentAmountContainer}>
+                          <Text style={[styles.paymentAmount, { color: theme.text.primary }]}>
+                            {purchase.currency} {purchase.total_price.toFixed(2)}
+                          </Text>
+                          <Text style={[styles.paymentMethod, { color: theme.accent.primary, fontWeight: '600' }]}>
+                            {purchase.book_title}
+                          </Text>
+                          {purchase.payment_method && (
+                            <Text style={[styles.paymentMethod, { color: theme.text.secondary, fontSize: 13 }]}>
+                              {purchase.payment_method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                      <View style={[styles.statusBadgeContainer]}>
+                        <LinearGradient
+                          colors={[statusColor, `${statusColor}DD`]}
+                          style={styles.statusBadgeGradient}
+                        >
+                          <StatusIcon size={18} color="#FFF" strokeWidth={2.5} />
+                        </LinearGradient>
+                      </View>
                     </View>
-                  )}
-                  {purchase.access_granted && (
-                    <View style={styles.proofIndicator}>
-                      <CheckCircle size={16} color="#10B981" />
-                      <Text style={[styles.proofText, { color: '#10B981' }]}>
-                        Access granted
-                      </Text>
+                    
+                    <View style={styles.paymentCardFooter}>
+                      <View style={styles.paymentMetaRow}>
+                        <Clock size={14} color={theme.text.tertiary} />
+                        <Text style={[styles.paymentDate, { color: theme.text.tertiary }]}>
+                          {new Date(purchase.created_at).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                          })}
+                        </Text>
+                      </View>
+                      {purchase.payment_reference && (
+                        <View style={styles.paymentMetaRow}>
+                          <CreditCard size={14} color={theme.text.tertiary} />
+                          <Text style={[styles.paymentReference, { color: theme.text.secondary }]}>
+                            {purchase.payment_reference}
+                          </Text>
+                        </View>
+                      )}
+                      <View style={styles.badgeRow}>
+                        {purchase.proof_of_payment_url && (
+                          <View style={[styles.proofBadge, { backgroundColor: `${theme.accent.primary}15` }]}>
+                            <Eye size={14} color={theme.accent.primary} />
+                            <Text style={[styles.proofText, { color: theme.accent.primary }]}>
+                              Proof
+                            </Text>
+                          </View>
+                        )}
+                        {purchase.access_granted && (
+                          <View style={[styles.proofBadge, { backgroundColor: '#10B98115' }]}>
+                            <CheckCircle size={14} color="#10B981" />
+                            <Text style={[styles.proofText, { color: '#10B981' }]}>
+                              Access Granted
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
-                  )}
-                </View>
+                  </View>
+                </LinearGradient>
               </TouchableOpacity>
             );
           })}
@@ -961,12 +1108,17 @@ export default function PaymentVerificationScreen() {
               </>
             ) : selectedBookPurchase ? (
               <>
-                <View style={styles.modalHeader}>
-                  <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Book Purchase Details</Text>
-                  <TouchableOpacity onPress={() => setShowModal(false)}>
-                    <X size={24} color={theme.text.tertiary} />
-                  </TouchableOpacity>
-                </View>
+                <LinearGradient
+                  colors={[`${theme.accent.primary}10`, 'transparent']}
+                  style={styles.modalHeaderGradient}
+                >
+                  <View style={styles.modalHeader}>
+                    <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Book Purchase Details</Text>
+                    <TouchableOpacity onPress={() => setShowModal(false)} style={styles.modalCloseButton}>
+                      <X size={24} color={theme.text.tertiary} />
+                    </TouchableOpacity>
+                  </View>
+                </LinearGradient>
 
                 <ScrollView style={styles.modalBody}>
                   <View style={styles.detailRow}>
@@ -1063,15 +1215,17 @@ export default function PaymentVerificationScreen() {
                       <TouchableOpacity
                         style={[styles.rejectButton, { backgroundColor: '#EF4444' }]}
                         onPress={() => handleVerifyBookPurchase(selectedBookPurchase, 'failed')}
+                        activeOpacity={0.85}
                       >
-                        <X size={20} color="#FFF" />
+                        <X size={22} color="#FFF" strokeWidth={2.5} />
                         <Text style={styles.buttonText}>Mark Failed</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[styles.approveButton, { backgroundColor: '#10B981' }]}
                         onPress={() => handleVerifyBookPurchase(selectedBookPurchase, 'completed')}
+                        activeOpacity={0.85}
                       >
-                        <Check size={20} color="#FFF" />
+                        <Check size={22} color="#FFF" strokeWidth={2.5} />
                         <Text style={styles.buttonText}>Approve & Grant Access</Text>
                       </TouchableOpacity>
                     </>
@@ -1080,8 +1234,9 @@ export default function PaymentVerificationScreen() {
                     <TouchableOpacity
                       style={[styles.rejectButton, { backgroundColor: '#F59E0B', flex: 1 }]}
                       onPress={() => handleVerifyBookPurchase(selectedBookPurchase, 'refunded')}
+                      activeOpacity={0.85}
                     >
-                      <X size={20} color="#FFF" />
+                      <X size={22} color="#FFF" strokeWidth={2.5} />
                       <Text style={styles.buttonText}>Mark as Refunded</Text>
                     </TouchableOpacity>
                   )}
@@ -1090,10 +1245,10 @@ export default function PaymentVerificationScreen() {
             ) : selectedPayment && (
               <>
                 <View style={styles.modalHeader}>
-                  <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Payment Details</Text>
-                  <TouchableOpacity onPress={() => setShowModal(false)}>
-                    <X size={24} color={theme.text.tertiary} />
-                  </TouchableOpacity>
+                    <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Payment Details</Text>
+                    <TouchableOpacity onPress={() => setShowModal(false)} style={styles.modalCloseButton}>
+                      <X size={24} color={theme.text.tertiary} />
+                    </TouchableOpacity>
                 </View>
 
                 <ScrollView style={styles.modalBody}>
@@ -1186,18 +1341,32 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerGradient: {
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    overflow: 'hidden',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
+    padding: 20,
+    paddingTop: 12,
+    paddingBottom: 20,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.05)',
   },
   headerTitle: {
     flex: 1,
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
     textAlign: 'center',
+    letterSpacing: -0.5,
   },
   viewModeContainer: {
     flexDirection: 'row',
@@ -1243,31 +1412,38 @@ const styles = StyleSheet.create({
   filterContainer: {
     flexDirection: 'row',
     padding: 16,
-    paddingTop: 8,
-    gap: 8,
+    paddingTop: 12,
+    paddingBottom: 12,
+    gap: 10,
   },
   filterTab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    gap: 8,
+    minHeight: 44,
   },
   filterTabText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   badge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   badgeText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
   },
   loadingContainer: {
     flex: 1,
@@ -1289,56 +1465,118 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    padding: 20,
     paddingBottom: 40,
   },
   paymentCard: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 5,
   },
-  paymentHeader: {
+  paymentCardGradient: {
+    padding: 20,
+    borderRadius: 20,
+  },
+  paymentCardContent: {
+    gap: 16,
+  },
+  paymentCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
   },
-  paymentInfo: {
+  paymentMainInfo: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
   },
-  paymentAmount: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 4,
+  paymentIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  paymentMethod: {
-    fontSize: 14,
-    marginBottom: 2,
-  },
-  paymentDate: {
-    fontSize: 12,
-  },
-  statusBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  paymentIconGradient: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  paymentReference: {
-    fontSize: 12,
-    marginTop: 8,
+  paymentAmountContainer: {
+    flex: 1,
+    gap: 4,
   },
-  proofIndicator: {
+  paymentAmount: {
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  paymentMethod: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  statusBadgeContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statusBadgeGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  paymentCardFooter: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  paymentMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 8,
+  },
+  paymentDate: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  paymentReference: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  proofBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   proofText: {
     fontSize: 12,
@@ -1354,97 +1592,131 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     maxHeight: '90%',
   },
+  modalHeaderGradient: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 4,
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    padding: 24,
+    paddingBottom: 20,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  modalCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.05)',
   },
   modalBody: {
-    padding: 20,
+    padding: 24,
     maxHeight: 500,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   detailLabel: {
     fontSize: 14,
+    fontWeight: '500',
+    opacity: 0.7,
   },
   detailValue: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'right',
+    flex: 1,
+    marginLeft: 16,
   },
   proofSection: {
-    marginTop: 20,
+    marginTop: 24,
+    marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 12,
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 16,
+    letterSpacing: -0.3,
   },
   proofImage: {
     width: '100%',
-    height: 300,
-    borderRadius: 8,
+    height: 350,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.05)',
   },
   inputGroup: {
-    marginTop: 20,
+    marginTop: 24,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 12,
+    letterSpacing: -0.2,
   },
   input: {
-    padding: 12,
-    borderRadius: 8,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    padding: 16,
+    borderRadius: 12,
+    fontSize: 15,
+    borderWidth: 1.5,
   },
   textArea: {
-    minHeight: 80,
+    minHeight: 100,
     textAlignVertical: 'top',
   },
   modalFooter: {
     flexDirection: 'row',
     gap: 12,
-    padding: 20,
+    padding: 24,
+    paddingTop: 20,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: 'rgba(0,0,0,0.02)',
   },
   rejectButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
+    padding: 18,
+    borderRadius: 14,
+    gap: 10,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   approveButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
+    padding: 18,
+    borderRadius: 14,
+    gap: 10,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   buttonText: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
 });
