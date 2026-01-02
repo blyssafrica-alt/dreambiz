@@ -177,14 +177,37 @@ export default function BookDetailScreen() {
         if (asset.base64) {
           setIsUploadingProof(true);
           try {
-            const fileExt = asset.uri.split('.').pop() || 'jpg';
+            const fileExt = asset.uri.split('.').pop()?.toLowerCase() || 'jpg';
             const fileName = `book-payment-proof-${Date.now()}.${fileExt}`;
             const filePath = `payment_proofs/${fileName}`;
+
+            // Determine correct MIME type from file extension or asset.mimeType
+            let contentType = 'image/jpeg'; // default
+            if (asset.mimeType) {
+              // Extract the first valid mime type if multiple are present
+              const mimeTypes = asset.mimeType.split(',').map(m => m.trim());
+              const imageMime = mimeTypes.find(m => m.startsWith('image/'));
+              if (imageMime) {
+                contentType = imageMime;
+              }
+            }
+            
+            // Fallback to MIME type based on file extension
+            if (!contentType || contentType === 'image/jpeg') {
+              const mimeMap: Record<string, string> = {
+                'jpg': 'image/jpeg',
+                'jpeg': 'image/jpeg',
+                'png': 'image/png',
+                'webp': 'image/webp',
+                'gif': 'image/gif',
+              };
+              contentType = mimeMap[fileExt] || 'image/jpeg';
+            }
 
             const { error: uploadError } = await supabase.storage
               .from('payment_proofs')
               .upload(filePath, decode(asset.base64), {
-                contentType: asset.mimeType || 'image/jpeg',
+                contentType: contentType,
                 upsert: false,
               });
 
