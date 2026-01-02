@@ -600,11 +600,42 @@ export default function BooksManagementScreen() {
           return;
         }
         
+        // CRITICAL: Create a new URL object to ensure it's absolute and correct
+        // This prevents any URL modification issues
+        let finalFunctionUrl: string;
+        try {
+          const urlObj = new URL(functionUrl);
+          // CRITICAL: Force HTTPS (never HTTP)
+          urlObj.protocol = 'https:';
+          // CRITICAL: Ensure path includes /functions/v1/
+          if (!urlObj.pathname.includes('/functions/v1/')) {
+            const functionName = urlObj.pathname.replace(/^\/+|\/+$/g, '').replace(/^functions\/v1\//, '');
+            urlObj.pathname = `/functions/v1/${functionName}`;
+          }
+          finalFunctionUrl = urlObj.toString();
+          
+          // Final validation - if anything is wrong, use hardcoded URL
+          if (!finalFunctionUrl.startsWith('https://') || !finalFunctionUrl.includes('/functions/v1/')) {
+            console.error('[process-pdf] ❌❌❌ URL OBJECT VALIDATION FAILED!', finalFunctionUrl);
+            // Use hardcoded fallback
+            finalFunctionUrl = 'https://oqcgerfjjiozltkmmkxf.supabase.co/functions/v1/process-pdf';
+          }
+        } catch (urlError) {
+          console.error('[process-pdf] ❌ Failed to create URL object:', urlError);
+          // Use hardcoded fallback
+          finalFunctionUrl = 'https://oqcgerfjjiozltkmmkxf.supabase.co/functions/v1/process-pdf';
+        }
+        
+        // Log the FINAL URL that will be sent
+        console.log('[process-pdf] 🔍 FINAL URL TO SEND:', finalFunctionUrl);
+        console.log('[process-pdf] 🔍 URL starts with https://:', finalFunctionUrl.startsWith('https://'));
+        console.log('[process-pdf] 🔍 URL includes /functions/v1/:', finalFunctionUrl.includes('/functions/v1/'));
+        
         if (__DEV__) {
           console.log('[process-pdf] ✅ Calling function with direct fetch');
-          console.log('[process-pdf] ✅ URL:', functionUrl);
           console.log('[process-pdf] ✅ Has access token:', !!finalSession.access_token);
           console.log('[process-pdf] ✅ Has anon key:', !!anonKey);
+          console.log('[process-pdf] ✅ Token preview:', finalSession.access_token.substring(0, 20) + '...');
         }
         
         // Direct fetch with explicit headers
@@ -613,7 +644,8 @@ export default function BooksManagementScreen() {
         let jobError: any = null;
         
         try {
-          response = await fetch(functionUrl, {
+          // CRITICAL: Use the validated URL object
+          response = await fetch(finalFunctionUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
