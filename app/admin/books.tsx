@@ -336,7 +336,7 @@ export default function BooksManagementScreen() {
 
         // Get Supabase URL and anon key for function URL
         const supabaseConfig = await import('@/lib/supabase');
-        const supabaseUrl = supabaseConfig.supabaseUrl || 'https://oqcgerfjjiozltkmmkxf.supabase.co';
+        let supabaseUrl = supabaseConfig.supabaseUrl || 'https://oqcgerfjjiozltkmmkxf.supabase.co';
         const supabaseAnonKey = supabaseConfig.supabaseAnonKey || 'sb_publishable_959ZId8aR4E5IjTNoyVsJQ_xt8pelvp';
         
         if (!supabaseAnonKey) {
@@ -346,17 +346,33 @@ export default function BooksManagementScreen() {
           return;
         }
         
-        // CRITICAL: Edge Functions URL must include /functions/v1/
-        // URL format: https://<project>.supabase.co/functions/v1/<function-name>
-        // Ensure supabaseUrl doesn't already have /functions/v1/
-        const baseUrl = supabaseUrl.replace(/\/functions\/v1\/?$/, '').replace(/\/$/, '');
-        const functionUrl = `${baseUrl}/functions/v1/process-pdf`;
+        // CRITICAL: Normalize and construct correct Edge Function URL
+        // 1. Ensure HTTPS (not HTTP)
+        supabaseUrl = supabaseUrl.replace(/^http:\/\//, 'https://');
+        
+        // 2. Remove any trailing slashes
+        supabaseUrl = supabaseUrl.replace(/\/+$/, '');
+        
+        // 3. Remove /functions/v1/ if already present
+        supabaseUrl = supabaseUrl.replace(/\/functions\/v1\/?$/, '');
+        
+        // 4. Construct correct function URL
+        const functionUrl = `${supabaseUrl}/functions/v1/process-pdf`;
+        
+        // 5. Validate URL format
+        if (!functionUrl.startsWith('https://') || !functionUrl.includes('/functions/v1/process-pdf')) {
+          console.error('CRITICAL: Invalid function URL constructed:', functionUrl);
+          Alert.alert('Configuration Error', 'Invalid Supabase URL format. Please check your settings.');
+          setIsProcessingPDF(false);
+          return;
+        }
         
         if (__DEV__) {
           console.log('Function URL construction:', {
-            originalSupabaseUrl: supabaseUrl,
-            baseUrl,
+            originalSupabaseUrl: supabaseConfig.supabaseUrl,
+            normalizedSupabaseUrl: supabaseUrl,
             functionUrl,
+            isValid: functionUrl.startsWith('https://') && functionUrl.includes('/functions/v1/process-pdf'),
             expectedFormat: 'https://<project>.supabase.co/functions/v1/process-pdf',
           });
         }
