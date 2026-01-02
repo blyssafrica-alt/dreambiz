@@ -61,19 +61,36 @@ ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for recurring_invoices
+DROP POLICY IF EXISTS "Users can view their own recurring invoices" ON recurring_invoices;
 CREATE POLICY "Users can view their own recurring invoices" ON recurring_invoices FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own recurring invoices" ON recurring_invoices;
 CREATE POLICY "Users can insert their own recurring invoices" ON recurring_invoices FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own recurring invoices" ON recurring_invoices;
 CREATE POLICY "Users can update their own recurring invoices" ON recurring_invoices FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own recurring invoices" ON recurring_invoices;
 CREATE POLICY "Users can delete their own recurring invoices" ON recurring_invoices FOR DELETE USING (auth.uid() = user_id);
 
 -- RLS Policies for payments
+DROP POLICY IF EXISTS "Users can view their own payments" ON payments;
 CREATE POLICY "Users can view their own payments" ON payments FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own payments" ON payments;
 CREATE POLICY "Users can insert their own payments" ON payments FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own payments" ON payments;
 CREATE POLICY "Users can update their own payments" ON payments FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own payments" ON payments;
 CREATE POLICY "Users can delete their own payments" ON payments FOR DELETE USING (auth.uid() = user_id);
 
 -- RLS Policies for activity_logs
+DROP POLICY IF EXISTS "Users can view their own activity logs" ON activity_logs;
 CREATE POLICY "Users can view their own activity logs" ON activity_logs FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own activity logs" ON activity_logs;
 CREATE POLICY "Users can insert their own activity logs" ON activity_logs FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Indexes

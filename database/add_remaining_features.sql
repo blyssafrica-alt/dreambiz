@@ -92,18 +92,22 @@ CREATE INDEX IF NOT EXISTS idx_project_tasks_user_id ON project_tasks(user_id);
 -- ============================================
 ALTER TABLE tax_rates ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own tax rates" ON tax_rates;
 CREATE POLICY "Users can view their own tax rates"
   ON tax_rates FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own tax rates" ON tax_rates;
 CREATE POLICY "Users can insert their own tax rates"
   ON tax_rates FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own tax rates" ON tax_rates;
 CREATE POLICY "Users can update their own tax rates"
   ON tax_rates FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete their own tax rates" ON tax_rates;
 CREATE POLICY "Users can delete their own tax rates"
   ON tax_rates FOR DELETE
   USING (auth.uid() = user_id);
@@ -113,18 +117,22 @@ CREATE POLICY "Users can delete their own tax rates"
 -- ============================================
 ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own employees" ON employees;
 CREATE POLICY "Users can view their own employees"
   ON employees FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own employees" ON employees;
 CREATE POLICY "Users can insert their own employees"
   ON employees FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own employees" ON employees;
 CREATE POLICY "Users can update their own employees"
   ON employees FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete their own employees" ON employees;
 CREATE POLICY "Users can delete their own employees"
   ON employees FOR DELETE
   USING (auth.uid() = user_id);
@@ -134,18 +142,22 @@ CREATE POLICY "Users can delete their own employees"
 -- ============================================
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own projects" ON projects;
 CREATE POLICY "Users can view their own projects"
   ON projects FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own projects" ON projects;
 CREATE POLICY "Users can insert their own projects"
   ON projects FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own projects" ON projects;
 CREATE POLICY "Users can update their own projects"
   ON projects FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete their own projects" ON projects;
 CREATE POLICY "Users can delete their own projects"
   ON projects FOR DELETE
   USING (auth.uid() = user_id);
@@ -155,18 +167,22 @@ CREATE POLICY "Users can delete their own projects"
 -- ============================================
 ALTER TABLE project_tasks ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own project tasks" ON project_tasks;
 CREATE POLICY "Users can view their own project tasks"
   ON project_tasks FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own project tasks" ON project_tasks;
 CREATE POLICY "Users can insert their own project tasks"
   ON project_tasks FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own project tasks" ON project_tasks;
 CREATE POLICY "Users can update their own project tasks"
   ON project_tasks FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete their own project tasks" ON project_tasks;
 CREATE POLICY "Users can delete their own project tasks"
   ON project_tasks FOR DELETE
   USING (auth.uid() = user_id);
