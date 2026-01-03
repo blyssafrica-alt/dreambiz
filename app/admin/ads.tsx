@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Activi
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAds } from '@/contexts/AdContext';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Megaphone, TrendingUp, Eye, MousePointerClick, X, Save, Trash2, Edit, ImageIcon, Upload } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,6 +15,7 @@ import { decode } from 'base64-arraybuffer';
 export default function AdsManagementScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
+  const { refreshAds } = useAds();
   const router = useRouter();
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -247,6 +249,8 @@ export default function AdsManagementScreen() {
 
       setShowModal(false);
       loadAds();
+      // CRITICAL: Refresh AdContext so ads appear immediately across the app
+      await refreshAds();
     } catch (error) {
       console.error('Failed to save ad:', error);
       Alert.alert('Error', 'Failed to save advertisement');
@@ -265,6 +269,8 @@ export default function AdsManagementScreen() {
             if (error) throw error;
             Alert.alert('Success', 'Advertisement deleted');
             loadAds();
+            // CRITICAL: Refresh AdContext so ads are removed immediately across the app
+            await refreshAds();
           } catch (error) {
             console.error('Failed to delete ad:', error);
             Alert.alert('Error', 'Failed to delete advertisement');

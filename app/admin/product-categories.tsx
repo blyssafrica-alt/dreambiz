@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Activi
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProducts } from '@/contexts/ProductContext';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Edit, Trash2, Folder, X, Save } from 'lucide-react-native';
 import type { ProductCategory } from '@/types/super-admin';
@@ -13,6 +14,7 @@ import { decode } from 'base64-arraybuffer';
 export default function ProductCategoriesScreen() {
   const { theme } = useTheme();
   const { user, isSuperAdmin } = useAuth();
+  const { refreshProducts } = useProducts();
   const router = useRouter();
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -199,6 +201,8 @@ export default function ProductCategoriesScreen() {
 
       setShowModal(false);
       loadCategories();
+      // CRITICAL: Refresh ProductContext so products screen shows updated categories
+      await refreshProducts();
     } catch (error: any) {
       console.error('Failed to save category:', error);
       Alert.alert('Error', error.message || 'Failed to save category');
@@ -221,6 +225,8 @@ export default function ProductCategoriesScreen() {
             if (error) throw error;
             Alert.alert('Success', 'Category deleted successfully');
             loadCategories();
+            // CRITICAL: Refresh ProductContext so categories are updated immediately
+            await refreshProducts();
           } catch (error: any) {
             console.error('Failed to delete category:', error);
             Alert.alert('Error', error.message || 'Failed to delete category');
