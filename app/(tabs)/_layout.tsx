@@ -10,6 +10,7 @@ import React, { useEffect, useRef } from "react";
 import { Platform, View, ActivityIndicator, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useFeatures } from "@/contexts/FeatureContext";
 import { LinearGradient } from "expo-linear-gradient";
 
 // Animated Tab Icon Component
@@ -95,10 +96,11 @@ function AnimatedTabIcon({
 
 export default function TabLayout() {
   const { theme, isLoading } = useTheme();
+  const { shouldShowAsTab, isLoading: featuresLoading } = useFeatures();
   const insets = useSafeAreaInsets();
   
-  // Show loading indicator while theme is loading
-  if (isLoading || !theme) {
+  // Show loading indicator while theme or features are loading
+  if (isLoading || featuresLoading || !theme) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" />
@@ -142,48 +144,61 @@ export default function TabLayout() {
         },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Dashboard",
-          tabBarIcon: ({ color, focused }) => (
-            <AnimatedTabIcon
-              Icon={LayoutDashboard}
-              color={color}
-              focused={focused}
-              gradientColors={['#6366F1', '#8B5CF6']}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="finances"
-        options={{
-          title: "Finances",
-          tabBarIcon: ({ color, focused }) => (
-            <AnimatedTabIcon
-              Icon={TrendingUp}
-              color={color}
-              focused={focused}
-              gradientColors={['#10B981', '#059669']}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="documents"
-        options={{
-          title: "Documents",
-          tabBarIcon: ({ color, focused }) => (
-            <AnimatedTabIcon
-              Icon={FileCheck}
-              color={color}
-              focused={focused}
-              gradientColors={['#3B82F6', '#2563EB']}
-            />
-          ),
-        }}
-      />
+      {/* Dashboard tab - always visible (core feature) */}
+      {shouldShowAsTab('dashboard') && (
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "Dashboard",
+            tabBarIcon: ({ color, focused }) => (
+              <AnimatedTabIcon
+                Icon={LayoutDashboard}
+                color={color}
+                focused={focused}
+                gradientColors={['#6366F1', '#8B5CF6']}
+              />
+            ),
+          }}
+        />
+      )}
+      
+      {/* Finances tab - respect feature settings */}
+      {shouldShowAsTab('finances') && (
+        <Tabs.Screen
+          name="finances"
+          options={{
+            title: "Finances",
+            tabBarIcon: ({ color, focused }) => (
+              <AnimatedTabIcon
+                Icon={TrendingUp}
+                color={color}
+                focused={focused}
+                gradientColors={['#10B981', '#059669']}
+              />
+            ),
+          }}
+        />
+      )}
+      
+      {/* Documents tab - respect feature settings */}
+      {shouldShowAsTab('documents') && (
+        <Tabs.Screen
+          name="documents"
+          options={{
+            title: "Documents",
+            tabBarIcon: ({ color, focused }) => (
+              <AnimatedTabIcon
+                Icon={FileCheck}
+                color={color}
+                focused={focused}
+                gradientColors={['#3B82F6', '#2563EB']}
+              />
+            ),
+          }}
+        />
+      )}
+      
+      {/* Payments tab - always visible (no feature config, but allow if needed) */}
       <Tabs.Screen
         name="payments"
         options={{
@@ -198,6 +213,8 @@ export default function TabLayout() {
           ),
         }}
       />
+      
+      {/* More tab - always visible (navigation hub) */}
       <Tabs.Screen
         name="more"
         options={{

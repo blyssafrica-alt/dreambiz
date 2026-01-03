@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useFeatures } from '@/contexts/FeatureContext';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Save, Eye, EyeOff } from 'lucide-react-native';
 import type { FeatureConfig } from '@/types/super-admin';
@@ -9,6 +10,7 @@ import type { FeatureConfig } from '@/types/super-admin';
 export default function FeaturesManagementScreen() {
   const { theme } = useTheme();
   const router = useRouter();
+  const { refreshFeatures } = useFeatures();
   const [features, setFeatures] = useState<FeatureConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -53,18 +55,44 @@ export default function FeaturesManagementScreen() {
 
   const toggleFeature = async (featureId: string, enabled: boolean) => {
     try {
+      setIsSaving(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
       const { error } = await supabase
         .from('feature_config')
-        .update({ enabled })
+        .update({ 
+          enabled,
+          updated_by: user.id,
+          updated_at: new Date().toISOString()
+        })
         .eq('feature_id', featureId);
 
       if (error) throw error;
 
+      // Update local state
       setFeatures(prev => prev.map(f => 
         f.featureId === featureId ? { ...f, enabled } : f
       ));
-    } catch (error) {
+
+      // CRITICAL: Refresh the FeatureContext so all users see the changes immediately
+      await refreshFeatures();
+
+      // Show success feedback
+      Alert.alert(
+        'Success', 
+        `${featureId} has been ${enabled ? 'enabled' : 'disabled'}. Changes are now live for all users.`,
+        [{ text: 'OK' }]
+      );
+    } catch (error: any) {
       console.error('Failed to toggle feature:', error);
+      Alert.alert(
+        'Error',
+        `Failed to ${enabled ? 'enable' : 'disable'} feature: ${error?.message || 'Unknown error'}`,
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsSaving(false);
     }
   };
 
