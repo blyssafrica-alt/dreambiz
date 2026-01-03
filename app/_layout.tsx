@@ -161,6 +161,11 @@ function RootLayoutNav() {
     }
   }, [isAuthenticated, hasOnboarded, emailVerified, isLoading, segments, router]);
 
+  // Show loading screen during initial app load
+  if (showLoadingScreen || isLoading) {
+    return <LoadingScreen message="Loading DreamBiz..." />;
+  }
+
   return (
     <>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
