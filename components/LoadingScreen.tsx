@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Image, StatusBar } from 'react-native';
+import { View, StyleSheet, Animated, Image, StatusBar, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,127 +24,135 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
   const dotsAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    let isMounted = true;
+
     // Dramatic entrance animation with staggered timing
-    Animated.sequence([
-      // Logo entrance
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 25,
-          friction: 6,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ]),
-      // Title entrance (after logo)
-      Animated.parallel([
-        Animated.spring(titleScaleAnim, {
-          toValue: 1,
-          tension: 30,
-          friction: 7,
-          useNativeDriver: true,
-        }),
-        Animated.timing(titleOpacityAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
-
-    // Continuous rotation animation
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 4000,
-        useNativeDriver: true,
-      })
-    ).start();
-
-    // Pulse animation - more dynamic
-    Animated.loop(
+    if (isMounted) {
       Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
+        // Logo entrance
+        Animated.parallel([
+          Animated.spring(scaleAnim, {
+            toValue: 1,
+            tension: 25,
+            friction: 6,
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacityAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ]),
+        // Title entrance (after logo)
+        Animated.parallel([
+          Animated.spring(titleScaleAnim, {
+            toValue: 1,
+            tension: 30,
+            friction: 7,
+            useNativeDriver: true,
+          }),
+          Animated.timing(titleOpacityAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]).start();
 
-    // Floating animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
+      // Continuous rotation animation
+      Animated.loop(
+        Animated.timing(rotateAnim, {
           toValue: 1,
-          duration: 3000,
+          duration: 4000,
           useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: 3000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
+        })
+      ).start();
 
-    // Shimmer effect
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmerAnim, {
-          toValue: 1,
-          duration: 2500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shimmerAnim, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
+      // Pulse animation - more dynamic
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
 
-    // Glow pulse
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(glowAnim, {
-          toValue: 0.4,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
+      // Floating animation
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(floatAnim, {
+            toValue: 1,
+            duration: 3000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(floatAnim, {
+            toValue: 0,
+            duration: 3000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
 
-    // Loading dots animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(dotsAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(dotsAnim, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, []);
+      // Shimmer effect
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(shimmerAnim, {
+            toValue: 1,
+            duration: 2500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(shimmerAnim, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Glow pulse
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(glowAnim, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(glowAnim, {
+            toValue: 0.4,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Loading dots animation
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(dotsAnim, {
+            toValue: 1,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dotsAnim, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [scaleAnim, opacityAnim, titleScaleAnim, titleOpacityAnim, rotateAnim, pulseAnim, floatAnim, shimmerAnim, glowAnim, dotsAnim]);
 
   const rotate = rotateAnim.interpolate({
     inputRange: [0, 1],

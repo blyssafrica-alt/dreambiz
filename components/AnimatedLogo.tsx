@@ -31,105 +31,113 @@ export default function AnimatedLogo({
   const floatAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    let isMounted = true;
+
     // Entrance animation - dramatic entrance
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 30,
-        friction: 6,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    if (isMounted) {
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 30,
+          friction: 6,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]).start();
 
-    // Continuous rotation animation (main circle)
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: rotationSpeed,
-        useNativeDriver: true,
-      })
-    ).start();
+      // Continuous rotation animation (main circle)
+      Animated.loop(
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: rotationSpeed,
+          useNativeDriver: true,
+        })
+      ).start();
 
-    // Reverse rotation for inner elements (creates dynamic effect)
-    Animated.loop(
-      Animated.timing(rotateReverseAnim, {
-        toValue: 1,
-        duration: rotationSpeed * 1.5,
-        useNativeDriver: true,
-      })
-    ).start();
+      // Reverse rotation for inner elements (creates dynamic effect)
+      Animated.loop(
+        Animated.timing(rotateReverseAnim, {
+          toValue: 1,
+          duration: rotationSpeed * 1.5,
+          useNativeDriver: true,
+        })
+      ).start();
 
-    // Pulse animation - more dynamic
-    if (pulseEnabled) {
+      // Pulse animation - more dynamic
+      if (pulseEnabled) {
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(pulseAnim, {
+              toValue: 1.08,
+              duration: 2000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(pulseAnim, {
+              toValue: 1,
+              duration: 2000,
+              useNativeDriver: true,
+            }),
+          ])
+        ).start();
+      }
+
+      // Shimmer/shine effect
       Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.08,
+          Animated.timing(shimmerAnim, {
+            toValue: 1,
+            duration: 3000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(shimmerAnim, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Glow pulse effect
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(glowAnim, {
+            toValue: 1,
             duration: 2000,
             useNativeDriver: true,
           }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
+          Animated.timing(glowAnim, {
+            toValue: 0.5,
             duration: 2000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Floating effect (subtle up/down movement)
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(floatAnim, {
+            toValue: 1,
+            duration: 3000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(floatAnim, {
+            toValue: 0,
+            duration: 3000,
             useNativeDriver: true,
           }),
         ])
       ).start();
     }
 
-    // Shimmer/shine effect
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmerAnim, {
-          toValue: 1,
-          duration: 3000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shimmerAnim, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Glow pulse effect
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(glowAnim, {
-          toValue: 0.5,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Floating effect (subtle up/down movement)
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: 1,
-          duration: 3000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: 3000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, [rotationSpeed, pulseEnabled]);
+    return () => {
+      isMounted = false;
+    };
+  }, [rotationSpeed, pulseEnabled, scaleAnim, opacityAnim, rotateAnim, rotateReverseAnim, pulseAnim, shimmerAnim, glowAnim, floatAnim]);
 
   const rotate = rotateAnim.interpolate({
     inputRange: [0, 1],
@@ -171,8 +179,8 @@ export default function AnimatedLogo({
   }
 
   const containerSize = size;
-  const logoSize = size * 0.72; // Logo takes 72% of container
-  const whiteCircleSize = size * 0.86; // White circle is 86% of container
+  const logoSize = size * 0.85; // Logo takes 85% of container (image already has white background)
+  const innerGlowSize = logoSize * 0.95; // Inner glow is 95% of logo size
 
   return (
     <Animated.View
@@ -291,9 +299,9 @@ export default function AnimatedLogo({
               style={[
                 styles.innerGlow,
                 {
-                  width: whiteCircleSize,
-                  height: whiteCircleSize,
-                  borderRadius: whiteCircleSize / 2,
+                  width: innerGlowSize,
+                  height: innerGlowSize,
+                  borderRadius: innerGlowSize / 2,
                   opacity: glowOpacity,
                 },
               ]}
@@ -406,9 +414,6 @@ const styles = StyleSheet.create({
   },
   innerGlow: {
     position: 'absolute',
-    width: logoSize * 0.95,
-    height: logoSize * 0.95,
-    borderRadius: (logoSize * 0.95) / 2,
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.5)',
     zIndex: 2,
