@@ -242,7 +242,8 @@ export default function TabLayout() {
       <Tabs.Screen name="tax" options={{ href: null }} />
       <Tabs.Screen name="accounts" options={{ href: null }} />
       <Tabs.Screen name="recurring-invoices" options={{ href: null }} />
-      <Tabs.Screen name="pos" options={{ href: null }} />
+             <Tabs.Screen name="pos" options={{ href: null }} />
+             <Tabs.Screen name="pos-day-end" options={{ href: null }} />
       <Tabs.Screen name="appointments" options={{ href: null }} />
       <Tabs.Screen name="integrations" options={{ href: null }} />
       <Tabs.Screen name="insights" options={{ href: null }} />

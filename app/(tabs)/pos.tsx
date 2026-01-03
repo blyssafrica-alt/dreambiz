@@ -1,5 +1,5 @@
 import { Stack, router } from 'expo-router';
-import { 
+import {
   Plus, 
   Minus,
   ShoppingCart,
@@ -21,7 +21,8 @@ import {
   Percent,
   Tag,
   Share2,
-  FileText
+  FileText,
+  Calculator
 } from 'lucide-react-native';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import {
@@ -496,6 +497,15 @@ export default function POSScreen() {
           subtitle="Quick checkout and sales"
           icon={ShoppingCart}
           iconGradient={['#3B82F6', '#2563EB']}
+          rightAction={
+            <TouchableOpacity
+              style={styles.dayEndButton}
+              onPress={() => router.push('/(tabs)/pos-day-end' as any)}
+              activeOpacity={0.8}
+            >
+              <Calculator size={20} color="#FFF" strokeWidth={2.5} />
+            </TouchableOpacity>
+          }
         />
 
         <Animated.View style={{
