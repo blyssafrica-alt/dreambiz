@@ -25,7 +25,7 @@ import type { RecurringInvoice, Payment } from '@/types/payments';
 import { fetchActiveAlertRules, evaluateAlertRules } from '@/lib/alert-evaluator';
 
 export const [BusinessContext, useBusiness] = createContextHook(() => {
-  const { user, authUser } = useAuth();
+  const { user, authUser, isSuperAdmin } = useAuth();
     const [business, setBusiness] = useState<BusinessProfile | null>(null);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [documents, setDocuments] = useState<Document[]>([]);
@@ -2509,11 +2509,18 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     if (!userId) return [];
 
     try {
-      const { data, error } = await supabase
+      // Build query - super admins can see all businesses, regular users only see their own
+      let query = supabase
         .from('business_profiles')
         .select('*')
-        .eq('user_id', userId)
         .order('created_at', { ascending: false });
+      
+      // Only filter by user_id if not a super admin
+      if (!isSuperAdmin) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -2534,25 +2541,32 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         dreamBigBook: b.dream_big_book as any,
         logo: b.logo || undefined,
         createdAt: b.created_at,
+        // Include user_id for admin views
+        userId: b.user_id,
       }));
     } catch (error) {
       console.error('Failed to get all businesses:', error);
       return [];
     }
-  }, [userId]);
+  }, [userId, isSuperAdmin]);
 
   // Switch to a different business
   const switchBusiness = useCallback(async (businessId: string) => {
     if (!userId) throw new Error('User not authenticated');
 
     try {
-      // Find the business
-      const { data, error } = await supabase
+      // Find the business - super admins can switch to any business
+      let query = supabase
         .from('business_profiles')
         .select('*')
-        .eq('id', businessId)
-        .eq('user_id', userId)
-        .single();
+        .eq('id', businessId);
+      
+      // Only filter by user_id if not a super admin
+      if (!isSuperAdmin) {
+        query = query.eq('user_id', userId);
+      }
+      
+      const { data, error } = await query.single();
 
       if (error) throw error;
       if (!data) throw new Error('Business not found');
@@ -2583,7 +2597,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       console.error('Failed to switch business:', error);
       throw error;
     }
-  }, [userId, loadData]);
+  }, [userId, isSuperAdmin, loadData]);
 
   // Delete a business
   const deleteBusiness = useCallback(async (businessId: string) => {

@@ -28,7 +28,9 @@ import PremiumUpgradeModal from '@/components/PremiumUpgradeModal';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { usePremium } from '@/contexts/PremiumContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useFocusEffect } from 'expo-router';
+import { supabase } from '@/lib/supabase';
 import type { BusinessProfile, BusinessType, BusinessStage, Currency, DreamBigBook } from '@/types/business';
 import { DREAMBIG_BOOKS } from '@/constants/books';
 
@@ -54,10 +56,12 @@ export default function BusinessesScreen() {
   const { business: currentBusiness, getAllBusinesses, switchBusiness, deleteBusiness, saveBusiness, checkBusinessLimit } = useBusiness();
   const { currentPlan, refreshPremiumStatus } = usePremium();
   const { theme } = useTheme();
+  const { isSuperAdmin } = useAuth();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [businesses, setBusinesses] = useState<BusinessProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
   const [showModal, setShowModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [limitInfo, setLimitInfo] = useState<{ canCreate: boolean; currentCount: number; maxBusinesses: number | null; planName: string | null } | null>(null);
@@ -95,6 +99,25 @@ export default function BusinessesScreen() {
       setIsLoading(true);
       const allBusinesses = await getAllBusinesses();
       setBusinesses(allBusinesses);
+      
+      // If admin, load user names for businesses
+      if (isSuperAdmin) {
+        const userIds = [...new Set(allBusinesses.map(b => b.userId).filter(Boolean))] as string[];
+        if (userIds.length > 0) {
+          const { data: users } = await supabase
+            .from('users')
+            .select('id, email, name')
+            .in('id', userIds);
+          
+          if (users) {
+            const nameMap: Record<string, string> = {};
+            users.forEach(user => {
+              nameMap[user.id] = user.name || user.email || 'Unknown';
+            });
+            setUserNames(nameMap);
+          }
+        }
+      }
     } catch (error) {
       console.error('Failed to load businesses:', error);
       RNAlert.alert('Error', 'Failed to load businesses');
@@ -617,6 +640,11 @@ export default function BusinessesScreen() {
                         <Text style={[styles.businessCurrency, { color: theme.text.tertiary }]}>
                           Currency: {businessItem.currency}
                         </Text>
+                        {isSuperAdmin && businessItem.userId && userNames[businessItem.userId] && (
+                          <Text style={[styles.businessCurrency, { color: theme.text.tertiary, marginTop: 4 }]}>
+                            Owner: {userNames[businessItem.userId]}
+                          </Text>
+                        )}
                       </View>
                       <View style={styles.businessActions}>
                         {!isActive && (

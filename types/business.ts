@@ -36,6 +36,7 @@ export interface BusinessProfile {
   address?: string;
   dreamBigBook?: DreamBigBook;
   logo?: string; // Base64 or URI for business logo
+  userId?: string; // Optional: included when admin views all businesses
 }
 
 export type TransactionType = 'sale' | 'expense';
