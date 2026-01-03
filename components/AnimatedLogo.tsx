@@ -248,51 +248,42 @@ export default function AnimatedLogo({
               />
             </Animated.View>
 
-            {/* White circular background with reverse rotation */}
+            {/* Logo image directly - no extra white circle since image already has white background */}
             <Animated.View
               style={[
-                styles.whiteCircleContainer,
+                styles.logoImageContainer,
                 {
-                  width: whiteCircleSize,
-                  height: whiteCircleSize,
-                  borderRadius: whiteCircleSize / 2,
                   transform: [{ rotate: rotateReverse }],
                 },
               ]}
             >
-              <View style={[styles.whiteCircle, { 
-                width: whiteCircleSize, 
-                height: whiteCircleSize, 
-                borderRadius: whiteCircleSize / 2,
-              }]}>
-                {logoSource ? (
-                  <Image
-                    source={logoSource}
-                    style={[styles.logoImage, { width: logoSize, height: logoSize }]}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <View style={[styles.fallbackLogo, { width: logoSize, height: logoSize, borderRadius: logoSize / 2 }]}>
-                    <LinearGradient
-                      colors={[theme.accent.primary, theme.accent.secondary] as any}
-                      style={styles.fallbackGradient}
+              {logoSource ? (
+                <Image
+                  source={logoSource}
+                  style={[styles.logoImage, { width: logoSize, height: logoSize }]}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={[styles.fallbackLogo, { width: logoSize, height: logoSize, borderRadius: logoSize / 2 }]}>
+                  <LinearGradient
+                    colors={[theme.accent.primary, theme.accent.secondary] as any}
+                    style={styles.fallbackGradient}
+                  >
+                    <Animated.Text 
+                      style={[
+                        styles.fallbackText, 
+                        { 
+                          fontSize: logoSize * 0.45,
+                          color: '#FFF',
+                          transform: [{ rotate: rotate }],
+                        }
+                      ]}
                     >
-                      <Animated.Text 
-                        style={[
-                          styles.fallbackText, 
-                          { 
-                            fontSize: logoSize * 0.45,
-                            color: '#FFF',
-                            transform: [{ rotate: rotate }],
-                          }
-                        ]}
-                      >
-                        B
-                      </Animated.Text>
-                    </LinearGradient>
-                  </View>
-                )}
-              </View>
+                      B
+                    </Animated.Text>
+                  </LinearGradient>
+                </View>
+              )}
             </Animated.View>
 
             {/* Inner glow ring */}
@@ -311,26 +302,20 @@ export default function AnimatedLogo({
           </LinearGradient>
         ) : (
           <View style={[styles.logoWrapperNoGradient, { borderRadius: containerSize / 2 }]}>
-            {/* White circular background */}
-            <View style={[styles.whiteCircle, { 
-              width: whiteCircleSize, 
-              height: whiteCircleSize, 
-              borderRadius: whiteCircleSize / 2 
-            }]}>
-              {logoSource ? (
-                <Image
-                  source={logoSource}
-                  style={[styles.logoImage, { width: logoSize, height: logoSize }]}
-                  resizeMode="contain"
-                />
-              ) : (
-                <View style={[styles.fallbackLogo, { width: logoSize, height: logoSize, borderRadius: logoSize / 2 }]}>
-                  <Animated.Text style={[styles.fallbackText, { fontSize: logoSize * 0.4, color: theme.accent.primary }]}>
-                    D
-                  </Animated.Text>
-                </View>
-              )}
-            </View>
+            {/* Logo image directly - no extra white circle since image already has white background */}
+            {logoSource ? (
+              <Image
+                source={logoSource}
+                style={[styles.logoImage, { width: logoSize, height: logoSize }]}
+                resizeMode="contain"
+              />
+            ) : (
+              <View style={[styles.fallbackLogo, { width: logoSize, height: logoSize, borderRadius: logoSize / 2 }]}>
+                <Animated.Text style={[styles.fallbackText, { fontSize: logoSize * 0.4, color: theme.accent.primary }]}>
+                  D
+                </Animated.Text>
+              </View>
+            )}
           </View>
         )}
       </Animated.View>
@@ -414,23 +399,16 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 999,
   },
-  whiteCircleContainer: {
+  logoImageContainer: {
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
   },
-  whiteCircle: {
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
   innerGlow: {
     position: 'absolute',
+    width: logoSize * 0.95,
+    height: logoSize * 0.95,
+    borderRadius: (logoSize * 0.95) / 2,
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.5)',
     zIndex: 2,

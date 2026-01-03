@@ -273,8 +273,8 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
                   />
                 </Animated.View>
 
-                {/* White circular background */}
-                <View style={styles.whiteCircle}>
+                {/* Logo image directly - no extra white circle since image already has white background */}
+                <View style={styles.logoImageContainer}>
                   {logoSource ? (
                     <Image
                       source={logoSource}
@@ -481,25 +481,16 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 999,
   },
-  whiteCircle: {
-    width: 103,
-    height: 103,
-    borderRadius: 51.5,
-    backgroundColor: '#FFFFFF',
+  logoImageContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
     zIndex: 1,
   },
   innerGlow: {
     position: 'absolute',
-    width: 103,
-    height: 103,
-    borderRadius: 51.5,
+    width: 102,
+    height: 102,
+    borderRadius: 51,
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.6)',
     zIndex: 2,
