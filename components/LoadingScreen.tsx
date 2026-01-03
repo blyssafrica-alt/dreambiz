@@ -355,29 +355,68 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
             />
           </Animated.View>
 
-          {/* App Name with enhanced animation */}
+          {/* App Name with enhanced animation - Unique Design */}
           <Animated.View
             style={[
-              styles.titleContainer,
+              styles.titleWrapper,
               {
                 opacity: titleOpacityAnim,
                 transform: [{ scale: titleScaleAnim }],
               },
             ]}
           >
-            <LinearGradient
-              colors={[theme.accent.primary, theme.accent.secondary] as any}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.titleGradient}
-            >
-              <Animated.Text
-                style={[styles.title, { color: '#FFF' }]}
-                numberOfLines={1}
+            {/* Decorative elements behind text */}
+            <View style={styles.titleDecorations}>
+              <Animated.View
+                style={[
+                  styles.titleGlow,
+                  {
+                    opacity: glowOpacity.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.3, 0.6],
+                    }),
+                  },
+                ]}
+              />
+            </View>
+            
+            {/* Main title with gradient text effect */}
+            <View style={styles.titleContainer}>
+              <LinearGradient
+                colors={[theme.accent.primary, theme.accent.secondary, theme.accent.primary] as any}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.titleGradient}
               >
-                DreamBiz
-              </Animated.Text>
-            </LinearGradient>
+                <Animated.Text
+                  style={[styles.title, { 
+                    color: '#FFF',
+                    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+                    textShadowOffset: { width: 0, height: 2 },
+                    textShadowRadius: 8,
+                  }]}
+                  numberOfLines={1}
+                >
+                  DreamBiz
+                </Animated.Text>
+              </LinearGradient>
+            </View>
+            
+            {/* Subtitle accent */}
+            <Animated.Text
+              style={[
+                styles.subtitle,
+                {
+                  color: theme.text.tertiary,
+                  opacity: titleOpacityAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 0.7],
+                  }),
+                },
+              ]}
+            >
+              Business Operating System
+            </Animated.Text>
           </Animated.View>
 
           {/* Enhanced Loading Message with animated dots */}
@@ -542,49 +581,87 @@ const styles = StyleSheet.create({
     height: '100%',
     overflow: 'hidden', // Ensure image is clipped to circular shape
   },
+  titleWrapper: {
+    alignItems: 'center',
+    marginBottom: 32,
+    position: 'relative',
+  },
+  titleDecorations: {
+    position: 'absolute',
+    width: '120%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 0,
+  },
+  titleGlow: {
+    width: 280,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: theme.accent.primary + '20',
+    position: 'absolute',
+  },
   titleContainer: {
-    marginBottom: 24,
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    elevation: 4,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    elevation: 8,
+    shadowColor: theme.accent.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    zIndex: 1,
   },
   titleGradient: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+    fontSize: 42,
+    fontWeight: '900',
+    letterSpacing: 2,
+    textAlign: 'center',
+    fontFamily: Platform.select({
+      ios: 'System',
+      android: 'sans-serif-black',
+      default: 'sans-serif',
+    }),
+  },
+  subtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    marginTop: 12,
     textAlign: 'center',
   },
   messageContainer: {
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 24,
   },
   loadingDots: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    marginBottom: 16,
+    gap: 12,
+    marginBottom: 20,
   },
   dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 3,
+    elevation: 3,
   },
   message: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
   fallbackLogo: {
     width: '100%',
