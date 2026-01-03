@@ -381,7 +381,7 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
             </View>
             
             {/* Main title with gradient text effect */}
-            <View style={styles.titleContainer}>
+            <View style={[styles.titleContainer, { shadowColor: theme.accent.primary }]}>
               <LinearGradient
                 colors={[theme.accent.primary, theme.accent.secondary, theme.accent.primary] as any}
                 start={{ x: 0, y: 0 }}
@@ -598,7 +598,6 @@ const styles = StyleSheet.create({
     width: 280,
     height: 80,
     borderRadius: 40,
-    backgroundColor: theme.accent.primary + '20',
     position: 'absolute',
   },
   titleContainer: {
@@ -607,7 +606,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 16,
     elevation: 8,
-    shadowColor: theme.accent.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
