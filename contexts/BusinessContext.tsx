@@ -2563,46 +2563,48 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId);
 
-      // Try to get subscription plan
       let maxBusinesses: number | null = null;
       let planName: string | null = null;
+      let subscriptionDate: string | null = null;
+      let trialDate: string | null = null;
 
-      try {
-        // Check active subscription
-        const { data: subscription } = await supabase
-          .from('user_subscriptions')
-          .select('subscription_plans(max_businesses, name)')
-          .eq('user_id', userId)
-          .eq('status', 'active')
-          .order('start_date', { ascending: false })
-          .limit(1)
-          .single();
+      // Check both subscriptions AND trials, then use the most recent/valid one
+      
+      // Check active subscription
+      const { data: subscriptionData } = await supabase
+        .from('user_subscriptions')
+        .select('start_date, subscription_plans(max_businesses, name)')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .or('end_date.is.null,end_date.gt.' + new Date().toISOString())
+        .order('start_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-        if (subscription?.subscription_plans) {
-          maxBusinesses = (subscription.subscription_plans as any).max_businesses;
-          planName = (subscription.subscription_plans as any).name;
-        }
-      } catch {
-        // Subscription check failed, try premium trial
-        try {
-          const { data: trial } = await supabase
-            .from('premium_trials')
-            .select('subscription_plans(max_businesses, name)')
-            .eq('user_id', userId)
-            .eq('status', 'active')
-            .gt('end_date', new Date().toISOString())
-            .order('start_date', { ascending: false })
-            .limit(1)
-            .single();
+      if (subscriptionData?.subscription_plans) {
+        maxBusinesses = (subscriptionData.subscription_plans as any).max_businesses;
+        planName = (subscriptionData.subscription_plans as any).name;
+        subscriptionDate = subscriptionData.start_date;
+      }
 
-          if (trial?.subscription_plans) {
-            maxBusinesses = (trial.subscription_plans as any).max_businesses;
-            planName = (trial.subscription_plans as any).name;
-          }
-        } catch {
-          // Trial check failed, default to Free plan (1 business)
-          maxBusinesses = 1;
-          planName = 'Free';
+      // Check active trial
+      const { data: trialData } = await supabase
+        .from('premium_trials')
+        .select('start_date, subscription_plans(max_businesses, name)')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .gt('end_date', new Date().toISOString())
+        .order('start_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (trialData?.subscription_plans) {
+        trialDate = trialData.start_date;
+        
+        // Use trial if it's more recent than subscription, or if there's no subscription
+        if (!subscriptionDate || (trialDate && new Date(trialDate) > new Date(subscriptionDate))) {
+          maxBusinesses = (trialData.subscription_plans as any).max_businesses;
+          planName = (trialData.subscription_plans as any).name;
         }
       }
 

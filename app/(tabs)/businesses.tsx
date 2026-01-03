@@ -27,6 +27,8 @@ import PageHeader from '@/components/PageHeader';
 import PremiumUpgradeModal from '@/components/PremiumUpgradeModal';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { usePremium } from '@/contexts/PremiumContext';
+import { useFocusEffect } from 'expo-router';
 import type { BusinessProfile, BusinessType, BusinessStage, Currency, DreamBigBook } from '@/types/business';
 import { DREAMBIG_BOOKS } from '@/constants/books';
 
@@ -50,6 +52,7 @@ const businessStages: { value: BusinessStage; label: string; desc: string }[] = 
 
 export default function BusinessesScreen() {
   const { business: currentBusiness, getAllBusinesses, switchBusiness, deleteBusiness, saveBusiness, checkBusinessLimit } = useBusiness();
+  const { currentPlan, refreshPremiumStatus } = usePremium();
   const { theme } = useTheme();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -79,6 +82,13 @@ export default function BusinessesScreen() {
     checkLimit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Refresh limit info when premium status changes (e.g., after trial is granted)
+  useFocusEffect(
+    React.useCallback(() => {
+      checkLimit();
+    }, [currentPlan])
+  );
 
   const loadBusinesses = async () => {
     try {
