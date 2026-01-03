@@ -178,6 +178,20 @@ export default function POSDayEndScreen() {
 
       const openingCash = lastShift?.actual_cash || lastShift?.cash_at_hand || 0;
 
+      // Try to get current employee if user is an employee
+      let currentEmployeeId: string | null = null;
+      try {
+        const { data: employee } = await supabase
+          .from('employees')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .eq('is_active', true)
+          .maybeSingle();
+        currentEmployeeId = employee?.id || null;
+      } catch (e) {
+        // User might not be an employee (could be business owner)
+      }
+
       const { data: shiftData, error } = await supabase
         .from('pos_shifts')
         .insert({
@@ -186,6 +200,7 @@ export default function POSDayEndScreen() {
           shift_date: today,
           opening_cash: openingCash,
           opened_by: user.id,
+          current_employee_id: currentEmployeeId,
           status: 'open',
           currency: business.currency || 'USD',
         })

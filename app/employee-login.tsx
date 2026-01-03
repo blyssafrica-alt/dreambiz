@@ -203,13 +203,19 @@ export default function EmployeeLoginScreen() {
 
     setIsProcessingShift(true);
     try {
+      // First, recalculate totals for the shift being closed
+      await supabase.rpc('calculate_shift_totals', {
+        p_shift_id: currentShift.id,
+      });
+
       // Close the existing shift first
+      const { data: { user } } = await supabase.auth.getUser();
       const { error: closeError } = await supabase
         .from('pos_shifts')
         .update({
           status: 'closed',
           shift_end_time: new Date().toISOString(),
-          closed_by: (await supabase.auth.getUser()).data.user?.id,
+          closed_by: user?.id || null,
         })
         .eq('id', currentShift.id);
 
