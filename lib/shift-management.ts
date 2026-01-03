@@ -47,8 +47,7 @@ export async function checkOpenShift(businessId: string): Promise<ShiftInfo | nu
         current_employee_id,
         opening_cash,
         expected_cash,
-        currency,
-        employees!opened_by(id, name)
+        currency
       `)
       .eq('business_id', businessId)
       .eq('shift_date', today)
@@ -64,6 +63,18 @@ export async function checkOpenShift(businessId: string): Promise<ShiftInfo | nu
       return null;
     }
 
+    // Get employee name from opened_by (which is user_id)
+    let openedByName: string | undefined = undefined;
+    if (shiftData.opened_by) {
+      // Find employee with this auth_user_id
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('name')
+        .eq('auth_user_id', shiftData.opened_by)
+        .maybeSingle();
+      openedByName = employee?.name;
+    }
+
     return {
       id: shiftData.id,
       shiftDate: shiftData.shift_date,
@@ -71,7 +82,7 @@ export async function checkOpenShift(businessId: string): Promise<ShiftInfo | nu
       shiftEndTime: shiftData.shift_end_time,
       status: shiftData.status,
       openedBy: shiftData.opened_by,
-      openedByName: (shiftData.employees as any)?.name,
+      openedByName: openedByName,
       currentEmployeeId: shiftData.current_employee_id,
       openingCash: parseFloat(shiftData.opening_cash || '0'),
       expectedCash: parseFloat(shiftData.expected_cash || '0'),

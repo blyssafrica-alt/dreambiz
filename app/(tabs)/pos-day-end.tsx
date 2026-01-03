@@ -287,8 +287,8 @@ export default function POSDayEndScreen() {
           text: 'OK',
           onPress: () => {
             setShowCloseModal(false);
-            // Create new shift for next day
-            createNewShift();
+            // Reload to show closed shift
+            loadTodayShift();
           },
         },
       ]);
