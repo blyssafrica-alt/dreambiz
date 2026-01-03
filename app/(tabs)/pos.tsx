@@ -48,6 +48,8 @@ import type { Product, DocumentItem, Customer, Document } from '@/types/business
 import { exportToPDF } from '@/lib/pdf-export';
 import { getCurrentEmployee } from '@/lib/get-current-employee';
 import { useEmployeePermissions } from '@/hooks/useEmployeePermissions';
+import { checkOpenShift, type ShiftInfo } from '@/lib/shift-management';
+import { Clock, CheckCircle } from 'lucide-react-native';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -79,6 +81,7 @@ export default function POSScreen() {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [createdReceipt, setCreatedReceipt] = useState<Document | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentShift, setCurrentShift] = useState<ShiftInfo | null>(null);
 
   // Animation setup
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -99,6 +102,23 @@ export default function POSScreen() {
       }),
     ]).start();
   }, [fadeAnim, slideAnim]);
+
+  // Load shift status
+  useEffect(() => {
+    const loadShiftStatus = async () => {
+      if (!business?.id) return;
+      try {
+        const shift = await checkOpenShift(business.id);
+        setCurrentShift(shift);
+      } catch (error) {
+        console.error('Error loading shift status:', error);
+      }
+    };
+    loadShiftStatus();
+    // Refresh shift status every 30 seconds
+    const interval = setInterval(loadShiftStatus, 30000);
+    return () => clearInterval(interval);
+  }, [business?.id]);
 
   useEffect(() => {
     Animated.spring(cartSlideAnim, {
@@ -494,17 +514,32 @@ export default function POSScreen() {
       <View style={[styles.container, { backgroundColor: theme?.background?.secondary || '#F5F5F5' }]}>
         <PageHeader
           title="Point of Sale"
-          subtitle="Quick checkout and sales"
+          subtitle={
+            currentShift
+              ? `Shift Open • Started ${new Date(currentShift.shiftStartTime).toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}`
+              : 'Quick checkout and sales'
+          }
           icon={ShoppingCart}
           iconGradient={['#3B82F6', '#2563EB']}
           rightAction={
-            <TouchableOpacity
-              style={styles.dayEndButton}
-              onPress={() => router.push('/(tabs)/pos-day-end' as any)}
-              activeOpacity={0.8}
-            >
-              <Calculator size={20} color="#FFF" strokeWidth={2.5} />
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              {currentShift && (
+                <View style={[styles.shiftBadge, { backgroundColor: '#10B98120' }]}>
+                  <CheckCircle size={14} color="#10B981" strokeWidth={2.5} />
+                  <Text style={[styles.shiftBadgeText, { color: '#10B981' }]}>Open</Text>
+                </View>
+              )}
+              <TouchableOpacity
+                style={styles.dayEndButton}
+                onPress={() => router.push('/(tabs)/pos-day-end' as any)}
+                activeOpacity={0.8}
+              >
+                <Calculator size={20} color="#FFF" strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
           }
         />
 

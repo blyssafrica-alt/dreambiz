@@ -4,7 +4,7 @@
  */
 
 import { Stack, router } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,10 +21,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { User, Lock, Smartphone, Mail, Eye, EyeOff } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useBusiness } from '@/contexts/BusinessContext';
 import AnimatedLogo from '@/components/AnimatedLogo';
+import StartShiftModal from '@/components/modals/StartShiftModal';
+import ShiftHandoverModal from '@/components/modals/ShiftHandoverModal';
+import { checkOpenShift, createShift, takeOverShift, getShiftForEmployee, type ShiftInfo } from '@/lib/shift-management';
+import { getCurrentEmployee } from '@/lib/get-current-employee';
 
 export default function EmployeeLoginScreen() {
   const { theme } = useTheme();
+  const { business } = useBusiness();
   const [loginMethod, setLoginMethod] = useState<'email' | 'pin'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,6 +38,14 @@ export default function EmployeeLoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  // Shift management state
+  const [showStartShiftModal, setShowStartShiftModal] = useState(false);
+  const [showHandoverModal, setShowHandoverModal] = useState(false);
+  const [currentShift, setCurrentShift] = useState<ShiftInfo | null>(null);
+  const [currentEmployeeId, setCurrentEmployeeId] = useState<string | null>(null);
+  const [suggestedOpeningCash, setSuggestedOpeningCash] = useState(0);
+  const [isProcessingShift, setIsProcessingShift] = useState(false);
 
   const handleEmailLogin = async () => {
     if (!email || !password) {
@@ -73,13 +87,148 @@ export default function EmployeeLoginScreen() {
         return;
       }
 
-      // Success - redirect to app
-      router.replace('/(tabs)');
+      // Success - check for shift
+      setCurrentEmployeeId(employee.id);
+      await handleShiftCheck(employee.id);
     } catch (error: any) {
       console.error('Login error:', error);
       RNAlert.alert('Login Failed', error.message || 'Invalid email or password');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle shift check after login
+  const handleShiftCheck = async (employeeId: string) => {
+    if (!business?.id) {
+      // No business context yet - redirect to app (business will load)
+      router.replace('/(tabs)');
+      return;
+    }
+
+    try {
+      // Get suggested opening cash from last closed shift
+      const { data: lastShift } = await supabase
+        .from('pos_shifts')
+        .select('actual_cash, cash_at_hand')
+        .eq('business_id', business.id)
+        .eq('status', 'closed')
+        .order('shift_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const suggested = lastShift?.actual_cash || lastShift?.cash_at_hand || 0;
+      setSuggestedOpeningCash(parseFloat(suggested.toString()) || 0);
+
+      // Check for existing shift
+      const shiftInfo = await checkOpenShift(business.id);
+      
+      if (!shiftInfo) {
+        // No shift - show start shift modal
+        setShowStartShiftModal(true);
+        return;
+      }
+
+      // Shift exists - check if current employee opened it
+      const { data: { user } } = await supabase.auth.getUser();
+      const isShiftOpener = shiftInfo.openedBy === user?.id || shiftInfo.currentEmployeeId === employeeId;
+
+      if (isShiftOpener) {
+        // Same employee - just continue to app
+        router.replace('/(tabs)');
+      } else {
+        // Different employee - show handover modal
+        setCurrentShift(shiftInfo);
+        setShowHandoverModal(true);
+      }
+    } catch (error: any) {
+      console.error('Error checking shift:', error);
+      // On error, just redirect to app
+      router.replace('/(tabs)');
+    }
+  };
+
+  // Handle starting new shift
+  const handleStartShift = async (openingCash: number) => {
+    if (!business?.id || !currentEmployeeId) {
+      RNAlert.alert('Error', 'Business or employee information missing');
+      return;
+    }
+
+    setIsProcessingShift(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Create shift (pass both user_id and employee_id)
+      await createShift(business.id, user.id, currentEmployeeId, openingCash, business.currency || 'USD');
+
+      setShowStartShiftModal(false);
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      console.error('Error starting shift:', error);
+      RNAlert.alert('Error', error.message || 'Failed to start shift');
+    } finally {
+      setIsProcessingShift(false);
+    }
+  };
+
+  // Handle continuing existing shift
+  const handleContinueShift = async () => {
+    if (!currentShift || !currentEmployeeId) {
+      RNAlert.alert('Error', 'Shift or employee information missing');
+      return;
+    }
+
+    setIsProcessingShift(true);
+    try {
+      await takeOverShift(currentShift.id, currentEmployeeId);
+      setShowHandoverModal(false);
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      console.error('Error continuing shift:', error);
+      RNAlert.alert('Error', error.message || 'Failed to continue shift');
+    } finally {
+      setIsProcessingShift(false);
+    }
+  };
+
+  // Handle starting new shift from handover (closes old shift first)
+  const handleStartNewFromHandover = async () => {
+    if (!currentShift || !business?.id) {
+      setShowHandoverModal(false);
+      setShowStartShiftModal(true);
+      return;
+    }
+
+    setIsProcessingShift(true);
+    try {
+      // Close the existing shift first
+      const { error: closeError } = await supabase
+        .from('pos_shifts')
+        .update({
+          status: 'closed',
+          shift_end_time: new Date().toISOString(),
+          closed_by: (await supabase.auth.getUser()).data.user?.id,
+        })
+        .eq('id', currentShift.id);
+
+      if (closeError) {
+        console.error('Error closing shift:', closeError);
+        // Continue anyway to start new shift
+      }
+
+      setShowHandoverModal(false);
+      setCurrentShift(null);
+      setShowStartShiftModal(true);
+    } catch (error: any) {
+      console.error('Error in start new from handover:', error);
+      // Continue to show start shift modal anyway
+      setShowHandoverModal(false);
+      setCurrentShift(null);
+      setShowStartShiftModal(true);
+    } finally {
+      setIsProcessingShift(false);
     }
   };
 
@@ -308,6 +457,36 @@ export default function EmployeeLoginScreen() {
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {/* Start Shift Modal */}
+      <StartShiftModal
+        visible={showStartShiftModal}
+        onStartShift={handleStartShift}
+        onCancel={() => {
+          setShowStartShiftModal(false);
+          // If user cancels, still redirect to app
+          router.replace('/(tabs)');
+        }}
+        suggestedOpeningCash={suggestedOpeningCash}
+        currency={business?.currency || 'USD'}
+      />
+
+      {/* Shift Handover Modal */}
+      {currentShift && (
+        <ShiftHandoverModal
+          visible={showHandoverModal}
+          shift={currentShift}
+          openedByEmployeeName={currentShift.openedByName || 'Previous Employee'}
+          onContinueShift={handleContinueShift}
+          onStartNewShift={handleStartNewFromHandover}
+          onCancel={() => {
+            setShowHandoverModal(false);
+            // If user cancels, redirect to app anyway
+            router.replace('/(tabs)');
+          }}
+          isLoading={isProcessingShift}
+        />
+      )}
     </>
   );
 }
