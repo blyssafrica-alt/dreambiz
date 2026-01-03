@@ -21,6 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { User, Lock, Smartphone, Mail, Eye, EyeOff } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
+import AnimatedLogo from '@/components/AnimatedLogo';
 
 export default function EmployeeLoginScreen() {
   const { theme } = useTheme();
@@ -142,7 +143,13 @@ export default function EmployeeLoginScreen() {
             style={styles.header}
           >
             <View style={styles.headerContent}>
-              <User size={48} color="#FFF" />
+              <AnimatedLogo 
+                size={80} 
+                showGradient={true}
+                rotationSpeed={4000}
+                pulseEnabled={true}
+                style={{ marginBottom: 16 }}
+              />
               <Text style={styles.title}>Employee Login</Text>
               <Text style={styles.subtitle}>Sign in to access your workspace</Text>
             </View>

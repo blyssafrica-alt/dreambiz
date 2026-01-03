@@ -66,14 +66,13 @@ export default function SignInScreen() {
           </TouchableOpacity>
 
           <View style={styles.header}>
-            <LinearGradient
-              colors={[theme.accent.primary, theme.accent.secondary] as any}
-              style={styles.iconGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <LogIn size={32} color="#FFF" />
-            </LinearGradient>
+            <AnimatedLogo 
+              size={80} 
+              showGradient={true}
+              rotationSpeed={4000}
+              pulseEnabled={true}
+              style={{ marginBottom: 24 }}
+            />
 
             <Text style={[styles.title, { color: theme.text.primary }]}>
               {t('auth.welcomeBack')}

@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
+import AnimatedLogo from '@/components/AnimatedLogo';
 
 export default function VerifyEmailScreen() {
   const { theme, isDark } = useTheme();
@@ -233,28 +234,35 @@ export default function VerifyEmailScreen() {
         >
           {/* Header Section */}
           <View style={styles.header}>
-            <Animated.View
-              style={{
-                transform: [{ scale: isVerified ? 1 : pulseAnim }],
-              }}
-            >
-              <LinearGradient
-                colors={
-                  isVerified
-                    ? ['#10B981', '#059669', '#047857'] as any
-                    : [theme.accent.primary, theme.accent.secondary] as any
-                }
-                style={styles.iconGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+            {isVerified ? (
+              <Animated.View
+                style={{
+                  transform: [{ scale: scaleAnim }],
+                }}
               >
-                {isVerified ? (
+                <LinearGradient
+                  colors={['#10B981', '#059669', '#047857'] as any}
+                  style={styles.iconGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
                   <CheckCircle size={56} color="#FFF" strokeWidth={2.5} />
-                ) : (
-                  <Mail size={56} color="#FFF" strokeWidth={2} />
-                )}
-              </LinearGradient>
-            </Animated.View>
+                </LinearGradient>
+              </Animated.View>
+            ) : (
+              <Animated.View
+                style={{
+                  transform: [{ scale: pulseAnim }],
+                }}
+              >
+                <AnimatedLogo 
+                  size={120} 
+                  showGradient={true}
+                  rotationSpeed={4000}
+                  pulseEnabled={true}
+                />
+              </Animated.View>
+            )}
 
             {isVerified && (
               <View style={styles.sparklesContainer}>
