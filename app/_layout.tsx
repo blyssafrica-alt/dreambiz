@@ -42,12 +42,12 @@ function RootLayoutNav() {
 
   const isLoading = businessLoading || authLoading;
 
-  // Hide loading screen after initial load
+  // Hide loading screen after initial load - longer duration to appreciate the beautiful design
   React.useEffect(() => {
     if (!isLoading && !authLoading && !businessLoading) {
       const timer = setTimeout(() => {
         setShowLoadingScreen(false);
-      }, 800); // Small delay for smooth transition
+      }, 3000); // Longer delay (3 seconds) to appreciate the beautiful loading screen design
       return () => clearTimeout(timer);
     }
   }, [isLoading, authLoading, businessLoading]);

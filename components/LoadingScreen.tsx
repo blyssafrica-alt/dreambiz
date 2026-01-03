@@ -375,6 +375,7 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
                       inputRange: [0, 1],
                       outputRange: [0.3, 0.6],
                     }),
+                    backgroundColor: theme.accent.primary + '20',
                   },
                 ]}
               />
