@@ -106,60 +106,68 @@ function RootLayoutNav() {
     // Don't navigate if still loading or loading screen is showing
     if (isLoading || showLoadingScreen) return;
 
-    const currentPath = segments.join('/');
-    const inAuth = currentPath.includes('landing') || currentPath.includes('sign-up') || currentPath.includes('sign-in');
-    const inVerifyEmail = currentPath.includes('verify-email');
-    const inOnboarding = currentPath.includes('onboarding');
-    const inTabs = currentPath.includes('(tabs)') || currentPath === '';
+    // Use requestAnimationFrame to ensure component is fully mounted before navigation
+    const navigationFrame = requestAnimationFrame(() => {
+      const currentPath = segments.join('/');
+      const inAuth = currentPath.includes('landing') || currentPath.includes('sign-up') || currentPath.includes('sign-in');
+      const inVerifyEmail = currentPath.includes('verify-email');
+      const inOnboarding = currentPath.includes('onboarding');
+      const inTabs = currentPath.includes('(tabs)') || currentPath === '';
 
-    // If not authenticated, redirect to landing page (don't check email verification)
-    if (!isAuthenticated) {
-      if (!inAuth && !inVerifyEmail) {
-        router.replace('/landing' as any);
-      }
-      return;
-    }
-
-    // CRITICAL: If authenticated, we MUST check email verification status
-    // If email verification check is still pending, wait a bit but then proceed with assumption
-    if (emailVerified === null && isAuthenticated) {
-      // Wait a maximum of 2 seconds for email verification check
-      // After that, assume not verified to be safe
-      const timeout = setTimeout(() => {
-        if (emailVerified === null) {
-          console.log('Email verification check timed out, assuming not verified');
-          setEmailVerified(false);
+      // If not authenticated, redirect to landing page (don't check email verification)
+      if (!isAuthenticated) {
+        if (!inAuth && !inVerifyEmail) {
+          router.replace('/landing' as any);
         }
-      }, 2000);
-      return () => clearTimeout(timeout);
-    }
-
-    // CRITICAL: If authenticated but email not verified, redirect to verification screen
-    // This must happen BEFORE checking onboarding status
-    // Also redirect if we're on onboarding but email is not verified
-    if (isAuthenticated && emailVerified === false) {
-      if (!inVerifyEmail && !inAuth) {
-        console.log('Redirecting to verify-email: email not verified');
-        router.replace('/verify-email' as any);
+        return;
       }
-      return;
-    }
 
-    // If authenticated, email verified, but not onboarded, redirect to onboarding
-    // Only proceed to onboarding if email is verified (emailVerified === true)
-    if (isAuthenticated && emailVerified === true && !hasOnboarded) {
-      if (!inOnboarding && !inVerifyEmail) {
-        console.log('Redirecting to onboarding: email verified, not onboarded');
-        router.replace('/onboarding' as any);
+      // CRITICAL: If authenticated, we MUST check email verification status
+      // If email verification check is still pending, wait a bit but then proceed with assumption
+      if (emailVerified === null && isAuthenticated) {
+        // Wait a maximum of 2 seconds for email verification check
+        // After that, assume not verified to be safe
+        const timeout = setTimeout(() => {
+          setEmailVerified((prev) => {
+            if (prev === null) {
+              console.log('Email verification check timed out, assuming not verified');
+              return false;
+            }
+            return prev;
+          });
+        }, 2000);
+        return () => clearTimeout(timeout);
       }
-      return;
-    }
 
-    // If authenticated and onboarded, redirect to main app (tabs)
-    if (isAuthenticated && hasOnboarded && (inAuth || inOnboarding || inVerifyEmail)) {
-      router.replace('/(tabs)' as any);
-      return;
-    }
+      // CRITICAL: If authenticated but email not verified, redirect to verification screen
+      // This must happen BEFORE checking onboarding status
+      // Also redirect if we're on onboarding but email is not verified
+      if (isAuthenticated && emailVerified === false) {
+        if (!inVerifyEmail && !inAuth) {
+          console.log('Redirecting to verify-email: email not verified');
+          router.replace('/verify-email' as any);
+        }
+        return;
+      }
+
+      // If authenticated, email verified, but not onboarded, redirect to onboarding
+      // Only proceed to onboarding if email is verified (emailVerified === true)
+      if (isAuthenticated && emailVerified === true && !hasOnboarded) {
+        if (!inOnboarding && !inVerifyEmail) {
+          console.log('Redirecting to onboarding: email verified, not onboarded');
+          router.replace('/onboarding' as any);
+        }
+        return;
+      }
+
+      // If authenticated and onboarded, redirect to main app (tabs)
+      if (isAuthenticated && hasOnboarded && (inAuth || inOnboarding || inVerifyEmail)) {
+        router.replace('/(tabs)' as any);
+        return;
+      }
+    });
+
+    return () => cancelAnimationFrame(navigationFrame);
   }, [isAuthenticated, hasOnboarded, emailVerified, isLoading, showLoadingScreen, segments, router]);
 
   // Always render the Stack navigator so routes are available
