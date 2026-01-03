@@ -268,8 +268,15 @@ export default function AnimatedLogo({
               {logoSource ? (
                 <Image
                   source={logoSource}
-                  style={[styles.logoImage, { width: logoSize, height: logoSize }]}
-                  resizeMode="contain"
+                  style={[
+                    styles.logoImage, 
+                    { 
+                      width: logoSize, 
+                      height: logoSize,
+                      borderRadius: logoSize / 2, // Make it circular
+                    }
+                  ]}
+                  resizeMode="cover"
                 />
               ) : (
                 <View style={[styles.fallbackLogo, { width: logoSize, height: logoSize, borderRadius: logoSize / 2 }]}>
@@ -314,8 +321,15 @@ export default function AnimatedLogo({
             {logoSource ? (
               <Image
                 source={logoSource}
-                style={[styles.logoImage, { width: logoSize, height: logoSize }]}
-                resizeMode="contain"
+                style={[
+                  styles.logoImage, 
+                  { 
+                    width: logoSize, 
+                    height: logoSize,
+                    borderRadius: logoSize / 2, // Make it circular
+                  }
+                ]}
+                resizeMode="cover"
               />
             ) : (
               <View style={[styles.fallbackLogo, { width: logoSize, height: logoSize, borderRadius: logoSize / 2 }]}>
@@ -411,6 +425,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
+    overflow: 'hidden', // Clip image to circular shape
   },
   innerGlow: {
     position: 'absolute',
@@ -428,6 +443,7 @@ const styles = StyleSheet.create({
   logoImage: {
     width: '100%',
     height: '100%',
+    overflow: 'hidden', // Ensure image is clipped to circular shape
   },
   fallbackLogo: {
     justifyContent: 'center',

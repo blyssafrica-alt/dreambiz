@@ -286,8 +286,13 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
                   {logoSource ? (
                     <Image
                       source={logoSource}
-                      style={styles.logoImage}
-                      resizeMode="contain"
+                      style={[
+                        styles.logoImage,
+                        {
+                          borderRadius: 60, // Circular (half of 120px logoWrapper size)
+                        }
+                      ]}
+                      resizeMode="cover"
                     />
                   ) : (
                     <View style={styles.fallbackLogo}>
@@ -493,6 +498,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
+    overflow: 'hidden', // Clip image to circular shape
+    width: 120,
+    height: 120,
+    borderRadius: 60, // Circular container
   },
   innerGlow: {
     position: 'absolute',
@@ -517,6 +526,7 @@ const styles = StyleSheet.create({
   logoImage: {
     width: '100%',
     height: '100%',
+    overflow: 'hidden', // Ensure image is clipped to circular shape
   },
   titleContainer: {
     marginBottom: 24,
