@@ -223,7 +223,7 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
       <LinearGradient
         colors={isDark 
           ? [theme.background.primary, theme.background.secondary] 
-          : [theme.accent.primary + '10', theme.background.primary]
+          : ['#FFFFFF', '#F8FAFC', '#F0F4F8']
         }
         style={styles.gradient}
         start={{ x: 0, y: 0 }}
@@ -365,7 +365,7 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
               },
             ]}
           >
-            {/* Decorative elements behind text */}
+            {/* Subtle background glow - no heavy shadows */}
             <View style={styles.titleDecorations}>
               <Animated.View
                 style={[
@@ -373,16 +373,16 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
                   {
                     opacity: glowOpacity.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [0.3, 0.6],
+                      outputRange: [0.15, 0.25],
                     }),
-                    backgroundColor: theme.accent.primary + '20',
+                    backgroundColor: theme.accent.primary + '15',
                   },
                 ]}
               />
             </View>
             
-            {/* Main title with gradient text effect */}
-            <View style={[styles.titleContainer, { shadowColor: theme.accent.primary }]}>
+            {/* Main title with gradient text effect - Clean, modern design */}
+            <View style={styles.titleContainer}>
               <LinearGradient
                 colors={[theme.accent.primary, theme.accent.secondary, theme.accent.primary] as any}
                 start={{ x: 0, y: 0 }}
@@ -392,9 +392,6 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
                 <Animated.Text
                   style={[styles.title, { 
                     color: '#FFF',
-                    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-                    textShadowOffset: { width: 0, height: 2 },
-                    textShadowRadius: 8,
                   }]}
                   numberOfLines={1}
                 >
@@ -521,11 +518,6 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     overflow: 'hidden',
-    elevation: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
     position: 'relative',
     zIndex: 2,
   },
@@ -596,30 +588,28 @@ const styles = StyleSheet.create({
     zIndex: 0,
   },
   titleGlow: {
-    width: 280,
-    height: 80,
-    borderRadius: 40,
+    width: 300,
+    height: 90,
+    borderRadius: 45,
     position: 'absolute',
   },
   titleContainer: {
-    borderRadius: 20,
+    borderRadius: 16,
     overflow: 'hidden',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    elevation: 8,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
     zIndex: 1,
+    backgroundColor: 'transparent',
   },
   titleGradient: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
   },
   title: {
-    fontSize: 42,
+    fontSize: 44,
     fontWeight: '900',
-    letterSpacing: 2,
+    letterSpacing: 1.5,
     textAlign: 'center',
     fontFamily: Platform.select({
       ios: 'System',
@@ -643,24 +633,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    marginBottom: 20,
+    gap: 10,
+    marginBottom: 24,
   },
   dot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 3,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   message: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
     textAlign: 'center',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
+    opacity: 0.8,
   },
   fallbackLogo: {
     width: '100%',
