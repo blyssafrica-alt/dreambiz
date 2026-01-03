@@ -50,7 +50,14 @@ function RootLayoutNav() {
       }
 
       try {
-        // Use static import from top of file
+        // CRITICAL: Refresh the session first to get the latest email verification status
+        // This is especially important when user clicks email verification link and comes back
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) {
+          console.log('Session refresh error (non-critical):', refreshError.message);
+        }
+        
+        // Use static import from top of file - get the refreshed session
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {

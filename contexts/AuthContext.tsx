@@ -267,12 +267,23 @@ export const [AuthContext, useAuth] = createContextHook(() => {
   const signOut = async () => {
     try {
       const provider = getProvider();
-      await provider.signOut();
       
+      // Clear state FIRST to prevent any race conditions
       setUser(null);
       setAuthUser(null);
+      
+      // Then sign out from provider (this clears the session)
+      await provider.signOut();
+      
+      // Force a small delay to ensure session is fully cleared
+      // This prevents the app from immediately trying to use a cached session
+      await new Promise<void>(resolve => setTimeout(() => resolve(), 100));
+      
     } catch (error) {
       console.error('Sign out error:', error);
+      // Even if signOut fails, clear local state
+      setUser(null);
+      setAuthUser(null);
       throw error;
     }
   };

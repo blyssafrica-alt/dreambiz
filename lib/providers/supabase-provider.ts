@@ -88,8 +88,19 @@ export class SupabaseProvider implements IBackendProvider {
   }
 
   async signOut(): Promise<void> {
-    const { error } = await supabase.auth.signOut();
+    // CRITICAL: Clear the session completely
+    // This ensures no cached session persists after logout
+    const { error } = await supabase.auth.signOut({ scope: 'global' });
     if (error) throw error;
+    
+    // Additional cleanup: Clear any cached session data
+    // Supabase should handle this, but we ensure it's cleared
+    try {
+      // Force a session refresh to ensure it's cleared
+      await supabase.auth.getSession();
+    } catch (e) {
+      // Ignore errors - session should be cleared
+    }
   }
 
   onAuthStateChange(callback: (user: AuthUser | null) => void): () => void {

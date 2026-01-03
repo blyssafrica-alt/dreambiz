@@ -1,6 +1,6 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Mail, CheckCircle, AlertCircle, ArrowRight, Sparkles, Clock, RefreshCw } from 'lucide-react-native';
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Alert as RNAlert,
   Animated,
   ActivityIndicator,
+  AppState,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -62,8 +63,29 @@ export default function VerifyEmailScreen() {
       checkEmailStatus();
     }, 3000);
 
-    return () => clearInterval(interval);
+    // CRITICAL: Listen for app state changes to refresh session when app comes to foreground
+    // This handles the case when user clicks email link and returns to app
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        // App came to foreground - refresh session to check email verification
+        checkEmailStatus();
+      }
+    });
+
+    return () => {
+      clearInterval(interval);
+      subscription.remove();
+    };
   }, [authUser]);
+
+  // CRITICAL: Refresh session when screen comes into focus
+  // This handles the case when user clicks email link and navigates back to this screen
+  useFocusEffect(
+    React.useCallback(() => {
+      // Refresh session immediately when screen comes into focus
+      checkEmailStatus();
+    }, [])
+  );
 
   // Pulse animation for mail icon
   useEffect(() => {
@@ -116,6 +138,14 @@ export default function VerifyEmailScreen() {
 
   const checkEmailStatus = async () => {
     try {
+      // CRITICAL: Refresh the session first to get the latest email verification status
+      // This is needed when user clicks the email link and comes back to the app
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) {
+        console.log('Session refresh error (non-critical):', refreshError.message);
+      }
+      
+      // Get the refreshed session
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.email_confirmed_at) {
         setIsVerified(true);
