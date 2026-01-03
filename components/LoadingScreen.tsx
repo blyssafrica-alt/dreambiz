@@ -11,48 +11,135 @@ interface LoadingScreenProps {
 export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenProps) {
   const { theme, isDark } = useTheme();
   
-  // Animation values
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  // Enhanced animation values for captivating effects
+  const scaleAnim = useRef(new Animated.Value(0.7)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const glowAnim = useRef(new Animated.Value(0.5)).current;
+  const titleScaleAnim = useRef(new Animated.Value(0.9)).current;
+  const titleOpacityAnim = useRef(new Animated.Value(0)).current;
+  const dotsAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Entrance animation
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
+    // Dramatic entrance animation with staggered timing
+    Animated.sequence([
+      // Logo entrance
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 25,
+          friction: 6,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Title entrance (after logo)
+      Animated.parallel([
+        Animated.spring(titleScaleAnim, {
+          toValue: 1,
+          tension: 30,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        Animated.timing(titleOpacityAnim, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ]),
     ]).start();
 
     // Continuous rotation animation
     Animated.loop(
       Animated.timing(rotateAnim, {
         toValue: 1,
-        duration: 3000,
+        duration: 4000,
         useNativeDriver: true,
       })
     ).start();
 
-    // Pulse animation
+    // Pulse animation - more dynamic
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.15,
-          duration: 1000,
+          toValue: 1.1,
+          duration: 2000,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 1000,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Floating animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: 3000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 3000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Shimmer effect
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, {
+          toValue: 1,
+          duration: 2500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerAnim, {
+          toValue: 0,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Glow pulse
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0.4,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Loading dots animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(dotsAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(dotsAnim, {
+          toValue: 0,
+          duration: 0,
           useNativeDriver: true,
         }),
       ])
@@ -62,6 +149,42 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
   const rotate = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
+  });
+
+  const floatY = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -10],
+  });
+
+  const shimmerTranslateX = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-240, 240],
+  });
+
+  const shimmerOpacity = shimmerAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, 0.9, 0],
+  });
+
+  const glowOpacity = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.8],
+  });
+
+  // Animated dot opacities
+  const dot1Opacity = dotsAnim.interpolate({
+    inputRange: [0, 0.33, 0.66, 1],
+    outputRange: [0.3, 1, 0.3, 0.3],
+  });
+
+  const dot2Opacity = dotsAnim.interpolate({
+    inputRange: [0, 0.33, 0.66, 1],
+    outputRange: [0.3, 0.3, 1, 0.3],
+  });
+
+  const dot3Opacity = dotsAnim.interpolate({
+    inputRange: [0, 0.33, 0.66, 1],
+    outputRange: [0.3, 0.3, 0.3, 1],
   });
 
   // Try to load splash icon, fallback to gradient circle if not found
@@ -85,33 +208,71 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
         end={{ x: 1, y: 1 }}
       >
         <View style={styles.content}>
-          {/* Animated Logo Container */}
+          {/* Enhanced Animated Logo Container */}
           <Animated.View
             style={[
               styles.logoContainer,
               {
                 opacity: opacityAnim,
                 transform: [
+                  { translateY: floatY },
                   { scale: scaleAnim },
-                  { rotate },
                 ],
               },
             ]}
           >
+            {/* Outer glow effect */}
+            <Animated.View
+              style={[
+                styles.outerGlow,
+                {
+                  opacity: glowOpacity,
+                },
+              ]}
+              pointerEvents="none"
+            >
+              <LinearGradient
+                colors={[theme.accent.primary + '50', theme.accent.secondary + '30', 'transparent'] as any}
+                style={styles.outerGlowGradient}
+              />
+            </Animated.View>
+
             <Animated.View
               style={[
                 styles.logoWrapper,
                 {
-                  transform: [{ scale: pulseAnim }],
+                  transform: [
+                    { rotate },
+                    { scale: pulseAnim },
+                  ],
                 },
               ]}
             >
               <LinearGradient
-                colors={[theme.accent.primary, theme.accent.secondary] as any}
+                colors={[theme.accent.primary, theme.accent.secondary, theme.accent.primary] as any}
                 style={styles.logoGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
+                {/* Shimmer effect */}
+                <Animated.View
+                  style={[
+                    styles.shimmerOverlay,
+                    {
+                      opacity: shimmerOpacity,
+                      transform: [{ translateX: shimmerTranslateX }],
+                    },
+                  ]}
+                  pointerEvents="none"
+                >
+                  <LinearGradient
+                    colors={['transparent', 'rgba(255,255,255,0.7)', 'transparent']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.shimmerGradient}
+                  />
+                </Animated.View>
+
                 {/* White circular background */}
                 <View style={styles.whiteCircle}>
                   {logoSource ? (
@@ -122,20 +283,58 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
                     />
                   ) : (
                     <View style={styles.fallbackLogo}>
-                      <Text style={styles.fallbackText}>D</Text>
+                      <LinearGradient
+                        colors={[theme.accent.primary, theme.accent.secondary] as any}
+                        style={styles.fallbackGradient}
+                      >
+                        <Text style={styles.fallbackText}>B</Text>
+                      </LinearGradient>
                     </View>
                   )}
                 </View>
+
+                {/* Inner glow ring */}
+                <Animated.View
+                  style={[
+                    styles.innerGlow,
+                    {
+                      opacity: glowOpacity.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.3, 0.6],
+                      }),
+                    },
+                  ]}
+                  pointerEvents="none"
+                />
               </LinearGradient>
             </Animated.View>
+
+            {/* Decorative rings */}
+            <Animated.View
+              style={[
+                styles.decorativeRing,
+                {
+                  transform: [{ rotate: rotateAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', '-360deg'],
+                  })}],
+                  opacity: opacityAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 0.25],
+                  }),
+                },
+              ]}
+              pointerEvents="none"
+            />
           </Animated.View>
 
-          {/* App Name */}
+          {/* App Name with enhanced animation */}
           <Animated.View
             style={[
               styles.titleContainer,
               {
-                opacity: opacityAnim,
+                opacity: titleOpacityAnim,
+                transform: [{ scale: titleScaleAnim }],
               },
             ]}
           >
@@ -154,27 +353,56 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
             </LinearGradient>
           </Animated.View>
 
-          {/* Loading Message */}
+          {/* Enhanced Loading Message with animated dots */}
           <Animated.View
             style={[
               styles.messageContainer,
               {
-                opacity: opacityAnim,
+                opacity: titleOpacityAnim,
               },
             ]}
           >
-            <Animated.View
-              style={[
-                styles.loadingDots,
-                {
-                  opacity: pulseAnim,
-                },
-              ]}
-            >
-              <View style={[styles.dot, { backgroundColor: theme.accent.primary }]} />
-              <View style={[styles.dot, { backgroundColor: theme.accent.primary }]} />
-              <View style={[styles.dot, { backgroundColor: theme.accent.primary }]} />
-            </Animated.View>
+            <View style={styles.loadingDots}>
+              <Animated.View 
+                style={[
+                  styles.dot, 
+                  { 
+                    backgroundColor: theme.accent.primary,
+                    opacity: dot1Opacity,
+                    transform: [{ scale: dot1Opacity.interpolate({
+                      inputRange: [0.3, 1],
+                      outputRange: [0.8, 1.2],
+                    })}],
+                  }
+                ]} 
+              />
+              <Animated.View 
+                style={[
+                  styles.dot, 
+                  { 
+                    backgroundColor: theme.accent.secondary,
+                    opacity: dot2Opacity,
+                    transform: [{ scale: dot2Opacity.interpolate({
+                      inputRange: [0.3, 1],
+                      outputRange: [0.8, 1.2],
+                    })}],
+                  }
+                ]} 
+              />
+              <Animated.View 
+                style={[
+                  styles.dot, 
+                  { 
+                    backgroundColor: theme.accent.primary,
+                    opacity: dot3Opacity,
+                    transform: [{ scale: dot3Opacity.interpolate({
+                      inputRange: [0.3, 1],
+                      outputRange: [0.8, 1.2],
+                    })}],
+                  }
+                ]} 
+              />
+            </View>
             {message && (
               <Animated.Text
                 style={[styles.message, { color: theme.text.secondary }]}
@@ -204,30 +432,88 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   logoContainer: {
-    marginBottom: 32,
+    marginBottom: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  outerGlow: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    zIndex: 0,
+  },
+  outerGlowGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 999,
   },
   logoWrapper: {
     width: 120,
     height: 120,
     borderRadius: 60,
     overflow: 'hidden',
-    elevation: 8,
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    position: 'relative',
+    zIndex: 2,
   },
   logoGradient: {
     width: '100%',
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  shimmerOverlay: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    zIndex: 3,
+    pointerEvents: 'none',
+  },
+  shimmerGradient: {
+    width: '50%',
+    height: '100%',
+    borderRadius: 999,
   },
   whiteCircle: {
-    width: 102,
-    height: 102,
-    borderRadius: 51,
+    width: 103,
+    height: 103,
+    borderRadius: 51.5,
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 1,
+  },
+  innerGlow: {
+    position: 'absolute',
+    width: 103,
+    height: 103,
+    borderRadius: 51.5,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    zIndex: 2,
+    pointerEvents: 'none',
+  },
+  decorativeRing: {
+    position: 'absolute',
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 102, 204, 0.3)',
+    zIndex: 1,
+    pointerEvents: 'none',
   },
   logoImage: {
     width: '100%',
@@ -259,13 +545,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginBottom: 12,
+    gap: 10,
+    marginBottom: 16,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 2,
   },
   message: {
     fontSize: 16,
