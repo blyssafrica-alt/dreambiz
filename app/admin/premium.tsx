@@ -200,7 +200,7 @@ export default function PremiumManagementScreen() {
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + days);
 
-      const { error } = await supabase.from('premium_trials').insert({
+      const { data, error } = await supabase.from('premium_trials').insert({
         user_id: trialForm.userId,
         plan_id: trialForm.planId,
         start_date: startDate.toISOString(),
@@ -208,17 +208,28 @@ export default function PremiumManagementScreen() {
         status: 'active',
         granted_by: currentUser?.id,
         notes: trialForm.notes || null,
-      });
+      }).select().single();
 
       if (error) throw error;
 
-      Alert.alert('Success', 'Trial granted successfully');
+      // CRITICAL: Trigger a database update to ensure real-time subscriptions fire
+      // This ensures the affected user's PremiumContext refreshes immediately
+      await supabase
+        .from('premium_trials')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', data.id);
+
+      Alert.alert(
+        'Success', 
+        'Trial granted successfully. The user\'s premium access will be updated immediately via real-time sync.',
+        [{ text: 'OK' }]
+      );
       setShowTrialModal(false);
       setTrialForm({ userId: '', planId: '', days: '14', notes: '' });
-      loadTrials();
-    } catch (error) {
+      await loadTrials();
+    } catch (error: any) {
       console.error('Failed to grant trial:', error);
-      Alert.alert('Error', 'Failed to grant trial');
+      Alert.alert('Error', `Failed to grant trial: ${error?.message || 'Unknown error'}`);
     }
   };
 
@@ -231,7 +242,7 @@ export default function PremiumManagementScreen() {
     try {
       const discountCode = `USER_${discountForm.userId.substring(0, 8).toUpperCase()}_${Date.now()}`;
 
-      const { error } = await supabase.from('user_discounts').insert({
+      const { data, error } = await supabase.from('user_discounts').insert({
         user_id: discountForm.userId,
         discount_code: discountCode,
         discount_percentage: parseFloat(discountForm.discountPercentage),
@@ -241,17 +252,28 @@ export default function PremiumManagementScreen() {
         is_active: true,
         granted_by: currentUser?.id,
         notes: discountForm.notes || null,
-      });
+      }).select().single();
 
       if (error) throw error;
 
-      Alert.alert('Success', 'Discount granted successfully');
+      // CRITICAL: Trigger a database update to ensure real-time subscriptions fire
+      // This ensures the affected user's PremiumContext refreshes immediately
+      await supabase
+        .from('user_discounts')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', data.id);
+
+      Alert.alert(
+        'Success', 
+        'Discount granted successfully. The discount code has been created and is ready to use. The user will see this discount immediately.',
+        [{ text: 'OK' }]
+      );
       setShowDiscountModal(false);
       setDiscountForm({ userId: '', discountPercentage: '10', applicablePlans: [], notes: '' });
-      loadDiscounts();
-    } catch (error) {
+      await loadDiscounts();
+    } catch (error: any) {
       console.error('Failed to grant discount:', error);
-      Alert.alert('Error', 'Failed to grant discount');
+      Alert.alert('Error', `Failed to grant discount: ${error?.message || 'Unknown error'}`);
     }
   };
 
@@ -291,14 +313,28 @@ export default function PremiumManagementScreen() {
         notes: bulkTrialForm.notes || null,
       }));
 
-      const { error } = await supabase.from('premium_trials').insert(trials);
+      const { data: insertedTrials, error } = await supabase.from('premium_trials').insert(trials).select();
 
       if (error) throw error;
 
-      Alert.alert('Success', `Trial granted to ${freeUsers.length} users`);
+      // CRITICAL: Trigger updates to ensure real-time subscriptions fire for all affected users
+      // This ensures each user's PremiumContext refreshes immediately
+      if (insertedTrials && insertedTrials.length > 0) {
+        const trialIds = insertedTrials.map((t: any) => t.id);
+        await supabase
+          .from('premium_trials')
+          .update({ updated_at: new Date().toISOString() })
+          .in('id', trialIds);
+      }
+
+      Alert.alert(
+        'Success', 
+        `Trial granted to ${freeUsers.length} users. Their premium access will be updated immediately via real-time sync.`,
+        [{ text: 'OK' }]
+      );
       setShowBulkTrialModal(false);
       setBulkTrialForm({ planId: '', days: '14', notes: 'Bulk trial grant' });
-      loadTrials();
+      await loadTrials();
     } catch (error) {
       console.error('Failed to grant bulk trial:', error);
       Alert.alert('Error', 'Failed to grant bulk trial');
