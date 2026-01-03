@@ -54,10 +54,14 @@ function RootLayoutNav() {
 
   // Check email verification status (only when authenticated)
   React.useEffect(() => {
+    let isMounted = true;
+
     const checkEmailVerification = async () => {
       // Only check if user is authenticated
       if (!isAuthenticated || !authUser) {
-        setEmailVerified(null);
+        if (isMounted) {
+          setEmailVerified(null);
+        }
         return;
       }
 
@@ -74,23 +78,27 @@ function RootLayoutNav() {
         
         if (error) {
           console.error('Error getting session:', error);
-          setEmailVerified(null);
+          if (isMounted) {
+            setEmailVerified(null);
+          }
           return;
         }
         
-        // Only set if we have a valid session
-        if (session?.user) {
+        // Only set if we have a valid session and component is still mounted
+        if (isMounted && session?.user) {
           const isVerified = !!session.user.email_confirmed_at;
           setEmailVerified(isVerified);
           console.log('Email verification status:', isVerified ? 'Verified' : 'Not verified');
-        } else {
+        } else if (isMounted) {
           // No session means not authenticated
           setEmailVerified(null);
         }
       } catch (error: any) {
         console.error('Error checking email verification:', error?.message || error);
-        // On error, assume not verified to be safe
-        setEmailVerified(false);
+        // On error, assume not verified to be safe (only if still mounted)
+        if (isMounted) {
+          setEmailVerified(false);
+        }
       }
     };
 
@@ -98,8 +106,14 @@ function RootLayoutNav() {
     if (isAuthenticated && authUser) {
       checkEmailVerification();
     } else {
-      setEmailVerified(null);
+      if (isMounted) {
+        setEmailVerified(null);
+      }
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [isAuthenticated, authUser]);
 
   useEffect(() => {
