@@ -493,6 +493,37 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     }
   }, [userId, business?.id]);
 
+  // Clear all business data (called on logout)
+  const clearData = useCallback(() => {
+    setBusiness(null);
+    setTransactions([]);
+    setDocuments([]);
+    setProducts([]);
+    setCustomers([]);
+    setSuppliers([]);
+    setBudgets([]);
+    setCashflowProjections([]);
+    setTaxRates([]);
+    setEmployees([]);
+    setProjects([]);
+    setProjectTasks([]);
+    setRecurringInvoices([]);
+    setPayments([]);
+    setExchangeRate({
+      usdToZwl: 25000,
+      lastUpdated: new Date().toISOString(),
+    });
+    setHasOnboarded(false);
+    setIsLoading(false);
+  }, []);
+
+  // Clear data when userId becomes null (user logged out)
+  useEffect(() => {
+    if (!userId) {
+      clearData();
+    }
+  }, [userId, clearData]);
+
   // Prevent infinite retries by using ref to track loading state
   const isLoadingRef = useRef(false);
   
@@ -2726,6 +2757,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     switchBusiness,
     deleteBusiness,
     checkBusinessLimit,
+    clearData,
   };
 });
 

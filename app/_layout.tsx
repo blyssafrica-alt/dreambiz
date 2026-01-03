@@ -55,6 +55,7 @@ function RootLayoutNav() {
   // Check email verification status (only when authenticated)
   React.useEffect(() => {
     let isMounted = true;
+    let checkInterval: NodeJS.Timeout | null = null;
 
     const checkEmailVerification = async () => {
       // Only check if user is authenticated
@@ -89,6 +90,12 @@ function RootLayoutNav() {
           const isVerified = !!session.user.email_confirmed_at;
           setEmailVerified(isVerified);
           console.log('Email verification status:', isVerified ? 'Verified' : 'Not verified');
+          
+          // If verified, clear the interval to stop polling
+          if (isVerified && checkInterval) {
+            clearInterval(checkInterval);
+            checkInterval = null;
+          }
         } else if (isMounted) {
           // No session means not authenticated
           setEmailVerified(null);
@@ -105,6 +112,14 @@ function RootLayoutNav() {
     // Only check if authenticated
     if (isAuthenticated && authUser) {
       checkEmailVerification();
+      
+      // Poll every 2 seconds while on verify-email screen to catch verification quickly
+      // This helps when user clicks email link and returns to app
+      checkInterval = setInterval(() => {
+        if (isMounted) {
+          checkEmailVerification();
+        }
+      }, 2000);
     } else {
       if (isMounted) {
         setEmailVerified(null);
@@ -113,6 +128,9 @@ function RootLayoutNav() {
 
     return () => {
       isMounted = false;
+      if (checkInterval) {
+        clearInterval(checkInterval);
+      }
     };
   }, [isAuthenticated, authUser]);
 
@@ -143,8 +161,9 @@ function RootLayoutNav() {
 
       // CRITICAL: If authenticated, we MUST check email verification status
       // If email verification check is still pending, wait a bit but then proceed with assumption
-      if (emailVerified === null && isAuthenticated) {
-        // Wait a maximum of 2 seconds for email verification check
+      // But don't wait if we're already on the verify-email screen (let it handle its own state)
+      if (emailVerified === null && isAuthenticated && !inVerifyEmail) {
+        // Wait a maximum of 3 seconds for email verification check
         // After that, assume not verified to be safe
         timeoutId = setTimeout(() => {
           if (isMounted) {
@@ -156,19 +175,65 @@ function RootLayoutNav() {
               return prev;
             });
           }
-        }, 2000);
+        }, 3000);
         return;
       }
 
       // CRITICAL: If authenticated but email not verified, redirect to verification screen
       // This must happen BEFORE checking onboarding status
-      // Also redirect if we're on onboarding but email is not verified
+      // BUT: Before redirecting, double-check the session to avoid race conditions
+      // This prevents redirecting back to verify-email after user just verified
       if (isAuthenticated && emailVerified === false) {
         if (!inVerifyEmail && !inAuth) {
-          console.log('Redirecting to verify-email: email not verified');
-          router.replace('/verify-email' as any);
+          // IMPORTANT: If we're already on onboarding or tabs, don't redirect
+          // This prevents the loop where user verifies -> goes to dashboard -> gets redirected back
+          // The user might have just verified and we're in a transition state
+          if (inOnboarding || inTabs) {
+            // Double-check session - if verified, update state instead of redirecting
+            (async () => {
+              try {
+                await supabase.auth.refreshSession();
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session?.user?.email_confirmed_at) {
+                  console.log('User is verified (on onboarding/tabs) - updating state');
+                  if (isMounted) {
+                    setEmailVerified(true);
+                  }
+                }
+              } catch (error) {
+                console.error('Error checking session:', error);
+              }
+            })();
+            // Don't redirect - let user stay on onboarding/tabs
+            return;
+          }
+          
+          // For other screens, double-check session before redirecting
+          (async () => {
+            try {
+              // Refresh session first to get latest status
+              await supabase.auth.refreshSession();
+              const { data: { session } } = await supabase.auth.getSession();
+              if (session?.user?.email_confirmed_at) {
+                // User is actually verified - update state instead of redirecting
+                console.log('Session shows verified - updating state instead of redirecting');
+                if (isMounted) {
+                  setEmailVerified(true);
+                }
+                return; // Don't redirect
+              }
+              // Session confirms not verified - safe to redirect
+              console.log('Redirecting to verify-email: email not verified (confirmed by session check)');
+              if (isMounted) {
+                router.replace('/verify-email' as any);
+              }
+            } catch (error) {
+              console.error('Error checking session before redirect:', error);
+              // On error, don't redirect - let user stay where they are
+            }
+          })();
         }
-        return;
+        return; // Return early while async check happens
       }
 
       // If authenticated, email verified, but not onboarded, redirect to onboarding
@@ -182,7 +247,8 @@ function RootLayoutNav() {
       }
 
       // If authenticated and onboarded, redirect to main app (tabs)
-      if (isAuthenticated && hasOnboarded && (inAuth || inOnboarding || inVerifyEmail)) {
+      // But only if email is verified (to prevent redirecting before verification)
+      if (isAuthenticated && emailVerified === true && hasOnboarded && (inAuth || inOnboarding || inVerifyEmail)) {
         router.replace('/(tabs)' as any);
         return;
       }

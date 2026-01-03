@@ -269,21 +269,39 @@ export const [AuthContext, useAuth] = createContextHook(() => {
       const provider = getProvider();
       
       // Clear state FIRST to prevent any race conditions
+      // This ensures BusinessContext will clear when userId becomes null
       setUser(null);
       setAuthUser(null);
       
       // Then sign out from provider (this clears the session)
       await provider.signOut();
       
+      // Reset monitoring/user tracking
+      try {
+        const { resetUser } = await import('@/lib/monitoring');
+        resetUser();
+      } catch (e) {
+        // Ignore monitoring errors
+      }
+      
       // Force a small delay to ensure session is fully cleared
       // This prevents the app from immediately trying to use a cached session
-      await new Promise<void>(resolve => setTimeout(() => resolve(), 100));
+      await new Promise<void>(resolve => setTimeout(() => resolve(), 150));
       
     } catch (error) {
       console.error('Sign out error:', error);
       // Even if signOut fails, clear local state
       setUser(null);
       setAuthUser(null);
+      
+      // Still try to reset monitoring
+      try {
+        const { resetUser } = await import('@/lib/monitoring');
+        resetUser();
+      } catch (e) {
+        // Ignore monitoring errors
+      }
+      
       throw error;
     }
   };

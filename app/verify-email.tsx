@@ -138,18 +138,31 @@ export default function VerifyEmailScreen() {
   }, [resendCooldown]);
 
   const checkEmailStatus = async () => {
+    if (isVerified) return; // Don't check if already verified
+    
     try {
+      setIsChecking(true);
+      
       // CRITICAL: Refresh the session first to get the latest email verification status
       // This is needed when user clicks the email link and comes back to the app
       const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
       if (refreshError) {
         console.log('Session refresh error (non-critical):', refreshError.message);
+        // Don't return - still try to check session
       }
       
       // Get the refreshed session
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Error getting session:', sessionError);
+        setIsChecking(false);
+        return;
+      }
+      
       if (session?.user?.email_confirmed_at) {
         setIsVerified(true);
+        setIsChecking(false);
         // Animate success
         Animated.parallel([
           Animated.spring(scaleAnim, {
@@ -159,13 +172,30 @@ export default function VerifyEmailScreen() {
             useNativeDriver: true,
           }),
         ]).start();
-        // Auto-redirect to onboarding after a short delay
-        setTimeout(() => {
-          router.replace('/onboarding' as any);
-        }, 2000);
+        
+        // CRITICAL: Refresh session one more time and wait a bit before redirecting
+        // This ensures _layout.tsx has time to detect the verification status
+        // and update its emailVerified state, preventing redirect loops
+        setTimeout(async () => {
+          try {
+            // Force another session refresh to ensure it's fully propagated
+            await supabase.auth.refreshSession();
+            // Small delay to let _layout.tsx catch up
+            await new Promise(resolve => setTimeout(resolve, 500));
+            // Now redirect
+            router.replace('/onboarding' as any);
+          } catch (error) {
+            console.error('Error before redirect:', error);
+            // Still redirect even if refresh fails
+            router.replace('/onboarding' as any);
+          }
+        }, 2000); // Increased delay to 2 seconds
+      } else {
+        setIsChecking(false);
       }
     } catch (error) {
       console.error('Error checking email status:', error);
+      setIsChecking(false);
     }
   };
 
@@ -343,6 +373,35 @@ export default function VerifyEmailScreen() {
                     </View>
                   </View>
                 </View>
+
+                {/* Check Status Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.checkButton,
+                    {
+                      backgroundColor: theme.background.secondary,
+                      borderColor: theme.accent.primary + '40',
+                    },
+                    isChecking && styles.checkButtonDisabled,
+                  ]}
+                  onPress={checkEmailStatus}
+                  disabled={isChecking}
+                  activeOpacity={0.8}
+                >
+                  {isChecking ? (
+                    <>
+                      <Animated.View style={{ transform: [{ rotate: spin }] }}>
+                        <RefreshCw size={20} color={theme.accent.primary} />
+                      </Animated.View>
+                      <Text style={[styles.checkButtonText, { color: theme.accent.primary }]}>Checking...</Text>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw size={20} color={theme.accent.primary} />
+                      <Text style={[styles.checkButtonText, { color: theme.accent.primary }]}>Check Verification Status</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
 
                 {/* Resend Button */}
                 <TouchableOpacity
@@ -596,6 +655,29 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     flex: 1,
     fontWeight: '400' as const,
+  },
+  checkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 56,
+    borderRadius: 16,
+    gap: 10,
+    marginBottom: 12,
+    borderWidth: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  checkButtonDisabled: {
+    opacity: 0.7,
+  },
+  checkButtonText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    letterSpacing: 0.3,
   },
   resendButton: {
     flexDirection: 'row',
