@@ -320,12 +320,13 @@ export default function POSDayEndScreen() {
     }
   };
 
-  const formatCurrency = (amount: number | null | undefined) => {
+  const formatCurrency = (amount: number | null | undefined): string => {
     if (amount === null || amount === undefined || isNaN(amount)) {
       amount = 0;
     }
     const currency = todayShift?.currency || business?.currency || 'USD';
-    return `${currency} ${Math.abs(amount).toFixed(2)}`;
+    const formatted = Math.abs(amount).toFixed(2);
+    return `${currency} ${formatted}`;
   };
 
   if (isLoading) {
