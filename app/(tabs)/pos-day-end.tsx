@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   Animated,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -17,7 +18,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { supabase } from '@/lib/supabase';
 import {
-  ArrowLeft,
   DollarSign,
   Calculator,
   AlertCircle,
@@ -28,7 +28,13 @@ import {
   Smartphone,
   Building2,
   Save,
+  RefreshCw,
+  X,
+  FileText,
   Calendar,
+  Users,
+  Percent,
+  ShoppingBag,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import PageHeader from '@/components/PageHeader';
@@ -64,6 +70,7 @@ export default function POSDayEndScreen() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [todayShift, setTodayShift] = useState<POSShift | null>(null);
   const [actualCash, setActualCash] = useState('');
   const [discrepancyNotes, setDiscrepancyNotes] = useState('');
@@ -223,6 +230,7 @@ export default function POSDayEndScreen() {
     if (!todayShift?.id) return;
 
     try {
+      setRefreshing(true);
       // Call the database function to recalculate totals
       const { error } = await supabase.rpc('calculate_shift_totals', {
         p_shift_id: todayShift.id,
@@ -235,6 +243,8 @@ export default function POSDayEndScreen() {
     } catch (error: any) {
       console.error('Failed to refresh totals:', error);
       Alert.alert('Error', error.message || 'Failed to refresh shift totals');
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -339,19 +349,40 @@ export default function POSDayEndScreen() {
     ? parseFloat(actualCash) - todayShift.expectedCash
     : null;
 
+  const discrepancyAbs = discrepancy !== null ? Math.abs(discrepancy) : 0;
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
       <PageHeader
         title="Day End Closing"
-        subtitle={`Shift: ${new Date(todayShift.shiftDate).toLocaleDateString()}`}
+        subtitle={`${new Date(todayShift.shiftDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`}
         icon={Calculator}
         iconGradient={['#10B981', '#059669']}
+        rightAction={
+          todayShift.status === 'open' ? (
+            <TouchableOpacity
+              style={styles.refreshHeaderButton}
+              onPress={refreshShiftTotals}
+              disabled={refreshing}
+            >
+              <RefreshCw size={20} color="#FFF" strokeWidth={2.5} />
+            </TouchableOpacity>
+          ) : null
+        }
       />
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refreshShiftTotals}
+            tintColor={theme.accent.primary}
+            colors={[theme.accent.primary]}
+          />
+        }
       >
         <Animated.View
           style={{
@@ -359,22 +390,26 @@ export default function POSDayEndScreen() {
             transform: [{ translateY: slideAnim }],
           }}
         >
-          {/* Shift Status Banner */}
-          <View
-            style={[
-              styles.statusBanner,
-              {
-                backgroundColor: todayShift.status === 'open' ? '#10B98120' : '#F59E0B20',
-              },
-            ]}
+          {/* Shift Status Card */}
+          <LinearGradient
+            colors={
+              todayShift.status === 'open'
+                ? ['#10B98115', '#05966908']
+                : ['#F59E0B15', '#D9770608']
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.statusCard}
           >
-            <View style={styles.statusContent}>
-              {todayShift.status === 'open' ? (
-                <CheckCircle size={24} color="#10B981" />
-              ) : (
-                <Clock size={24} color="#F59E0B" />
-              )}
-              <View style={styles.statusTextContainer}>
+            <View style={styles.statusCardContent}>
+              <View style={styles.statusIconWrapper}>
+                {todayShift.status === 'open' ? (
+                  <CheckCircle size={32} color="#10B981" strokeWidth={2.5} />
+                ) : (
+                  <Clock size={32} color="#F59E0B" strokeWidth={2.5} />
+                )}
+              </View>
+              <View style={styles.statusTextWrapper}>
                 <Text
                   style={[
                     styles.statusTitle,
@@ -383,105 +418,180 @@ export default function POSDayEndScreen() {
                     },
                   ]}
                 >
-                  Shift {todayShift.status === 'open' ? 'Open' : 'Closed'}
+                  Shift {todayShift.status === 'open' ? 'Active' : 'Closed'}
                 </Text>
                 <Text style={[styles.statusSubtitle, { color: theme.text.secondary }]}>
-                  Started: {new Date(todayShift.shiftStartTime).toLocaleTimeString()}
+                  Started: {new Date(todayShift.shiftStartTime).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
                 </Text>
+                {todayShift.shiftEndTime && (
+                  <Text style={[styles.statusSubtitle, { color: theme.text.secondary }]}>
+                    Closed: {new Date(todayShift.shiftEndTime).toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                )}
               </View>
             </View>
-            {todayShift.status === 'open' && (
-              <TouchableOpacity
-                style={[styles.refreshButton, { backgroundColor: theme.accent.primary }]}
-                onPress={refreshShiftTotals}
-              >
-                <TrendingUp size={16} color="#FFF" />
-              </TouchableOpacity>
-            )}
-          </View>
+          </LinearGradient>
 
-          {/* Cash Summary Card */}
-          <View style={[styles.summaryCard, { backgroundColor: theme.background.card }]}>
-            <Text style={[styles.cardTitle, { color: theme.text.primary }]}>Cash Summary</Text>
-
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Opening Cash</Text>
-                <Text style={[styles.summaryValue, { color: theme.text.primary }]}>
-                  {formatCurrency(todayShift.openingCash)}
-                </Text>
+          {/* Cash Reconciliation - Main Focus */}
+          <View style={[styles.cashCard, { backgroundColor: theme.background.card }]}>
+            <View style={styles.cashCardHeader}>
+              <View style={styles.cashCardIconWrapper}>
+                <LinearGradient
+                  colors={['#10B981', '#059669']}
+                  style={styles.cashCardIconGradient}
+                >
+                  <DollarSign size={24} color="#FFF" strokeWidth={2.5} />
+                </LinearGradient>
               </View>
+              <Text style={[styles.cashCardTitle, { color: theme.text.primary }]}>Cash Reconciliation</Text>
             </View>
 
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Cash Sales</Text>
-                <Text style={[styles.summaryValue, { color: '#10B981' }]}>
-                  +{formatCurrency(todayShift.cashSales)}
-                </Text>
+            {/* Opening Cash */}
+            <View style={styles.cashRow}>
+              <View style={styles.cashRowLeft}>
+                <Text style={[styles.cashRowLabel, { color: theme.text.secondary }]}>Opening Cash</Text>
+                <Text style={[styles.cashRowHint, { color: theme.text.tertiary }]}>Cash at start of shift</Text>
               </View>
+              <Text style={[styles.cashRowValue, { color: theme.text.primary }]}>
+                {formatCurrency(todayShift.openingCash)}
+              </Text>
             </View>
 
-            <View style={[styles.divider, { backgroundColor: theme.border.light }]} />
+            {/* Cash Sales */}
+            <View style={styles.cashRow}>
+              <View style={styles.cashRowLeft}>
+                <Text style={[styles.cashRowLabel, { color: theme.text.secondary }]}>Cash Sales</Text>
+                <Text style={[styles.cashRowHint, { color: theme.text.tertiary }]}>Total cash received</Text>
+              </View>
+              <Text style={[styles.cashRowValue, { color: '#10B981', fontWeight: '700' }]}>
+                +{formatCurrency(todayShift.cashSales)}
+              </Text>
+            </View>
 
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryLabel, { color: theme.text.primary }]}>Expected Cash</Text>
-                <Text style={[styles.summaryValue, { color: theme.accent.primary, fontWeight: '700' }]}>
-                  {formatCurrency(todayShift.expectedCash)}
+            {/* Expected Cash */}
+            <View style={[styles.cashDivider, { backgroundColor: theme.border.light }]} />
+            <View style={styles.cashRow}>
+              <View style={styles.cashRowLeft}>
+                <Text style={[styles.cashRowLabel, { color: theme.text.primary, fontWeight: '700' }]}>
+                  Expected Cash
+                </Text>
+                <Text style={[styles.cashRowHint, { color: theme.text.tertiary }]}>
+                  Opening + Cash Sales
                 </Text>
               </View>
+              <Text style={[styles.cashRowValue, { color: theme.accent.primary, fontWeight: '800', fontSize: 22 }]}>
+                {formatCurrency(todayShift.expectedCash)}
+              </Text>
             </View>
 
             {/* Actual Cash Input */}
-            <View style={styles.inputSection}>
-              <Text style={[styles.inputLabel, { color: theme.text.primary }]}>Actual Cash at Hand</Text>
+            <View style={styles.cashInputSection}>
+              <Text style={[styles.cashInputLabel, { color: theme.text.primary }]}>
+                Actual Cash at Hand
+              </Text>
+              <Text style={[styles.cashInputHint, { color: theme.text.tertiary }]}>
+                Count all cash in the drawer and enter the total
+              </Text>
               <TextInput
                 style={[
                   styles.cashInput,
                   {
                     backgroundColor: theme.background.secondary,
                     color: theme.text.primary,
-                    borderColor: discrepancy !== null && discrepancy !== 0 ? '#EF4444' : theme.border.light,
+                    borderColor:
+                      discrepancy !== null && discrepancy !== 0 ? '#EF4444' : theme.border.light,
                   },
                 ]}
-                placeholder="Enter cash counted"
+                placeholder="0.00"
                 placeholderTextColor={theme.text.tertiary}
                 value={actualCash}
                 onChangeText={setActualCash}
                 keyboardType="decimal-pad"
                 editable={todayShift.status === 'open'}
+                autoFocus={false}
               />
+
+              {/* Discrepancy Display */}
               {actualCash && discrepancy !== null && (
                 <View
                   style={[
-                    styles.discrepancyBadge,
+                    styles.discrepancyCard,
                     {
-                      backgroundColor: discrepancy === 0 ? '#10B98120' : '#EF444420',
+                      backgroundColor:
+                        discrepancy === 0
+                          ? '#10B98115'
+                          : discrepancy > 0
+                          ? '#F59E0B15'
+                          : '#EF444415',
+                      borderColor:
+                        discrepancy === 0
+                          ? '#10B98140'
+                          : discrepancy > 0
+                          ? '#F59E0B40'
+                          : '#EF444440',
                     },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.discrepancyText,
-                      {
-                        color: discrepancy === 0 ? '#10B981' : '#EF4444',
-                      },
-                    ]}
-                  >
-                    {discrepancy === 0
-                      ? '✓ Balanced'
-                      : discrepancy > 0
-                      ? `+${formatCurrency(discrepancy)} Over`
-                      : `${formatCurrency(Math.abs(discrepancy))} Short`}
-                  </Text>
+                  <View style={styles.discrepancyHeader}>
+                    {discrepancy === 0 ? (
+                      <CheckCircle size={24} color="#10B981" strokeWidth={2.5} />
+                    ) : (
+                      <AlertCircle
+                        size={24}
+                        color={discrepancy > 0 ? '#F59E0B' : '#EF4444'}
+                        strokeWidth={2.5}
+                      />
+                    )}
+                    <Text
+                      style={[
+                        styles.discrepancyTitle,
+                        {
+                          color:
+                            discrepancy === 0
+                              ? '#10B981'
+                              : discrepancy > 0
+                              ? '#F59E0B'
+                              : '#EF4444',
+                        },
+                      ]}
+                    >
+                      {discrepancy === 0
+                        ? 'Balanced'
+                        : discrepancy > 0
+                        ? `Over by ${formatCurrency(discrepancyAbs)}`
+                        : `Short by ${formatCurrency(discrepancyAbs)}`}
+                    </Text>
+                  </View>
+                  {discrepancy !== 0 && (
+                    <Text
+                      style={[
+                        styles.discrepancyMessage,
+                        {
+                          color: theme.text.secondary,
+                        },
+                      ]}
+                    >
+                      {discrepancy > 0
+                        ? 'You have more cash than expected. Please verify your count.'
+                        : 'You have less cash than expected. Please recount and check for errors.'}
+                    </Text>
+                  )}
                 </View>
               )}
             </View>
 
-            {discrepancy !== null && discrepancy !== 0 && (
-              <View style={styles.inputSection}>
-                <Text style={[styles.inputLabel, { color: theme.text.primary }]}>Discrepancy Notes</Text>
+            {/* Discrepancy Notes */}
+            {discrepancy !== null && discrepancy !== 0 && todayShift.status === 'open' && (
+              <View style={styles.notesSection}>
+                <Text style={[styles.notesLabel, { color: theme.text.primary }]}>
+                  Explain Discrepancy
+                </Text>
                 <TextInput
                   style={[
                     styles.notesInput,
@@ -491,13 +601,12 @@ export default function POSDayEndScreen() {
                       borderColor: theme.border.light,
                     },
                   ]}
-                  placeholder="Explain any discrepancies..."
+                  placeholder="Enter notes about the discrepancy..."
                   placeholderTextColor={theme.text.tertiary}
                   value={discrepancyNotes}
                   onChangeText={setDiscrepancyNotes}
                   multiline
                   numberOfLines={3}
-                  editable={todayShift.status === 'open'}
                 />
               </View>
             )}
@@ -505,46 +614,62 @@ export default function POSDayEndScreen() {
 
           {/* Sales Summary Card */}
           <View style={[styles.summaryCard, { backgroundColor: theme.background.card }]}>
-            <Text style={[styles.cardTitle, { color: theme.text.primary }]}>Sales Summary</Text>
-
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Total Sales</Text>
-                <Text style={[styles.summaryValue, { color: theme.text.primary, fontWeight: '700' }]}>
-                  {formatCurrency(todayShift.totalSales)}
-                </Text>
+            <View style={styles.summaryCardHeader}>
+              <View style={styles.summaryCardIconWrapper}>
+                <LinearGradient
+                  colors={['#3B82F6', '#2563EB']}
+                  style={styles.summaryCardIconGradient}
+                >
+                  <TrendingUp size={20} color="#FFF" strokeWidth={2.5} />
+                </LinearGradient>
               </View>
+              <Text style={[styles.summaryCardTitle, { color: theme.text.primary }]}>Sales Summary</Text>
             </View>
 
-            <View style={[styles.divider, { backgroundColor: theme.border.light }]} />
+            {/* Total Sales */}
+            <View style={styles.totalSalesBox}>
+              <Text style={[styles.totalSalesLabel, { color: theme.text.secondary }]}>Total Sales</Text>
+              <Text style={[styles.totalSalesValue, { color: theme.text.primary }]}>
+                {formatCurrency(todayShift.totalSales)}
+              </Text>
+            </View>
 
-            <View style={styles.paymentMethodRow}>
-              <View style={styles.paymentMethodItem}>
-                <DollarSign size={20} color="#10B981" />
+            {/* Payment Methods Grid */}
+            <View style={styles.paymentMethodsGrid}>
+              <View style={[styles.paymentMethodCard, { backgroundColor: theme.background.secondary }]}>
+                <View style={[styles.paymentMethodIcon, { backgroundColor: '#10B98120' }]}>
+                  <DollarSign size={20} color="#10B981" strokeWidth={2.5} />
+                </View>
                 <Text style={[styles.paymentMethodLabel, { color: theme.text.secondary }]}>Cash</Text>
                 <Text style={[styles.paymentMethodValue, { color: theme.text.primary }]}>
                   {formatCurrency(todayShift.cashSales)}
                 </Text>
               </View>
-              <View style={styles.paymentMethodItem}>
-                <CreditCard size={20} color="#3B82F6" />
+
+              <View style={[styles.paymentMethodCard, { backgroundColor: theme.background.secondary }]}>
+                <View style={[styles.paymentMethodIcon, { backgroundColor: '#3B82F620' }]}>
+                  <CreditCard size={20} color="#3B82F6" strokeWidth={2.5} />
+                </View>
                 <Text style={[styles.paymentMethodLabel, { color: theme.text.secondary }]}>Card</Text>
                 <Text style={[styles.paymentMethodValue, { color: theme.text.primary }]}>
                   {formatCurrency(todayShift.cardSales)}
                 </Text>
               </View>
-            </View>
 
-            <View style={styles.paymentMethodRow}>
-              <View style={styles.paymentMethodItem}>
-                <Smartphone size={20} color="#8B5CF6" />
+              <View style={[styles.paymentMethodCard, { backgroundColor: theme.background.secondary }]}>
+                <View style={[styles.paymentMethodIcon, { backgroundColor: '#8B5CF620' }]}>
+                  <Smartphone size={20} color="#8B5CF6" strokeWidth={2.5} />
+                </View>
                 <Text style={[styles.paymentMethodLabel, { color: theme.text.secondary }]}>Mobile Money</Text>
                 <Text style={[styles.paymentMethodValue, { color: theme.text.primary }]}>
                   {formatCurrency(todayShift.mobileMoneySales)}
                 </Text>
               </View>
-              <View style={styles.paymentMethodItem}>
-                <Building2 size={20} color="#F59E0B" />
+
+              <View style={[styles.paymentMethodCard, { backgroundColor: theme.background.secondary }]}>
+                <View style={[styles.paymentMethodIcon, { backgroundColor: '#F59E0B20' }]}>
+                  <Building2 size={20} color="#F59E0B" strokeWidth={2.5} />
+                </View>
                 <Text style={[styles.paymentMethodLabel, { color: theme.text.secondary }]}>Bank Transfer</Text>
                 <Text style={[styles.paymentMethodValue, { color: theme.text.primary }]}>
                   {formatCurrency(todayShift.bankTransferSales)}
@@ -552,22 +677,27 @@ export default function POSDayEndScreen() {
               </View>
             </View>
 
-            <View style={[styles.divider, { backgroundColor: theme.border.light }]} />
-
+            {/* Stats Row */}
+            <View style={[styles.statsDivider, { backgroundColor: theme.border.light }]} />
             <View style={styles.statsRow}>
-              <View style={styles.statItem}>
+              <View style={styles.statBox}>
+                <ShoppingBag size={18} color={theme.text.secondary} />
                 <Text style={[styles.statLabel, { color: theme.text.secondary }]}>Transactions</Text>
                 <Text style={[styles.statValue, { color: theme.text.primary }]}>
                   {todayShift.totalTransactions}
                 </Text>
               </View>
-              <View style={styles.statItem}>
+              <View style={[styles.statDivider, { backgroundColor: theme.border.light }]} />
+              <View style={styles.statBox}>
+                <FileText size={18} color={theme.text.secondary} />
                 <Text style={[styles.statLabel, { color: theme.text.secondary }]}>Receipts</Text>
                 <Text style={[styles.statValue, { color: theme.text.primary }]}>
                   {todayShift.totalReceipts}
                 </Text>
               </View>
-              <View style={styles.statItem}>
+              <View style={[styles.statDivider, { backgroundColor: theme.border.light }]} />
+              <View style={styles.statBox}>
+                <Percent size={18} color={theme.text.secondary} />
                 <Text style={[styles.statLabel, { color: theme.text.secondary }]}>Discounts</Text>
                 <Text style={[styles.statValue, { color: theme.text.primary }]}>
                   {formatCurrency(todayShift.totalDiscounts)}
@@ -576,36 +706,44 @@ export default function POSDayEndScreen() {
             </View>
           </View>
 
-          {/* Notes Section */}
-          <View style={[styles.summaryCard, { backgroundColor: theme.background.card }]}>
-            <Text style={[styles.cardTitle, { color: theme.text.primary }]}>Notes</Text>
-            <TextInput
-              style={[
-                styles.notesInput,
-                {
-                  backgroundColor: theme.background.secondary,
-                  color: theme.text.primary,
-                  borderColor: theme.border.light,
-                },
-              ]}
-              placeholder="Add any notes about this shift..."
-              placeholderTextColor={theme.text.tertiary}
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              numberOfLines={4}
-              editable={todayShift.status === 'open'}
-            />
-          </View>
+          {/* Notes Card */}
+          {todayShift.status === 'open' && (
+            <View style={[styles.notesCard, { backgroundColor: theme.background.card }]}>
+              <Text style={[styles.notesCardTitle, { color: theme.text.primary }]}>Shift Notes</Text>
+              <TextInput
+                style={[
+                  styles.notesCardInput,
+                  {
+                    backgroundColor: theme.background.secondary,
+                    color: theme.text.primary,
+                    borderColor: theme.border.light,
+                  },
+                ]}
+                placeholder="Add any notes about this shift..."
+                placeholderTextColor={theme.text.tertiary}
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+          )}
 
           {/* Close Shift Button */}
           {todayShift.status === 'open' && (
             <TouchableOpacity
-              style={[styles.closeButton, { backgroundColor: theme.accent.primary }]}
+              style={[
+                styles.closeButton,
+                {
+                  backgroundColor: discrepancy !== null && discrepancy !== 0 && discrepancy < 0 ? '#EF4444' : theme.accent.primary,
+                  opacity: !actualCash ? 0.5 : 1,
+                },
+              ]}
               onPress={() => setShowCloseModal(true)}
               disabled={!actualCash}
+              activeOpacity={0.8}
             >
-              <Save size={20} color="#FFF" />
+              <Save size={22} color="#FFF" strokeWidth={2.5} />
               <Text style={styles.closeButtonText}>Close Shift</Text>
             </TouchableOpacity>
           )}
@@ -613,46 +751,73 @@ export default function POSDayEndScreen() {
       </ScrollView>
 
       {/* Close Shift Confirmation Modal */}
-      <Modal visible={showCloseModal} transparent animationType="fade">
+      <Modal visible={showCloseModal} transparent animationType="fade" onRequestClose={() => setShowCloseModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
-            <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Close Shift?</Text>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Close Shift?</Text>
+              <TouchableOpacity
+                onPress={() => setShowCloseModal(false)}
+                style={styles.modalCloseButton}
+              >
+                <X size={24} color={theme.text.tertiary} />
+              </TouchableOpacity>
+            </View>
             <Text style={[styles.modalMessage, { color: theme.text.secondary }]}>
               Are you sure you want to close this shift? This action cannot be undone.
             </Text>
             {discrepancy !== null && discrepancy !== 0 && (
               <View
                 style={[
-                  styles.discrepancyWarning,
+                  styles.modalDiscrepancyWarning,
                   {
-                    backgroundColor: discrepancy > 0 ? '#F59E0B20' : '#EF444420',
+                    backgroundColor:
+                      discrepancy > 0 ? '#F59E0B15' : '#EF444415',
+                    borderColor: discrepancy > 0 ? '#F59E0B40' : '#EF444440',
                   },
                 ]}
               >
-                <AlertCircle size={20} color={discrepancy > 0 ? '#F59E0B' : '#EF4444'} />
-                <Text
-                  style={[
-                    styles.discrepancyWarningText,
-                    {
-                      color: discrepancy > 0 ? '#F59E0B' : '#EF4444',
-                    },
-                  ]}
-                >
-                  {discrepancy > 0
-                    ? `Cash over by ${formatCurrency(discrepancy)}`
-                    : `Cash short by ${formatCurrency(Math.abs(discrepancy))}`}
-                </Text>
+                <AlertCircle
+                  size={24}
+                  color={discrepancy > 0 ? '#F59E0B' : '#EF4444'}
+                  strokeWidth={2.5}
+                />
+                <View style={styles.modalDiscrepancyTextWrapper}>
+                  <Text
+                    style={[
+                      styles.modalDiscrepancyTitle,
+                      {
+                        color: discrepancy > 0 ? '#F59E0B' : '#EF4444',
+                      },
+                    ]}
+                  >
+                    Cash {discrepancy > 0 ? 'Over' : 'Short'}
+                  </Text>
+                  <Text style={[styles.modalDiscrepancyAmount, { color: theme.text.primary }]}>
+                    {discrepancy > 0 ? '+' : ''}{formatCurrency(discrepancy)}
+                  </Text>
+                </View>
               </View>
             )}
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel, { borderColor: theme.border.medium }]}
+                style={[
+                  styles.modalButton,
+                  styles.modalButtonCancel,
+                  { borderColor: theme.border.medium, backgroundColor: theme.background.secondary },
+                ]}
                 onPress={() => setShowCloseModal(false)}
               >
                 <Text style={[styles.modalButtonText, { color: theme.text.secondary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonConfirm, { backgroundColor: theme.accent.primary }]}
+                style={[
+                  styles.modalButton,
+                  styles.modalButtonConfirm,
+                  {
+                    backgroundColor: discrepancy !== null && discrepancy !== 0 && discrepancy < 0 ? '#EF4444' : theme.accent.primary,
+                  },
+                ]}
                 onPress={handleCloseShift}
                 disabled={isSaving}
               >
@@ -689,6 +854,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
+    fontWeight: '500',
   },
   errorContainer: {
     flex: 1,
@@ -712,83 +878,150 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
   },
-  statusBanner: {
-    padding: 16,
+  refreshHeaderButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  statusCard: {
     borderRadius: 16,
     marginBottom: 20,
+    padding: 20,
+  },
+  statusCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 16,
   },
-  statusContent: {
-    flexDirection: 'row',
+  statusIconWrapper: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
-    flex: 1,
   },
-  statusTextContainer: {
+  statusTextWrapper: {
     flex: 1,
   },
   statusTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     marginBottom: 4,
   },
   statusSubtitle: {
     fontSize: 14,
+    fontWeight: '500',
   },
-  refreshButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
+  cashCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+  },
+  cashCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
+  cashCardIconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  cashCardIconGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  summaryCard: {
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 16,
-  },
-  cardTitle: {
+  cashCardTitle: {
     fontSize: 20,
     fontWeight: '700',
-    marginBottom: 16,
   },
-  summaryRow: {
-    marginBottom: 12,
-  },
-  summaryItem: {
+  cashRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
-  summaryLabel: {
+  cashRowLeft: {
+    flex: 1,
+  },
+  cashRowLabel: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: '600',
+    marginBottom: 4,
   },
-  summaryValue: {
+  cashRowHint: {
+    fontSize: 13,
+    fontWeight: '400',
+  },
+  cashRowValue: {
     fontSize: 18,
     fontWeight: '600',
+    textAlign: 'right',
   },
-  divider: {
+  cashDivider: {
     height: 1,
     marginVertical: 16,
   },
-  inputSection: {
-    marginTop: 16,
+  cashInputSection: {
+    marginTop: 8,
   },
-  inputLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 8,
+  cashInputLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  cashInputHint: {
+    fontSize: 13,
+    fontWeight: '400',
+    marginBottom: 12,
   },
   cashInput: {
     borderWidth: 2,
     borderRadius: 12,
-    padding: 16,
-    fontSize: 24,
-    fontWeight: '700',
+    padding: 20,
+    fontSize: 32,
+    fontWeight: '800',
     textAlign: 'center',
+    letterSpacing: 1,
+  },
+  discrepancyCard: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  discrepancyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  discrepancyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    flex: 1,
+  },
+  discrepancyMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  notesSection: {
+    marginTop: 16,
+  },
+  notesLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 8,
   },
   notesInput: {
     borderWidth: 1,
@@ -798,30 +1031,72 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     minHeight: 100,
   },
-  discrepancyBadge: {
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
+  summaryCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+  },
+  summaryCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  discrepancyText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  paymentMethodRow: {
-    flexDirection: 'row',
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 20,
   },
-  paymentMethodItem: {
-    flex: 1,
-    padding: 12,
+  summaryCardIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  summaryCardIconGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  summaryCardTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  totalSalesBox: {
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  totalSalesLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  totalSalesValue: {
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  paymentMethodsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+  paymentMethodCard: {
+    flex: 1,
+    minWidth: '47%',
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
     gap: 8,
+  },
+  paymentMethodIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   paymentMethodLabel: {
     fontSize: 13,
@@ -831,29 +1106,59 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
+  statsDivider: {
+    height: 1,
+    marginBottom: 16,
+  },
   statsRow: {
     flexDirection: 'row',
-    gap: 12,
-  },
-  statItem: {
-    flex: 1,
     alignItems: 'center',
   },
+  statBox: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 8,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    marginHorizontal: 8,
+  },
   statLabel: {
-    fontSize: 13,
-    marginBottom: 4,
+    fontSize: 12,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   statValue: {
     fontSize: 18,
     fontWeight: '700',
   },
+  notesCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+  },
+  notesCardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  notesCardInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 15,
+    textAlignVertical: 'top',
+    minHeight: 120,
+  },
   closeButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 18,
+    padding: 20,
     borderRadius: 16,
-    gap: 8,
+    gap: 12,
     marginTop: 8,
   },
   closeButtonText: {
@@ -874,28 +1179,51 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 24,
   },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
   modalTitle: {
     fontSize: 24,
     fontWeight: '700',
-    marginBottom: 12,
+    flex: 1,
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalMessage: {
     fontSize: 16,
     lineHeight: 24,
     marginBottom: 20,
   },
-  discrepancyWarning: {
+  modalDiscrepancyWarning: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    borderRadius: 8,
+    gap: 12,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
     marginBottom: 20,
   },
-  discrepancyWarningText: {
-    fontSize: 15,
-    fontWeight: '600',
+  modalDiscrepancyTextWrapper: {
     flex: 1,
+  },
+  modalDiscrepancyTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  modalDiscrepancyAmount: {
+    fontSize: 20,
+    fontWeight: '700',
   },
   modalButtons: {
     flexDirection: 'row',
@@ -907,6 +1235,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 52,
   },
   modalButtonCancel: {
     borderWidth: 1,
@@ -922,4 +1251,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
