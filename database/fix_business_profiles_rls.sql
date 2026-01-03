@@ -1,11 +1,25 @@
 -- Fix RLS Policies for business_profiles table
 -- This ensures users can create and manage their own business profiles
+-- Super admins can view all businesses for admin dashboard
 -- Run this in Supabase SQL Editor with "No limit" selected
+
+-- ============================================================================
+-- STEP 1: Ensure is_super_admin() function exists
+-- ============================================================================
+CREATE OR REPLACE FUNCTION public.is_super_admin()
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.users 
+    WHERE id::text = auth.uid()::text 
+    AND is_super_admin = true
+  );
+$$ LANGUAGE sql SECURITY DEFINER;
 
 -- Enable RLS on business_profiles (if not already enabled)
 ALTER TABLE public.business_profiles ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist (to avoid conflicts)
+DROP POLICY IF EXISTS "Super admins can view all businesses" ON public.business_profiles;
 DROP POLICY IF EXISTS "Users can view their own business" ON public.business_profiles;
 DROP POLICY IF EXISTS "Users can insert their own business" ON public.business_profiles;
 DROP POLICY IF EXISTS "Users can update their own business" ON public.business_profiles;
@@ -15,6 +29,17 @@ DROP POLICY IF EXISTS "Users can insert own business" ON public.business_profile
 DROP POLICY IF EXISTS "Users can update own business" ON public.business_profiles;
 DROP POLICY IF EXISTS "Users can delete own business" ON public.business_profiles;
 
+-- ============================================================================
+-- STEP 2: Super Admin Policies (must come first)
+-- ============================================================================
+-- Policy: Super admins can view all businesses (for admin dashboard)
+CREATE POLICY "Super admins can view all businesses" ON public.business_profiles
+  FOR SELECT
+  USING (public.is_super_admin());
+
+-- ============================================================================
+-- STEP 3: Regular User Policies
+-- ============================================================================
 -- Policy: Users can view their own business profiles
 -- Using text casting for reliable comparison
 CREATE POLICY "Users can view their own business" ON public.business_profiles

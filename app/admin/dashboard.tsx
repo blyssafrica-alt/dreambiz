@@ -9,7 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 export default function AdminDashboard() {
   const { theme } = useTheme();
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -54,15 +54,28 @@ export default function AdminDashboard() {
         .select('amount, verification_status')
         .eq('verification_status', 'approved');
       
-      // Log the users result for debugging
+      // Log results for debugging
       if (usersResult.error) {
         console.error('Error loading users count:', usersResult.error);
       } else {
         console.log('Users count result:', usersResult.count, 'users found');
       }
 
+      // Log businesses result for debugging
+      if (businessesResult.error) {
+        console.error('Error loading businesses count:', businessesResult.error);
+        console.error('Businesses error details:', {
+          message: businessesResult.error.message,
+          code: businessesResult.error.code,
+          details: businessesResult.error.details,
+          hint: businessesResult.error.hint,
+        });
+      } else {
+        console.log('Businesses count result:', businessesResult.count, 'businesses found');
+      }
+
       const totalUsers = usersResult.count || 0;
-      const totalBusinesses = businessesResult.count || 0;
+      const totalBusinesses = businessesResult.error ? 0 : (businessesResult.count || 0);
       const totalProducts = productsResult.count || 0;
       const totalAds = adsResult.count || 0;
 
