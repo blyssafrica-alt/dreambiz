@@ -106,8 +106,13 @@ function RootLayoutNav() {
     // Don't navigate if still loading or loading screen is showing
     if (isLoading || showLoadingScreen) return;
 
+    let isMounted = true;
+    let timeoutId: NodeJS.Timeout | null = null;
+
     // Use requestAnimationFrame to ensure component is fully mounted before navigation
     const navigationFrame = requestAnimationFrame(() => {
+      if (!isMounted) return;
+
       const currentPath = segments.join('/');
       const inAuth = currentPath.includes('landing') || currentPath.includes('sign-up') || currentPath.includes('sign-in');
       const inVerifyEmail = currentPath.includes('verify-email');
@@ -127,16 +132,18 @@ function RootLayoutNav() {
       if (emailVerified === null && isAuthenticated) {
         // Wait a maximum of 2 seconds for email verification check
         // After that, assume not verified to be safe
-        const timeout = setTimeout(() => {
-          setEmailVerified((prev) => {
-            if (prev === null) {
-              console.log('Email verification check timed out, assuming not verified');
-              return false;
-            }
-            return prev;
-          });
+        timeoutId = setTimeout(() => {
+          if (isMounted) {
+            setEmailVerified((prev) => {
+              if (prev === null) {
+                console.log('Email verification check timed out, assuming not verified');
+                return false;
+              }
+              return prev;
+            });
+          }
         }, 2000);
-        return () => clearTimeout(timeout);
+        return;
       }
 
       // CRITICAL: If authenticated but email not verified, redirect to verification screen
@@ -167,7 +174,13 @@ function RootLayoutNav() {
       }
     });
 
-    return () => cancelAnimationFrame(navigationFrame);
+    return () => {
+      isMounted = false;
+      cancelAnimationFrame(navigationFrame);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [isAuthenticated, hasOnboarded, emailVerified, isLoading, showLoadingScreen, segments, router]);
 
   // Always render the Stack navigator so routes are available
