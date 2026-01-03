@@ -88,13 +88,13 @@ function RootLayoutNav() {
         // Only set if we have a valid session and component is still mounted
         if (isMounted && session?.user) {
           const isVerified = !!session.user.email_confirmed_at;
+          const previousVerified = emailVerified;
           setEmailVerified(isVerified);
           console.log('Email verification status:', isVerified ? 'Verified' : 'Not verified');
           
-          // If verified, clear the interval to stop polling
-          if (isVerified && checkInterval) {
-            clearInterval(checkInterval);
-            checkInterval = null;
+          // If just became verified, trigger navigation immediately
+          if (isVerified && previousVerified !== true) {
+            console.log('Email verification just detected - will trigger navigation on next render');
           }
         } else if (isMounted) {
           // No session means not authenticated
@@ -113,13 +113,17 @@ function RootLayoutNav() {
     if (isAuthenticated && authUser) {
       checkEmailVerification();
       
-      // Poll every 2 seconds while on verify-email screen to catch verification quickly
+      // Poll more frequently (every 1 second) while authenticated to catch verification quickly
       // This helps when user clicks email link and returns to app
       checkInterval = setInterval(() => {
         if (isMounted) {
-          checkEmailVerification();
+          // Poll more frequently when email is not verified yet
+          // Once verified, we can reduce frequency but still check occasionally
+          if (emailVerified !== true) {
+            checkEmailVerification();
+          }
         }
-      }, 2000);
+      }, 1000); // Poll every 1 second for faster detection when not verified
     } else {
       if (isMounted) {
         setEmailVerified(null);
@@ -132,7 +136,7 @@ function RootLayoutNav() {
         clearInterval(checkInterval);
       }
     };
-  }, [isAuthenticated, authUser]);
+  }, [isAuthenticated, authUser, emailVerified]);
 
   useEffect(() => {
     // Don't navigate if still loading or loading screen is showing
@@ -238,8 +242,9 @@ function RootLayoutNav() {
 
       // If authenticated, email verified, but not onboarded, redirect to onboarding
       // Only proceed to onboarding if email is verified (emailVerified === true)
+      // Also redirect from verify-email screen when verified
       if (isAuthenticated && emailVerified === true && !hasOnboarded) {
-        if (!inOnboarding && !inVerifyEmail) {
+        if (inVerifyEmail || !inOnboarding) {
           console.log('Redirecting to onboarding: email verified, not onboarded');
           router.replace('/onboarding' as any);
         }

@@ -173,23 +173,17 @@ export default function VerifyEmailScreen() {
           }),
         ]).start();
         
-        // CRITICAL: Refresh session one more time and wait a bit before redirecting
-        // This ensures _layout.tsx has time to detect the verification status
-        // and update its emailVerified state, preventing redirect loops
-        setTimeout(async () => {
-          try {
-            // Force another session refresh to ensure it's fully propagated
-            await supabase.auth.refreshSession();
-            // Small delay to let _layout.tsx catch up
-            await new Promise(resolve => setTimeout(resolve, 500));
-            // Now redirect
-            router.replace('/onboarding' as any);
-          } catch (error) {
-            console.error('Error before redirect:', error);
-            // Still redirect even if refresh fails
+        // CRITICAL: Let _layout.tsx handle navigation automatically
+        // It polls every 1 second and will detect verification quickly
+        // Show success message for at least 2 seconds, then auto-redirect as backup
+        // This gives _layout.tsx time to detect and handle navigation first
+        setTimeout(() => {
+          // Backup redirect - _layout.tsx should have already redirected
+          // But this ensures user isn't stuck if _layout.tsx hasn't caught up yet
+          if (isVerified) {
             router.replace('/onboarding' as any);
           }
-        }, 2000); // Increased delay to 2 seconds
+        }, 3000); // 3 second delay to show success message
       } else {
         setIsChecking(false);
       }
