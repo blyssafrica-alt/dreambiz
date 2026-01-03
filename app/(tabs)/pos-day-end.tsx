@@ -13,6 +13,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBusiness } from '@/contexts/BusinessContext';
@@ -68,6 +69,7 @@ export default function POSDayEndScreen() {
   const { user } = useAuth();
   const { business } = useBusiness();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -394,7 +396,10 @@ export default function POSDayEndScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: 32 + insets.bottom + 110 } // 110 for tab bar height + extra space
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -865,7 +870,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: (bottomInset: number) => 32 + bottomInset + 110, // 110 for tab bar + extra space
+    paddingBottom: 32, // Base padding, will be overridden by inline style
   },
   loadingContainer: {
     flex: 1,
