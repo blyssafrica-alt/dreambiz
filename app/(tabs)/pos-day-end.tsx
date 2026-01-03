@@ -496,7 +496,7 @@ export default function POSDayEndScreen() {
                 <Text style={[styles.cashRowHint, { color: theme.text.tertiary }]}>Total cash received</Text>
               </View>
               <Text style={[styles.cashRowValue, { color: '#10B981', fontWeight: '700' }]}>
-                +{formatCurrency(todayShift.cashSales)}
+                {`+${formatCurrency(todayShift.cashSales)}`}
               </Text>
             </View>
 
