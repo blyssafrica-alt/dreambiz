@@ -315,9 +315,12 @@ export default function POSDayEndScreen() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | null | undefined) => {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      amount = 0;
+    }
     const currency = todayShift?.currency || business?.currency || 'USD';
-    return `${currency} ${amount.toFixed(2)}`;
+    return `${currency} ${Math.abs(amount).toFixed(2)}`;
   };
 
   if (isLoading) {
@@ -382,7 +385,7 @@ export default function POSDayEndScreen() {
             >
               <RefreshCw size={20} color="#FFF" strokeWidth={2.5} />
             </TouchableOpacity>
-          ) : null
+          ) : undefined
         }
       />
 
@@ -809,7 +812,7 @@ export default function POSDayEndScreen() {
                     Cash {discrepancy > 0 ? 'Over' : 'Short'}
                   </Text>
                   <Text style={[styles.modalDiscrepancyAmount, { color: theme.text.primary }]}>
-                    {discrepancy > 0 ? '+' : ''}{formatCurrency(discrepancy)}
+                    {discrepancy !== null && discrepancy > 0 ? '+' : ''}{formatCurrency(discrepancy)}
                   </Text>
                 </View>
               </View>

@@ -66,13 +66,20 @@ export async function checkOpenShift(businessId: string): Promise<ShiftInfo | nu
     // Get employee name from opened_by (which is user_id)
     let openedByName: string | undefined = undefined;
     if (shiftData.opened_by) {
-      // Find employee with this auth_user_id
-      const { data: employee } = await supabase
-        .from('employees')
-        .select('name')
-        .eq('auth_user_id', shiftData.opened_by)
-        .maybeSingle();
-      openedByName = employee?.name;
+      try {
+        // Find employee with this auth_user_id
+        const { data: employee, error: employeeError } = await supabase
+          .from('employees')
+          .select('name')
+          .eq('auth_user_id', shiftData.opened_by)
+          .maybeSingle();
+        if (!employeeError && employee) {
+          openedByName = employee?.name;
+        }
+      } catch (empError) {
+        // Employee lookup failed - not critical, continue without name
+        console.log('Could not fetch employee name for shift opener:', empError);
+      }
     }
 
     return {
@@ -88,8 +95,9 @@ export async function checkOpenShift(businessId: string): Promise<ShiftInfo | nu
       expectedCash: parseFloat(shiftData.expected_cash || '0'),
       currency: shiftData.currency || 'USD',
     };
-  } catch (error) {
-    console.error('Error checking open shift:', error);
+  } catch (error: any) {
+    console.error('Error checking open shift:', error?.message || error);
+    // Return null to indicate no shift found or error occurred
     return null;
   }
 }
