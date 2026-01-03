@@ -865,7 +865,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 32,
+    paddingBottom: (bottomInset: number) => 32 + bottomInset + 110, // 110 for tab bar + extra space
   },
   loadingContainer: {
     flex: 1,
