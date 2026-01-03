@@ -16,6 +16,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import AnimatedLogo from '@/components/AnimatedLogo';
 
 export default function SignUpScreen() {
   const { signUp } = useAuth();
@@ -74,14 +75,13 @@ export default function SignUpScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <LinearGradient
-              colors={[theme.accent.primary, theme.accent.secondary] as any}
-              style={styles.iconGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <User size={32} color="#FFF" />
-            </LinearGradient>
+            <AnimatedLogo 
+              size={80} 
+              showGradient={true}
+              rotationSpeed={5000}
+              pulseEnabled={true}
+              style={{ marginBottom: 16 }}
+            />
 
             <Text style={[styles.title, { color: theme.text.primary }]}>
               Create Account

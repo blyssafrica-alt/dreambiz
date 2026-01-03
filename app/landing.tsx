@@ -13,6 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import AnimatedLogo from '@/components/AnimatedLogo';
 
 
 
@@ -105,6 +106,15 @@ export default function LandingScreen() {
               transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
             },
           ]}>
+            {/* Animated Logo */}
+            <AnimatedLogo 
+              size={100} 
+              showGradient={true}
+              rotationSpeed={4000}
+              pulseEnabled={true}
+              style={{ marginBottom: 24 }}
+            />
+
             <View style={[styles.badge, { backgroundColor: 'rgba(255, 255, 255, 0.25)' }]}>
               <Sparkles size={14} color="#FFF" />
               <Text style={[styles.badgeText, { color: '#FFF' }]}>

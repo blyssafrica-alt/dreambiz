@@ -22,6 +22,7 @@ import { PremiumContextProvider } from "@/contexts/PremiumContext";
 import { SettingsContext } from "@/contexts/SettingsContext";
 import { StatusBar } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import LoadingScreen from '@/components/LoadingScreen';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -37,8 +38,19 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
   const [emailVerified, setEmailVerified] = React.useState<boolean | null>(null);
+  const [showLoadingScreen, setShowLoadingScreen] = React.useState(true);
 
   const isLoading = businessLoading || authLoading;
+
+  // Hide loading screen after initial load
+  React.useEffect(() => {
+    if (!isLoading && !authLoading && !businessLoading) {
+      const timer = setTimeout(() => {
+        setShowLoadingScreen(false);
+      }, 800); // Small delay for smooth transition
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, authLoading, businessLoading]);
 
   // Check email verification status (only when authenticated)
   React.useEffect(() => {
@@ -184,7 +196,16 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   useEffect(() => {
-    SplashScreen.hideAsync();
+    // Hide native splash screen - our custom loading screen will handle the transition
+    const timer = setTimeout(async () => {
+      try {
+        await SplashScreen.hideAsync();
+      } catch (e) {
+        // Ignore errors
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, []);
 
   return (

@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/hooks/useTranslation';
+import AnimatedLogo from '@/components/AnimatedLogo';
 
 export default function SignInScreen() {
   const { signIn } = useAuth();
