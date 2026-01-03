@@ -103,7 +103,8 @@ function RootLayoutNav() {
   }, [isAuthenticated, authUser]);
 
   useEffect(() => {
-    if (isLoading) return; // Wait for auth to load
+    // Don't navigate if still loading or loading screen is showing
+    if (isLoading || showLoadingScreen) return;
 
     const currentPath = segments.join('/');
     const inAuth = currentPath.includes('landing') || currentPath.includes('sign-up') || currentPath.includes('sign-in');
@@ -159,12 +160,44 @@ function RootLayoutNav() {
       router.replace('/(tabs)' as any);
       return;
     }
-  }, [isAuthenticated, hasOnboarded, emailVerified, isLoading, segments, router]);
+  }, [isAuthenticated, hasOnboarded, emailVerified, isLoading, showLoadingScreen, segments, router]);
 
-  // Show loading screen during initial app load
-  if (showLoadingScreen || isLoading) {
-    return <LoadingScreen message="Loading DreamBiz..." />;
-  }
+  // Always render the Stack navigator so routes are available
+  // Show loading screen as overlay if needed
+  return (
+    <>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <Stack 
+        screenOptions={{ 
+          headerBackTitle: "Back",
+          headerStyle: {
+            backgroundColor: theme.background.card,
+          },
+          headerTintColor: theme.text.primary,
+          headerShadowVisible: false,
+        }}
+      >
+        <Stack.Screen name="landing" options={{ headerShown: false }} />
+        <Stack.Screen name="sign-up" options={{ headerShown: false }} />
+        <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+        <Stack.Screen name="verify-email" options={{ headerShown: false }} />
+        <Stack.Screen name="employee-login" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="document/[id]" options={{ title: 'Document', headerShown: true }} />
+        <Stack.Screen name="business-plan" options={{ title: 'Business Plan', headerShown: true }} />
+        <Stack.Screen name="help" options={{ title: 'Help & Support', headerShown: false }} />
+        <Stack.Screen name="books" options={{ headerShown: false }} />
+        <Stack.Screen name="my-library" options={{ title: 'My Library', headerShown: false }} />
+        <Stack.Screen name="receipt-scan" options={{ title: 'Scan Receipt', headerShown: false }} />
+        <Stack.Screen name="payments" options={{ headerShown: false }} />
+        <Stack.Screen name="admin" options={{ headerShown: false }} />
+      </Stack>
+      {showLoadingScreen || isLoading ? (
+        <LoadingScreen message="Loading DreamBiz..." />
+      ) : null}
+    </>
+  );
 
   return (
     <>

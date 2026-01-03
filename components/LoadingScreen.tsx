@@ -204,7 +204,21 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background.primary }]} edges={['top', 'bottom']}>
+    <SafeAreaView 
+      style={[
+        styles.container, 
+        { 
+          backgroundColor: theme.background.primary,
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9999,
+        }
+      ]} 
+      edges={['top', 'bottom']}
+    >
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <LinearGradient
         colors={isDark 
