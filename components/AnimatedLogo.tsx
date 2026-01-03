@@ -77,7 +77,8 @@ export default function AnimatedLogo({
   }
 
   const containerSize = size;
-  const logoSize = size * 0.7; // Logo takes 70% of container
+  const logoSize = size * 0.75; // Logo takes 75% of container
+  const whiteCircleSize = size * 0.85; // White circle is 85% of container
 
   return (
     <Animated.View
@@ -111,41 +112,55 @@ export default function AnimatedLogo({
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            {logoSource ? (
-              <Image
-                source={logoSource}
-                style={[styles.logoImage, { width: logoSize, height: logoSize }]}
-                resizeMode="contain"
-              />
-            ) : (
-              <View style={[styles.fallbackLogo, { width: logoSize, height: logoSize, borderRadius: logoSize / 2 }]}>
-                <LinearGradient
-                  colors={['#FFF', '#F0F0F0'] as any}
-                  style={styles.fallbackGradient}
-                >
-                  {/* Fallback: First letter of app name */}
-                  <Animated.Text style={[styles.fallbackText, { fontSize: logoSize * 0.4 }]}>
-                    D
-                  </Animated.Text>
-                </LinearGradient>
-              </View>
-            )}
+            {/* White circular background */}
+            <View style={[styles.whiteCircle, { 
+              width: whiteCircleSize, 
+              height: whiteCircleSize, 
+              borderRadius: whiteCircleSize / 2 
+            }]}>
+              {logoSource ? (
+                <Image
+                  source={logoSource}
+                  style={[styles.logoImage, { width: logoSize, height: logoSize }]}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={[styles.fallbackLogo, { width: logoSize, height: logoSize, borderRadius: logoSize / 2 }]}>
+                  <LinearGradient
+                    colors={['#FFF', '#F0F0F0'] as any}
+                    style={styles.fallbackGradient}
+                  >
+                    {/* Fallback: First letter of app name */}
+                    <Animated.Text style={[styles.fallbackText, { fontSize: logoSize * 0.4 }]}>
+                      D
+                    </Animated.Text>
+                  </LinearGradient>
+                </View>
+              )}
+            </View>
           </LinearGradient>
         ) : (
           <View style={[styles.logoWrapperNoGradient, { borderRadius: containerSize / 2 }]}>
-            {logoSource ? (
-              <Image
-                source={logoSource}
-                style={[styles.logoImage, { width: logoSize, height: logoSize }]}
-                resizeMode="contain"
-              />
-            ) : (
-              <View style={[styles.fallbackLogo, { width: logoSize, height: logoSize, borderRadius: logoSize / 2 }]}>
-                <Animated.Text style={[styles.fallbackText, { fontSize: logoSize * 0.4, color: theme.accent.primary }]}>
-                  D
-                </Animated.Text>
-              </View>
-            )}
+            {/* White circular background */}
+            <View style={[styles.whiteCircle, { 
+              width: whiteCircleSize, 
+              height: whiteCircleSize, 
+              borderRadius: whiteCircleSize / 2 
+            }]}>
+              {logoSource ? (
+                <Image
+                  source={logoSource}
+                  style={[styles.logoImage, { width: logoSize, height: logoSize }]}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={[styles.fallbackLogo, { width: logoSize, height: logoSize, borderRadius: logoSize / 2 }]}>
+                  <Animated.Text style={[styles.fallbackText, { fontSize: logoSize * 0.4, color: theme.accent.primary }]}>
+                    D
+                  </Animated.Text>
+                </View>
+              )}
+            </View>
           </View>
         )}
       </Animated.View>
@@ -167,7 +182,11 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 8,
+  },
+  whiteCircle: {
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   logoWrapperNoGradient: {
     width: '100%',

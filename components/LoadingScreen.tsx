@@ -112,17 +112,20 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                {logoSource ? (
-                  <Image
-                    source={logoSource}
-                    style={styles.logoImage}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <View style={styles.fallbackLogo}>
-                    <Text style={styles.fallbackText}>D</Text>
-                  </View>
-                )}
+                {/* White circular background */}
+                <View style={styles.whiteCircle}>
+                  {logoSource ? (
+                    <Image
+                      source={logoSource}
+                      style={styles.logoImage}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View style={styles.fallbackLogo}>
+                      <Text style={styles.fallbackText}>D</Text>
+                    </View>
+                  )}
+                </View>
               </LinearGradient>
             </Animated.View>
           </Animated.View>
@@ -217,7 +220,14 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+  },
+  whiteCircle: {
+    width: 102,
+    height: 102,
+    borderRadius: 51,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   logoImage: {
     width: '100%',
