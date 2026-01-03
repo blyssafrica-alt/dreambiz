@@ -112,7 +112,10 @@ export default function POSDayEndScreen() {
         .eq('status', 'open')
         .maybeSingle();
 
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') {
+        // PGRST116 = not found, which is OK
+        throw error;
+      }
 
       if (shiftData) {
         const shift: POSShift = {
