@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { useAuth } from './AuthContext';
 import { supabase } from '@/lib/supabase';
 import type { SubscriptionPlan, UserSubscription, PremiumTrial, PremiumContextType } from '@/types/premium';
@@ -142,9 +143,61 @@ export function PremiumContextProvider({ children }: { children: React.ReactNode
     }
   }, [user?.id]);
 
+  // Set up real-time subscription for premium_trials and user_subscriptions
   useEffect(() => {
+    if (!user?.id) return;
+
+    // Refresh on mount
     refreshPremiumStatus();
-  }, [refreshPremiumStatus]);
+
+    // Set up real-time subscription to auto-refresh when trials/subscriptions change
+    const trialsChannel = supabase
+      .channel('premium_trials_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'premium_trials',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          // Refresh premium status when trial changes
+          refreshPremiumStatus();
+        }
+      )
+      .subscribe();
+
+    const subscriptionsChannel = supabase
+      .channel('user_subscriptions_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_subscriptions',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          // Refresh premium status when subscription changes
+          refreshPremiumStatus();
+        }
+      )
+      .subscribe();
+
+    // Refresh when app comes to foreground
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        refreshPremiumStatus();
+      }
+    });
+
+    return () => {
+      trialsChannel.unsubscribe();
+      subscriptionsChannel.unsubscribe();
+      subscription.remove();
+    };
+  }, [user?.id, refreshPremiumStatus]);
 
   const grantTrial = useCallback(async (userId: string, planId: string, days: number, notes?: string) => {
     // This is for Super Admin use - implemented in admin/premium.tsx

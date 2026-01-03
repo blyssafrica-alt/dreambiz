@@ -143,7 +143,7 @@ BEGIN
     COALESCE(SUM(d.total), 0),
     COUNT(DISTINCT t.id),
     COUNT(DISTINCT d.id),
-    COALESCE(SUM((d.discount_amount::numeric)), 0)
+    COALESCE(SUM(COALESCE(d.discount_amount, 0)), 0)
   INTO 
     v_cash_sales,
     v_card_sales,

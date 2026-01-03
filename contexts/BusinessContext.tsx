@@ -243,24 +243,40 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       }
 
       if (documentsRes.data) {
-        setDocuments(documentsRes.data.map(d => ({
-          id: d.id,
-          type: d.type as any,
-          documentNumber: d.document_number,
-          customerName: d.customer_name,
-          customerPhone: d.customer_phone || undefined,
-          customerEmail: d.customer_email || undefined,
-          items: d.items as any,
-          subtotal: Number(d.subtotal),
-          tax: d.tax ? Number(d.tax) : undefined,
-          total: Number(d.total),
-          currency: d.currency as any,
-          date: d.date,
-          dueDate: d.due_date || undefined,
-          status: (d.status as any) || 'draft',
-          createdAt: d.created_at,
-          notes: d.notes || undefined,
-        })));
+        setDocuments(documentsRes.data.map(d => {
+          // Extract employee name from notes if present (backward compatibility)
+          let employeeName: string | undefined = undefined;
+          if (d.employee_name) {
+            employeeName = d.employee_name;
+          } else if (d.notes && d.notes.includes('Served by:')) {
+            const match = d.notes.match(/Served by:\s*(.+)/);
+            if (match) {
+              employeeName = match[1].trim();
+            }
+          }
+          
+          return {
+            id: d.id,
+            type: d.type as any,
+            documentNumber: d.document_number,
+            customerName: d.customer_name,
+            customerPhone: d.customer_phone || undefined,
+            customerEmail: d.customer_email || undefined,
+            items: d.items as any,
+            subtotal: Number(d.subtotal),
+            tax: d.tax ? Number(d.tax) : undefined,
+            total: Number(d.total),
+            currency: d.currency as any,
+            date: d.date,
+            dueDate: d.due_date || undefined,
+            status: (d.status as any) || 'draft',
+            createdAt: d.created_at,
+            notes: d.notes || undefined,
+            paymentMethod: d.payment_method as any,
+            employeeName: employeeName,
+            paidAmount: d.paid_amount ? Number(d.paid_amount) : undefined,
+          };
+        }));
       }
 
       if (productsRes.data) {
@@ -1074,15 +1090,22 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           due_date: document.dueDate || null,
           status: document.status || 'draft',
           notes: notes || null,
+          payment_method: document.paymentMethod || null,
+          employee_name: document.employeeName || null,
+          discount_amount: (document as any).discountAmount || null,
+          amount_received: (document as any).amountReceived || null,
+          change_amount: (document as any).changeAmount || null,
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      // Extract employee name from notes if present
+      // Extract employee name from notes if present (backward compatibility)
       let employeeName: string | undefined = undefined;
-      if (data.notes && data.notes.includes('Served by:')) {
+      if (data.employee_name) {
+        employeeName = data.employee_name;
+      } else if (data.notes && data.notes.includes('Served by:')) {
         const match = data.notes.match(/Served by:\s*(.+)/);
         if (match) {
           employeeName = match[1].trim();
@@ -1106,7 +1129,9 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         status: (data.status as any) || 'draft',
         createdAt: data.created_at,
         notes: data.notes || undefined,
+        paymentMethod: data.payment_method as any,
         employeeName: employeeName,
+        paidAmount: data.paid_amount ? Number(data.paid_amount) : undefined,
       };
 
       setDocuments([newDocument, ...documents]);
@@ -1131,6 +1156,10 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       if (updates.total !== undefined) updateData.total = updates.total;
       if (updates.date !== undefined) updateData.date = updates.date;
       if (updates.paymentMethod !== undefined) updateData.payment_method = updates.paymentMethod || null;
+      if (updates.employeeName !== undefined) updateData.employee_name = updates.employeeName || null;
+      if ((updates as any).discountAmount !== undefined) updateData.discount_amount = (updates as any).discountAmount || null;
+      if ((updates as any).amountReceived !== undefined) updateData.amount_received = (updates as any).amountReceived || null;
+      if ((updates as any).changeAmount !== undefined) updateData.change_amount = (updates as any).changeAmount || null;
 
       const { error } = await supabase
         .from('documents')
