@@ -99,7 +99,7 @@ export default {
       sentryUrl: process.env.EXPO_PUBLIC_SENTRY_URL || 'https://sentry.io/',
       router: {},
       eas: {
-        projectId: 'abd43cba-42c7-430f-8f2d-8326fea4ca5f',
+        projectId: '928cba75-75e2-4ea3-998d-ce6e053fa95c',
       },
     },
     runtimeVersion: {
