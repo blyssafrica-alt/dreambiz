@@ -153,29 +153,61 @@ export default function VerifyEmailScreen() {
         setCheckMessage(null); // Clear previous message
       }
       
-      // CRITICAL: Refresh the session first to get the latest email verification status
-      // This is needed when user clicks the email link and comes back to the app
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-      if (refreshError) {
-        console.log('Session refresh error (non-critical):', refreshError.message);
-        // Don't return - still try to check session
-      }
+      // CRITICAL: Use getUser() instead of getSession() to get fresh user data from server
+      // This is essential when email is verified on another device
+      // getUser() makes a server request and gets the latest verification status
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
       
-      // Get the refreshed session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.error('Error getting session:', sessionError);
-        if (showUI) {
-          setIsChecking(false);
-          setCheckMessage('Unable to check verification status. Please try again.');
-          // Clear message after 3 seconds
-          setTimeout(() => setCheckMessage(null), 3000);
+      if (userError) {
+        console.error('Error getting user:', userError);
+        // Fallback to session if getUser fails
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session) {
+          if (showUI) {
+            setIsChecking(false);
+            setCheckMessage('Unable to check verification status. Please try again.');
+            setTimeout(() => setCheckMessage(null), 3000);
+          }
+          return;
+        }
+        
+        // Use session user data as fallback
+        if (session.user?.email_confirmed_at) {
+          setIsVerified(true);
+          if (showUI) {
+            setIsChecking(false);
+            setCheckMessage(null);
+          }
+          // Animate success
+          Animated.parallel([
+            Animated.spring(scaleAnim, {
+              toValue: 1.05,
+              tension: 50,
+              friction: 7,
+              useNativeDriver: true,
+            }),
+          ]).start();
+          
+          // Show success message for 2 seconds, then navigate to onboarding
+          if (!navigationTimeoutRef.current) {
+            navigationTimeoutRef.current = setTimeout(() => {
+              navigationTimeoutRef.current = null;
+              router.replace('/onboarding' as any);
+            }, 2000);
+          }
+        } else {
+          if (showUI) {
+            setIsChecking(false);
+            setCheckMessage('Email not verified yet. Please check your inbox and click the verification link.');
+            setTimeout(() => setCheckMessage(null), 4000);
+          }
         }
         return;
       }
       
-      if (session?.user?.email_confirmed_at) {
+      // Use fresh user data from server (this has the latest verification status)
+      if (user?.email_confirmed_at) {
         setIsVerified(true);
         if (showUI) {
           setIsChecking(false);
