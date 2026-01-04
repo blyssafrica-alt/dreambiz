@@ -215,12 +215,34 @@ export default function VerifyEmailScreen() {
         setCheckMessage(null); // Clear previous message
       }
       
+      // First check if we have a session before calling getUser
+      const { data: { session: currentSession }, error: sessionCheckError } = await supabase.auth.getSession();
+      if (sessionCheckError || !currentSession) {
+        // No session yet - this can happen right after sign-up
+        if (showUI) {
+          setIsChecking(false);
+          setCheckMessage('Please wait a moment for your account to be set up...');
+          setTimeout(() => setCheckMessage(null), 3000);
+        }
+        return;
+      }
+      
       // CRITICAL: Use getUser() instead of getSession() to get fresh user data from server
       // This is essential when email is verified on another device
       // getUser() makes a server request and gets the latest verification status
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError) {
+        // If getUser fails with session missing, it means session isn't ready yet
+        if (userError.message?.includes('Auth session missing')) {
+          if (showUI) {
+            setIsChecking(false);
+            setCheckMessage('Please wait a moment for your account to be set up...');
+            setTimeout(() => setCheckMessage(null), 3000);
+          }
+          return;
+        }
+        
         console.error('Error getting user:', userError);
         // Fallback to session if getUser fails
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
