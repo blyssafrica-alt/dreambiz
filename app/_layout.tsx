@@ -154,8 +154,8 @@ function RootLayoutNav() {
 
     // Navigation decision tree - only navigate if not already on correct screen
     if (!isAuthenticated) {
-      // Not authenticated - go to landing
-      if (!inAuth && !inVerifyEmail) {
+      // Not authenticated - go to landing (redirect away from verify-email and onboarding)
+      if (!inAuth) {
         router.replace('/landing' as any);
       }
       return;
@@ -164,7 +164,23 @@ function RootLayoutNav() {
     // Authenticated - check email verification status
     // Wait a bit for email verification status to be determined (if null, wait)
     if (emailVerified === null) {
-      // Still checking - don't navigate yet (let verify-email screen handle it)
+      // Still checking - don't navigate yet, but if on verify-email/onboarding and we have data, we can check
+      // Actually, if hasOnboarded is already true, we can skip to tabs even if email check is pending
+      if (hasOnboarded && (inVerifyEmail || inOnboarding)) {
+        // Already onboarded - redirect away from verify-email and onboarding
+        router.replace('/(tabs)' as any);
+      }
+      return;
+    }
+
+    // CRITICAL: If email is already verified, redirect away from verify-email screen immediately
+    if (emailVerified === true && inVerifyEmail) {
+      // Email is verified - check if onboarded to decide next screen
+      if (hasOnboarded) {
+        router.replace('/(tabs)' as any);
+      } else {
+        router.replace('/onboarding' as any);
+      }
       return;
     }
 
@@ -177,6 +193,12 @@ function RootLayoutNav() {
     }
 
     // Email verified - check onboarding
+    // CRITICAL: If already onboarded, redirect away from onboarding screen immediately
+    if (hasOnboarded && inOnboarding) {
+      router.replace('/(tabs)' as any);
+      return;
+    }
+
     if (!hasOnboarded) {
       // Not onboarded - go to onboarding (navigate even if on verify-email to show onboarding)
       if (!inOnboarding && !inAuth) {

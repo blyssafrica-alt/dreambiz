@@ -5,7 +5,7 @@ import {
   Briefcase,
   ChevronRight 
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { useAuth } from '@/contexts/AuthContext';
 import type { BusinessProfile, BusinessType, BusinessStage, Currency, DreamBigBook } from '@/types/business';
 import { DREAMBIG_BOOKS } from '@/constants/books';
 import { supabase } from '@/lib/supabase';
@@ -40,8 +41,18 @@ const businessStages: { value: BusinessStage; label: string; desc: string }[] = 
 ];
 
 export default function OnboardingScreen() {
-  const { saveBusiness } = useBusiness();
+  const { saveBusiness, hasOnboarded } = useBusiness();
+  const { authUser } = useAuth();
   const [step, setStep] = useState(1);
+
+  // GUARD: If already onboarded, redirect immediately to dashboard
+  // This prevents showing onboarding screen to users who have already completed this step
+  useEffect(() => {
+    if (hasOnboarded) {
+      router.replace('/(tabs)' as any);
+      return;
+    }
+  }, [hasOnboarded]);
   const [formData, setFormData] = useState({
     name: '',
     owner: '',

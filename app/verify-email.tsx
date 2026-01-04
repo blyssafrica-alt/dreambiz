@@ -17,12 +17,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useBusiness } from '@/contexts/BusinessContext';
 import { supabase } from '@/lib/supabase';
 import AnimatedLogo from '@/components/AnimatedLogo';
 
 export default function VerifyEmailScreen() {
   const { theme, isDark } = useTheme();
   const { authUser } = useAuth();
+  const { hasOnboarded } = useBusiness();
   const [isChecking, setIsChecking] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [email, setEmail] = useState(authUser?.email || '');
@@ -35,6 +37,31 @@ export default function VerifyEmailScreen() {
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // GUARD: If email is already verified, redirect immediately
+  // This prevents showing verify-email screen to users who have already completed this step
+  useEffect(() => {
+    const checkAndRedirect = async () => {
+      if (!authUser) return;
+      
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email_confirmed_at) {
+          // Email already verified - redirect based on onboarding status
+          if (hasOnboarded) {
+            router.replace('/(tabs)' as any);
+          } else {
+            router.replace('/onboarding' as any);
+          }
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking email verification status:', error);
+      }
+    };
+    
+    checkAndRedirect();
+  }, [authUser, hasOnboarded]);
 
   useEffect(() => {
     // Set email from authUser
