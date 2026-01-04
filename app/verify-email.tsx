@@ -88,8 +88,11 @@ export default function VerifyEmailScreen() {
     checkEmailStatus(false);
     
     // Poll for email verification every 3 seconds (silent - no UI blinking)
+    // Use longer interval to reduce glitches and unnecessary checks
     const interval = setInterval(() => {
-      checkEmailStatus(false); // Silent check - won't cause button to blink
+      if (!isVerified) {
+        checkEmailStatus(false); // Silent check - won't cause button to blink
+      }
     }, 3000);
 
     // CRITICAL: Listen for app state changes to refresh session when app comes to foreground

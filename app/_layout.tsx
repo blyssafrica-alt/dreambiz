@@ -42,15 +42,30 @@ function RootLayoutNav() {
 
   const isLoading = businessLoading || authLoading;
 
-  // Hide loading screen after initial load completes - no delay for smooth transition
+  // Hide loading screen after initial load completes - prevent flicker with debouncing
+  const loadingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  
   React.useEffect(() => {
+    // Clear any pending timeout
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+    }
+
     if (!isLoading && !authLoading && !businessLoading) {
-      // Hide immediately when loading completes - no artificial delay
-      setShowLoadingScreen(false);
+      // Small delay to prevent flicker if loading state changes rapidly
+      loadingTimeoutRef.current = setTimeout(() => {
+        setShowLoadingScreen(false);
+      }, 100);
     } else {
-      // Show loading screen while loading
+      // Show loading screen immediately when loading starts
       setShowLoadingScreen(true);
     }
+
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+    };
   }, [isLoading, authLoading, businessLoading]);
 
   // Check email verification status (only when authenticated)
@@ -115,17 +130,16 @@ function RootLayoutNav() {
       // Check immediately when authenticated
       checkEmailVerification();
       
-      // Poll more frequently (every 1 second) while authenticated to catch verification quickly
+      // Poll for email verification (every 3 seconds) - reduced frequency to prevent glitches
       // This helps when user clicks email link and returns to app
       checkInterval = setInterval(() => {
         if (isMounted) {
-          // Poll more frequently when email is not verified yet
-          // Once verified, we can reduce frequency but still check occasionally
+          // Only poll if email is not verified yet to reduce unnecessary checks
           if (emailVerified !== true) {
             checkEmailVerification();
           }
         }
-      }, 1000); // Poll every 1 second for faster detection when not verified
+      }, 3000); // Poll every 3 seconds - balance between responsiveness and performance
     } else {
       if (isMounted) {
         setEmailVerified(null);
@@ -141,76 +155,83 @@ function RootLayoutNav() {
   }, [isAuthenticated, authUser, emailVerified]);
 
   // Navigation logic - simplified to prevent race conditions
+  // Use ref to prevent rapid navigation attempts
+  const navigationRef = React.useRef<string | null>(null);
+  const lastNavigationTimeRef = React.useRef<number>(0);
+  
   useEffect(() => {
     // Don't navigate if still loading - wait for all data to be ready
     if (isLoading || authLoading || businessLoading) return;
 
+    // Debounce navigation - prevent rapid redirects (min 300ms between navigations)
+    const now = Date.now();
+    if (now - lastNavigationTimeRef.current < 300) {
+      return;
+    }
+
     // Get current route
     const currentPath = segments.join('/');
+    
+    // Prevent duplicate navigation to same route
+    if (navigationRef.current === currentPath) {
+      return;
+    }
+    
     const inAuth = currentPath.includes('landing') || currentPath.includes('sign-up') || currentPath.includes('sign-in');
     const inVerifyEmail = currentPath.includes('verify-email');
     const inOnboarding = currentPath.includes('onboarding');
     const inTabs = currentPath.includes('(tabs)') || currentPath === '';
 
     // Navigation decision tree - only navigate if not already on correct screen
+    let targetRoute: string | null = null;
+
     if (!isAuthenticated) {
       // Not authenticated - go to landing (redirect away from verify-email and onboarding)
       if (!inAuth) {
-        router.replace('/landing' as any);
+        targetRoute = '/landing';
       }
-      return;
-    }
-
-    // Authenticated - check email verification status
-    // Wait a bit for email verification status to be determined (if null, wait)
-    if (emailVerified === null) {
-      // Still checking - don't navigate yet, but if on verify-email/onboarding and we have data, we can check
-      // Actually, if hasOnboarded is already true, we can skip to tabs even if email check is pending
-      if (hasOnboarded && (inVerifyEmail || inOnboarding)) {
-        // Already onboarded - redirect away from verify-email and onboarding
-        router.replace('/(tabs)' as any);
+    } else {
+      // Authenticated - check email verification status
+      // Wait a bit for email verification status to be determined (if null, wait)
+      if (emailVerified === null) {
+        // Still checking - don't navigate yet, but if on verify-email/onboarding and we have data, we can check
+        if (hasOnboarded && (inVerifyEmail || inOnboarding)) {
+          // Already onboarded - redirect away from verify-email and onboarding
+          targetRoute = '/(tabs)';
+        }
+      } else if (emailVerified === true && inVerifyEmail) {
+        // CRITICAL: If email is already verified, redirect away from verify-email screen immediately
+        if (hasOnboarded) {
+          targetRoute = '/(tabs)';
+        } else {
+          targetRoute = '/onboarding';
+        }
+      } else if (emailVerified === false) {
+        // Email not verified - go to verify-email (unless already there or coming from sign-up)
+        if (!inVerifyEmail && !inAuth) {
+          targetRoute = '/verify-email';
+        }
+      } else if (hasOnboarded && inOnboarding) {
+        // CRITICAL: If already onboarded, redirect away from onboarding screen immediately
+        targetRoute = '/(tabs)';
+      } else if (!hasOnboarded) {
+        // Not onboarded - go to onboarding (navigate even if on verify-email to show onboarding)
+        if (!inOnboarding && !inAuth) {
+          targetRoute = '/onboarding';
+        }
+      } else if (!inTabs && !inAuth) {
+        // Authenticated, verified, onboarded - go to main app
+        targetRoute = '/(tabs)';
       }
-      return;
     }
 
-    // CRITICAL: If email is already verified, redirect away from verify-email screen immediately
-    if (emailVerified === true && inVerifyEmail) {
-      // Email is verified - check if onboarded to decide next screen
-      if (hasOnboarded) {
-        router.replace('/(tabs)' as any);
-      } else {
-        router.replace('/onboarding' as any);
-      }
-      return;
-    }
-
-    if (emailVerified === false) {
-      // Email not verified - go to verify-email (unless already there or coming from sign-up)
-      if (!inVerifyEmail && !inAuth) {
-        router.replace('/verify-email' as any);
-      }
-      return;
-    }
-
-    // Email verified - check onboarding
-    // CRITICAL: If already onboarded, redirect away from onboarding screen immediately
-    if (hasOnboarded && inOnboarding) {
-      router.replace('/(tabs)' as any);
-      return;
-    }
-
-    if (!hasOnboarded) {
-      // Not onboarded - go to onboarding (navigate even if on verify-email to show onboarding)
-      if (!inOnboarding && !inAuth) {
-        router.replace('/onboarding' as any);
-      }
-      return;
-    }
-
-    // Authenticated, verified, onboarded - go to main app
-    // Navigate even if on verify-email or onboarding to go to main app
-    if (!inTabs && !inAuth) {
-      router.replace('/(tabs)' as any);
+    // Perform navigation if needed
+    if (targetRoute && targetRoute !== currentPath) {
+      navigationRef.current = targetRoute;
+      lastNavigationTimeRef.current = now;
+      router.replace(targetRoute as any);
+    } else {
+      navigationRef.current = currentPath;
     }
   }, [isAuthenticated, hasOnboarded, emailVerified, isLoading, authLoading, businessLoading, segments, router]);
 
