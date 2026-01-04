@@ -128,91 +128,34 @@ export const [AuthContext, useAuth] = createContextHook(() => {
       // Sign up with provider
       const authUser = await provider.signUp(email, password, { name });
 
-      // Brief wait for auth user to be available (reduced from 2s to 500ms)
-      await new Promise<void>(resolve => setTimeout(() => resolve(), 500));
-
-      // Try to create user profile with faster retries
+      // Database trigger should automatically create the user profile
+      // Just check if it exists, and if not, wait briefly for trigger (max 2 quick checks)
       let profile: UserProfile | null = null;
       
-      // Reduced to 3 attempts with shorter delays
-      for (let attempt = 0; attempt < 3; attempt++) {
+      // First, try to get the profile immediately (trigger might have created it already)
+      try {
+        profile = await provider.getUserProfile(authUser.id);
+        if (profile) {
+          console.log('✅ User profile found (created by trigger)');
+        }
+      } catch {
+        // Profile not found yet, trigger might still be processing
+        // Wait briefly and check once more
+        await new Promise<void>(resolve => setTimeout(() => resolve(), 200));
         try {
-          profile = await provider.createUserProfile(authUser.id, {
-            email,
-            name,
-            isSuperAdmin: false,
-          });
-          console.log(`✅ User profile created successfully (attempt ${attempt + 1})`);
-          break; // Success - exit retry loop
-        } catch (error: any) {
-          const errorMessage = error?.message || String(error);
-          
-          // If it's a "user not found" error, wait briefly and retry
-          if (errorMessage.includes('User not found in auth.users') || 
-              errorMessage.includes('not found in auth')) {
-            if (attempt < 2) {
-              console.log(`⚠️ User not found in auth.users yet (attempt ${attempt + 1}/3), waiting 500ms...`);
-              await new Promise<void>(resolve => setTimeout(() => resolve(), 500));
-              continue;
-            }
+          profile = await provider.getUserProfile(authUser.id);
+          if (profile) {
+            console.log('✅ User profile found (created by trigger after brief wait)');
           }
-          
-          // For duplicate/already exists errors, profile might already exist - try to fetch it
-          if (errorMessage.includes('duplicate') || errorMessage.includes('already exists')) {
-            console.log(`⚠️ Profile might already exist (attempt ${attempt + 1}/3), checking...`);
-            try {
-              profile = await provider.getUserProfile(authUser.id);
-              if (profile) {
-                console.log('✅ User profile found (created by trigger)');
-                break;
-              }
-            } catch {
-              // If we can't fetch it and it's not the last attempt, wait briefly
-              if (attempt < 2) {
-                await new Promise<void>(resolve => setTimeout(() => resolve(), 500));
-                continue;
-              }
-            }
-          }
-          
-          // For RLS errors, the trigger should create it - wait and check
-          if (errorMessage.includes('RLS') || errorMessage.includes('row-level security')) {
-            if (attempt < 2) {
-              console.log(`⚠️ RLS error (attempt ${attempt + 1}/3), waiting 500ms for trigger...`);
-              await new Promise<void>(resolve => setTimeout(() => resolve(), 500));
-              
-              // Check if trigger created it
-              try {
-                profile = await provider.getUserProfile(authUser.id);
-                if (profile) {
-                  console.log('✅ User profile created by trigger');
-                  break;
-                }
-              } catch {
-                // Continue retrying
-              }
-              continue;
-            }
-          }
-          
-          // If it's the last attempt, don't throw - create temporary profile
-          if (attempt === 2) {
-            console.warn('⚠️ User profile creation failed after retries. Using temporary profile. Trigger should create it.');
-            break;
-          }
-          
-          // For other errors on non-final attempts, wait briefly and retry
-          if (attempt < 2) {
-            console.log(`⚠️ Profile creation error (attempt ${attempt + 1}/3): ${errorMessage}, retrying...`);
-            await new Promise<void>(resolve => setTimeout(() => resolve(), 500));
-          }
+        } catch {
+          // Still not found - trigger should create it, but continue with temporary profile
+          console.log('⚠️ Profile not found yet, trigger should create it. Using temporary profile.');
         }
       }
 
-      // If profile creation failed after all retries, create a temporary profile object
-      // The trigger should create it eventually, and business profile creation will handle it
+      // If profile still doesn't exist, use temporary profile
+      // The trigger will create it eventually, and business profile creation will handle it
       if (!profile) {
-        console.warn('⚠️ User profile creation failed after all retries. Using temporary profile. Trigger should create it.');
         profile = {
           id: authUser.id,
           email: email,
