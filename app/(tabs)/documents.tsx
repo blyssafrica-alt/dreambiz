@@ -1,4 +1,4 @@
-import { Stack, router } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { FileText, Plus, Receipt, FileCheck, CheckCircle, Clock, XCircle, Send, ShoppingCart, FileSignature, Handshake, AlertCircle, Filter, X, Trash2 } from 'lucide-react-native';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
@@ -37,9 +37,17 @@ export default function DocumentsScreen() {
   const [filterPresets, setFilterPresets] = useState<FilterPreset[]>([]);
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [presetName, setPresetName] = useState('');
+  const params = useLocalSearchParams();
 
   // Ensure documents is always an array
   const safeDocuments = Array.isArray(documents) ? documents : [];
+
+  // Check for filter type from navigation params (from dashboard)
+  useEffect(() => {
+    if (params?.filterType && typeof params.filterType === 'string') {
+      setTypeFilter(params.filterType as DocumentType);
+    }
+  }, [params?.filterType]);
 
   // Don't early return - handle undefined theme gracefully
   // Theme should always be available from ThemeContext, but if not, use defaults

@@ -209,6 +209,8 @@ export interface DashboardMetrics {
   cashPosition: number;
   topCategories: { category: string; amount: number }[];
   alerts: Alert[];
+  newCustomers?: number;
+  salesTrend?: number;
 }
 
 export interface Alert {

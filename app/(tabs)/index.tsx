@@ -22,6 +22,7 @@ import {
   Settings,
   Users as UsersIcon,
   TrendingUp as TrendingUpIcon,
+  Receipt,
 } from 'lucide-react-native';
 import { 
   View, 
@@ -86,6 +87,8 @@ export default function DashboardScreen() {
           cashPosition: 0,
           topCategories: [],
           alerts: [],
+          newCustomers: 0,
+          salesTrend: 0,
         });
       }
     };
@@ -785,12 +788,20 @@ export default function DashboardScreen() {
             <View style={styles.documentManagementGrid}>
               <TouchableOpacity 
                 style={[styles.documentManagementCard, { backgroundColor: theme.background.card }]}
-                onPress={() => router.push('/(tabs)/documents' as any)}
+                onPress={() => {
+                  router.push({
+                    pathname: '/(tabs)/documents',
+                    params: { filterType: 'invoice' }
+                  } as any);
+                }}
               >
                 <View style={[styles.documentManagementIcon, { backgroundColor: '#0066CC20' }]}>
-                  <Folder size={24} color="#0066CC" />
+                  <FileTextIcon size={24} color="#0066CC" />
                 </View>
-                <Text style={[styles.documentManagementLabel, { color: theme.text.primary }]}>Folders</Text>
+                <Text style={[styles.documentManagementLabel, { color: theme.text.primary }]}>Invoices</Text>
+                <Text style={[styles.documentManagementCount, { color: theme.text.tertiary }]}>
+                  {documents.filter(d => d.type === 'invoice').length}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.documentManagementCard, { backgroundColor: theme.background.card }]}
@@ -799,16 +810,27 @@ export default function DashboardScreen() {
                 <View style={[styles.documentManagementIcon, { backgroundColor: '#10B98120' }]}>
                   <FileTextIcon size={24} color="#10B981" />
                 </View>
-                <Text style={[styles.documentManagementLabel, { color: theme.text.primary }]}>Documents</Text>
+                <Text style={[styles.documentManagementLabel, { color: theme.text.primary }]}>All Documents</Text>
+                <Text style={[styles.documentManagementCount, { color: theme.text.tertiary }]}>
+                  {documents.length}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.documentManagementCard, { backgroundColor: theme.background.card }]}
-                onPress={() => router.push('/(tabs)/documents' as any)}
+                onPress={() => {
+                  router.push({
+                    pathname: '/(tabs)/documents',
+                    params: { filterType: 'receipt' }
+                  } as any);
+                }}
               >
                 <View style={[styles.documentManagementIcon, { backgroundColor: '#F59E0B20' }]}>
-                  <Settings size={24} color="#F59E0B" />
+                  <Receipt size={24} color="#F59E0B" />
                 </View>
-                <Text style={[styles.documentManagementLabel, { color: theme.text.primary }]}>Automation</Text>
+                <Text style={[styles.documentManagementLabel, { color: theme.text.primary }]}>Receipts</Text>
+                <Text style={[styles.documentManagementCount, { color: theme.text.tertiary }]}>
+                  {documents.filter(d => d.type === 'receipt').length}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -820,9 +842,12 @@ export default function DashboardScreen() {
                 <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>GROWTH</Text>
                 <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Growth</Text>
               </View>
-              <TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push('/(tabs)/customers' as any)}
+                style={styles.viewAllButton}
+              >
                 <Text style={[styles.viewAllText, { color: theme.accent.primary }]}>View All</Text>
-                <ChevronRight size={16} color={theme.accent.primary} />
+                <ChevronRight size={14} color={theme.accent.primary} />
               </TouchableOpacity>
             </View>
             <View style={styles.growthContent}>
@@ -844,11 +869,15 @@ export default function DashboardScreen() {
                     <TrendingUpIcon size={20} color="#0066CC" />
                   </View>
                   <Text style={[styles.growthStatValue, { color: theme.text.primary }]}>
-                    {metrics?.salesTrend || 0}
+                    {metrics?.salesTrend !== undefined ? `${metrics.salesTrend > 0 ? '+' : ''}${metrics.salesTrend}%` : '0%'}
                   </Text>
-                  <Text style={[styles.growthStatLabel, { color: theme.text.secondary }]}>Sales trends</Text>
+                  <Text style={[styles.growthStatLabel, { color: theme.text.secondary }]}>Sales growth</Text>
                   <View style={styles.growthTrend}>
-                    <ArrowUpRight size={12} color="#10B981" />
+                    {metrics?.salesTrend !== undefined && metrics.salesTrend >= 0 ? (
+                      <ArrowUpRight size={12} color="#10B981" />
+                    ) : (
+                      <ArrowDownRight size={12} color="#EF4444" />
+                    )}
                   </View>
                 </View>
               </View>
@@ -1831,6 +1860,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600' as const,
     textAlign: 'center',
+    marginTop: 4,
+  },
+  documentManagementCount: {
+    fontSize: 11,
+    fontWeight: '500' as const,
+    textAlign: 'center',
+    marginTop: 2,
   },
   growthSection: {
     marginBottom: 20,

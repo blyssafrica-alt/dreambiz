@@ -1687,6 +1687,25 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         } : undefined,
       }));
 
+    // Calculate new customers (customers added in the last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const newCustomers = customers.filter(c => {
+      if (!c.createdAt) return false;
+      return new Date(c.createdAt) >= thirtyDaysAgo;
+    }).length;
+
+    // Calculate sales trend (growth percentage compared to previous period)
+    const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+    const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString();
+    const previousMonthSales = transactions
+      .filter(t => t.type === 'sale' && t.date >= previousMonthStart && t.date <= previousMonthEnd)
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const salesTrend = previousMonthSales > 0
+      ? Math.round(((monthSales - previousMonthSales) / previousMonthSales) * 100)
+      : monthSales > 0 ? 100 : 0;
+
     return {
       todaySales,
       todayExpenses,
@@ -1697,6 +1716,8 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       cashPosition,
       topCategories,
       alerts,
+      newCustomers,
+      salesTrend,
     };
   };
 
