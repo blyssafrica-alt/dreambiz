@@ -187,6 +187,13 @@ export default function AdminLayout() {
           headerShown: false,
         }} 
       />
+      <Stack.Screen 
+        name="business/[id]" 
+        options={{ 
+          title: 'Business Details',
+          headerShown: false,
+        }} 
+      />
     </Stack>
   );
 }

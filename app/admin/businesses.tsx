@@ -151,8 +151,7 @@ export default function BusinessesManagementScreen() {
   };
 
   const handleViewBusiness = (businessId: string) => {
-    // TODO: Navigate to business detail view or allow admin to switch to that business
-    Alert.alert('View Business', 'Business detail view coming soon');
+    router.push(`/admin/business/${businessId}`);
   };
 
   const getTypeLabel = (type: string) => {
