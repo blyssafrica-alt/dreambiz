@@ -28,6 +28,7 @@ export default function VerifyEmailScreen() {
   const [email, setEmail] = useState(authUser?.email || '');
   const [lastResendTime, setLastResendTime] = useState(0);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const navigationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -76,6 +77,10 @@ export default function VerifyEmailScreen() {
     return () => {
       clearInterval(interval);
       subscription.remove();
+      if (navigationTimeoutRef.current) {
+        clearTimeout(navigationTimeoutRef.current);
+        navigationTimeoutRef.current = null;
+      }
     };
   }, [authUser]);
 
@@ -173,17 +178,14 @@ export default function VerifyEmailScreen() {
           }),
         ]).start();
         
-        // CRITICAL: Let _layout.tsx handle navigation automatically
-        // It polls every 1 second and will detect verification quickly
-        // Show success message for at least 2 seconds, then auto-redirect as backup
-        // This gives _layout.tsx time to detect and handle navigation first
-        setTimeout(() => {
-          // Backup redirect - _layout.tsx should have already redirected
-          // But this ensures user isn't stuck if _layout.tsx hasn't caught up yet
-          if (isVerified) {
+        // Show success message for 2 seconds, then navigate to onboarding
+        // Only set timeout once (check if already set)
+        if (!navigationTimeoutRef.current) {
+          navigationTimeoutRef.current = setTimeout(() => {
+            navigationTimeoutRef.current = null;
             router.replace('/onboarding' as any);
-          }
-        }, 3000); // 3 second delay to show success message
+          }, 2000);
+        }
       } else {
         setIsChecking(false);
       }

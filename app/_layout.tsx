@@ -185,66 +185,21 @@ function RootLayoutNav() {
 
       // CRITICAL: If authenticated but email not verified, redirect to verification screen
       // This must happen BEFORE checking onboarding status
-      // BUT: Before redirecting, double-check the session to avoid race conditions
-      // This prevents redirecting back to verify-email after user just verified
       if (isAuthenticated && emailVerified === false) {
+        // Only redirect if not already on verify-email or auth screens
         if (!inVerifyEmail && !inAuth) {
-          // IMPORTANT: If we're already on onboarding or tabs, don't redirect
-          // This prevents the loop where user verifies -> goes to dashboard -> gets redirected back
-          // The user might have just verified and we're in a transition state
-          if (inOnboarding || inTabs) {
-            // Double-check session - if verified, update state instead of redirecting
-            (async () => {
-              try {
-                await supabase.auth.refreshSession();
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session?.user?.email_confirmed_at) {
-                  console.log('User is verified (on onboarding/tabs) - updating state');
-                  if (isMounted) {
-                    setEmailVerified(true);
-                  }
-                }
-              } catch (error) {
-                console.error('Error checking session:', error);
-              }
-            })();
-            // Don't redirect - let user stay on onboarding/tabs
-            return;
-          }
-          
-          // For other screens, double-check session before redirecting
-          (async () => {
-            try {
-              // Refresh session first to get latest status
-              await supabase.auth.refreshSession();
-              const { data: { session } } = await supabase.auth.getSession();
-              if (session?.user?.email_confirmed_at) {
-                // User is actually verified - update state instead of redirecting
-                console.log('Session shows verified - updating state instead of redirecting');
-                if (isMounted) {
-                  setEmailVerified(true);
-                }
-                return; // Don't redirect
-              }
-              // Session confirms not verified - safe to redirect
-              console.log('Redirecting to verify-email: email not verified (confirmed by session check)');
-              if (isMounted) {
-                router.replace('/verify-email' as any);
-              }
-            } catch (error) {
-              console.error('Error checking session before redirect:', error);
-              // On error, don't redirect - let user stay where they are
-            }
-          })();
+          console.log('Redirecting to verify-email: email not verified');
+          router.replace('/verify-email' as any);
         }
-        return; // Return early while async check happens
+        return;
       }
 
       // If authenticated, email verified, but not onboarded, redirect to onboarding
       // Only proceed to onboarding if email is verified (emailVerified === true)
-      // Also redirect from verify-email screen when verified
+      // Don't redirect if on verify-email screen (let it handle navigation after showing success)
       if (isAuthenticated && emailVerified === true && !hasOnboarded) {
-        if (inVerifyEmail || !inOnboarding) {
+        // Don't redirect if on verify-email screen - let it show success and navigate itself
+        if (!inVerifyEmail && !inOnboarding && !inAuth) {
           console.log('Redirecting to onboarding: email verified, not onboarded');
           router.replace('/onboarding' as any);
         }
