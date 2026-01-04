@@ -76,6 +76,19 @@ export interface Document {
   paidAmount?: number; // For partial payments
   paymentMethod?: 'cash' | 'bank_transfer' | 'mobile_money' | 'card' | 'other';
   employeeName?: string; // Name of employee who created the sale
+  folderId?: string; // Reference to document folder
+}
+
+export interface DocumentFolder {
+  id: string;
+  name: string;
+  color: string; // Hex color for folder icon/badge
+  icon?: string; // Icon name (folder, archive, star, etc.)
+  description?: string;
+  displayOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  documentCount?: number; // Optional: number of documents in this folder
 }
 
 export interface Budget {

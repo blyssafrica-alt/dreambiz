@@ -49,7 +49,7 @@ import { AdCard } from '@/components/AdCard';
 import AnimatedLogo from '@/components/AnimatedLogo';
 
 export default function DashboardScreen() {
-  const { business, getDashboardMetrics, transactions, documents } = useBusiness();
+  const { business, getDashboardMetrics, transactions, documents, folders } = useBusiness();
   const { theme } = useTheme();
   const { getAdsForLocation } = useAds();
   const { t } = useTranslation();
@@ -791,16 +791,16 @@ export default function DashboardScreen() {
                 onPress={() => {
                   router.push({
                     pathname: '/(tabs)/documents',
-                    params: { filterType: 'invoice' }
+                    params: { view: 'folders' }
                   } as any);
                 }}
               >
                 <View style={[styles.documentManagementIcon, { backgroundColor: '#0066CC20' }]}>
-                  <FileTextIcon size={24} color="#0066CC" />
+                  <Folder size={24} color="#0066CC" />
                 </View>
-                <Text style={[styles.documentManagementLabel, { color: theme.text.primary }]}>Invoices</Text>
+                <Text style={[styles.documentManagementLabel, { color: theme.text.primary }]}>Folders</Text>
                 <Text style={[styles.documentManagementCount, { color: theme.text.tertiary }]}>
-                  {documents.filter(d => d.type === 'invoice').length}
+                  {folders?.length || 0}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity 

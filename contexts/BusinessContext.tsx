@@ -8,6 +8,7 @@ import type {
   BusinessProfile, 
   Transaction, 
   Document, 
+  DocumentFolder,
   ExchangeRate,
   DashboardMetrics,
   Alert,
@@ -40,6 +41,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
     const [recurringInvoices, setRecurringInvoices] = useState<RecurringInvoice[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
+    const [folders, setFolders] = useState<DocumentFolder[]>([]);
     const [exchangeRate, setExchangeRate] = useState<ExchangeRate>({
       usdToZwl: 25000,
       lastUpdated: new Date().toISOString(),
@@ -181,7 +183,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         return queryPromiseWithErrorHandling;
       };
 
-      const [businessRes, transactionsRes, documentsRes, productsRes, customersRes, suppliersRes, budgetsRes, cashflowRes, taxRatesRes, employeesRes, projectsRes, projectTasksRes, recurringInvoicesRes, paymentsRes, exchangeRateRes] = await Promise.all([
+      const [businessRes, transactionsRes, documentsRes, productsRes, customersRes, suppliersRes, budgetsRes, cashflowRes, taxRatesRes, employeesRes, projectsRes, projectTasksRes, recurringInvoicesRes, paymentsRes, foldersRes, exchangeRateRes] = await Promise.all([
         safeQuery(supabase.from('business_profiles').select('*').eq('user_id', userId).order('created_at', { ascending: false }), 'business_profiles'),
         safeQuery(buildQuery('transactions', 'date', 'desc'), 'transactions'),
         safeQuery(buildQuery('documents', 'date', 'desc'), 'documents'),
@@ -196,6 +198,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         safeQuery(buildQuery('project_tasks', 'created_at', 'desc'), 'project_tasks'),
         safeQuery(buildQuery('recurring_invoices', 'created_at', 'desc'), 'recurring_invoices'),
         safeQuery(buildQuery('payments', 'payment_date', 'desc'), 'payments'),
+        safeQuery(buildQuery('document_folders', 'display_order', 'asc'), 'document_folders'),
         safeQuery(
           // exchange_rates table does NOT have business_id column - only user_id
           supabase.from('exchange_rates').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
@@ -275,8 +278,35 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
             paymentMethod: d.payment_method as any,
             employeeName: employeeName,
             paidAmount: d.paid_amount ? Number(d.paid_amount) : undefined,
+            folderId: d.folder_id || undefined,
           };
         }));
+      }
+
+      if (foldersRes.data) {
+        // Load document counts for each folder
+        const foldersWithCounts = await Promise.all(
+          foldersRes.data.map(async (f: any) => {
+            const { count } = await supabase
+              .from('documents')
+              .select('*', { count: 'exact', head: true })
+              .eq('folder_id', f.id)
+              .eq('user_id', userId);
+            
+            return {
+              id: f.id,
+              name: f.name,
+              color: f.color || '#0066CC',
+              icon: f.icon || 'folder',
+              description: f.description || undefined,
+              displayOrder: f.display_order || 0,
+              createdAt: f.created_at,
+              updatedAt: f.updated_at,
+              documentCount: count || 0,
+            };
+          })
+        );
+        setFolders(foldersWithCounts);
       }
 
       if (productsRes.data) {
@@ -509,6 +539,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     setProjectTasks([]);
     setRecurringInvoices([]);
     setPayments([]);
+    setFolders([]);
     setExchangeRate({
       usdToZwl: 25000,
       lastUpdated: new Date().toISOString(),
@@ -1126,6 +1157,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           discount_amount: (document as any).discountAmount || null,
           amount_received: (document as any).amountReceived || null,
           change_amount: (document as any).changeAmount || null,
+          folder_id: document.folderId || null,
         })
         .select()
         .single();
@@ -1163,6 +1195,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         paymentMethod: data.payment_method as any,
         employeeName: employeeName,
         paidAmount: data.paid_amount ? Number(data.paid_amount) : undefined,
+        folderId: data.folder_id || undefined,
       };
 
       setDocuments([newDocument, ...documents]);
@@ -1191,6 +1224,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       if ((updates as any).discountAmount !== undefined) updateData.discount_amount = (updates as any).discountAmount || null;
       if ((updates as any).amountReceived !== undefined) updateData.amount_received = (updates as any).amountReceived || null;
       if ((updates as any).changeAmount !== undefined) updateData.change_amount = (updates as any).changeAmount || null;
+      if (updates.folderId !== undefined) updateData.folder_id = updates.folderId || null;
 
       const { error } = await supabase
         .from('documents')
@@ -1232,6 +1266,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           createdAt: updatedDoc.created_at,
           notes: updatedDoc.notes || undefined,
           paymentMethod: updatedDoc.payment_method as any,
+          folderId: updatedDoc.folder_id || undefined,
         };
 
         const updated = documents.map(d => 
@@ -2725,6 +2760,157 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     }
   }, [userId]);
 
+  // Folder Management Functions
+  const loadFolders = useCallback(async () => {
+    if (!userId || !business?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('document_folders')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('business_id', business.id)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+
+      if (data) {
+        // Load document counts for each folder
+        const foldersWithCounts = await Promise.all(
+          data.map(async (f) => {
+            const { count } = await supabase
+              .from('documents')
+              .select('*', { count: 'exact', head: true })
+              .eq('folder_id', f.id)
+              .eq('user_id', userId);
+            
+            return {
+              id: f.id,
+              name: f.name,
+              color: f.color || '#0066CC',
+              icon: f.icon || 'folder',
+              description: f.description || undefined,
+              displayOrder: f.display_order || 0,
+              createdAt: f.created_at,
+              updatedAt: f.updated_at,
+              documentCount: count || 0,
+            };
+          })
+        );
+        setFolders(foldersWithCounts);
+      }
+    } catch (error) {
+      console.error('Failed to load folders:', error);
+    }
+  }, [userId, business?.id]);
+
+  const addFolder = useCallback(async (folder: Omit<DocumentFolder, 'id' | 'createdAt' | 'updatedAt' | 'documentCount'>) => {
+    if (!userId || !business?.id) throw new Error('User or business not found');
+
+    try {
+      const { data, error } = await supabase
+        .from('document_folders')
+        .insert({
+          user_id: userId,
+          business_id: business.id,
+          name: folder.name,
+          color: folder.color || '#0066CC',
+          icon: folder.icon || 'folder',
+          description: folder.description || null,
+          display_order: folder.displayOrder || 0,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newFolder: DocumentFolder = {
+        id: data.id,
+        name: data.name,
+        color: data.color || '#0066CC',
+        icon: data.icon || 'folder',
+        description: data.description || undefined,
+        displayOrder: data.display_order || 0,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        documentCount: 0,
+      };
+
+      setFolders([...folders, newFolder]);
+      return newFolder;
+    } catch (error) {
+      console.error('Failed to add folder:', error);
+      throw error;
+    }
+  }, [userId, business?.id, folders]);
+
+  const updateFolder = useCallback(async (id: string, updates: Partial<DocumentFolder>) => {
+    if (!userId || !business?.id) throw new Error('User or business not found');
+
+    try {
+      const updateData: any = {};
+      if (updates.name !== undefined) updateData.name = updates.name;
+      if (updates.color !== undefined) updateData.color = updates.color;
+      if (updates.icon !== undefined) updateData.icon = updates.icon;
+      if (updates.description !== undefined) updateData.description = updates.description || null;
+      if (updates.displayOrder !== undefined) updateData.display_order = updates.displayOrder;
+
+      const { error } = await supabase
+        .from('document_folders')
+        .update(updateData)
+        .eq('id', id)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      // Reload folders to get updated counts
+      await loadFolders();
+    } catch (error) {
+      console.error('Failed to update folder:', error);
+      throw error;
+    }
+  }, [userId, business?.id, loadFolders]);
+
+  const deleteFolder = useCallback(async (id: string) => {
+    if (!userId || !business?.id) throw new Error('User or business not found');
+
+    try {
+      // First, remove folder_id from all documents in this folder
+      await supabase
+        .from('documents')
+        .update({ folder_id: null })
+        .eq('folder_id', id)
+        .eq('user_id', userId);
+
+      // Then delete the folder
+      const { error } = await supabase
+        .from('document_folders')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      // Update local state
+      setFolders(folders.filter(f => f.id !== id));
+      
+      // Update documents to remove folderId
+      setDocuments(documents.map(d => 
+        d.folderId === id ? { ...d, folderId: undefined } : d
+      ));
+    } catch (error) {
+      console.error('Failed to delete folder:', error);
+      throw error;
+    }
+  }, [userId, business?.id, folders, documents]);
+
+  // Load folders when business changes
+  useEffect(() => {
+    if (business?.id) {
+      loadFolders();
+    }
+  }, [business?.id, loadFolders]);
+
   return {
     business,
     transactions: Array.isArray(transactions) ? transactions : [],
@@ -2740,6 +2926,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     projectTasks: Array.isArray(projectTasks) ? projectTasks : [],
     recurringInvoices: Array.isArray(recurringInvoices) ? recurringInvoices : [],
     payments: Array.isArray(payments) ? payments : [],
+    folders: Array.isArray(folders) ? folders : [],
     exchangeRate: exchangeRate || { usdToZwl: 25000, lastUpdated: new Date().toISOString() },
     isLoading,
     hasOnboarded,
@@ -2793,6 +2980,10 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     deleteBusiness,
     checkBusinessLimit,
     clearData,
+    loadFolders,
+    addFolder,
+    updateFolder,
+    deleteFolder,
   };
 });
 

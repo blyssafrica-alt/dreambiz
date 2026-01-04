@@ -22,6 +22,7 @@ import {
   X,
   Plus,
   Trash2,
+  Folder,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -40,8 +41,11 @@ interface DocumentWizardProps {
     dueDate?: string;
     notes?: string;
     templateFields: Record<string, string>;
+    folderId?: string;
   }) => void;
   businessType?: string;
+  folders?: Array<{ id: string; name: string; color: string }>;
+  selectedFolderId?: string;
 }
 
 const DOCUMENT_TYPES: { type: DocumentType; label: string; icon: any; description: string }[] = [
@@ -53,7 +57,7 @@ const DOCUMENT_TYPES: { type: DocumentType; label: string; icon: any; descriptio
   { type: 'supplier_agreement', label: 'Supplier Agreement', icon: Handshake, description: 'Establish terms with suppliers' },
 ];
 
-export default function DocumentWizard({ visible, onClose, onComplete, businessType }: DocumentWizardProps) {
+export default function DocumentWizard({ visible, onClose, onComplete, businessType, folders = [], selectedFolderId }: DocumentWizardProps) {
   const { theme } = useTheme();
   const [step, setStep] = useState(1);
   const [docType, setDocType] = useState<DocumentType | null>(null);
@@ -66,6 +70,7 @@ export default function DocumentWizard({ visible, onClose, onComplete, businessT
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
   const [templateFields, setTemplateFields] = useState<Record<string, string>>({});
+  const [selectedFolder, setSelectedFolder] = useState<string | undefined>(selectedFolderId);
 
   const [template, setTemplate] = useState<any>(null);
 
@@ -91,6 +96,7 @@ export default function DocumentWizard({ visible, onClose, onComplete, businessT
     setDueDate('');
     setNotes('');
     setTemplateFields({});
+    setSelectedFolder(selectedFolderId);
   };
 
   const handleClose = () => {
@@ -174,6 +180,7 @@ export default function DocumentWizard({ visible, onClose, onComplete, businessT
       dueDate: dueDate.trim() || undefined,
       notes: notes.trim() || undefined,
       templateFields,
+      folderId: selectedFolder,
     });
 
     resetWizard();
@@ -288,6 +295,46 @@ export default function DocumentWizard({ visible, onClose, onComplete, businessT
           autoCapitalize="none"
         />
       </View>
+
+      {/* Folder Selection */}
+      {folders.length > 0 && (
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: theme.text.secondary }]}>
+            Folder (Optional)
+          </Text>
+          <View style={styles.folderSelector}>
+            <TouchableOpacity
+              style={[
+                styles.folderOption,
+                { backgroundColor: theme.background.secondary, borderColor: theme.border.light },
+                !selectedFolder && styles.folderOptionSelected
+              ]}
+              onPress={() => setSelectedFolder(undefined)}
+            >
+              <Text style={[styles.folderOptionText, { color: theme.text.primary }]}>None</Text>
+            </TouchableOpacity>
+            {folders.map((folder) => (
+              <TouchableOpacity
+                key={folder.id}
+                style={[
+                  styles.folderOption,
+                  { backgroundColor: theme.background.secondary, borderColor: theme.border.light },
+                  selectedFolder === folder.id && [styles.folderOptionSelected, { borderColor: folder.color }]
+                ]}
+                onPress={() => setSelectedFolder(folder.id)}
+              >
+                <Folder size={16} color={selectedFolder === folder.id ? folder.color : theme.text.secondary} />
+                <Text style={[
+                  styles.folderOptionText,
+                  { color: selectedFolder === folder.id ? folder.color : theme.text.primary }
+                ]}>
+                  {folder.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
     </View>
   );
 
@@ -749,6 +796,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
     color: '#FFF',
+  },
+  folderSelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  folderOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 6,
+  },
+  folderOptionSelected: {
+    borderWidth: 2,
+  },
+  folderOptionText: {
+    fontSize: 14,
+    fontWeight: '500' as const,
   },
 });
 
