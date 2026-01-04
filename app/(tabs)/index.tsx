@@ -141,6 +141,16 @@ export default function DashboardScreen() {
     return `${symbol}${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
   }, [business?.currency]);
 
+  // Get color for expense category - must be defined before chartData useMemo
+  const getCategoryColor = useCallback((category: string): string => {
+    const colors = [
+      '#0066CC', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6',
+      '#6366F1', '#EF4444', '#14B8A6', '#F97316', '#A855F7',
+    ];
+    const index = category.charCodeAt(0) % colors.length;
+    return colors[index];
+  }, []);
+
   // Recent activity (last 5 transactions and documents)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const recentActivity = useMemo(() => {
@@ -312,16 +322,7 @@ export default function DashboardScreen() {
       monthlyProfit: monthlyProfitData,
       revenueExpenseProfit,
     };
-  }, [transactions, chartPeriod]);
-
-  const getCategoryColor = (category: string): string => {
-    const colors = [
-      '#0066CC', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6',
-      '#6366F1', '#EF4444', '#14B8A6', '#F97316', '#A855F7',
-    ];
-    const index = category.charCodeAt(0) % colors.length;
-    return colors[index];
-  };
+  }, [transactions, chartPeriod, getCategoryColor]);
 
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
 
