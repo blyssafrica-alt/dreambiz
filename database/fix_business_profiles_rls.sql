@@ -20,6 +20,7 @@ ALTER TABLE public.business_profiles ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist (to avoid conflicts)
 DROP POLICY IF EXISTS "Super admins can view all businesses" ON public.business_profiles;
+DROP POLICY IF EXISTS "Super admins can delete any business" ON public.business_profiles;
 DROP POLICY IF EXISTS "Users can view their own business" ON public.business_profiles;
 DROP POLICY IF EXISTS "Users can insert their own business" ON public.business_profiles;
 DROP POLICY IF EXISTS "Users can update their own business" ON public.business_profiles;
@@ -35,6 +36,11 @@ DROP POLICY IF EXISTS "Users can delete own business" ON public.business_profile
 -- Policy: Super admins can view all businesses (for admin dashboard)
 CREATE POLICY "Super admins can view all businesses" ON public.business_profiles
   FOR SELECT
+  USING (public.is_super_admin());
+
+-- Policy: Super admins can delete any business
+CREATE POLICY "Super admins can delete any business" ON public.business_profiles
+  FOR DELETE
   USING (public.is_super_admin());
 
 -- ============================================================================
