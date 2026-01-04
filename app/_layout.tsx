@@ -194,8 +194,19 @@ function RootLayoutNav() {
       // Authenticated - check email verification status
       // Wait a bit for email verification status to be determined (if null, wait)
       if (emailVerified === null) {
-        // Still checking - don't navigate yet, but if on verify-email/onboarding and we have data, we can check
-        if (hasOnboarded && (inVerifyEmail || inOnboarding)) {
+        // Still checking - but if on auth screens, navigate away immediately
+        // This prevents getting stuck on sign-in screen after successful login
+        if (inAuth) {
+          // On auth screen but authenticated - navigate away
+          // If already onboarded, go to tabs, otherwise wait a bit for email check
+          if (hasOnboarded) {
+            targetRoute = '/(tabs)';
+          } else {
+            // Not onboarded yet - go to verify-email while checking, or onboarding if email already verified
+            // Default to verify-email as safe option while checking
+            targetRoute = '/verify-email';
+          }
+        } else if (hasOnboarded && (inVerifyEmail || inOnboarding)) {
           // Already onboarded - redirect away from verify-email and onboarding
           targetRoute = '/(tabs)';
         }
@@ -230,6 +241,15 @@ function RootLayoutNav() {
       navigationRef.current = targetRoute;
       lastNavigationTimeRef.current = now;
       router.replace(targetRoute as any);
+    } else if (!targetRoute && inAuth && isAuthenticated) {
+      // Emergency fallback: if authenticated but stuck on auth screen with no target route
+      // Force navigation to prevent getting stuck (should rarely be needed)
+      const fallbackRoute = hasOnboarded ? '/(tabs)' : '/verify-email';
+      if (fallbackRoute !== currentPath) {
+        navigationRef.current = fallbackRoute;
+        lastNavigationTimeRef.current = now;
+        router.replace(fallbackRoute as any);
+      }
     } else {
       navigationRef.current = currentPath;
     }
