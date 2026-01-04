@@ -111,6 +111,7 @@ function RootLayoutNav() {
 
     // Only check if authenticated
     if (isAuthenticated && authUser) {
+      // Check immediately when authenticated
       checkEmailVerification();
       
       // Poll more frequently (every 1 second) while authenticated to catch verification quickly
@@ -163,32 +164,19 @@ function RootLayoutNav() {
         return;
       }
 
-      // CRITICAL: If authenticated, we MUST check email verification status
-      // If email verification check is still pending, wait a bit but then proceed with assumption
-      // But don't wait if we're already on the verify-email screen (let it handle its own state)
-      if (emailVerified === null && isAuthenticated && !inVerifyEmail) {
-        // Wait a maximum of 3 seconds for email verification check
-        // After that, assume not verified to be safe
-        timeoutId = setTimeout(() => {
-          if (isMounted) {
-            setEmailVerified((prev) => {
-              if (prev === null) {
-                console.log('Email verification check timed out, assuming not verified');
-                return false;
-              }
-              return prev;
-            });
-          }
-        }, 3000);
-        return;
-      }
-
-      // CRITICAL: If authenticated but email not verified, redirect to verification screen
+      // CRITICAL: If authenticated but email not verified (or check is pending), redirect to verification screen
       // This must happen BEFORE checking onboarding status
-      if (isAuthenticated && emailVerified === false) {
+      // Allow verify-email screen to show if we're coming from sign-up (inAuth includes sign-up)
+      if (isAuthenticated && (emailVerified === false || emailVerified === null)) {
         // Only redirect if not already on verify-email or auth screens
+        // If we're on auth screens (like sign-up), allow the screen to navigate to verify-email itself
         if (!inVerifyEmail && !inAuth) {
-          console.log('Redirecting to verify-email: email not verified');
+          // If email verification status is still null, assume not verified and redirect
+          if (emailVerified === null) {
+            console.log('Email verification status unknown, redirecting to verify-email');
+          } else {
+            console.log('Redirecting to verify-email: email not verified');
+          }
           router.replace('/verify-email' as any);
         }
         return;
