@@ -58,20 +58,20 @@ export default function VerifyEmailScreen() {
       }),
     ]).start();
     
-    // Check if email is already verified
-    checkEmailStatus();
+    // Check if email is already verified (silent check - no UI updates)
+    checkEmailStatus(false);
     
-    // Poll for email verification every 3 seconds
+    // Poll for email verification every 3 seconds (silent - no UI blinking)
     const interval = setInterval(() => {
-      checkEmailStatus();
+      checkEmailStatus(false); // Silent check - won't cause button to blink
     }, 3000);
 
     // CRITICAL: Listen for app state changes to refresh session when app comes to foreground
     // This handles the case when user clicks email link and returns to app
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
-        // App came to foreground - refresh session to check email verification
-        checkEmailStatus();
+        // App came to foreground - refresh session to check email verification (silent)
+        checkEmailStatus(false);
       }
     });
 
@@ -89,8 +89,8 @@ export default function VerifyEmailScreen() {
   // This handles the case when user clicks email link and navigates back to this screen
   useFocusEffect(
     React.useCallback(() => {
-      // Refresh session immediately when screen comes into focus
-      checkEmailStatus();
+      // Refresh session immediately when screen comes into focus (silent check)
+      checkEmailStatus(false);
     }, [])
   );
 
@@ -143,12 +143,15 @@ export default function VerifyEmailScreen() {
     }
   }, [resendCooldown]);
 
-  const checkEmailStatus = async () => {
+  const checkEmailStatus = async (showUI = false) => {
     if (isVerified) return; // Don't check if already verified
     
     try {
-      setIsChecking(true);
-      setCheckMessage(null); // Clear previous message
+      // Only show checking UI if explicitly requested (user clicked button)
+      if (showUI) {
+        setIsChecking(true);
+        setCheckMessage(null); // Clear previous message
+      }
       
       // CRITICAL: Refresh the session first to get the latest email verification status
       // This is needed when user clicks the email link and comes back to the app
@@ -163,17 +166,21 @@ export default function VerifyEmailScreen() {
       
       if (sessionError) {
         console.error('Error getting session:', sessionError);
-        setIsChecking(false);
-        setCheckMessage('Unable to check verification status. Please try again.');
-        // Clear message after 3 seconds
-        setTimeout(() => setCheckMessage(null), 3000);
+        if (showUI) {
+          setIsChecking(false);
+          setCheckMessage('Unable to check verification status. Please try again.');
+          // Clear message after 3 seconds
+          setTimeout(() => setCheckMessage(null), 3000);
+        }
         return;
       }
       
       if (session?.user?.email_confirmed_at) {
         setIsVerified(true);
-        setIsChecking(false);
-        setCheckMessage(null);
+        if (showUI) {
+          setIsChecking(false);
+          setCheckMessage(null);
+        }
         // Animate success
         Animated.parallel([
           Animated.spring(scaleAnim, {
@@ -193,17 +200,21 @@ export default function VerifyEmailScreen() {
           }, 2000);
         }
       } else {
-        setIsChecking(false);
-        setCheckMessage('Email not verified yet. Please check your inbox and click the verification link.');
-        // Clear message after 4 seconds
-        setTimeout(() => setCheckMessage(null), 4000);
+        if (showUI) {
+          setIsChecking(false);
+          setCheckMessage('Email not verified yet. Please check your inbox and click the verification link.');
+          // Clear message after 4 seconds
+          setTimeout(() => setCheckMessage(null), 4000);
+        }
       }
     } catch (error) {
       console.error('Error checking email status:', error);
-      setIsChecking(false);
-      setCheckMessage('An error occurred. Please try again.');
-      // Clear message after 3 seconds
-      setTimeout(() => setCheckMessage(null), 3000);
+      if (showUI) {
+        setIsChecking(false);
+        setCheckMessage('An error occurred. Please try again.');
+        // Clear message after 3 seconds
+        setTimeout(() => setCheckMessage(null), 3000);
+      }
     }
   };
 
@@ -392,7 +403,7 @@ export default function VerifyEmailScreen() {
                     },
                     isChecking && styles.checkButtonDisabled,
                   ]}
-                  onPress={checkEmailStatus}
+                  onPress={() => checkEmailStatus(true)}
                   disabled={isChecking}
                   activeOpacity={0.8}
                 >
