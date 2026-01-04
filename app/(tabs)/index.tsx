@@ -426,20 +426,20 @@ export default function DashboardScreen() {
           onPress={() => handleAlertPress(alert)}
           activeOpacity={0.7}
         >
-          <View style={[styles.alertIconCompact, { backgroundColor: color.border }]}>
-            <AlertCircle size={16} color="#FFF" />
+          <View style={[styles.alertIconCompact, { backgroundColor: color.border + '20' }]}>
+            <AlertCircle size={14} color={color.border} />
           </View>
           <View style={styles.alertContentCompact}>
-            <Text style={[styles.alertTextCompact, { color: color.text }]} numberOfLines={2}>
+            <Text style={[styles.alertTextCompact, { color: theme.text.primary }]} numberOfLines={1}>
               {alert.message}
             </Text>
             {alert.action && (
-              <Text style={[styles.alertActionCompact, { color: color.text }]} numberOfLines={1}>
+              <Text style={[styles.alertActionCompact, { color: theme.text.secondary }]} numberOfLines={1}>
                 {alert.action}
               </Text>
             )}
           </View>
-          <ChevronRight size={18} color={color.text} style={{ opacity: 0.7 }} />
+          <ChevronRight size={16} color={theme.text.tertiary} style={{ opacity: 0.5 }} />
         </TouchableOpacity>
       );
     }
@@ -732,19 +732,20 @@ export default function DashboardScreen() {
             </View>
           )}
 
-          {metrics && activeAlerts.length > 0 && (
+              {metrics && activeAlerts.length > 0 && (
             <View style={styles.alertsSection}>
               <View style={styles.alertsHeader}>
                 <View style={styles.alertsHeaderLeft}>
-                  <View style={[styles.alertBadge, { backgroundColor: theme.surface.danger }]}>
-                    <Bell size={14} color={theme.accent.danger} />
-                    <Text style={[styles.alertBadgeText, { color: theme.accent.danger }]}>
-                      {activeAlerts.length}
-                    </Text>
-                  </View>
                   <View>
                     <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>{t('dashboard.alerts').toUpperCase()}</Text>
-                    <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>{t('dashboard.alerts')}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>{t('dashboard.alerts')}</Text>
+                      {activeAlerts.length > 0 && (
+                        <View style={[styles.notificationBadge, { backgroundColor: theme.accent.danger }]}>
+                          <Text style={styles.notificationBadgeText}>{activeAlerts.length}</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
                 </View>
                 {activeAlerts.length > 2 && (
@@ -753,11 +754,11 @@ export default function DashboardScreen() {
                     style={styles.viewAllButton}
                   >
                     <Text style={[styles.viewAllText, { color: theme.accent.primary }]}>View All</Text>
-                    <ChevronRight size={16} color={theme.accent.primary} />
+                    <ChevronRight size={14} color={theme.accent.primary} />
                   </TouchableOpacity>
                 )}
               </View>
-              {topAlerts.map(alert => renderAlert(alert, true))}
+              {topAlerts.slice(0, 2).map(alert => renderAlert(alert, true))}
             </View>
           )}
 
@@ -1094,8 +1095,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   headerGradient: {
-    paddingTop: 12,
-    paddingBottom: 30,
+    paddingTop: 16,
+    paddingBottom: 24,
     paddingHorizontal: 20,
   },
   header: {
@@ -1108,55 +1109,60 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   greeting: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.85)',
     fontWeight: '500' as const,
+    letterSpacing: 0.3,
   },
   businessName: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700' as const,
     color: '#FFF',
-    marginTop: 4,
+    marginTop: 2,
+    letterSpacing: -0.5,
   },
   quickAddButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   scrollContainer: {
     flex: 1,
   },
   content: {
-    padding: 20,
+    padding: 16,
     paddingTop: 20,
   },
   todaySection: {
     marginTop: 0,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sectionLabel: {
-    fontSize: 12,
-    fontWeight: '800' as const,
-    letterSpacing: 2,
-    marginBottom: 4,
+    fontSize: 11,
+    fontWeight: '700' as const,
+    letterSpacing: 1.5,
+    marginBottom: 3,
+    opacity: 0.7,
   },
   sectionTitle: {
-    fontSize: 24,
-    fontWeight: '800' as const,
-    lineHeight: 30,
+    fontSize: 20,
+    fontWeight: '700' as const,
+    lineHeight: 26,
+    letterSpacing: -0.3,
   },
   badge: {
     flexDirection: 'row',
@@ -1177,15 +1183,15 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     flex: 1,
-    padding: 24,
-    borderRadius: 24,
+    padding: 20,
+    borderRadius: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.04)',
   },
   metricIconContainer: {
     width: 36,
@@ -1219,13 +1225,13 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   profitCard: {
-    borderRadius: 28,
-    padding: 28,
+    borderRadius: 16,
+    padding: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 5,
   },
   profitContent: {
     position: 'relative',
@@ -1256,19 +1262,19 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   monthSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   summaryCard: {
-    padding: 24,
-    borderRadius: 24,
+    padding: 20,
+    borderRadius: 16,
     marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.04)',
   },
   summaryRow: {
     flexDirection: 'row',
@@ -1299,16 +1305,16 @@ const styles = StyleSheet.create({
   cashCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 24,
-    borderRadius: 24,
+    padding: 20,
+    borderRadius: 16,
     gap: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.04)',
   },
   cashGradient: {
     width: 52,
@@ -1338,7 +1344,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   alertsSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   alertsHeader: {
     flexDirection: 'row',
@@ -1363,6 +1369,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700' as const,
   },
+  notificationBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    marginLeft: 8,
+  },
+  notificationBadgeText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '700' as const,
+  },
   viewAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1377,16 +1397,16 @@ const styles = StyleSheet.create({
   alertCompact: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    padding: 12,
     borderRadius: 12,
-    marginBottom: 10,
-    borderWidth: 1.5,
-    gap: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    gap: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   alertIconCompact: {
     width: 28,
@@ -1401,14 +1421,14 @@ const styles = StyleSheet.create({
   alertTextCompact: {
     fontSize: 13,
     fontWeight: '600' as const,
-    lineHeight: 18,
+    lineHeight: 16,
     flex: 1,
   },
   alertActionCompact: {
     fontSize: 11,
     fontWeight: '500' as const,
-    marginTop: 4,
-    opacity: 0.9,
+    marginTop: 2,
+    opacity: 0.7,
   },
   alert: {
     padding: 18,
@@ -1611,41 +1631,42 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
   },
   chartsSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   chartCard: {
-    padding: 24,
-    borderRadius: 24,
+    padding: 20,
+    borderRadius: 16,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.04)',
   },
   chartHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   chartTitle: {
-    fontSize: 18,
-    fontWeight: '800' as const,
+    fontSize: 16,
+    fontWeight: '700' as const,
+    letterSpacing: -0.2,
   },
   healthCard: {
-    padding: 28,
-    borderRadius: 28,
-    marginBottom: 24,
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.04)',
   },
   healthHeader: {
     flexDirection: 'row',
@@ -1778,7 +1799,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   documentManagementSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   documentManagementGrid: {
     flexDirection: 'row',
@@ -1787,15 +1808,17 @@ const styles = StyleSheet.create({
   },
   documentManagementCard: {
     flex: 1,
-    padding: 20,
-    borderRadius: 16,
+    padding: 18,
+    borderRadius: 14,
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.04)',
   },
   documentManagementIcon: {
     width: 56,
@@ -1810,7 +1833,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   growthSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   growthContent: {
     gap: 12,
@@ -1823,13 +1846,15 @@ const styles = StyleSheet.create({
   growthStatCard: {
     flex: 1,
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 14,
     gap: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.04)',
   },
   growthStatIcon: {
     width: 40,
@@ -1852,13 +1877,15 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   growthChartCard: {
-    padding: 16,
-    borderRadius: 16,
+    padding: 18,
+    borderRadius: 14,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.04)',
   },
   growthChartTitle: {
     fontSize: 16,
