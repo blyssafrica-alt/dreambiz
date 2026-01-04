@@ -714,7 +714,7 @@ export default function DocumentsScreen() {
               </View>
             </View>
           </View>
-        </RNAlert.Modal>
+        </Modal>
       </View>
     </>
   );
