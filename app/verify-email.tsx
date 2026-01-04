@@ -336,8 +336,17 @@ export default function VerifyEmailScreen() {
 
     setIsChecking(true);
     try {
+      // Ensure we have a valid session before resending
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        RNAlert.alert('Error', 'Please wait a moment for your account to be set up, then try again.');
+        setIsChecking(false);
+        return;
+      }
+      
+      // Resend verification email with proper type parameter
       const { error } = await supabase.auth.resend({
-        type: 'signup',
+        type: 'signup' as const,
         email: email,
       });
 
