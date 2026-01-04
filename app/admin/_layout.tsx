@@ -180,6 +180,13 @@ export default function AdminLayout() {
           headerShown: false,
         }} 
       />
+      <Stack.Screen 
+        name="businesses" 
+        options={{ 
+          title: 'Business Management',
+          headerShown: false,
+        }} 
+      />
     </Stack>
   );
 }

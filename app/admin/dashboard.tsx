@@ -220,6 +220,7 @@ export default function AdminDashboard() {
           value={stats.totalBusinesses.toLocaleString()}
           color="#8B5CF6"
           gradient={['#8B5CF615', '#8B5CF605']}
+          onPress={() => router.push('/admin/businesses' as any)}
         />
         <StatCard
           icon={DollarSign}
@@ -409,6 +410,24 @@ export default function AdminDashboard() {
               <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Users</Text>
               <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
                 View and manage all users
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/businesses' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Businesses</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                View and manage all businesses
               </Text>
             </View>
             <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>

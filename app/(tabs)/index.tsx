@@ -15,7 +15,13 @@ import {
   Camera,
   X,
   ChevronRight,
+  ChevronDown,
   Bell,
+  Folder,
+  FileText as FileTextIcon,
+  Settings,
+  Users as UsersIcon,
+  TrendingUp as TrendingUpIcon,
 } from 'lucide-react-native';
 import { 
   View, 
@@ -39,6 +45,7 @@ import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { LineChart, PieChart, BarChart } from '@/components/Charts';
 import GlobalSearch from '@/components/GlobalSearch';
 import { AdCard } from '@/components/AdCard';
+import AnimatedLogo from '@/components/AnimatedLogo';
 
 export default function DashboardScreen() {
   const { business, getDashboardMetrics, transactions, documents } = useBusiness();
@@ -51,6 +58,8 @@ export default function DashboardScreen() {
   const [showAlertsModal, setShowAlertsModal] = useState(false);
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
   const [showSearch, setShowSearch] = useState(false);
+  const [chartPeriod, setChartPeriod] = useState<'day' | 'week' | 'month' | 'year'>('month');
+  const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   
   // Refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -161,21 +170,96 @@ export default function DashboardScreen() {
       .slice(0, 5);
   }, [transactions, documents, theme, formatCurrency]);
 
-  // Prepare chart data
+  // Prepare chart data based on selected period
   const chartData = useMemo(() => {
     const now = new Date();
-    const last30Days = Array.from({ length: 30 }, (_, i) => {
-      const date = new Date(now);
-      date.setDate(date.getDate() - (29 - i));
-      return date.toISOString().split('T')[0];
+    let dateRange: string[] = [];
+    let labels: string[] = [];
+
+    // Determine date range based on selected period
+    switch (chartPeriod) {
+      case 'day':
+        dateRange = Array.from({ length: 7 }, (_, i) => {
+          const date = new Date(now);
+          date.setDate(date.getDate() - (6 - i));
+          return date.toISOString().split('T')[0];
+        });
+        labels = dateRange.map(d => {
+          const date = new Date(d);
+          return date.toLocaleDateString('en-US', { weekday: 'short' });
+        });
+        break;
+      case 'week':
+        dateRange = Array.from({ length: 4 }, (_, i) => {
+          const date = new Date(now);
+          date.setDate(date.getDate() - (3 - i) * 7);
+          return date.toISOString().split('T')[0];
+        });
+        labels = dateRange.map((d, i) => `Week ${i + 1}`);
+        break;
+      case 'month':
+        dateRange = Array.from({ length: 12 }, (_, i) => {
+          const date = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
+          return date.toISOString().split('T')[0];
+        });
+        labels = dateRange.map(d => {
+          const date = new Date(d);
+          return date.toLocaleDateString('en-US', { month: 'short' });
+        });
+        break;
+      case 'year':
+        dateRange = Array.from({ length: 5 }, (_, i) => {
+          const date = new Date(now.getFullYear() - (4 - i), 0, 1);
+          return date.toISOString().split('T')[0];
+        });
+        labels = dateRange.map(d => {
+          const date = new Date(d);
+          return date.getFullYear().toString();
+        });
+        break;
+    }
+
+    // Calculate revenue, expenses, and profit for each period
+    const revenueExpenseProfit = dateRange.map((startDate, index) => {
+      let endDate: string;
+      if (chartPeriod === 'day') {
+        endDate = startDate;
+      } else if (chartPeriod === 'week') {
+        const date = new Date(startDate);
+        date.setDate(date.getDate() + 6);
+        endDate = date.toISOString().split('T')[0];
+      } else if (chartPeriod === 'month') {
+        const date = new Date(startDate);
+        date.setMonth(date.getMonth() + 1);
+        endDate = date.toISOString().split('T')[0];
+      } else {
+        const date = new Date(startDate);
+        date.setFullYear(date.getFullYear() + 1);
+        endDate = date.toISOString().split('T')[0];
+      }
+
+      const revenue = transactions
+        .filter(t => t.type === 'sale' && t.date >= startDate && t.date <= endDate)
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const expenses = transactions
+        .filter(t => t.type === 'expense' && t.date >= startDate && t.date <= endDate)
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const profit = revenue - expenses;
+      const profitPercent = revenue > 0 ? (profit / revenue) * 100 : 0;
+
+      return {
+        label: labels[index],
+        revenue,
+        expenses,
+        profit,
+        profitPercent,
+      };
     });
 
-    // Sales trend (last 30 days)
-    const salesData = last30Days.map(date => {
-      return transactions
-        .filter(t => t.type === 'sale' && t.date === date)
-        .reduce((sum, t) => sum + t.amount, 0);
-    });
+    // Sales trend (for compatibility)
+    const salesData = revenueExpenseProfit.map(d => d.revenue);
 
     // Expense breakdown by category
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -220,14 +304,12 @@ export default function DashboardScreen() {
 
     return {
       salesTrend: salesData,
-      salesLabels: last30Days.map(d => {
-        const date = new Date(d);
-        return date.getDate().toString();
-      }),
+      salesLabels: labels,
       expenseBreakdown: expenseChartData,
       monthlyProfit: monthlyProfitData,
+      revenueExpenseProfit,
     };
-  }, [transactions]);
+  }, [transactions, chartPeriod]);
 
   const getCategoryColor = (category: string): string => {
     const colors = [
@@ -426,9 +508,18 @@ export default function DashboardScreen() {
           style={styles.headerGradient}
         >
           <View style={styles.header}>
-            <View>
-              <Text style={styles.greeting}>{t('auth.welcomeBack')} 👋</Text>
-              <Text style={styles.businessName}>{business?.name || 'Your Business'}</Text>
+            <View style={styles.headerLeft}>
+              <AnimatedLogo 
+                size={48} 
+                showGradient={true}
+                rotationSpeed={4000}
+                pulseEnabled={true}
+                style={{ marginRight: 12 }}
+              />
+              <View>
+                <Text style={styles.greeting}>{t('auth.welcomeBack')} 👋</Text>
+                <Text style={styles.businessName}>{business?.name || 'Your Business'}</Text>
+              </View>
             </View>
             <View style={styles.headerActions}>
               <TouchableOpacity 
@@ -679,11 +770,139 @@ export default function DashboardScreen() {
             </View>
           )}
 
+          {/* Document Management Section */}
+          <View style={styles.documentManagementSection}>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>DOCUMENTS</Text>
+                <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Document Management</Text>
+              </View>
+              <TouchableOpacity>
+                <Text style={[styles.moreButton, { color: theme.text.tertiary }]}>⋯</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.documentManagementGrid}>
+              <TouchableOpacity 
+                style={[styles.documentManagementCard, { backgroundColor: theme.background.card }]}
+                onPress={() => router.push('/(tabs)/documents' as any)}
+              >
+                <View style={[styles.documentManagementIcon, { backgroundColor: '#0066CC20' }]}>
+                  <Folder size={24} color="#0066CC" />
+                </View>
+                <Text style={[styles.documentManagementLabel, { color: theme.text.primary }]}>Folders</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.documentManagementCard, { backgroundColor: theme.background.card }]}
+                onPress={() => router.push('/(tabs)/documents' as any)}
+              >
+                <View style={[styles.documentManagementIcon, { backgroundColor: '#10B98120' }]}>
+                  <FileTextIcon size={24} color="#10B981" />
+                </View>
+                <Text style={[styles.documentManagementLabel, { color: theme.text.primary }]}>Documents</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.documentManagementCard, { backgroundColor: theme.background.card }]}
+                onPress={() => router.push('/(tabs)/documents' as any)}
+              >
+                <View style={[styles.documentManagementIcon, { backgroundColor: '#F59E0B20' }]}>
+                  <Settings size={24} color="#F59E0B" />
+                </View>
+                <Text style={[styles.documentManagementLabel, { color: theme.text.primary }]}>Automation</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Growth Section */}
+          <View style={styles.growthSection}>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>GROWTH</Text>
+                <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Growth</Text>
+              </View>
+              <TouchableOpacity>
+                <Text style={[styles.viewAllText, { color: theme.accent.primary }]}>View All</Text>
+                <ChevronRight size={16} color={theme.accent.primary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.growthContent}>
+              <View style={styles.growthStatsRow}>
+                <View style={[styles.growthStatCard, { backgroundColor: theme.background.card }]}>
+                  <View style={[styles.growthStatIcon, { backgroundColor: '#10B98120' }]}>
+                    <UsersIcon size={20} color="#10B981" />
+                  </View>
+                  <Text style={[styles.growthStatValue, { color: theme.text.primary }]}>
+                    {metrics?.newCustomers || 0}
+                  </Text>
+                  <Text style={[styles.growthStatLabel, { color: theme.text.secondary }]}>New customers</Text>
+                  <View style={styles.growthTrend}>
+                    <ArrowUpRight size={12} color="#10B981" />
+                  </View>
+                </View>
+                <View style={[styles.growthStatCard, { backgroundColor: theme.background.card }]}>
+                  <View style={[styles.growthStatIcon, { backgroundColor: '#0066CC20' }]}>
+                    <TrendingUpIcon size={20} color="#0066CC" />
+                  </View>
+                  <Text style={[styles.growthStatValue, { color: theme.text.primary }]}>
+                    {metrics?.salesTrend || 0}
+                  </Text>
+                  <Text style={[styles.growthStatLabel, { color: theme.text.secondary }]}>Sales trends</Text>
+                  <View style={styles.growthTrend}>
+                    <ArrowUpRight size={12} color="#10B981" />
+                  </View>
+                </View>
+              </View>
+              {chartData.salesTrend.some(v => v > 0) && (
+                <View style={[styles.growthChartCard, { backgroundColor: theme.background.card }]}>
+                  <Text style={[styles.growthChartTitle, { color: theme.text.primary }]}>Sales trends</Text>
+                  <LineChart
+                    data={chartData.salesTrend.slice(-12)}
+                    labels={chartData.salesLabels.slice(-12)}
+                    color={theme.accent.primary}
+                    height={120}
+                  />
+                </View>
+              )}
+            </View>
+          </View>
+
           {/* Charts Section */}
           <View style={styles.chartsSection}>
-            <View>
-              <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>ANALYTICS</Text>
-              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Visual Analytics</Text>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>ANALYTICS</Text>
+                <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Interactive charts</Text>
+              </View>
+              <View style={styles.periodSelectorContainer}>
+                <TouchableOpacity
+                  style={[styles.periodSelector, { backgroundColor: theme.background.secondary }]}
+                  onPress={() => setShowPeriodDropdown(!showPeriodDropdown)}
+                >
+                  <Text style={[styles.periodSelectorText, { color: theme.text.primary }]}>
+                    {chartPeriod.charAt(0).toUpperCase() + chartPeriod.slice(1)}
+                  </Text>
+                  <ChevronDown size={16} color={theme.text.secondary} />
+                </TouchableOpacity>
+                {showPeriodDropdown && (
+                  <View style={[styles.periodDropdown, { backgroundColor: theme.background.card }]}>
+                    {(['day', 'week', 'month', 'year'] as const).map((period) => (
+                      <TouchableOpacity
+                        key={period}
+                        style={styles.periodOption}
+                        onPress={() => {
+                          setChartPeriod(period);
+                          setShowPeriodDropdown(false);
+                        }}
+                      >
+                        <Text style={[styles.periodOptionText, { 
+                          color: chartPeriod === period ? theme.accent.primary : theme.text.primary 
+                        }]}>
+                          {period.charAt(0).toUpperCase() + period.slice(1)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
             </View>
             
             {/* Sales Trend Chart */}
@@ -718,18 +937,48 @@ export default function DashboardScreen() {
               </View>
             )}
 
-            {/* Monthly Profit/Loss Bar Chart */}
-            {chartData.monthlyProfit.length > 0 && (
+            {/* Combined Revenue/Expenses/Profit Chart */}
+            {chartData.revenueExpenseProfit && chartData.revenueExpenseProfit.length > 0 && (
               <View style={[styles.chartCard, { backgroundColor: theme.background.card }]}>
                 <View style={styles.chartHeader}>
                   <BarChart3 size={20} color={theme.accent.primary} />
-                  <Text style={[styles.chartTitle, { color: theme.text.primary }]}>Monthly Profit/Loss</Text>
+                  <Text style={[styles.chartTitle, { color: theme.text.primary }]}>Revenue vs Expenses</Text>
                 </View>
-                <BarChart
-                  data={chartData.monthlyProfit}
-                  height={180}
-                  showValues={true}
-                />
+                {/* Legend */}
+                <View style={styles.chartLegend}>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#0066CC' }]} />
+                    <Text style={[styles.legendText, { color: theme.text.secondary }]}>
+                      Revenue {formatCurrency(chartData.revenueExpenseProfit.reduce((sum, d) => sum + d.revenue, 0))}
+                    </Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#EF4444' }]} />
+                    <Text style={[styles.legendText, { color: theme.text.secondary }]}>
+                      Expenses {formatCurrency(chartData.revenueExpenseProfit.reduce((sum, d) => sum + d.expenses, 0))}
+                    </Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
+                    <Text style={[styles.legendText, { color: theme.text.secondary }]}>
+                      Profit {chartData.revenueExpenseProfit.length > 0 
+                        ? (chartData.revenueExpenseProfit.reduce((sum, d) => sum + d.profitPercent, 0) / chartData.revenueExpenseProfit.length).toFixed(2)
+                        : '0.00'}%
+                    </Text>
+                  </View>
+                </View>
+                {/* Combined Bar Chart */}
+                <View style={styles.combinedChartContainer}>
+                  <BarChart
+                    data={chartData.revenueExpenseProfit.map(d => ({
+                      label: d.label,
+                      value: d.revenue,
+                      color: '#0066CC',
+                    }))}
+                    height={200}
+                    showValues={false}
+                  />
+                </View>
               </View>
             )}
           </View>
@@ -1522,5 +1771,164 @@ const styles = StyleSheet.create({
   },
   activityDate: {
     fontSize: 11,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  documentManagementSection: {
+    marginBottom: 24,
+  },
+  documentManagementGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
+  documentManagementCard: {
+    flex: 1,
+    padding: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  documentManagementIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  documentManagementLabel: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    textAlign: 'center',
+  },
+  growthSection: {
+    marginBottom: 24,
+  },
+  growthContent: {
+    gap: 12,
+    marginTop: 12,
+  },
+  growthStatsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  growthStatCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 16,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  growthStatIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  growthStatValue: {
+    fontSize: 24,
+    fontWeight: '800' as const,
+    marginBottom: 2,
+  },
+  growthStatLabel: {
+    fontSize: 12,
+    fontWeight: '500' as const,
+  },
+  growthTrend: {
+    marginTop: 4,
+  },
+  growthChartCard: {
+    padding: 16,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  growthChartTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    marginBottom: 12,
+  },
+  periodSelectorContainer: {
+    position: 'relative',
+  },
+  periodSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  periodSelectorText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  periodDropdown: {
+    position: 'absolute',
+    top: 40,
+    right: 0,
+    minWidth: 120,
+    borderRadius: 12,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    zIndex: 1000,
+  },
+  periodOption: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  periodOptionText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  chartLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  legendDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  legendText: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+  },
+  combinedChartContainer: {
+    marginTop: 8,
+  },
+  moreButton: {
+    fontSize: 20,
+    fontWeight: '600' as const,
   },
 });
