@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
+import AnimatedLogo from '@/components/AnimatedLogo';
 import type { LucideIcon } from 'lucide-react-native';
 
 interface PageHeaderProps {
@@ -11,6 +12,7 @@ interface PageHeaderProps {
   icon?: React.ComponentType<any>;
   iconGradient?: [string, string];
   rightAction?: React.ReactNode;
+  showLogo?: boolean; // Option to show/hide animated logo
 }
 
 export default function PageHeader({ 
@@ -18,7 +20,8 @@ export default function PageHeader({
   subtitle, 
   icon: Icon, 
   iconGradient = ['#0066CC', '#6366F1'],
-  rightAction 
+  rightAction,
+  showLogo = true, // Show logo by default
 }: PageHeaderProps) {
   const { theme } = useTheme();
 
@@ -32,15 +35,26 @@ export default function PageHeader({
       >
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            {Icon && (
-              <LinearGradient
-                colors={iconGradient}
-                style={styles.headerIcon}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Icon size={28} color="#FFF" strokeWidth={2.5} />
-              </LinearGradient>
+            {/* Show animated logo if enabled, otherwise show icon */}
+            {showLogo ? (
+              <AnimatedLogo 
+                size={40} 
+                showGradient={true}
+                rotationSpeed={4000}
+                pulseEnabled={true}
+                style={{ marginRight: 12 }}
+              />
+            ) : (
+              Icon && (
+                <LinearGradient
+                  colors={iconGradient}
+                  style={styles.headerIcon}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Icon size={28} color="#FFF" strokeWidth={2.5} />
+                </LinearGradient>
+              )
             )}
             <View style={styles.headerText}>
               <Text style={styles.headerTitle}>{title}</Text>
