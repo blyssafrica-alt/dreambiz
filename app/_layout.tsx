@@ -83,11 +83,29 @@ function RootLayoutNav() {
       }
 
       try {
+        // First check if we have a session before trying to refresh
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!currentSession) {
+          // No session yet - this can happen right after sign-up
+          if (isMounted) {
+            setEmailVerified(null);
+          }
+          return;
+        }
+        
         // CRITICAL: Refresh the session first to get the latest email verification status
         // This is especially important when user clicks email verification link and comes back
         const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
         if (refreshError) {
+          // If refresh fails, try using current session
           console.log('Session refresh error (non-critical):', refreshError.message);
+          if (refreshError.message?.includes('Auth session missing')) {
+            // Session not established yet - wait
+            if (isMounted) {
+              setEmailVerified(null);
+            }
+            return;
+          }
         }
         
         // Use static import from top of file - get the refreshed session

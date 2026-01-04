@@ -45,8 +45,15 @@ export default function VerifyEmailScreen() {
       if (!authUser) return;
       
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.email_confirmed_at) {
+        // First check if we have a session before calling getUser
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          // No session yet - wait for it to be established
+          return;
+        }
+        
+        // Use the session user data if available, otherwise try getUser
+        if (session.user?.email_confirmed_at) {
           // Email already verified - redirect based on onboarding status
           if (hasOnboarded) {
             router.replace('/(tabs)' as any);
@@ -55,12 +62,42 @@ export default function VerifyEmailScreen() {
           }
           return;
         }
-      } catch (error) {
+        
+        // Fallback: Try getUser() if we have a session
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user?.email_confirmed_at) {
+            // Email already verified - redirect based on onboarding status
+            if (hasOnboarded) {
+              router.replace('/(tabs)' as any);
+            } else {
+              router.replace('/onboarding' as any);
+            }
+          }
+        } catch (getUserError: any) {
+          // getUser might fail if session isn't fully established - this is okay after sign-up
+          if (getUserError?.message?.includes('Auth session missing')) {
+            // Session not ready yet - will be checked later by the polling
+            return;
+          }
+          console.error('Error getting user:', getUserError);
+        }
+      } catch (error: any) {
+        // Session check failed - might not be established yet after sign-up
+        if (error?.message?.includes('Auth session missing')) {
+          // This is expected right after sign-up - session will be established soon
+          return;
+        }
         console.error('Error checking email verification status:', error);
       }
     };
     
-    checkAndRedirect();
+    // Add small delay after sign-up to allow session to be established
+    const timeout = setTimeout(() => {
+      checkAndRedirect();
+    }, 500);
+    
+    return () => clearTimeout(timeout);
   }, [authUser, hasOnboarded]);
 
   useEffect(() => {
