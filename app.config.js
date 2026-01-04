@@ -11,7 +11,8 @@ export default {
     splash: {
       image: './assets/images/splash-icon.png',
       resizeMode: 'contain',
-      backgroundColor: '#ffffff',
+      // Match LoadingScreen gradient background - light gradient for better transition
+      backgroundColor: '#F8FAFC', // Light gray that matches LoadingScreen gradient
     },
     assetBundlePatterns: ['**/*'],
     ios: {

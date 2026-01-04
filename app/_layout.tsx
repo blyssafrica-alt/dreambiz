@@ -42,14 +42,14 @@ function RootLayoutNav() {
 
   const isLoading = businessLoading || authLoading;
 
-  // Hide loading screen after initial load completes
+  // Hide loading screen after initial load completes - no delay for smooth transition
   React.useEffect(() => {
     if (!isLoading && !authLoading && !businessLoading) {
-      // Reduced delay - show loading screen briefly then transition smoothly
-      const timer = setTimeout(() => {
-        setShowLoadingScreen(false);
-      }, 1500); // Reduced from 3 seconds to 1.5 seconds for faster experience
-      return () => clearTimeout(timer);
+      // Hide immediately when loading completes - no artificial delay
+      setShowLoadingScreen(false);
+    } else {
+      // Show loading screen while loading
+      setShowLoadingScreen(true);
     }
   }, [isLoading, authLoading, businessLoading]);
 
@@ -140,77 +140,57 @@ function RootLayoutNav() {
     };
   }, [isAuthenticated, authUser, emailVerified]);
 
+  // Navigation logic - simplified to prevent race conditions
   useEffect(() => {
-    // Don't navigate if still loading or loading screen is showing
-    if (isLoading || showLoadingScreen) return;
+    // Don't navigate if still loading - wait for all data to be ready
+    if (isLoading || authLoading || businessLoading) return;
 
-    let isMounted = true;
-    let timeoutId: NodeJS.Timeout | null = null;
+    // Get current route
+    const currentPath = segments.join('/');
+    const inAuth = currentPath.includes('landing') || currentPath.includes('sign-up') || currentPath.includes('sign-in');
+    const inVerifyEmail = currentPath.includes('verify-email');
+    const inOnboarding = currentPath.includes('onboarding');
+    const inTabs = currentPath.includes('(tabs)') || currentPath === '';
 
-    // Use requestAnimationFrame to ensure component is fully mounted before navigation
-    const navigationFrame = requestAnimationFrame(() => {
-      if (!isMounted) return;
-
-      const currentPath = segments.join('/');
-      const inAuth = currentPath.includes('landing') || currentPath.includes('sign-up') || currentPath.includes('sign-in');
-      const inVerifyEmail = currentPath.includes('verify-email');
-      const inOnboarding = currentPath.includes('onboarding');
-      const inTabs = currentPath.includes('(tabs)') || currentPath === '';
-
-      // If not authenticated, redirect to landing page (don't check email verification)
-      if (!isAuthenticated) {
-        if (!inAuth && !inVerifyEmail) {
-          router.replace('/landing' as any);
-        }
-        return;
+    // Navigation decision tree - only navigate if not already on correct screen
+    if (!isAuthenticated) {
+      // Not authenticated - go to landing
+      if (!inAuth && !inVerifyEmail) {
+        router.replace('/landing' as any);
       }
+      return;
+    }
 
-      // CRITICAL: If authenticated but email not verified (or check is pending), redirect to verification screen
-      // This must happen BEFORE checking onboarding status
-      // Allow verify-email screen to show if we're coming from sign-up (inAuth includes sign-up)
-      if (isAuthenticated && (emailVerified === false || emailVerified === null)) {
-        // Only redirect if not already on verify-email or auth screens
-        // If we're on auth screens (like sign-up), allow the screen to navigate to verify-email itself
-        if (!inVerifyEmail && !inAuth) {
-          // If email verification status is still null, assume not verified and redirect
-          if (emailVerified === null) {
-            console.log('Email verification status unknown, redirecting to verify-email');
-          } else {
-            console.log('Redirecting to verify-email: email not verified');
-          }
-          router.replace('/verify-email' as any);
-        }
-        return;
-      }
+    // Authenticated - check email verification status
+    // Wait a bit for email verification status to be determined (if null, wait)
+    if (emailVerified === null) {
+      // Still checking - don't navigate yet (let verify-email screen handle it)
+      return;
+    }
 
-      // If authenticated, email verified, but not onboarded, redirect to onboarding
-      // Only proceed to onboarding if email is verified (emailVerified === true)
-      // Don't redirect if on verify-email screen (let it handle navigation after showing success)
-      if (isAuthenticated && emailVerified === true && !hasOnboarded) {
-        // Don't redirect if on verify-email screen - let it show success and navigate itself
-        if (!inVerifyEmail && !inOnboarding && !inAuth) {
-          console.log('Redirecting to onboarding: email verified, not onboarded');
-          router.replace('/onboarding' as any);
-        }
-        return;
+    if (emailVerified === false) {
+      // Email not verified - go to verify-email (unless already there or coming from sign-up)
+      if (!inVerifyEmail && !inAuth) {
+        router.replace('/verify-email' as any);
       }
+      return;
+    }
 
-      // If authenticated and onboarded, redirect to main app (tabs)
-      // But only if email is verified (to prevent redirecting before verification)
-      if (isAuthenticated && emailVerified === true && hasOnboarded && (inAuth || inOnboarding || inVerifyEmail)) {
-        router.replace('/(tabs)' as any);
-        return;
+    // Email verified - check onboarding
+    if (!hasOnboarded) {
+      // Not onboarded - go to onboarding (navigate even if on verify-email to show onboarding)
+      if (!inOnboarding && !inAuth) {
+        router.replace('/onboarding' as any);
       }
-    });
+      return;
+    }
 
-    return () => {
-      isMounted = false;
-      cancelAnimationFrame(navigationFrame);
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [isAuthenticated, hasOnboarded, emailVerified, isLoading, showLoadingScreen, segments, router]);
+    // Authenticated, verified, onboarded - go to main app
+    // Navigate even if on verify-email or onboarding to go to main app
+    if (!inTabs && !inAuth) {
+      router.replace('/(tabs)' as any);
+    }
+  }, [isAuthenticated, hasOnboarded, emailVerified, isLoading, authLoading, businessLoading, segments, router]);
 
   // Always render the Stack navigator so routes are available
   // Show loading screen as overlay if needed
@@ -246,38 +226,6 @@ function RootLayoutNav() {
       {showLoadingScreen || isLoading ? (
         <LoadingScreen message="Loading DreamBiz..." />
       ) : null}
-    </>
-  );
-
-  return (
-    <>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      <Stack 
-        screenOptions={{ 
-          headerBackTitle: "Back",
-          headerStyle: {
-            backgroundColor: theme.background.card,
-          },
-          headerTintColor: theme.text.primary,
-          headerShadowVisible: false,
-        }}
-      >
-        <Stack.Screen name="landing" options={{ headerShown: false }} />
-        <Stack.Screen name="sign-up" options={{ headerShown: false }} />
-        <Stack.Screen name="sign-in" options={{ headerShown: false }} />
-        <Stack.Screen name="verify-email" options={{ headerShown: false }} />
-        <Stack.Screen name="employee-login" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="document/[id]" options={{ title: 'Document', headerShown: true }} />
-        <Stack.Screen name="business-plan" options={{ title: 'Business Plan', headerShown: true }} />
-        <Stack.Screen name="help" options={{ title: 'Help & Support', headerShown: false }} />
-        <Stack.Screen name="books" options={{ headerShown: false }} />
-        <Stack.Screen name="my-library" options={{ title: 'My Library', headerShown: false }} />
-        <Stack.Screen name="receipt-scan" options={{ title: 'Scan Receipt', headerShown: false }} />
-        <Stack.Screen name="payments" options={{ headerShown: false }} />
-        <Stack.Screen name="admin" options={{ headerShown: false }} />
-      </Stack>
     </>
   );
 }

@@ -26,11 +26,7 @@ export default function LandingScreen() {
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace('/onboarding');
-    }
-  }, [isAuthenticated, isLoading]);
+  // Removed redirect logic - let _layout.tsx handle all navigation to prevent race conditions
 
   useEffect(() => {
     Animated.parallel([

@@ -29,7 +29,6 @@ export default function VerifyEmailScreen() {
   const [lastResendTime, setLastResendTime] = useState(0);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [checkMessage, setCheckMessage] = useState<string | null>(null);
-  const navigationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -78,10 +77,6 @@ export default function VerifyEmailScreen() {
     return () => {
       clearInterval(interval);
       subscription.remove();
-      if (navigationTimeoutRef.current) {
-        clearTimeout(navigationTimeoutRef.current);
-        navigationTimeoutRef.current = null;
-      }
     };
   }, [authUser]);
 
@@ -189,13 +184,8 @@ export default function VerifyEmailScreen() {
             }),
           ]).start();
           
-          // Show success message for 2 seconds, then navigate to onboarding
-          if (!navigationTimeoutRef.current) {
-            navigationTimeoutRef.current = setTimeout(() => {
-              navigationTimeoutRef.current = null;
-              router.replace('/onboarding' as any);
-            }, 2000);
-          }
+          // Email verified - let the main navigation logic in _layout.tsx handle navigation
+          // This prevents conflicts and ensures consistent navigation flow
         } else {
           if (showUI) {
             setIsChecking(false);
@@ -223,14 +213,9 @@ export default function VerifyEmailScreen() {
           }),
         ]).start();
         
-        // Show success message for 2 seconds, then navigate to onboarding
-        // Only set timeout once (check if already set)
-        if (!navigationTimeoutRef.current) {
-          navigationTimeoutRef.current = setTimeout(() => {
-            navigationTimeoutRef.current = null;
-            router.replace('/onboarding' as any);
-          }, 2000);
-        }
+        // Email verified - let the main navigation logic in _layout.tsx handle navigation
+        // This prevents conflicts and ensures consistent navigation flow
+        // The navigation will happen automatically once emailVerified state updates in _layout.tsx
       } else {
         if (showUI) {
           setIsChecking(false);
@@ -291,8 +276,9 @@ export default function VerifyEmailScreen() {
       return;
     }
 
-    // Navigate to onboarding
-    router.replace('/onboarding' as any);
+    // Trigger a fresh check - navigation will be handled automatically by _layout.tsx
+    // This ensures the latest verification status is reflected
+    await checkEmailStatus(false);
   };
 
   const spin = rotateAnim.interpolate({
