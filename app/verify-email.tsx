@@ -28,6 +28,7 @@ export default function VerifyEmailScreen() {
   const [email, setEmail] = useState(authUser?.email || '');
   const [lastResendTime, setLastResendTime] = useState(0);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [checkMessage, setCheckMessage] = useState<string | null>(null);
   const navigationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Animation values
@@ -147,6 +148,7 @@ export default function VerifyEmailScreen() {
     
     try {
       setIsChecking(true);
+      setCheckMessage(null); // Clear previous message
       
       // CRITICAL: Refresh the session first to get the latest email verification status
       // This is needed when user clicks the email link and comes back to the app
@@ -162,12 +164,16 @@ export default function VerifyEmailScreen() {
       if (sessionError) {
         console.error('Error getting session:', sessionError);
         setIsChecking(false);
+        setCheckMessage('Unable to check verification status. Please try again.');
+        // Clear message after 3 seconds
+        setTimeout(() => setCheckMessage(null), 3000);
         return;
       }
       
       if (session?.user?.email_confirmed_at) {
         setIsVerified(true);
         setIsChecking(false);
+        setCheckMessage(null);
         // Animate success
         Animated.parallel([
           Animated.spring(scaleAnim, {
@@ -188,10 +194,16 @@ export default function VerifyEmailScreen() {
         }
       } else {
         setIsChecking(false);
+        setCheckMessage('Email not verified yet. Please check your inbox and click the verification link.');
+        // Clear message after 4 seconds
+        setTimeout(() => setCheckMessage(null), 4000);
       }
     } catch (error) {
       console.error('Error checking email status:', error);
       setIsChecking(false);
+      setCheckMessage('An error occurred. Please try again.');
+      // Clear message after 3 seconds
+      setTimeout(() => setCheckMessage(null), 3000);
     }
   };
 
@@ -398,6 +410,32 @@ export default function VerifyEmailScreen() {
                     </>
                   )}
                 </TouchableOpacity>
+
+                {/* Check Status Feedback Message */}
+                {checkMessage && (
+                  <View style={[styles.checkMessage, { 
+                    backgroundColor: checkMessage.includes('not verified') 
+                      ? theme.accent.warning + '15' 
+                      : checkMessage.includes('error') || checkMessage.includes('Unable')
+                      ? theme.accent.danger + '15'
+                      : theme.accent.success + '15',
+                    borderColor: checkMessage.includes('not verified')
+                      ? theme.accent.warning + '30'
+                      : checkMessage.includes('error') || checkMessage.includes('Unable')
+                      ? theme.accent.danger + '30'
+                      : theme.accent.success + '30',
+                  }]}>
+                    <Text style={[styles.checkMessageText, { 
+                      color: checkMessage.includes('not verified')
+                        ? theme.accent.warning
+                        : checkMessage.includes('error') || checkMessage.includes('Unable')
+                        ? theme.accent.danger
+                        : theme.text.secondary,
+                    }]}>
+                      {checkMessage}
+                    </Text>
+                  </View>
+                )}
 
                 {/* Resend Button */}
                 <TouchableOpacity
@@ -674,6 +712,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
     letterSpacing: 0.3,
+  },
+  checkMessage: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  checkMessageText: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   resendButton: {
     flexDirection: 'row',
