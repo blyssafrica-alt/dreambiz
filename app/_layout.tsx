@@ -42,12 +42,13 @@ function RootLayoutNav() {
 
   const isLoading = businessLoading || authLoading;
 
-  // Hide loading screen after initial load - longer duration to appreciate the beautiful design
+  // Hide loading screen after initial load completes
   React.useEffect(() => {
     if (!isLoading && !authLoading && !businessLoading) {
+      // Reduced delay - show loading screen briefly then transition smoothly
       const timer = setTimeout(() => {
         setShowLoadingScreen(false);
-      }, 3000); // Longer delay (3 seconds) to appreciate the beautiful loading screen design
+      }, 1500); // Reduced from 3 seconds to 1.5 seconds for faster experience
       return () => clearTimeout(timer);
     }
   }, [isLoading, authLoading, businessLoading]);
@@ -283,16 +284,15 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   useEffect(() => {
-    // Hide native splash screen - our custom loading screen will handle the transition
-    const timer = setTimeout(async () => {
+    // Hide native splash screen immediately - our custom loading screen will take over
+    (async () => {
       try {
+        // Hide immediately, no delay - custom LoadingScreen will show right away
         await SplashScreen.hideAsync();
       } catch (e) {
         // Ignore errors
       }
-    }, 100);
-
-    return () => clearTimeout(timer);
+    })();
   }, []);
 
   return (
