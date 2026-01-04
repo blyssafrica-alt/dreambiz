@@ -160,8 +160,21 @@ function RootLayoutNav() {
   const lastNavigationTimeRef = React.useRef<number>(0);
   
   useEffect(() => {
-    // Don't navigate if still loading - wait for all data to be ready
-    if (isLoading || authLoading || businessLoading) return;
+    // Get current route first
+    const currentPath = segments.join('/');
+    const inAuth = currentPath.includes('landing') || currentPath.includes('sign-up') || currentPath.includes('sign-in');
+    const inVerifyEmail = currentPath.includes('verify-email');
+    const inOnboarding = currentPath.includes('onboarding');
+    const inTabs = currentPath.includes('(tabs)') || currentPath === '';
+
+    // CRITICAL: Allow navigation even while loading if user is authenticated and on auth screen
+    // This prevents getting stuck after sign-in while business data loads
+    const canNavigateWhileLoading = isAuthenticated && inAuth && !authLoading;
+    
+    // Don't navigate if still loading, UNLESS we need to get user off auth screen
+    if ((isLoading || authLoading || businessLoading) && !canNavigateWhileLoading) {
+      return;
+    }
 
     // Debounce navigation - prevent rapid redirects (min 300ms between navigations)
     const now = Date.now();
@@ -169,18 +182,17 @@ function RootLayoutNav() {
       return;
     }
 
-    // Get current route
-    const currentPath = segments.join('/');
+    // Prevent duplicate navigation to same route (but allow if route legitimately changed)
+    // Reset ref if we're on a different route than what we last navigated to
+    if (navigationRef.current && navigationRef.current !== currentPath) {
+      // Route changed - reset the ref
+      navigationRef.current = null;
+    }
     
-    // Prevent duplicate navigation to same route
+    // If we're already on the target route from previous navigation, don't navigate again
     if (navigationRef.current === currentPath) {
       return;
     }
-    
-    const inAuth = currentPath.includes('landing') || currentPath.includes('sign-up') || currentPath.includes('sign-in');
-    const inVerifyEmail = currentPath.includes('verify-email');
-    const inOnboarding = currentPath.includes('onboarding');
-    const inTabs = currentPath.includes('(tabs)') || currentPath === '';
 
     // Navigation decision tree - only navigate if not already on correct screen
     let targetRoute: string | null = null;
@@ -192,21 +204,25 @@ function RootLayoutNav() {
       }
     } else {
       // Authenticated - check email verification status
-      // Wait a bit for email verification status to be determined (if null, wait)
-      if (emailVerified === null) {
-        // Still checking - but if on auth screens, navigate away immediately
-        // This prevents getting stuck on sign-in screen after successful login
-        if (inAuth) {
-          // On auth screen but authenticated - navigate away
-          // If already onboarded, go to tabs, otherwise wait a bit for email check
-          if (hasOnboarded) {
-            targetRoute = '/(tabs)';
+      // CRITICAL: If on auth screen after sign-in, navigate away immediately
+      if (inAuth) {
+        // On auth screen but authenticated - navigate away immediately
+        if (hasOnboarded) {
+          targetRoute = '/(tabs)';
+        } else {
+          // Not onboarded - check email verification status
+          if (emailVerified === true) {
+            targetRoute = '/onboarding';
+          } else if (emailVerified === false) {
+            targetRoute = '/verify-email';
           } else {
-            // Not onboarded yet - go to verify-email while checking, or onboarding if email already verified
-            // Default to verify-email as safe option while checking
+            // Email verification status unknown - default to verify-email while checking
             targetRoute = '/verify-email';
           }
-        } else if (hasOnboarded && (inVerifyEmail || inOnboarding)) {
+        }
+      } else if (emailVerified === null) {
+        // Email verification status unknown - only handle non-auth screens
+        if (hasOnboarded && (inVerifyEmail || inOnboarding)) {
           // Already onboarded - redirect away from verify-email and onboarding
           targetRoute = '/(tabs)';
         }
@@ -218,19 +234,19 @@ function RootLayoutNav() {
           targetRoute = '/onboarding';
         }
       } else if (emailVerified === false) {
-        // Email not verified - go to verify-email (unless already there or coming from sign-up)
+        // Email not verified - go to verify-email (unless already there)
         if (!inVerifyEmail && !inAuth) {
           targetRoute = '/verify-email';
         }
       } else if (hasOnboarded && inOnboarding) {
         // CRITICAL: If already onboarded, redirect away from onboarding screen immediately
         targetRoute = '/(tabs)';
-      } else if (!hasOnboarded) {
-        // Not onboarded - go to onboarding (navigate even if on verify-email to show onboarding)
+      } else if (!hasOnboarded && emailVerified === true) {
+        // Email verified but not onboarded - go to onboarding
         if (!inOnboarding && !inAuth) {
           targetRoute = '/onboarding';
         }
-      } else if (!inTabs && !inAuth) {
+      } else if (!inTabs && !inAuth && hasOnboarded && emailVerified === true) {
         // Authenticated, verified, onboarded - go to main app
         targetRoute = '/(tabs)';
       }
