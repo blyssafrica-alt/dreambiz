@@ -388,6 +388,18 @@ export interface Translations {
     planning: string;
   };
   
+  // Admin
+  admin: {
+    adminConsole: string;
+    platformStatistics: string;
+    totalUsers: string;
+    activeUsers: string;
+    totalProducts: string;
+    totalAds: string;
+    totalBusinesses: string;
+    totalRevenue: string;
+  };
+  
   // General
   general: {
     businessName: string;
@@ -743,6 +755,16 @@ const translations: Record<Language, Translations> = {
       growing: 'Growing',
       planning: 'Planning',
     },
+    admin: {
+      adminConsole: 'Admin Console',
+      platformStatistics: 'Platform Statistics',
+      totalUsers: 'Total Users',
+      activeUsers: 'Active Users',
+      totalProducts: 'Total Products',
+      totalAds: 'Total Ads',
+      totalBusinesses: 'Total Businesses',
+      totalRevenue: 'Total Revenue',
+    },
     general: {
       businessName: 'Business Name',
       owner: 'Owner',
@@ -1080,6 +1102,16 @@ const translations: Record<Language, Translations> = {
       running: 'Running',
       growing: 'Growing',
       planning: 'Planning',
+    },
+    admin: {
+      adminConsole: 'Admin Console',
+      platformStatistics: 'Platform Statistics',
+      totalUsers: 'Vashandisi Vese',
+      activeUsers: 'Vashandisi Vanoshanda',
+      totalProducts: 'Zvigadzirwa Zvese',
+      totalAds: 'Mashambadziro Ese',
+      totalBusinesses: 'Mabhizinesi Ese',
+      totalRevenue: 'Mari Yese Yakawana',
     },
     general: {
       businessName: 'Zita Rebhizinesi',
@@ -1434,6 +1466,16 @@ const translations: Record<Language, Translations> = {
       running: 'Iyasebenza',
       growing: 'Ikhula',
       planning: 'Planning',
+    },
+    admin: {
+      adminConsole: 'Admin Console',
+      platformStatistics: 'Platform Statistics',
+      totalUsers: 'Bonke Abasebenzisi',
+      activeUsers: 'Abasebenzisi Abasebenzayo',
+      totalProducts: 'Bonke Imikhiqizo',
+      totalAds: 'Bonke Izikhangiso',
+      totalBusinesses: 'Bonke Amabhizinisi',
+      totalRevenue: 'Yonke Imali Etholwe',
     },
     general: {
       businessName: 'Igama Lebhizinisi',
