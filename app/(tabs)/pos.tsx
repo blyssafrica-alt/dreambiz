@@ -179,7 +179,7 @@ export default function POSScreen() {
     if (searchQuery) {
       filtered = filtered.filter(p => 
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.category?.toLowerCase().includes(searchQuery.toLowerCase())
+        p.category?.toLowerCase()?.includes(searchQuery.toLowerCase())
       );
     }
     
@@ -513,7 +513,7 @@ export default function POSScreen() {
         `Receipt Number: ${createdReceipt.documentNumber}\n` +
         `Date: ${new Date(createdReceipt.date).toLocaleDateString()}\n` +
         `Total: ${formatCurrency(createdReceipt.total)}\n` +
-        `Payment Method: ${createdReceipt.paymentMethod?.replace('_', ' ').toUpperCase() || 'CASH'}\n\n` +
+        `Payment Method: ${createdReceipt.paymentMethod?.replace('_', ' ')?.toUpperCase() || 'CASH'}\n\n` +
         `Items:\n${createdReceipt.items.map(item => 
           `- ${item.description} (${item.quantity}x) = ${formatCurrency(item.total)}`
         ).join('\n')}\n\n` +
@@ -1391,7 +1391,7 @@ export default function POSScreen() {
                         <View style={styles.receiptSummaryRow}>
                           <Text style={[styles.receiptSummaryLabel, { color: theme.text.secondary }]}>Payment</Text>
                           <Text style={[styles.receiptSummaryValue, { color: theme.text.primary }]}>
-                            {createdReceipt.paymentMethod?.replace('_', ' ').toUpperCase() || 'CASH'}
+                            {createdReceipt.paymentMethod?.replace('_', ' ')?.toUpperCase() || 'CASH'}
                           </Text>
                         </View>
                         {(createdReceipt as any)?.paymentMethod === 'cash' && (createdReceipt as any)?.changeAmount > 0 && (
