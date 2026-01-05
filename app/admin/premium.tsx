@@ -645,11 +645,11 @@ export default function PremiumManagementScreen() {
                           price: plan.price.toString(),
                           currency: plan.currency,
                           billingPeriod: plan.billingPeriod,
-                          maxBusinesses: plan.maxBusinesses === -1 ? '-1' : plan.maxBusinesses.toString(),
-                          maxUsers: plan.maxUsers === -1 ? '-1' : plan.maxUsers.toString(),
-                          maxStorageMb: plan.maxStorageMb === -1 ? '-1' : plan.maxStorageMb.toString(),
+                          maxBusinesses: plan.maxBusinesses === -1 || plan.maxBusinesses === null || plan.maxBusinesses === undefined ? '-1' : plan.maxBusinesses.toString(),
+                          maxUsers: plan.maxUsers === -1 || plan.maxUsers === null || plan.maxUsers === undefined ? '-1' : plan.maxUsers.toString(),
+                          maxStorageMb: plan.maxStorageMb === -1 || plan.maxStorageMb === null || plan.maxStorageMb === undefined ? '-1' : plan.maxStorageMb.toString(),
                           isActive: plan.isActive,
-                          displayOrder: plan.displayOrder.toString(),
+                          displayOrder: plan.displayOrder ? plan.displayOrder.toString() : '0',
                         });
                         setShowPlanModal(true);
                       }}

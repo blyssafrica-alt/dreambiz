@@ -1,5 +1,5 @@
 import { Stack, router } from 'expo-router';
-import { DollarSign, Building2, MapPin, Phone, Mail, Save, FileText, Moon, Sun, LogOut, Download, Database, Image as ImageIcon, X, Settings as SettingsIcon, MessageSquare, Bell, Globe, CheckCircle, XCircle } from 'lucide-react-native';
+import { DollarSign, Building2, MapPin, Phone, Mail, Save, FileText, Moon, Sun, LogOut, Download, Database, Image as ImageIcon, X, Settings as SettingsIcon, MessageSquare, Bell, Globe, CheckCircle, XCircle, Crown, BookOpen, ChevronRight, Zap } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
 import {
   View,
@@ -12,17 +12,20 @@ import {
   Switch,
   Image,
   Platform,
+  Modal,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
+import { usePremium } from '@/contexts/PremiumContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { supabase } from '@/lib/supabase';
 import { decode } from 'base64-arraybuffer';
-import type { Currency } from '@/types/business';
+import type { Currency, DreamBigBook } from '@/types/business';
 import { exportAllData, shareData } from '@/lib/data-export';
+import { DREAMBIG_BOOKS, getBookInfo, getBookFeatures } from '@/constants/books';
 
 export default function SettingsScreen() {
   const { 
@@ -51,7 +54,9 @@ export default function SettingsScreen() {
     updateIntegrationPreference,
     isLoading: settingsLoading 
   } = useSettings();
+  const { currentPlan } = usePremium();
   const { t } = useTranslation();
+  const [showBookModal, setShowBookModal] = useState(false);
   const [name, setName] = useState(business?.name || '');
   const [owner, setOwner] = useState(business?.owner || '');
   const [phone, setPhone] = useState(business?.phone || '');
@@ -269,6 +274,21 @@ export default function SettingsScreen() {
         },
       ]
     );
+  };
+
+  const handleBookChange = async (bookId: DreamBigBook) => {
+    if (!business) return;
+
+    try {
+      await saveBusiness({
+        ...business,
+        dreamBigBook: bookId,
+      });
+      setShowBookModal(false);
+      RNAlert.alert('Success', 'Book selection updated successfully');
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to update book selection');
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -638,6 +658,94 @@ export default function SettingsScreen() {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+
+        {/* Subscription Plan Section */}
+        <View style={[styles.section, { 
+          backgroundColor: theme.background.card,
+          borderColor: theme.border.light,
+        }]}>
+          <View style={styles.sectionHeader}>
+            <Crown size={20} color={theme.accent.primary} />
+            <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
+              Subscription Plan
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={() => router.push('/subscription' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.settingLeft}>
+              <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
+                {currentPlan ? currentPlan.name : 'Free Plan'}
+              </Text>
+              <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
+                {currentPlan 
+                  ? `Manage your subscription and upgrade options` 
+                  : `Upgrade to unlock premium features and capabilities`}
+              </Text>
+            </View>
+            <ChevronRight size={20} color={theme.text.tertiary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Book Selection Section */}
+        <View style={[styles.section, { 
+          backgroundColor: theme.background.card,
+          borderColor: theme.border.light,
+        }]}>
+          <View style={styles.sectionHeader}>
+            <BookOpen size={20} color={theme.accent.primary} />
+            <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
+              DreamBig Book
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={() => setShowBookModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.settingLeft}>
+              <View style={styles.bookInfoRow}>
+                <View style={[styles.bookColorDot, { 
+                  backgroundColor: business?.dreamBigBook 
+                    ? getBookInfo(business.dreamBigBook).color 
+                    : '#64748B' 
+                }]} />
+                <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
+                  {business?.dreamBigBook 
+                    ? getBookInfo(business.dreamBigBook).title 
+                    : 'No Book Selected'}
+                </Text>
+              </View>
+              <Text style={[styles.settingDesc, { color: theme.text.secondary, marginTop: 4 }]}>
+                {business?.dreamBigBook 
+                  ? `${getBookInfo(business.dreamBigBook).subtitle} - ${getBookFeatures(business.dreamBigBook).length} features unlocked`
+                  : 'Select a book to unlock specialized features'}
+              </Text>
+              {business?.dreamBigBook && (
+                <View style={styles.featuresList}>
+                  {getBookFeatures(business.dreamBigBook).slice(0, 3).map((feature, idx) => (
+                    <View key={idx} style={[styles.featureTag, { backgroundColor: theme.background.secondary }]}>
+                      <Zap size={12} color={getBookInfo(business.dreamBigBook!).color} />
+                      <Text style={[styles.featureTagText, { color: theme.text.secondary }]}>
+                        {feature}
+                      </Text>
+                    </View>
+                  ))}
+                  {getBookFeatures(business.dreamBigBook).length > 3 && (
+                    <Text style={[styles.featureMoreText, { color: theme.text.tertiary }]}>
+                      +{getBookFeatures(business.dreamBigBook).length - 3} more
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+            <ChevronRight size={20} color={theme.text.tertiary} />
+          </TouchableOpacity>
         </View>
 
         <View style={[styles.section, { 
@@ -1062,6 +1170,86 @@ export default function SettingsScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Book Selection Modal */}
+      <Modal
+        visible={showBookModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowBookModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.bookModalContent, { backgroundColor: theme.background.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text.primary }]}>
+                Select DreamBig Book
+              </Text>
+              <TouchableOpacity onPress={() => setShowBookModal(false)}>
+                <X size={24} color={theme.text.secondary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.modalSubtitle, { color: theme.text.secondary }]}>
+              Your book unlocks specialized tools and guidance
+            </Text>
+
+            <ScrollView style={styles.booksScrollView} showsVerticalScrollIndicator={false}>
+              {DREAMBIG_BOOKS.map((book) => {
+                const isSelected = business?.dreamBigBook === book.id;
+                const features = getBookFeatures(book.id);
+                return (
+                  <TouchableOpacity
+                    key={book.id}
+                    style={[
+                      styles.bookModalCard,
+                      {
+                        backgroundColor: isSelected ? book.color + '10' : theme.background.secondary,
+                        borderColor: isSelected ? book.color : theme.border.light,
+                      },
+                    ]}
+                    onPress={() => handleBookChange(book.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.bookModalHeader}>
+                      <View style={styles.bookModalLeft}>
+                        <View style={[styles.bookColorDotLarge, { backgroundColor: book.color }]} />
+                        <View>
+                          <Text style={[styles.bookModalTitle, { color: book.color }]}>
+                            {book.title}
+                          </Text>
+                          <Text style={[styles.bookModalSubtitle, { color: theme.text.secondary }]}>
+                            {book.subtitle}
+                          </Text>
+                        </View>
+                      </View>
+                      {isSelected && (
+                        <View style={[styles.bookCheckCircle, { backgroundColor: book.color }]} />
+                      )}
+                    </View>
+                    <Text style={[styles.bookModalDescription, { color: theme.text.secondary }]}>
+                      {book.description}
+                    </Text>
+                    <View style={styles.bookFeaturesContainer}>
+                      <Text style={[styles.bookFeaturesTitle, { color: theme.text.primary }]}>
+                        Unlocks {features.length} features:
+                      </Text>
+                      <View style={styles.bookFeaturesGrid}>
+                        {features.map((feature, idx) => (
+                          <View key={idx} style={[styles.bookFeatureTag, { backgroundColor: book.color + '20' }]}>
+                            <Zap size={12} color={book.color} />
+                            <Text style={[styles.bookFeatureText, { color: book.color }]}>
+                              {feature}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -1362,5 +1550,133 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600' as const,
     textTransform: 'uppercase',
+  },
+  bookInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bookColorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  featuresList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  featureTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  featureTagText: {
+    fontSize: 11,
+    fontWeight: '500' as const,
+  },
+  featureMoreText: {
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  bookModalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 20,
+  },
+  booksScrollView: {
+    maxHeight: 600,
+  },
+  bookModalCard: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 2,
+    marginBottom: 12,
+  },
+  bookModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  bookModalLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  bookColorDotLarge: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+  },
+  bookModalTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    marginBottom: 2,
+  },
+  bookModalSubtitle: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+  },
+  bookCheckCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  bookModalDescription: {
+    fontSize: 14,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  bookFeaturesContainer: {
+    marginTop: 8,
+  },
+  bookFeaturesTitle: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    marginBottom: 8,
+  },
+  bookFeaturesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  bookFeatureTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  bookFeatureText: {
+    fontSize: 12,
+    fontWeight: '500' as const,
   },
 });
