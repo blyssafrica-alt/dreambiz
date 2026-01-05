@@ -84,6 +84,9 @@ export default function POSScreen() {
   const [createdReceipt, setCreatedReceipt] = useState<Document | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentShift, setCurrentShift] = useState<ShiftInfo | null>(null);
+  const [showQuantityModal, setShowQuantityModal] = useState(false);
+  const [selectedProductForQuantity, setSelectedProductForQuantity] = useState<Product | null>(null);
+  const [quantityInput, setQuantityInput] = useState('1');
 
   // Animation setup
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -220,22 +223,54 @@ export default function POSScreen() {
   const cartButtonBottom = totalTabBarSpace + 10;
   const cartSheetPaddingBottom = totalTabBarSpace + 20;
 
-  const addToCart = (product: Product) => {
+  const handleProductSelect = (product: Product) => {
+    setSelectedProductForQuantity(product);
+    setQuantityInput('1');
+    setShowQuantityModal(true);
+  };
+
+  const addToCart = (product: Product, quantity: number = 1) => {
+    if (quantity <= 0) {
+      RNAlert.alert('Invalid Quantity', 'Quantity must be greater than 0');
+      return;
+    }
+
+    if (quantity > product.quantity) {
+      RNAlert.alert('Insufficient Stock', `Only ${product.quantity} units available`);
+      return;
+    }
+
     const existingItem = cart.find(item => item.product.id === product.id);
     if (existingItem) {
-      if (existingItem.quantity >= product.quantity) {
-        RNAlert.alert('Insufficient Stock', `Only ${product.quantity} units available`);
+      const newQuantity = existingItem.quantity + quantity;
+      if (newQuantity > product.quantity) {
+        RNAlert.alert('Insufficient Stock', `Only ${product.quantity} units available. You already have ${existingItem.quantity} in cart.`);
         return;
       }
       setCart(cart.map(item => 
         item.product.id === product.id 
-          ? { ...item, quantity: item.quantity + 1 }
+          ? { ...item, quantity: newQuantity }
           : item
       ));
     } else {
-      setCart([...cart, { product, quantity: 1 }]);
+      setCart([...cart, { product, quantity }]);
       setCartOpen(true);
     }
+  };
+
+  const handleAddToCartWithQuantity = () => {
+    if (!selectedProductForQuantity) return;
+    
+    const quantity = parseInt(quantityInput, 10);
+    if (isNaN(quantity) || quantity <= 0) {
+      RNAlert.alert('Invalid Quantity', 'Please enter a valid quantity');
+      return;
+    }
+
+    addToCart(selectedProductForQuantity, quantity);
+    setShowQuantityModal(false);
+    setSelectedProductForQuantity(null);
+    setQuantityInput('1');
   };
 
   const removeFromCart = (productId: string) => {
@@ -372,9 +407,11 @@ export default function POSScreen() {
           : undefined,
       });
       
-      // Add additional fields for PDF export
-      newReceipt.discountAmount = discountAmount;
-      newReceipt.discountType = discountType;
+      // Add additional fields for PDF export (only if discount was applied)
+      if (discountAmount > 0) {
+        newReceipt.discountAmount = discountAmount;
+        newReceipt.discountType = discountType;
+      }
       newReceipt.amountReceived = paymentMethod === 'cash' ? parseFloat(amountReceived) || 0 : cartTotal;
       newReceipt.changeAmount = changeAmount;
       newReceipt.employeeName = employeeName; // Ensure employee name is available for PDF
@@ -625,7 +662,7 @@ export default function POSScreen() {
                   <TouchableOpacity
                     key={product.id}
                     style={[styles.productCard, { backgroundColor: theme.background.card }]}
-                    onPress={() => addToCart(product)}
+                    onPress={() => handleProductSelect(product)}
                     activeOpacity={0.7}
                   >
                     <View style={[styles.stockBadge, { backgroundColor: stockStatus.color + '20' }]}>
@@ -657,7 +694,10 @@ export default function POSScreen() {
                     </View>
                     <TouchableOpacity
                       style={[styles.addButton, { backgroundColor: theme.accent.primary }]}
-                      onPress={() => addToCart(product)}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleProductSelect(product);
+                      }}
                     >
                       <Plus size={20} color="#FFF" />
                     </TouchableOpacity>
@@ -1196,6 +1236,110 @@ export default function POSScreen() {
                   )}
                 </TouchableOpacity>
               </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Quantity Selection Modal */}
+        <Modal
+          visible={showQuantityModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => {
+            setShowQuantityModal(false);
+            setSelectedProductForQuantity(null);
+            setQuantityInput('1');
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Select Quantity</Text>
+                <TouchableOpacity onPress={() => {
+                  setShowQuantityModal(false);
+                  setSelectedProductForQuantity(null);
+                  setQuantityInput('1');
+                }}>
+                  <X size={24} color={theme.text.secondary} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.modalBody}>
+                {selectedProductForQuantity && (
+                  <>
+                    <View style={styles.quantityProductInfo}>
+                      <Text style={[styles.quantityProductName, { color: theme.text.primary }]}>
+                        {selectedProductForQuantity.name}
+                      </Text>
+                      <Text style={[styles.quantityProductPrice, { color: theme.accent.primary }]}>
+                        {formatCurrency(selectedProductForQuantity.sellingPrice)} each
+                      </Text>
+                      <Text style={[styles.quantityStockInfo, { color: theme.text.secondary }]}>
+                        Available: {selectedProductForQuantity.quantity} units
+                      </Text>
+                    </View>
+
+                    <View style={styles.quantityInputSection}>
+                      <Text style={[styles.quantityLabel, { color: theme.text.primary }]}>Quantity</Text>
+                      <View style={styles.quantityInputContainer}>
+                        <TouchableOpacity
+                          style={[styles.quantityModalButton, { backgroundColor: theme.background.secondary }]}
+                          onPress={() => {
+                            const current = parseInt(quantityInput, 10) || 1;
+                            if (current > 1) {
+                              setQuantityInput(String(current - 1));
+                            }
+                          }}
+                        >
+                          <Minus size={20} color={theme.text.primary} />
+                        </TouchableOpacity>
+                        <TextInput
+                          style={[styles.quantityInput, { 
+                            backgroundColor: theme.background.secondary,
+                            color: theme.text.primary,
+                            borderColor: theme.border.light,
+                          }]}
+                          value={quantityInput}
+                          onChangeText={(text) => {
+                            // Only allow numbers
+                            const numericValue = text.replace(/[^0-9]/g, '');
+                            if (numericValue === '' || parseInt(numericValue, 10) > 0) {
+                              setQuantityInput(numericValue || '1');
+                            }
+                          }}
+                          keyboardType="number-pad"
+                          selectTextOnFocus
+                        />
+                        <TouchableOpacity
+                          style={[styles.quantityModalButton, { backgroundColor: theme.background.secondary }]}
+                          onPress={() => {
+                            const current = parseInt(quantityInput, 10) || 1;
+                            const maxQuantity = selectedProductForQuantity.quantity;
+                            if (current < maxQuantity) {
+                              setQuantityInput(String(current + 1));
+                            } else {
+                              RNAlert.alert('Insufficient Stock', `Only ${maxQuantity} units available`);
+                            }
+                          }}
+                        >
+                          <Plus size={20} color={theme.text.primary} />
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={[styles.quantityTotal, { color: theme.text.secondary }]}>
+                        Total: {formatCurrency(selectedProductForQuantity.sellingPrice * (parseInt(quantityInput, 10) || 1))}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.addToCartButton, { backgroundColor: theme.accent.primary }]}
+                      onPress={handleAddToCartWithQuantity}
+                    >
+                      <ShoppingCart size={20} color="#FFF" />
+                      <Text style={styles.addToCartButtonText}>Add to Cart</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
             </View>
           </View>
         </Modal>
@@ -1836,6 +1980,85 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 12,
     borderWidth: 1,
+  },
+  quantityProductInfo: {
+    padding: 20,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    marginBottom: 20,
+  },
+  quantityProductName: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  quantityProductPrice: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    marginBottom: 8,
+  },
+  quantityStockInfo: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+  },
+  quantityInputSection: {
+    padding: 20,
+  },
+  quantityLabel: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    marginBottom: 16,
+  },
+  quantityInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    marginBottom: 16,
+  },
+  quantityModalButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  quantityInput: {
+    width: 80,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 2,
+    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '700' as const,
+  },
+  quantityTotal: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  addToCartButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 18,
+    borderRadius: 16,
+    margin: 20,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  addToCartButtonText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '700' as const,
   },
   addCustomerButton: {
     flexDirection: 'row',

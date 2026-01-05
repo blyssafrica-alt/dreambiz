@@ -20,6 +20,7 @@ import type { ViabilityResult } from '@/types/business';
 export default function CalculatorScreen() {
   const { business } = useBusiness();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [capital, setCapital] = useState('');

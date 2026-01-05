@@ -58,6 +58,7 @@ export default function BusinessesScreen() {
   const { currentPlan, refreshPremiumStatus } = usePremium();
   const { theme } = useTheme();
   const { isSuperAdmin } = useAuth();
+  const { t } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [businesses, setBusinesses] = useState<BusinessProfile[]>([]);
