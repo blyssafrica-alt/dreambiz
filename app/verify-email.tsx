@@ -227,9 +227,18 @@ export default function VerifyEmailScreen() {
         return;
       }
       
-      // CRITICAL: Use getUser() instead of getSession() to get fresh user data from server
-      // This is essential when email is verified on another device
-      // getUser() makes a server request and gets the latest verification status
+      // CRITICAL: Refresh session FIRST to get latest tokens from server
+      // This is essential when email is verified on another device - we need fresh tokens
+      // that reflect the updated verification status
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) {
+        console.log('Session refresh error (non-critical):', refreshError.message);
+        // Continue with getUser even if refresh fails - might still work
+      }
+      
+      // CRITICAL: Use getUser() to get fresh user data from server
+      // This makes a server request and gets the latest verification status
+      // Especially important when email is verified on another device
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError) {
