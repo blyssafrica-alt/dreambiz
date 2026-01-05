@@ -185,6 +185,9 @@ function RootLayoutNav() {
     const inOnboarding = currentPath.includes('onboarding');
     const inAdmin = currentPath.includes('admin');
     const inTabs = currentPath.includes('(tabs)') || currentPath === '';
+    // Routes that are valid for authenticated users but outside tabs
+    const allowedNonTabRoutes = ['books', 'my-library', 'business-plan', 'help', 'receipt-scan', 'document'];
+    const inAllowedNonTabRoute = allowedNonTabRoutes.some(route => currentPath.includes(route));
 
     // Use authUser as source of truth for authentication (more reliable than isAuthenticated computed value)
     const actuallyAuthenticated = !!authUser || isAuthenticated;
@@ -249,10 +252,10 @@ function RootLayoutNav() {
         targetRoute = '/verify-email';
       } else if (hasOnboarded) {
         // Already onboarded - redirect away from verify-email/onboarding to tabs
-        // But don't redirect if user is in admin section
+        // But don't redirect if user is in admin section or allowed non-tab routes
         if (inVerifyEmail || inOnboarding) {
           targetRoute = '/(tabs)';
-        } else if (!inTabs && !inAdmin) {
+        } else if (!inTabs && !inAdmin && !inAllowedNonTabRoute) {
           targetRoute = '/(tabs)';
         }
       } else if (!hasOnboarded && emailVerified === true && !inOnboarding && !inAuth) {
