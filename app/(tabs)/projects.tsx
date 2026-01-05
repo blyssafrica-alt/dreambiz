@@ -27,11 +27,13 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { Project } from '@/types/business';
 
 export default function ProjectsScreen() {
   const { business, projects, addProject, updateProject, deleteProject } = useBusiness();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
@@ -198,8 +200,8 @@ export default function ProjectsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
         <PageHeader
-          title="Projects"
-          subtitle={`${activeProjects.length} active, ${completedProjects.length} completed`}
+          title={t('projects.title')}
+          subtitle={`${activeProjects.length} ${t('projects.active')}, ${completedProjects.length} ${t('projects.completed')}`}
           icon={FolderKanban}
           iconGradient={['#3B82F6', '#2563EB']}
           rightAction={

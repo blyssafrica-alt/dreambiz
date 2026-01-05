@@ -25,6 +25,7 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { Employee } from '@/types/business';
 import { router } from 'expo-router';
 import { Shield, Eye, EyeOff } from 'lucide-react-native';
@@ -34,6 +35,7 @@ import { Switch } from 'react-native';
 export default function EmployeesScreen() {
   const { business, employees, addEmployee, updateEmployee, deleteEmployee } = useBusiness();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
@@ -296,8 +298,8 @@ export default function EmployeesScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
         <PageHeader
-          title="Employees"
-          subtitle={`${activeEmployees.length} active, ${inactiveEmployees.length} inactive`}
+          title={t('employees.title')}
+          subtitle={`${activeEmployees.length} ${t('employees.active')}, ${inactiveEmployees.length} ${t('employees.inactive')}`}
           icon={Users}
           iconGradient={['#6366F1', '#4F46E5']}
           rightAction={

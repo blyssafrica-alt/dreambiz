@@ -26,11 +26,13 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { CashflowProjection } from '@/types/business';
 
 export default function CashflowScreen() {
   const { business, cashflowProjections, addCashflowProjection, updateCashflowProjection, deleteCashflowProjection } = useBusiness();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
@@ -186,8 +188,8 @@ export default function CashflowScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
         <PageHeader
-          title="Cashflow Projections"
-          subtitle="Track your cash flow trends"
+          title={t('cashflow.title')}
+          subtitle={t('cashflow.subtitle')}
           icon={TrendingUp}
           iconGradient={['#10B981', '#059669']}
           rightAction={

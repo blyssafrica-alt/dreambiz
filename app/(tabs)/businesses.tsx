@@ -27,6 +27,7 @@ import PageHeader from '@/components/PageHeader';
 import PremiumUpgradeModal from '@/components/PremiumUpgradeModal';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import { usePremium } from '@/contexts/PremiumContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFocusEffect } from 'expo-router';
@@ -560,8 +561,8 @@ export default function BusinessesScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
         <PageHeader
-          title="My Businesses"
-          subtitle="Manage multiple businesses from one account"
+          title={t('businesses.title')}
+          subtitle={t('businesses.subtitle')}
           icon={Building2}
           iconGradient={['#3B82F6', '#2563EB']}
           rightAction={

@@ -34,7 +34,9 @@ export default function BarChart({
     );
   }
 
-  const maxValue = Math.max(...data.map(d => d.value), 1);
+  const rawMaxValue = Math.max(...data.map(d => d.value), 0);
+  // Ensure maxValue is at least 1 to avoid division by zero, but use raw max for display
+  const maxValue = Math.max(rawMaxValue, 1);
   const chartHeight = height - PADDING * 2 - 30; // Extra space for labels
   const chartWidth = CHART_WIDTH - PADDING * 2;
   const barWidth = (chartWidth / data.length) * 0.7;
@@ -43,15 +45,38 @@ export default function BarChart({
   const gridLines = 5;
   const gridStep = chartHeight / gridLines;
 
+  // Calculate a "nice" maximum value for Y-axis labels to avoid rounding issues
+  const getNiceMaxValue = (value: number): number => {
+    if (value === 0) return 1;
+    // For very small values (0-2), use at least 2 to ensure proper label spacing
+    if (value <= 2) return 2;
+    const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+    const normalized = value / magnitude;
+    let niceValue;
+    if (normalized <= 1) niceValue = 1;
+    else if (normalized <= 2) niceValue = 2;
+    else if (normalized <= 5) niceValue = 5;
+    else niceValue = 10;
+    return niceValue * magnitude;
+  };
+
+  const niceMaxValue = getNiceMaxValue(rawMaxValue);
+
   // Format Y-axis values with abbreviations for large numbers
-  const formatYAxisValue = (value: number): string => {
+  const formatYAxisValue = (value: number, useDecimals: boolean = false): string => {
     if (value >= 1000000) {
       return `${(value / 1000000).toFixed(1)}M`;
     } else if (value >= 1000) {
       return `${(value / 1000).toFixed(1)}K`;
+    } else if (value < 1 && value > 0) {
+      return value.toFixed(2);
     }
-    return value.toFixed(0);
+    // Use 1 decimal place for small max values to avoid duplicate labels
+    return useDecimals ? value.toFixed(1) : value.toFixed(0);
   };
+  
+  // Use decimal formatting when nice max value is small to avoid duplicate labels
+  const useDecimalLabels = niceMaxValue <= 5;
 
   return (
     <View style={[styles.container, { height }]}>
@@ -60,7 +85,8 @@ export default function BarChart({
         {showGrid &&
           Array.from({ length: gridLines + 1 }).map((_, i) => {
             const y = PADDING + i * gridStep;
-            const value = maxValue - (i / gridLines) * maxValue;
+            // Calculate value from top to bottom using nice max value for labels
+            const value = niceMaxValue * (1 - i / gridLines);
             return (
               <React.Fragment key={i}>
                 <Line
@@ -80,7 +106,7 @@ export default function BarChart({
                   textAnchor="end"
                   fontWeight="500"
                 >
-                  {formatYAxisValue(value)}
+                  {formatYAxisValue(value, useDecimalLabels)}
                 </SvgText>
               </React.Fragment>
             );

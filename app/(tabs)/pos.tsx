@@ -44,6 +44,7 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { Product, DocumentItem, Customer, Document } from '@/types/business';
 import { exportToPDF } from '@/lib/pdf-export';
 import { getCurrentEmployee } from '@/lib/get-current-employee';
@@ -64,6 +65,7 @@ export default function POSScreen() {
   const { business, products = [], customers = [], addDocument, updateProduct, addTransaction, addCustomer, taxRates = [] } = useBusiness();
   const { theme } = useTheme();
   const { hasPermission, isOwner } = useEmployeePermissions();
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -513,14 +515,14 @@ export default function POSScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: theme?.background?.secondary || '#F5F5F5' }]}>
         <PageHeader
-          title="Point of Sale"
+          title={t('pos.title')}
           subtitle={
             currentShift
-              ? `Shift Open • Started ${new Date(currentShift.shiftStartTime).toLocaleTimeString('en-US', {
+              ? `${t('pos.shiftOpen')} • ${t('pos.shiftStarted')} ${new Date(currentShift.shiftStartTime).toLocaleTimeString('en-US', {
                   hour: '2-digit',
                   minute: '2-digit',
                 })}`
-              : 'Quick checkout and sales'
+              : t('pos.title')
           }
           icon={ShoppingCart}
           iconGradient={['#3B82F6', '#2563EB']}

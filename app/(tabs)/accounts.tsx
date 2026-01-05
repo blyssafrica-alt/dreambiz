@@ -18,11 +18,13 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { AccountsReceivable, AccountsPayable } from '@/types/payments';
 
 export default function AccountsScreen() {
   const { business, documents } = useBusiness();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [activeTab, setActiveTab] = useState<'receivable' | 'payable'>('receivable');
@@ -233,8 +235,8 @@ export default function AccountsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
         <PageHeader
-          title="Accounts"
-          subtitle="Track money owed to and by you"
+          title={t('accounts.title')}
+          subtitle={t('accounts.subtitle')}
           icon={Wallet}
           iconGradient={['#10B981', '#059669']}
         />
@@ -258,7 +260,7 @@ export default function AccountsScreen() {
         >
           <TrendingUp size={18} color={activeTab === 'receivable' ? '#FFF' : theme.text.secondary} />
           <Text style={[styles.tabText, { color: activeTab === 'receivable' ? '#FFF' : theme.text.secondary }]}>
-            Receivable
+            {t('accounts.receivable')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -267,7 +269,7 @@ export default function AccountsScreen() {
         >
           <TrendingDown size={18} color={activeTab === 'payable' ? '#FFF' : theme.text.secondary} />
           <Text style={[styles.tabText, { color: activeTab === 'payable' ? '#FFF' : theme.text.secondary }]}>
-            Payable
+            {t('accounts.payable')}
           </Text>
         </TouchableOpacity>
       </View>

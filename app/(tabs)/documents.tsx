@@ -24,10 +24,12 @@ import { getDocumentTemplate } from '@/lib/document-templates-db';
 import { getFilterPresets, saveFilterPreset, deleteFilterPreset } from '@/lib/filter-presets';
 import type { FilterPreset } from '@/lib/filter-presets';
 import DocumentWizard from '@/components/DocumentWizard';
+import { useTranslation } from '@/hooks/useTranslation';
 
 export default function DocumentsScreen() {
   const { business, documents = [], folders = [], addDocument, updateDocument, deleteDocument, addFolder, updateFolder, deleteFolder, loadFolders } = useBusiness();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const { getAdsForLocation } = useAds();
   const documentsAds = getAdsForLocation('documents');
   const [showWizard, setShowWizard] = useState(false);
@@ -352,8 +354,8 @@ export default function DocumentsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: theme?.background?.secondary || '#F5F5F5' }]}>
         <PageHeader
-          title="Documents"
-          subtitle="Professional invoices, receipts & more"
+          title={t('documents.title')}
+          subtitle={t('documents.createDocument')}
           icon={FileText}
           iconGradient={['#3B82F6', '#2563EB']}
           rightAction={

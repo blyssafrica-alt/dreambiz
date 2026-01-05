@@ -183,6 +183,7 @@ function RootLayoutNav() {
     const inAuth = currentPath.includes('landing') || currentPath.includes('sign-up') || currentPath.includes('sign-in');
     const inVerifyEmail = currentPath.includes('verify-email');
     const inOnboarding = currentPath.includes('onboarding');
+    const inAdmin = currentPath.includes('admin');
     const inTabs = currentPath.includes('(tabs)') || currentPath === '';
 
     // Use authUser as source of truth for authentication (more reliable than isAuthenticated computed value)
@@ -248,9 +249,10 @@ function RootLayoutNav() {
         targetRoute = '/verify-email';
       } else if (hasOnboarded) {
         // Already onboarded - redirect away from verify-email/onboarding to tabs
+        // But don't redirect if user is in admin section
         if (inVerifyEmail || inOnboarding) {
           targetRoute = '/(tabs)';
-        } else if (!inTabs) {
+        } else if (!inTabs && !inAdmin) {
           targetRoute = '/(tabs)';
         }
       } else if (!hasOnboarded && emailVerified === true && !inOnboarding && !inAuth) {

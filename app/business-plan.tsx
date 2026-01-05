@@ -11,10 +11,12 @@ import {
 } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import { exportBusinessPlanToPDF } from '@/lib/business-plan-pdf';
 
 export default function BusinessPlanScreen() {
   const { business, getDashboardMetrics } = useBusiness();
+  const { t } = useTranslation();
   const [metrics, setMetrics] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 

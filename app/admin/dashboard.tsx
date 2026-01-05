@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import { supabase } from '@/lib/supabase';
 import { BarChart, TrendingUp, Package, Megaphone, FileText, AlertCircle, BookOpen, Users, Building2, DollarSign, ArrowRight, Activity } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,6 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 export default function AdminDashboard() {
   const { theme } = useTheme();
   const { user, isSuperAdmin } = useAuth();
+  const { t } = useTranslation();
   const router = useRouter();
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -173,9 +175,9 @@ export default function AdminDashboard() {
       >
         <View style={styles.header}>
           <View>
-            <Text style={[styles.title, { color: theme.text.primary }]}>Admin Dashboard</Text>
+            <Text style={[styles.title, { color: theme.text.primary }]}>{t('admin.adminConsole')}</Text>
             <Text style={[styles.subtitle, { color: theme.text.secondary }]}>
-              Platform Overview
+              {t('admin.platformStatistics')}
             </Text>
           </View>
         </View>
@@ -185,7 +187,7 @@ export default function AdminDashboard() {
       <View style={styles.statsGrid}>
         <StatCard
           icon={Users}
-          title="Total Users"
+          title={t('admin.totalUsers')}
           value={stats.totalUsers.toLocaleString()}
           color="#0066CC"
           gradient={['#0066CC15', '#0066CC05']}
@@ -193,14 +195,14 @@ export default function AdminDashboard() {
         />
         <StatCard
           icon={TrendingUp}
-          title="Active Users"
+          title={t('admin.activeUsers')}
           value={stats.activeUsers.toLocaleString()}
           color="#10B981"
           gradient={['#10B98115', '#10B98105']}
         />
         <StatCard
           icon={Package}
-          title="Products"
+          title={t('admin.totalProducts')}
           value={stats.totalProducts.toLocaleString()}
           color="#F59E0B"
           gradient={['#F59E0B15', '#F59E0B05']}
@@ -208,7 +210,7 @@ export default function AdminDashboard() {
         />
         <StatCard
           icon={Megaphone}
-          title="Advertisements"
+          title={t('admin.totalAds')}
           value={stats.totalAds.toLocaleString()}
           color="#EC4899"
           gradient={['#EC489915', '#EC489905']}
@@ -216,7 +218,7 @@ export default function AdminDashboard() {
         />
         <StatCard
           icon={Building2}
-          title="Businesses"
+          title={t('admin.totalBusinesses')}
           value={stats.totalBusinesses.toLocaleString()}
           color="#8B5CF6"
           gradient={['#8B5CF615', '#8B5CF605']}
@@ -224,7 +226,7 @@ export default function AdminDashboard() {
         />
         <StatCard
           icon={DollarSign}
-          title="Revenue"
+          title={t('admin.totalRevenue')}
           value={`$${stats.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           color="#10B981"
           gradient={['#10B98115', '#10B98105']}
@@ -234,7 +236,7 @@ export default function AdminDashboard() {
       {/* Quick Actions Section */}
       <View style={styles.quickActions}>
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Quick Actions</Text>
+          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>{t('admin.adminConsole')}</Text>
           <View style={[styles.sectionUnderline, { backgroundColor: theme.accent.primary }]} />
         </View>
         

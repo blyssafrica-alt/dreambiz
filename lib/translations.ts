@@ -22,6 +22,18 @@ export interface Translations {
     close: string;
     yes: string;
     no: string;
+    filter: string;
+    export: string;
+    import: string;
+    download: string;
+    upload: string;
+    select: string;
+    all: string;
+    none: string;
+    today: string;
+    week: string;
+    month: string;
+    year: string;
   };
   
   // Auth
@@ -86,6 +98,7 @@ export interface Translations {
   // Finances
   finances: {
     title: string;
+    subtitle: string;
     addTransaction: string;
     sales: string;
     expenses: string;
@@ -96,6 +109,8 @@ export interface Translations {
     total: string;
     editTransaction: string;
     deleteTransaction: string;
+    filter: string;
+    export: string;
   };
   
   // Documents
@@ -111,6 +126,11 @@ export interface Translations {
     total: string;
     status: string;
     date: string;
+    draft: string;
+    sent: string;
+    paid: string;
+    cancelled: string;
+    overdue: string;
   };
   
   // Products
@@ -122,16 +142,250 @@ export interface Translations {
     quantity: string;
     category: string;
     noProducts: string;
+    costPrice: string;
+    sellingPrice: string;
+    stock: string;
+    lowStock: string;
+    outOfStock: string;
   };
   
   // Customers
   customers: {
     title: string;
+    subtitle: string;
     addCustomer: string;
     customerName: string;
     phone: string;
     email: string;
     noCustomers: string;
+    address: string;
+    totalSpent: string;
+    lastPurchase: string;
+  };
+  
+  // Suppliers
+  suppliers: {
+    title: string;
+    subtitle: string;
+    addSupplier: string;
+    supplierName: string;
+    phone: string;
+    email: string;
+    noSuppliers: string;
+    address: string;
+    totalSpent: string;
+    lastOrder: string;
+  };
+  
+  // Reports
+  reports: {
+    title: string;
+    subtitle: string;
+    profitLoss: string;
+    totalSales: string;
+    totalExpenses: string;
+    netProfit: string;
+    margin: string;
+    dailyTrends: string;
+    salesByCategory: string;
+    expensesByCategory: string;
+    topSalesCategories: string;
+    topExpenseCategories: string;
+    balanceSheet: string;
+    assets: string;
+    liabilities: string;
+    netWorth: string;
+    cashflowStatement: string;
+    operatingActivities: string;
+    investingActivities: string;
+    netChangeInCash: string;
+    invoiceStatus: string;
+    totalInvoiced: string;
+    paid: string;
+    outstanding: string;
+    exportReports: string;
+    summaryReport: string;
+    detailedReport: string;
+  };
+  
+  // Budgets
+  budgets: {
+    title: string;
+    subtitle: string;
+    addBudget: string;
+    budgetName: string;
+    period: string;
+    totalBudget: string;
+    spent: string;
+    remaining: string;
+    status: string;
+    noBudgets: string;
+    overBudget: string;
+    onTrack: string;
+  };
+  
+  // Cashflow
+  cashflow: {
+    title: string;
+    subtitle: string;
+    addProjection: string;
+    month: string;
+    income: string;
+    expenses: string;
+    netCashflow: string;
+    closingBalance: string;
+    noProjections: string;
+  };
+  
+  // Projects
+  projects: {
+    title: string;
+    addProject: string;
+    projectName: string;
+    clientName: string;
+    status: string;
+    startDate: string;
+    endDate: string;
+    budget: string;
+    progress: string;
+    notes: string;
+    noProjects: string;
+    planning: string;
+    active: string;
+    onHold: string;
+    completed: string;
+    cancelled: string;
+  };
+  
+  // Employees
+  employees: {
+    title: string;
+    addEmployee: string;
+    employeeName: string;
+    phone: string;
+    email: string;
+    role: string;
+    noEmployees: string;
+    active: string;
+    inactive: string;
+  };
+  
+  // Tax
+  tax: {
+    title: string;
+    subtitle: string;
+    addRate: string;
+    rateName: string;
+    rate: string;
+    defaultRate: string;
+    noRates: string;
+    manageTaxRates: string;
+  };
+  
+  // Accounts
+  accounts: {
+    title: string;
+    subtitle: string;
+    receivable: string;
+    payable: string;
+    accountsReceivable: string;
+    accountsPayable: string;
+    noReceivables: string;
+    noPayables: string;
+  };
+  
+  // POS
+  pos: {
+    title: string;
+    openShift: string;
+    closeShift: string;
+    shiftOpen: string;
+    shiftStarted: string;
+    addToCart: string;
+    removeFromCart: string;
+    checkout: string;
+    paymentMethod: string;
+    cash: string;
+    card: string;
+    mobileMoney: string;
+    bankTransfer: string;
+    total: string;
+    change: string;
+    receipt: string;
+  };
+  
+  // Appointments
+  appointments: {
+    title: string;
+    addAppointment: string;
+    clientName: string;
+    service: string;
+    date: string;
+    time: string;
+    status: string;
+    noAppointments: string;
+    upcoming: string;
+    completed: string;
+    cancelled: string;
+  };
+  
+  // Recurring Invoices
+  recurringInvoices: {
+    title: string;
+    subtitle: string;
+    addRecurringInvoice: string;
+    invoiceName: string;
+    customer: string;
+    amount: string;
+    frequency: string;
+    startDate: string;
+    endDate: string;
+    status: string;
+    noRecurringInvoices: string;
+    active: string;
+    paused: string;
+    completed: string;
+  };
+  
+  // Calculator
+  calculator: {
+    title: string;
+    subtitle: string;
+    calculate: string;
+    monthlyRevenue: string;
+    monthlyExpenses: string;
+    profitability: string;
+    viable: string;
+    notViable: string;
+    breakEven: string;
+  };
+  
+  // Businesses
+  businesses: {
+    title: string;
+    subtitle: string;
+    addBusiness: string;
+    businessType: string;
+    businessStage: string;
+    location: string;
+    noBusinesses: string;
+    switchBusiness: string;
+    deleteBusiness: string;
+    cannotDelete: string;
+    cannotDeleteActive: string;
+    businessDeleted: string;
+    retail: string;
+    services: string;
+    restaurant: string;
+    salon: string;
+    agriculture: string;
+    construction: string;
+    transport: string;
+    manufacturing: string;
+    other: string;
+    running: string;
+    growing: string;
+    planning: string;
   };
   
   // General
@@ -165,6 +419,18 @@ const translations: Record<Language, Translations> = {
       close: 'Close',
       yes: 'Yes',
       no: 'No',
+      filter: 'Filter',
+      export: 'Export',
+      import: 'Import',
+      download: 'Download',
+      upload: 'Upload',
+      select: 'Select',
+      all: 'All',
+      none: 'None',
+      today: 'Today',
+      week: 'Week',
+      month: 'Month',
+      year: 'Year',
     },
     auth: {
       signIn: 'Sign In',
@@ -221,6 +487,7 @@ const translations: Record<Language, Translations> = {
     },
     finances: {
       title: 'Finances',
+      subtitle: 'Track sales, expenses, and profit',
       addTransaction: 'Add Transaction',
       sales: 'Sales',
       expenses: 'Expenses',
@@ -231,6 +498,8 @@ const translations: Record<Language, Translations> = {
       total: 'Total',
       editTransaction: 'Edit Transaction',
       deleteTransaction: 'Delete Transaction',
+      filter: 'Filter',
+      export: 'Export',
     },
     documents: {
       title: 'Documents',
@@ -244,6 +513,11 @@ const translations: Record<Language, Translations> = {
       total: 'Total',
       status: 'Status',
       date: 'Date',
+      draft: 'Draft',
+      sent: 'Sent',
+      paid: 'Paid',
+      cancelled: 'Cancelled',
+      overdue: 'Overdue',
     },
     products: {
       title: 'Products',
@@ -253,6 +527,11 @@ const translations: Record<Language, Translations> = {
       quantity: 'Quantity',
       category: 'Category',
       noProducts: 'No products yet',
+      costPrice: 'Cost Price',
+      sellingPrice: 'Selling Price',
+      stock: 'Stock',
+      lowStock: 'Low Stock',
+      outOfStock: 'Out of Stock',
     },
     customers: {
       title: 'Customers',
@@ -261,6 +540,208 @@ const translations: Record<Language, Translations> = {
       phone: 'Phone',
       email: 'Email',
       noCustomers: 'No customers yet',
+      address: 'Address',
+      totalSpent: 'Total Spent',
+      lastPurchase: 'Last Purchase',
+    },
+    suppliers: {
+      title: 'Suppliers',
+      subtitle: 'Manage your supplier relationships',
+      addSupplier: 'Add Supplier',
+      supplierName: 'Supplier Name',
+      phone: 'Phone',
+      email: 'Email',
+      noSuppliers: 'No suppliers yet',
+      address: 'Address',
+      totalSpent: 'Total Spent',
+      lastOrder: 'Last Order',
+    },
+    reports: {
+      title: 'Reports',
+      subtitle: 'Business analytics and insights',
+      profitLoss: 'Profit & Loss',
+      totalSales: 'Total Sales',
+      totalExpenses: 'Total Expenses',
+      netProfit: 'Net Profit',
+      margin: 'Margin',
+      dailyTrends: 'Daily Trends',
+      salesByCategory: 'Sales by Category',
+      expensesByCategory: 'Expenses by Category',
+      topSalesCategories: 'Top Sales Categories',
+      topExpenseCategories: 'Top Expense Categories',
+      balanceSheet: 'Balance Sheet',
+      assets: 'Assets',
+      liabilities: 'Liabilities',
+      netWorth: 'Net Worth (Equity)',
+      cashflowStatement: 'Cashflow Statement',
+      operatingActivities: 'Operating Activities',
+      investingActivities: 'Investing Activities',
+      netChangeInCash: 'Net Change in Cash',
+      invoiceStatus: 'Invoice Status',
+      totalInvoiced: 'Total Invoiced',
+      paid: 'Paid',
+      outstanding: 'Outstanding',
+      exportReports: 'Export Reports',
+      summaryReport: 'Summary Report',
+      detailedReport: 'Detailed Report',
+    },
+    budgets: {
+      title: 'Budgets',
+      subtitle: 'Plan and track your spending',
+      addBudget: 'Add Budget',
+      budgetName: 'Budget Name',
+      period: 'Period',
+      totalBudget: 'Total Budget',
+      spent: 'Spent',
+      remaining: 'Remaining',
+      status: 'Status',
+      noBudgets: 'No budgets yet',
+      overBudget: 'Over Budget',
+      onTrack: 'On Track',
+    },
+    cashflow: {
+      title: 'Cashflow Projections',
+      subtitle: 'Track your cash flow trends',
+      addProjection: 'Add Projection',
+      month: 'Month',
+      income: 'Income',
+      expenses: 'Expenses',
+      netCashflow: 'Net Cashflow',
+      closingBalance: 'Closing Balance',
+      noProjections: 'No projections yet',
+    },
+    projects: {
+      title: 'Projects',
+      addProject: 'Add Project',
+      projectName: 'Project Name',
+      clientName: 'Client Name',
+      status: 'Status',
+      startDate: 'Start Date',
+      endDate: 'End Date',
+      budget: 'Budget',
+      progress: 'Progress',
+      notes: 'Notes',
+      noProjects: 'No projects yet',
+      planning: 'Planning',
+      active: 'Active',
+      onHold: 'On Hold',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+    },
+    employees: {
+      title: 'Employees',
+      addEmployee: 'Add Employee',
+      employeeName: 'Employee Name',
+      phone: 'Phone',
+      email: 'Email',
+      role: 'Role',
+      noEmployees: 'No employees yet',
+      active: 'Active',
+      inactive: 'Inactive',
+    },
+    tax: {
+      title: 'Tax Management',
+      subtitle: 'Manage tax rates',
+      addRate: 'Add Rate',
+      rateName: 'Rate Name',
+      rate: 'Rate',
+      defaultRate: 'Default',
+      noRates: 'No tax rates yet',
+      manageTaxRates: 'Manage tax rates',
+    },
+    accounts: {
+      title: 'Accounts',
+      subtitle: 'Track money owed to and by you',
+      receivable: 'Receivable',
+      payable: 'Payable',
+      accountsReceivable: 'Accounts Receivable',
+      accountsPayable: 'Accounts Payable',
+      noReceivables: 'No receivables yet',
+      noPayables: 'No payables yet',
+    },
+    pos: {
+      title: 'Point of Sale',
+      openShift: 'Open Shift',
+      closeShift: 'Close Shift',
+      shiftOpen: 'Shift Open',
+      shiftStarted: 'Started',
+      addToCart: 'Add to Cart',
+      removeFromCart: 'Remove from Cart',
+      checkout: 'Checkout',
+      paymentMethod: 'Payment Method',
+      cash: 'Cash',
+      card: 'Card',
+      mobileMoney: 'Mobile Money',
+      bankTransfer: 'Bank Transfer',
+      total: 'Total',
+      change: 'Change',
+      receipt: 'Receipt',
+    },
+    appointments: {
+      title: 'Appointments',
+      addAppointment: 'Add Appointment',
+      clientName: 'Client Name',
+      service: 'Service',
+      date: 'Date',
+      time: 'Time',
+      status: 'Status',
+      noAppointments: 'No appointments yet',
+      upcoming: 'upcoming',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+    },
+    recurringInvoices: {
+      title: 'Recurring Invoices',
+      subtitle: 'Automate your billing cycle',
+      addRecurringInvoice: 'Add Recurring Invoice',
+      invoiceName: 'Invoice Name',
+      customer: 'Customer',
+      amount: 'Amount',
+      frequency: 'Frequency',
+      startDate: 'Start Date',
+      endDate: 'End Date',
+      status: 'Status',
+      noRecurringInvoices: 'No recurring invoices yet',
+      active: 'Active',
+      paused: 'Paused',
+      completed: 'Completed',
+    },
+    calculator: {
+      title: 'Business Viability Check',
+      subtitle: 'Calculate if your business model is profitable',
+      calculate: 'Calculate',
+      monthlyRevenue: 'Monthly Revenue',
+      monthlyExpenses: 'Monthly Expenses',
+      profitability: 'Profitability',
+      viable: 'Viable',
+      notViable: 'Not Viable',
+      breakEven: 'Break Even',
+    },
+    businesses: {
+      title: 'My Businesses',
+      subtitle: 'Manage multiple businesses from one account',
+      addBusiness: 'Add Business',
+      businessType: 'Business Type',
+      businessStage: 'Business Stage',
+      location: 'Location',
+      noBusinesses: 'No businesses yet',
+      switchBusiness: 'Switch Business',
+      deleteBusiness: 'Delete Business',
+      cannotDelete: 'Cannot Delete',
+      cannotDeleteActive: 'Cannot delete the currently active business. Please switch to another business first.',
+      businessDeleted: 'Business deleted successfully',
+      retail: 'Retail Shop',
+      services: 'Services',
+      restaurant: 'Restaurant/Food',
+      salon: 'Salon/Beauty',
+      agriculture: 'Agriculture',
+      construction: 'Construction',
+      transport: 'Transport',
+      manufacturing: 'Manufacturing',
+      other: 'Other',
+      running: 'Running',
+      growing: 'Growing',
+      planning: 'Planning',
     },
     general: {
       businessName: 'Business Name',
@@ -291,6 +772,18 @@ const translations: Record<Language, Translations> = {
       close: 'Vhara',
       yes: 'Ehe',
       no: 'Aiwa',
+      filter: 'Sefa',
+      export: 'Buritsa',
+      import: 'Pinza',
+      download: 'Dhaunirodha',
+      upload: 'Isa',
+      select: 'Sarudza',
+      all: 'Zvose',
+      none: 'Hapana',
+      today: 'Nhasi',
+      week: 'Vhiki',
+      month: 'Mwedzi',
+      year: 'Gore',
     },
     auth: {
       signIn: 'Pinda',
@@ -347,6 +840,7 @@ const translations: Record<Language, Translations> = {
     },
     finances: {
       title: 'Mari',
+      subtitle: 'Tevera kutengesa, mari yabuda, uye purofiti',
       addTransaction: 'Wedzera Chibvumirano',
       sales: 'Kutengesa',
       expenses: 'Mari Yabuda',
@@ -357,6 +851,8 @@ const translations: Record<Language, Translations> = {
       total: 'Zvose',
       editTransaction: 'Gadzirisa Chibvumirano',
       deleteTransaction: 'Delete Chibvumirano',
+      filter: 'Sefa',
+      export: 'Buritsa',
     },
     documents: {
       title: 'Zvinyorwa',
@@ -370,6 +866,11 @@ const translations: Record<Language, Translations> = {
       total: 'Zvose',
       status: 'Mamiriro',
       date: 'Zuva',
+      draft: 'Draft',
+      sent: 'Tumirwa',
+      paid: 'Kubhadharwa',
+      cancelled: 'Kanzurwa',
+      overdue: 'Nguva Yapfuura',
     },
     products: {
       title: 'Zvigadzirwa',
@@ -379,14 +880,206 @@ const translations: Record<Language, Translations> = {
       quantity: 'Uwandu',
       category: 'Chikamu',
       noProducts: 'Hapana zvigadzirwa parizvino',
+      costPrice: 'Mutengo Wekutenga',
+      sellingPrice: 'Mutengo Wekutengesa',
+      stock: 'Stock',
+      lowStock: 'Stock Yakaderera',
+      outOfStock: 'Hapana Stock',
     },
     customers: {
       title: 'Vatengi',
+      subtitle: 'Tonga hukama hwako nevatengi',
       addCustomer: 'Wedzera Mutengi',
       customerName: 'Zita Remutengi',
       phone: 'Foni',
       email: 'Email',
       noCustomers: 'Hapana vatengi parizvino',
+      address: 'Kero',
+      totalSpent: 'Mari Yese Yakashandiswa',
+      lastPurchase: 'Kutenga Kwekupedzisira',
+    },
+    suppliers: {
+      title: 'Vatengesi',
+      subtitle: 'Tonga hukama hwako nevanezvipo',
+      addSupplier: 'Wedzera Mutengesi',
+      supplierName: 'Zita Remutengesi',
+      phone: 'Foni',
+      email: 'Email',
+      noSuppliers: 'Hapana vatengesi parizvino',
+      address: 'Kero',
+      totalSpent: 'Mari Yese Yakashandiswa',
+      lastOrder: 'Order Yekupedzisira',
+    },
+    reports: {
+      title: 'Mishumo',
+      subtitle: 'Kuongorora kwebhizinesi uye ruzivo',
+      profitLoss: 'Purofiti & Kurasikirwa',
+      totalSales: 'Kutengesa Kwese',
+      totalExpenses: 'Mari Yese Yabuda',
+      netProfit: 'Purofiti Yemahara',
+      margin: 'Margin',
+      dailyTrends: 'Maitiro Ezuva Nezuva',
+      salesByCategory: 'Kutengesa Nechikamu',
+      expensesByCategory: 'Mari Yabuda Nechikamu',
+      topSalesCategories: 'Zvikamu Zvepamusoro Zvekutengesa',
+      topExpenseCategories: 'Zvikamu Zvepamusoro Zvemari Yabuda',
+      balanceSheet: 'Balance Sheet',
+      assets: 'Assets',
+      liabilities: 'Liabilities',
+      netWorth: 'Net Worth (Equity)',
+      cashflowStatement: 'Cashflow Statement',
+      operatingActivities: 'Operating Activities',
+      investingActivities: 'Investing Activities',
+      netChangeInCash: 'Net Change in Cash',
+      invoiceStatus: 'Invoice Status',
+      totalInvoiced: 'Total Invoiced',
+      paid: 'Kubhadharwa',
+      outstanding: 'Outstanding',
+      exportReports: 'Buritsa Mishumo',
+      summaryReport: 'Mushumo Wepfupiso',
+      detailedReport: 'Mushumo Wakadzama',
+    },
+    budgets: {
+      title: 'Budget',
+      subtitle: 'Ronga uye tevera kushandisa kwako',
+      addBudget: 'Wedzera Budget',
+      budgetName: 'Zita ReBudget',
+      period: 'Nguva',
+      totalBudget: 'Budget Yese',
+      spent: 'Yakashandiswa',
+      remaining: 'Yasara',
+      status: 'Mamiriro',
+      noBudgets: 'Hapana budget parizvino',
+      overBudget: 'Pamusoro PeBudget',
+      onTrack: 'Pachinangwa',
+    },
+    cashflow: {
+      title: 'Cashflow Projections',
+      subtitle: 'Tevera maitiro emari yako',
+      addProjection: 'Wedzera Projection',
+      month: 'Mwedzi',
+      income: 'Income',
+      expenses: 'Mari Yabuda',
+      netCashflow: 'Net Cashflow',
+      closingBalance: 'Closing Balance',
+      noProjections: 'Hapana projections parizvino',
+    },
+    projects: {
+      title: 'Mapurojekiti',
+      addProject: 'Wedzera Project',
+      projectName: 'Zita Reproject',
+      clientName: 'Zita Remutengi',
+      status: 'Mamiriro',
+      startDate: 'Zuva Rekutanga',
+      endDate: 'Zuva Rekuguma',
+      budget: 'Budget',
+      progress: 'Progress',
+      notes: 'Notes',
+      noProjects: 'Hapana mapurojekiti parizvino',
+      planning: 'Planning',
+      active: 'Active',
+      onHold: 'On Hold',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+    },
+    employees: {
+      title: 'Vashandi',
+      addEmployee: 'Wedzera Mushandi',
+      employeeName: 'Zita Remushandi',
+      phone: 'Foni',
+      email: 'Email',
+      role: 'Role',
+      noEmployees: 'Hapana vashandi parizvino',
+      active: 'Active',
+      inactive: 'Inactive',
+    },
+    tax: {
+      title: 'Tax Management',
+      subtitle: 'Tonga mitengo yemutero',
+      addRate: 'Wedzera Rate',
+      rateName: 'Zita Rerate',
+      rate: 'Rate',
+      defaultRate: 'Default',
+      noRates: 'Hapana tax rates parizvino',
+      manageTaxRates: 'Tonga tax rates',
+    },
+    accounts: {
+      title: 'Accounts',
+      subtitle: 'Tevera mari yakakweretwa nekwako',
+      receivable: 'Receivable',
+      payable: 'Payable',
+      accountsReceivable: 'Accounts Receivable',
+      accountsPayable: 'Accounts Payable',
+      noReceivables: 'Hapana receivables parizvino',
+      noPayables: 'Hapana payables parizvino',
+    },
+    pos: {
+      title: 'Point of Sale',
+      openShift: 'Vhura Shift',
+      closeShift: 'Vhara Shift',
+      shiftOpen: 'Shift Yakavhurwa',
+      shiftStarted: 'Yakatanga',
+      addToCart: 'Wedzera kuCart',
+      removeFromCart: 'Bvisa muCart',
+      checkout: 'Checkout',
+      paymentMethod: 'Nzira Yekubhadhara',
+      cash: 'Cash',
+      card: 'Card',
+      mobileMoney: 'Mobile Money',
+      bankTransfer: 'Bank Transfer',
+      total: 'Zvose',
+      change: 'Change',
+      receipt: 'Receipt',
+    },
+    appointments: {
+      title: 'Appointments',
+      addAppointment: 'Wedzera Appointment',
+      clientName: 'Zita Remutengi',
+      service: 'Service',
+      date: 'Zuva',
+      time: 'Nguva',
+      status: 'Mamiriro',
+      noAppointments: 'Hapana appointments parizvino',
+      upcoming: 'zvinotevera',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+    },
+    calculator: {
+      title: 'Business Viability Check',
+      subtitle: 'Verenga kana bhizinesi rako richibudirira',
+      calculate: 'Verenga',
+      monthlyRevenue: 'Monthly Revenue',
+      monthlyExpenses: 'Monthly Expenses',
+      profitability: 'Profitability',
+      viable: 'Viable',
+      notViable: 'Hazvina Viable',
+      breakEven: 'Break Even',
+    },
+    businesses: {
+      title: 'Mabhizinesi Angu',
+      subtitle: 'Tonga mabhizinesi akawanda kubva kuaccount imwe',
+      addBusiness: 'Wedzera Business',
+      businessType: 'Rudzi Rwebhizinesi',
+      businessStage: 'Nhanho Yebhizinesi',
+      location: 'Nzvimbo',
+      noBusinesses: 'Hapana mabhizinesi parizvino',
+      switchBusiness: 'Shandura Business',
+      deleteBusiness: 'Delete Business',
+      cannotDelete: 'Haugone Delete',
+      cannotDeleteActive: 'Haugone delete bhizinesi riri kushandiswa parizvino. Ndapota shandura kune rimwe bhizinesi kutanga.',
+      businessDeleted: 'Business yadzimwa zvakanaka',
+      retail: 'Retail Shop',
+      services: 'Services',
+      restaurant: 'Restaurant/Food',
+      salon: 'Salon/Beauty',
+      agriculture: 'Agriculture',
+      construction: 'Construction',
+      transport: 'Transport',
+      manufacturing: 'Manufacturing',
+      other: 'Other',
+      running: 'Running',
+      growing: 'Growing',
+      planning: 'Planning',
     },
     general: {
       businessName: 'Zita Rebhizinesi',
@@ -417,6 +1110,18 @@ const translations: Record<Language, Translations> = {
       close: 'Vala',
       yes: 'Yebo',
       no: 'Cha',
+      filter: 'Hluza',
+      export: 'Khipha',
+      import: 'Faka',
+      download: 'Thoba',
+      upload: 'Layisha',
+      select: 'Khetha',
+      all: 'Konke',
+      none: 'Lutho',
+      today: 'Namuhla',
+      week: 'Iviki',
+      month: 'Inyanga',
+      year: 'Unyaka',
     },
     auth: {
       signIn: 'Ngena',
@@ -473,6 +1178,7 @@ const translations: Record<Language, Translations> = {
     },
     finances: {
       title: 'Imali',
+      subtitle: 'Landela ukuthengisa, izindleko, nenenzuzo',
       addTransaction: 'Engeza Intengiselwano',
       sales: 'Ukuthengisa',
       expenses: 'Izindleko',
@@ -483,6 +1189,8 @@ const translations: Record<Language, Translations> = {
       total: 'Isamba',
       editTransaction: 'Hlela Intengiselwano',
       deleteTransaction: 'Susa Intengiselwano',
+      filter: 'Hluza',
+      export: 'Khipha',
     },
     documents: {
       title: 'Amadokhumenti',
@@ -496,6 +1204,11 @@ const translations: Record<Language, Translations> = {
       total: 'Isamba',
       status: 'Isimo',
       date: 'Usuku',
+      draft: 'Draft',
+      sent: 'Ithunyelwe',
+      paid: 'Ikhokhisiwe',
+      cancelled: 'Ikhanseliwe',
+      overdue: 'Isikhathi Sidlule',
     },
     products: {
       title: 'Imikhiqizo',
@@ -505,14 +1218,222 @@ const translations: Record<Language, Translations> = {
       quantity: 'Ubuningi',
       category: 'Isigaba',
       noProducts: 'Azikho imikhiqizo okwamanje',
+      costPrice: 'Intengo Yokuthenga',
+      sellingPrice: 'Intengo Yokuthengisa',
+      stock: 'Isitoko',
+      lowStock: 'Isitoko Esiphansi',
+      outOfStock: 'Awukho Isitoko',
     },
     customers: {
       title: 'Amakhasimende',
+      subtitle: 'Phatha ubudlelwane bakho namakhasimende',
       addCustomer: 'Engeza Ikhasimende',
       customerName: 'Igama Lekhasimende',
       phone: 'Ifoni',
       email: 'I-Email',
       noCustomers: 'Azikho amakhasimende okwamanje',
+      address: 'Ikheli',
+      totalSpent: 'Isamba Esichithiwe',
+      lastPurchase: 'Ukuthenga Kokugcina',
+    },
+    suppliers: {
+      title: 'Abahlinzeki',
+      subtitle: 'Phatha ubudlelwane bakho nabahlinzeki',
+      addSupplier: 'Engeza Umhlinzeki',
+      supplierName: 'Igama Lomhlinzeki',
+      phone: 'Ifoni',
+      email: 'I-Email',
+      noSuppliers: 'Azikho abahlinzeki okwamanje',
+      address: 'Ikheli',
+      totalSpent: 'Isamba Esichithiwe',
+      lastOrder: 'I-Odolo Yokugcina',
+    },
+    reports: {
+      title: 'Imibiko',
+      subtitle: 'Ukuhlaziya kwebhizinisi nokuqonda',
+      profitLoss: 'Inzuzo & Ukulahleka',
+      totalSales: 'Ukuthengisa Okuphelele',
+      totalExpenses: 'Izindleko Eziphelele',
+      netProfit: 'Inzuzo Engenamsebenzi',
+      margin: 'Umkhawulo',
+      dailyTrends: 'Izitayela Zansuku Zonke',
+      salesByCategory: 'Ukuthengisa Ngesigaba',
+      expensesByCategory: 'Izindleko Ngesigaba',
+      topSalesCategories: 'Izigaba Eziphezulu Zokuthengisa',
+      topExpenseCategories: 'Izigaba Eziphezulu Zezindleko',
+      balanceSheet: 'I-Balance Sheet',
+      assets: 'Impahla',
+      liabilities: 'Izibopho',
+      netWorth: 'Ubunono Obungenamsebenzi (I-Equity)',
+      cashflowStatement: 'Isitatimende Se-Cashflow',
+      operatingActivities: 'Imisebenzi Yokusebenza',
+      investingActivities: 'Imisebenzi Yokutshalwa Kwezimali',
+      netChangeInCash: 'Ukushintsha Okungenamsebenzi Emalini',
+      invoiceStatus: 'Isimo Se-Invoice',
+      totalInvoiced: 'Isamba Esichazwe',
+      paid: 'Ikhokhisiwe',
+      outstanding: 'Okungalungisiwe',
+      exportReports: 'Khipha Imibiko',
+      summaryReport: 'Umbiko Ofingqiwe',
+      detailedReport: 'Umbiko Onemininingwane',
+    },
+    budgets: {
+      title: 'Izabelo',
+      subtitle: 'Hlela bese ulandela ukusetshenziswa kwakho',
+      addBudget: 'Engeza Isabelo',
+      budgetName: 'Igama Lesabelo',
+      period: 'Isikhathi',
+      totalBudget: 'Isabelo Esiphelele',
+      spent: 'Sichithiwe',
+      remaining: 'Okusele',
+      status: 'Isimo',
+      noBudgets: 'Azikho izabelo okwamanje',
+      overBudget: 'Ngaphezulu Kwesabelo',
+      onTrack: 'Kumgwaqo',
+    },
+    cashflow: {
+      title: 'Izibikezelo Ze-Cashflow',
+      subtitle: 'Landela izitayela zomkhakha wemali yakho',
+      addProjection: 'Engeza Isibikezelo',
+      month: 'Inyanga',
+      income: 'Ingeniso',
+      expenses: 'Izindleko',
+      netCashflow: 'I-Cashflow Engenamsebenzi',
+      closingBalance: 'I-Balance Yokuvala',
+      noProjections: 'Azikho izibikezelo okwamanje',
+    },
+    projects: {
+      title: 'Amaphrojekthi',
+      addProject: 'Engeza Iphrojekthi',
+      projectName: 'Igama Lephrojekthi',
+      clientName: 'Igama Lekhasimende',
+      status: 'Isimo',
+      startDate: 'Usuku Lokusa',
+      endDate: 'Usuku Lokuphela',
+      budget: 'Isabelo',
+      progress: 'Intuthuko',
+      notes: 'Amanothi',
+      noProjects: 'Azikho amaphrojekthi okwamanje',
+      planning: 'Planning',
+      active: 'Active',
+      onHold: 'On Hold',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+    },
+    employees: {
+      title: 'Abasebenzi',
+      addEmployee: 'Engeza Umsebenzi',
+      employeeName: 'Igama Lomsebenzi',
+      phone: 'Ifoni',
+      email: 'I-Email',
+      role: 'Indima',
+      noEmployees: 'Azikho abasebenzi okwamanje',
+      active: 'Active',
+      inactive: 'Inactive',
+    },
+    tax: {
+      title: 'Ukulawulwa Kwentela',
+      subtitle: 'Phatha amanani entela',
+      addRate: 'Engeza Amanani',
+      rateName: 'Igama Lamanani',
+      rate: 'Amanani',
+      defaultRate: 'Okokuzenzakalela',
+      noRates: 'Azikho amanani entela okwamanje',
+      manageTaxRates: 'Phatha amanani entela',
+    },
+    accounts: {
+      title: 'Ama-Akhawunti',
+      subtitle: 'Landela imali okwele okukhokhwa kuwe nayo',
+      receivable: 'Okungamukelwayo',
+      payable: 'Okukhokhwayo',
+      accountsReceivable: 'Ama-Akhawunti Angamukelwayo',
+      accountsPayable: 'Ama-Akhawunti Okhokhwayo',
+      noReceivables: 'Azikho okungamukelwayo okwamanje',
+      noPayables: 'Azikho okukhokhwayo okwamanje',
+    },
+    pos: {
+      title: 'Indawo Yokuthengisa',
+      openShift: 'Vula I-Shift',
+      closeShift: 'Vala I-Shift',
+      shiftOpen: 'I-Shift Ivuliwe',
+      shiftStarted: 'Iqalile',
+      addToCart: 'Engeza Enqoleni',
+      removeFromCart: 'Susa Enqoleni',
+      checkout: 'I-Checkout',
+      paymentMethod: 'Indlela Yokukhokha',
+      cash: 'Imali',
+      card: 'Ikhadi',
+      mobileMoney: 'I-Mobile Money',
+      bankTransfer: 'Ukudluliswa Kwebhange',
+      total: 'Isamba',
+      change: 'Ushintsho',
+      receipt: 'Irisidi',
+    },
+    appointments: {
+      title: 'Izihlolwano',
+      addAppointment: 'Engeza Isihlolwano',
+      clientName: 'Igama Lekhasimende',
+      service: 'Inkonzo',
+      date: 'Usuku',
+      time: 'Isikhathi',
+      status: 'Isimo',
+      noAppointments: 'Azikho izihlolwano okwamanje',
+      upcoming: 'ezizayo',
+      completed: 'Kuqediwe',
+      cancelled: 'Ikhanseliwe',
+    },
+    recurringInvoices: {
+      title: 'Ama-Invoice Aphindaphindayo',
+      subtitle: 'Yenza ngokuzenzakalelayo umjikelezo wakho wokubhalisa',
+      addRecurringInvoice: 'Engeza I-Invoice Ephindaphindayo',
+      invoiceName: 'Igama Le-Invoice',
+      customer: 'Ikhasimende',
+      amount: 'Inani',
+      frequency: 'Ubuningi',
+      startDate: 'Usuku Lokuqala',
+      endDate: 'Usuku Lokugcina',
+      status: 'Isimo',
+      noRecurringInvoices: 'Azikho ama-invoice aphindaphindayo okwamanje',
+      active: 'Iyasebenza',
+      paused: 'Ime',
+      completed: 'Kuqediwe',
+    },
+    calculator: {
+      title: 'Ukuhlolwa Kokusebenza Kwebhizinisi',
+      subtitle: 'Bala uma imodeli yakho yebhizinisi inenzuzo',
+      calculate: 'Bala',
+      monthlyRevenue: 'Ingeniso Yenyanga',
+      monthlyExpenses: 'Izindleko Zenyanga',
+      profitability: 'Ukuba nenenzuzo',
+      viable: 'Kuyasebenza',
+      notViable: 'Akusebenzi',
+      breakEven: 'Ukulingana',
+    },
+    businesses: {
+      title: 'Amabhizinisi Ami',
+      subtitle: 'Phatha amabhizinisi amaningi kusuka ku-akhawunti eyodwa',
+      addBusiness: 'Engeza Ibhizinisi',
+      businessType: 'Uhlobo Lwebhizinisi',
+      businessStage: 'Isigaba Sebhizinisi',
+      location: 'Indawo',
+      noBusinesses: 'Azikho amabhizinisi okwamanje',
+      switchBusiness: 'Shintsha Ibhizinisi',
+      deleteBusiness: 'Susa Ibhizinisi',
+      cannotDelete: 'Awukwazi Ukususa',
+      cannotDeleteActive: 'Awukwazi ukususa ibhizinisi elisebenzayo njengamanje. Sicela shintsha kwenye ibhizinisi kuqala.',
+      businessDeleted: 'Ibhizinisi lisuswe ngempumelelo',
+      retail: 'Isitolo',
+      services: 'Izikhonzo',
+      restaurant: 'I-Restaurant/I-Food',
+      salon: 'I-Salon/Ubuhle',
+      agriculture: 'Ezolimo',
+      construction: 'Ukwakhiwa',
+      transport: 'Ezokuthutha',
+      manufacturing: 'Ukukhiqiza',
+      other: 'Okunye',
+      running: 'Iyasebenza',
+      growing: 'Ikhula',
+      planning: 'Planning',
     },
     general: {
       businessName: 'Igama Lebhizinisi',
@@ -555,4 +1476,3 @@ export function t(key: string, language: Language = 'en'): string {
   
   return typeof value === 'string' ? value : key;
 }
-

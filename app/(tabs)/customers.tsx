@@ -31,6 +31,7 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import { useAds } from '@/contexts/AdContext';
 import { AdCard } from '@/components/AdCard';
 import type { Customer } from '@/types/business';
@@ -38,6 +39,7 @@ import type { Customer } from '@/types/business';
 export default function CustomersScreen() {
   const { business, customers, documents, addCustomer, updateCustomer, deleteCustomer } = useBusiness();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const { getAdsForLocation } = useAds();
   const customersAds = getAdsForLocation('customers');
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -223,8 +225,8 @@ export default function CustomersScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
         <PageHeader
-          title="Customers"
-          subtitle="Manage your customer relationships"
+          title={t('customers.title')}
+          subtitle={t('customers.subtitle')}
           icon={Users}
           iconGradient={['#10B981', '#059669']}
           rightAction={

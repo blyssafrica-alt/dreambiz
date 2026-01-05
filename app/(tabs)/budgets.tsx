@@ -26,11 +26,13 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { Budget } from '@/types/business';
 
 export default function BudgetsScreen() {
   const { business, transactions, budgets, addBudget, updateBudget, deleteBudget } = useBusiness();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
@@ -212,8 +214,8 @@ export default function BudgetsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
         <PageHeader
-          title="Budgets"
-          subtitle="Plan and track your spending"
+          title={t('budgets.title')}
+          subtitle={t('budgets.subtitle')}
           icon={Target}
           iconGradient={['#F59E0B', '#D97706']}
           rightAction={

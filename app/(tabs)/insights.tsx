@@ -24,6 +24,7 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import { useAds } from '@/contexts/AdContext';
 import { AdCard } from '@/components/AdCard';
 
@@ -39,6 +40,7 @@ interface Insight {
 export default function InsightsScreen() {
   const { business, transactions, products, customers, budgets } = useBusiness();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const { getAdsForLocation } = useAds();
   const router = useRouter();
   const insightsAds = getAdsForLocation('insights');
@@ -275,8 +277,8 @@ export default function InsightsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
         <PageHeader
-          title="AI Insights"
-          subtitle="Smart recommendations for your business"
+          title={t('insights.title')}
+          subtitle={t('insights.subtitle')}
           icon={Sparkles}
           iconGradient={['#8B5CF6', '#7C3AED']}
         />

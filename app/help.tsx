@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import { supabase } from '@/lib/supabase';
 
 interface FAQItem {
@@ -44,6 +45,7 @@ const iconMap: Record<string, any> = {
 export default function HelpScreen() {
   const { theme } = useTheme();
   const { isSuperAdmin } = useAuth();
+  const { t } = useTranslation();
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [faqItems, setFaqItems] = useState<FAQItem[]>([]);
   const [supportOptions, setSupportOptions] = useState<SupportOption[]>([]);

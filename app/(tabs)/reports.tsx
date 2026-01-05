@@ -19,12 +19,14 @@ import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { LineChart, PieChart } from '@/components/Charts';
+import { useTranslation } from '@/hooks/useTranslation';
 
 type ReportPeriod = 'today' | 'week' | 'month' | 'quarter' | 'year' | 'custom';
 
 export default function ReportsScreen() {
   const { business, transactions, documents } = useBusiness();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [period, setPeriod] = useState<ReportPeriod>('month');
@@ -224,8 +226,8 @@ export default function ReportsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
         <PageHeader
-          title="Reports"
-          subtitle="Business analytics and insights"
+          title={t('reports.title')}
+          subtitle={t('reports.subtitle')}
           icon={BarChart3}
           iconGradient={['#EC4899', '#DB2777']}
           rightAction={

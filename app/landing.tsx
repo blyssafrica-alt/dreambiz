@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { Sparkles, TrendingUp, Shield, Zap, ArrowRight, Star, CheckCircle2, Users, FileText, Calculator, BookOpen, AlertTriangle, BarChart3, DollarSign, Target } from 'lucide-react-native';
-import { useEffect, useRef } from 'react';
+import { Sparkles, TrendingUp, Shield, Zap, ArrowRight, Star, CheckCircle2, Users, FileText, Calculator, BookOpen, AlertTriangle, BarChart3, DollarSign, Target, Globe, ChevronDown } from 'lucide-react-native';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,16 @@ import {
   ScrollView,
   StatusBar,
   Animated,
+  Modal,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSettings } from '@/contexts/SettingsContext';
+import { useTranslation } from '@/hooks/useTranslation';
+import type { Language } from '@/lib/translations';
 import AnimatedLogo from '@/components/AnimatedLogo';
 
 
@@ -20,11 +26,31 @@ import AnimatedLogo from '@/components/AnimatedLogo';
 export default function LandingScreen() {
   const { isAuthenticated, isLoading } = useAuth();
   const { theme, isDark } = useTheme();
+  const { settings, updateLanguage } = useSettings();
+  const { t, language } = useTranslation();
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+
+  const languages: { value: Language; label: string }[] = [
+    { value: 'en', label: 'English' },
+    { value: 'sn', label: 'Shona' },
+    { value: 'nd', label: 'Ndebele' },
+  ];
+
+  const currentLanguage = languages.find(lang => lang.value === language) || languages[0];
+
+  const handleLanguageChange = async (lang: Language) => {
+    try {
+      await updateLanguage(lang);
+      setShowLanguageModal(false);
+    } catch (error) {
+      console.error('Failed to update language:', error);
+    }
+  };
 
   // Removed redirect logic - let _layout.tsx handle all navigation to prevent race conditions
 
@@ -74,6 +100,22 @@ export default function LandingScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
       <StatusBar barStyle="light-content" />
+      {/* Top Header with Language Selector */}
+      <SafeAreaView edges={['top']} style={styles.topHeader}>
+        <View style={styles.topHeaderContent}>
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity
+            style={styles.languageSelector}
+            onPress={() => setShowLanguageModal(true)}
+            activeOpacity={0.7}
+          >
+            <Globe size={18} color="#FFF" />
+            <Text style={styles.languageText}>{currentLanguage.label}</Text>
+            <ChevronDown size={16} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -576,6 +618,55 @@ export default function LandingScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Language Selection Modal */}
+      <Modal
+        visible={showLanguageModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowLanguageModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowLanguageModal(false)}
+        >
+          <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
+            <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Select Language</Text>
+            {languages.map((lang) => (
+              <TouchableOpacity
+                key={lang.value}
+                style={[
+                  styles.languageOption,
+                  {
+                    backgroundColor: language === lang.value ? theme.accent.primary + '15' : 'transparent',
+                    borderColor: language === lang.value ? theme.accent.primary : theme.border.light,
+                  },
+                ]}
+                onPress={() => handleLanguageChange(lang.value)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.languageOptionText,
+                    {
+                      color: language === lang.value ? theme.accent.primary : theme.text.primary,
+                      fontWeight: language === lang.value ? '600' : '400',
+                    },
+                  ]}
+                >
+                  {lang.label}
+                </Text>
+                {language === lang.value && (
+                  <View style={[styles.checkMark, { backgroundColor: theme.accent.primary }]}>
+                    <Text style={styles.checkMarkText}>✓</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -583,6 +674,88 @@ export default function LandingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  topHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
+  topHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  languageSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  languageText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    maxWidth: 300,
+    borderRadius: 16,
+    padding: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  languageOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  languageOptionText: {
+    fontSize: 16,
+  },
+  checkMark: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkMarkText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   scrollContent: {
     flexGrow: 1,

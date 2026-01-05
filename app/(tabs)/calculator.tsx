@@ -14,6 +14,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { ViabilityResult } from '@/types/business';
 
 export default function CalculatorScreen() {
@@ -208,9 +209,9 @@ export default function CalculatorScreen() {
           >
             <View style={[styles.formSection, { alignItems: 'center' }]}>
               <CalcIcon size={40} color={theme?.accent?.primary || '#3B82F6'} />
-              <Text style={[styles.title, { color: theme?.text?.primary || '#0F172A' }]}>Business Viability Check</Text>
+              <Text style={[styles.title, { color: theme?.text?.primary || '#0F172A' }]}>{t('calculator.title')}</Text>
               <Text style={[styles.subtitle, { color: theme?.text?.secondary || '#64748B' }]}>
-                Calculate if your business model is profitable
+                {t('calculator.subtitle')}
               </Text>
             </View>
 

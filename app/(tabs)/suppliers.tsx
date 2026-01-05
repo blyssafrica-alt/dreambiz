@@ -32,11 +32,13 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { Supplier } from '@/types/business';
 
 export default function SuppliersScreen() {
   const { business, suppliers, documents, addSupplier, updateSupplier, deleteSupplier } = useBusiness();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
@@ -228,8 +230,8 @@ export default function SuppliersScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
         <PageHeader
-          title="Suppliers"
-          subtitle="Manage your supplier relationships"
+          title={t('suppliers.title')}
+          subtitle={t('suppliers.subtitle')}
           icon={Truck}
           iconGradient={['#8B5CF6', '#7C3AED']}
           rightAction={

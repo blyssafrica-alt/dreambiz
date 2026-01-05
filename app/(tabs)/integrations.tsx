@@ -25,6 +25,7 @@ import {
 } from 'react-native';
 import PageHeader from '@/components/PageHeader';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
@@ -138,6 +139,7 @@ const integrations: Integration[] = [
 export default function IntegrationsScreen() {
   const { theme } = useTheme();
   const { isSuperAdmin, user } = useAuth();
+  const { t } = useTranslation();
   const router = useRouter();
   const [connectedIntegrations, setConnectedIntegrations] = useState<string[]>(['email']);
   const [loading, setLoading] = useState(true);
@@ -374,8 +376,8 @@ export default function IntegrationsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
         <PageHeader
-          title="Integrations"
-          subtitle="Connect your favorite tools and services"
+          title={t('integrations.title')}
+          subtitle={t('integrations.subtitle')}
           icon={Plug}
           iconGradient={['#8B5CF6', '#7C3AED']}
         />

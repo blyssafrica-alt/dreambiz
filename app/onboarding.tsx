@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { BusinessProfile, BusinessType, BusinessStage, Currency, DreamBigBook } from '@/types/business';
 import { DREAMBIG_BOOKS } from '@/constants/books';
 import { supabase } from '@/lib/supabase';
@@ -43,6 +44,7 @@ const businessStages: { value: BusinessStage; label: string; desc: string }[] = 
 export default function OnboardingScreen() {
   const { saveBusiness, hasOnboarded } = useBusiness();
   const { authUser } = useAuth();
+  const { t } = useTranslation();
   const [step, setStep] = useState(1);
 
   // GUARD: If already onboarded, redirect immediately to dashboard

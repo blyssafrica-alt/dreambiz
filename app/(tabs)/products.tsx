@@ -36,6 +36,7 @@ import { useAds } from '@/contexts/AdContext';
 import { AdCard } from '@/components/AdCard';
 import type { Product } from '@/types/business';
 import { useEmployeePermissions } from '@/hooks/useEmployeePermissions';
+import { useTranslation } from '@/hooks/useTranslation';
 
 const PRODUCT_CATEGORIES = [
   'Electronics',
@@ -54,6 +55,7 @@ export default function ProductsScreen() {
   const { business, products, addProduct, updateProduct, deleteProduct } = useBusiness();
   const { theme } = useTheme();
   const { hasPermission, isOwner, loading: permissionsLoading } = useEmployeePermissions();
+  const { t } = useTranslation();
   const { getAdsForLocation } = useAds();
   const productsAds = getAdsForLocation('products');
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -319,7 +321,7 @@ export default function ProductsScreen() {
         >
           <View style={styles.header}>
             <View>
-              <Text style={styles.headerTitle}>Products</Text>
+              <Text style={styles.headerTitle}>{t('products.title')}</Text>
               <Text style={styles.headerSubtitle}>
                 Manage your product catalog
               </Text>

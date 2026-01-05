@@ -23,6 +23,7 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface Appointment {
   id: string;
@@ -194,8 +195,8 @@ export default function AppointmentsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
         <PageHeader
-          title="Appointments"
-          subtitle={`${upcomingAppointments.length} upcoming`}
+          title={t('appointments.title')}
+          subtitle={`${upcomingAppointments.length} ${t('appointments.upcoming')}`}
           icon={Calendar}
           iconGradient={['#EC4899', '#DB2777']}
           rightAction={

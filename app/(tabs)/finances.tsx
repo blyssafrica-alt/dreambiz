@@ -36,10 +36,12 @@ import { AdCard } from '@/components/AdCard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SALES_CATEGORIES, EXPENSE_CATEGORIES } from '@/constants/categories';
 import type { Currency, TransactionType } from '@/types/business';
+import { useTranslation } from '@/hooks/useTranslation';
 
 export default function FinancesScreen() {
   const { business, transactions, addTransaction, updateTransaction, deleteTransaction } = useBusiness();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const { getAdsForLocation } = useAds();
   const financesAds = getAdsForLocation('finances');
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -289,8 +291,8 @@ export default function FinancesScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
         <PageHeader
-          title="Finances"
-          subtitle="Track sales, expenses, and profit"
+          title={t('finances.title')}
+          subtitle={t('finances.subtitle')}
           icon={DollarSign}
           iconGradient={['#10B981', '#059669']}
           rightAction={

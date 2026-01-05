@@ -25,11 +25,13 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { TaxRate } from '@/types/business';
 
 export default function TaxScreen() {
   const { business, taxRates, addTaxRate, updateTaxRate, deleteTaxRate } = useBusiness();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
@@ -197,8 +199,8 @@ export default function TaxScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
         <PageHeader
-          title="Tax Management"
-          subtitle={defaultRate ? `Default: ${defaultRate.name} (${defaultRate.rate}%)` : 'Manage tax rates'}
+          title={t('tax.title')}
+          subtitle={defaultRate ? `${t('tax.defaultRate')}: ${defaultRate.name} (${defaultRate.rate}%)` : t('tax.manageTaxRates')}
           icon={Percent}
           iconGradient={['#F59E0B', '#D97706']}
           rightAction={
