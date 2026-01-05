@@ -186,7 +186,7 @@ function RootLayoutNav() {
     const inAdmin = currentPath.includes('admin');
     const inTabs = currentPath.includes('(tabs)') || currentPath === '';
     // Routes that are valid for authenticated users but outside tabs
-    const allowedNonTabRoutes = ['books', 'my-library', 'business-plan', 'help', 'receipt-scan', 'document'];
+    const allowedNonTabRoutes = ['books', 'my-library', 'business-plan', 'help', 'receipt-scan', 'document', 'subscription'];
     const inAllowedNonTabRoute = allowedNonTabRoutes.some(route => currentPath.includes(route));
 
     // Use authUser as source of truth for authentication (more reliable than isAuthenticated computed value)
@@ -309,6 +309,7 @@ function RootLayoutNav() {
         <Stack.Screen name="document/[id]" options={{ title: 'Document', headerShown: true }} />
         <Stack.Screen name="business-plan" options={{ title: 'Business Plan', headerShown: true }} />
         <Stack.Screen name="help" options={{ title: 'Help & Support', headerShown: false }} />
+        <Stack.Screen name="subscription" options={{ title: 'Subscription', headerShown: false }} />
         <Stack.Screen name="books" options={{ headerShown: false }} />
         <Stack.Screen name="my-library" options={{ title: 'My Library', headerShown: false }} />
         <Stack.Screen name="receipt-scan" options={{ title: 'Scan Receipt', headerShown: false }} />
