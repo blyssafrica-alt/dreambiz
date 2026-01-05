@@ -7,15 +7,27 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert as RNAlert,
+  Modal,
+  TextInput,
+  Image,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { ArrowLeft, Check, Crown, Building2, Users, HardDrive, Zap } from 'lucide-react-native';
+import { ArrowLeft, Check, Crown, Building2, Users, HardDrive, Zap, X, Upload } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { decode } from 'base64-arraybuffer';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/contexts/PremiumContext';
 import { supabase } from '@/lib/supabase';
 import type { SubscriptionPlan } from '@/types/premium';
 import PageHeader from '@/components/PageHeader';
+
+interface PaymentMethod {
+  id: string;
+  name: string;
+  display_name: string;
+  type: string;
+}
 
 export default function SubscriptionScreen() {
   const { theme } = useTheme();
@@ -24,11 +36,41 @@ export default function SubscriptionScreen() {
   const router = useRouter();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [upgradingPlanId, setUpgradingPlanId] = useState<string | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<SubscriptionPlan | null>(null);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [reference, setReference] = useState('');
+  const [notes, setNotes] = useState('');
+  const [proofImage, setProofImage] = useState<string | null>(null);
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
 
   useEffect(() => {
     loadPlans();
+    loadPaymentMethods();
   }, []);
+
+  const loadPaymentMethods = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('payment_methods')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+
+      if (data) {
+        setPaymentMethods(data);
+        if (data.length > 0) {
+          setSelectedPaymentMethod(data[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load payment methods:', error);
+    }
+  };
 
   const loadPlans = async () => {
     try {
@@ -91,8 +133,98 @@ export default function SubscriptionScreen() {
       return;
     }
 
+    // Open payment modal instead of directly creating subscription
+    setSelectedPlanForPayment(plan);
+    setShowPaymentModal(true);
+    setReference('');
+    setNotes('');
+    setProofImage(null);
+  };
+
+  const handlePickProofImage = async () => {
     try {
-      setUpgradingPlanId(plan.id);
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        RNAlert.alert('Permission Required', 'Please grant camera roll access to upload proof of payment');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        if (asset.base64) {
+          setIsUploadingProof(true);
+          try {
+            const fileExt = asset.uri.split('.').pop()?.toLowerCase() || 'jpg';
+            const fileName = `subscription-proof-${Date.now()}.${fileExt}`;
+            const filePath = `payment_proofs/${fileName}`;
+
+            // Determine correct MIME type
+            let contentType = 'image/jpeg';
+            if (asset.mimeType) {
+              const mimeTypes = asset.mimeType.split(',').map(m => m.trim());
+              const imageMime = mimeTypes.find(m => m.startsWith('image/'));
+              if (imageMime) {
+                contentType = imageMime;
+              }
+            }
+            
+            if (!contentType || contentType === 'image/jpeg') {
+              const mimeMap: Record<string, string> = {
+                'jpg': 'image/jpeg',
+                'jpeg': 'image/jpeg',
+                'png': 'image/png',
+                'webp': 'image/webp',
+                'gif': 'image/gif',
+              };
+              contentType = mimeMap[fileExt] || 'image/jpeg';
+            }
+
+            const { error } = await supabase.storage
+              .from('payment_proofs')
+              .upload(filePath, decode(asset.base64), {
+                contentType: contentType,
+                upsert: false,
+              });
+
+            if (error) throw error;
+
+            const { data: publicUrlData } = supabase.storage
+              .from('payment_proofs')
+              .getPublicUrl(filePath);
+
+            if (publicUrlData?.publicUrl) {
+              setProofImage(publicUrlData.publicUrl);
+            }
+          } catch (error: any) {
+            console.error('Error uploading proof:', error);
+            RNAlert.alert('Upload Error', error.message || 'Failed to upload proof of payment');
+          } finally {
+            setIsUploadingProof(false);
+          }
+        }
+      }
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to pick image');
+    }
+  };
+
+  const handleSubmitPayment = async () => {
+    if (!selectedPlanForPayment || !selectedPaymentMethod || !user) return;
+
+    if (!proofImage) {
+      RNAlert.alert('Proof Required', 'Please upload proof of payment to continue');
+      return;
+    }
+
+    try {
+      setIsSubmittingPayment(true);
 
       // Check for user discounts
       const { data: userDiscount } = await supabase
@@ -100,94 +232,61 @@ export default function SubscriptionScreen() {
         .select('*')
         .eq('user_id', user.id)
         .eq('status', 'active')
-        .or(`applicable_plans.is.null,applicable_plans.cs.{${plan.id}}`)
+        .or(`applicable_plans.is.null,applicable_plans.cs.{${selectedPlanForPayment.id}}`)
         .gt('valid_until', new Date().toISOString())
         .order('discount_percentage', { ascending: false })
         .limit(1)
         .single();
 
       let discountPercentage = 0;
-      let discountCode = null;
       if (userDiscount) {
         discountPercentage = parseFloat(userDiscount.discount_percentage);
-        discountCode = userDiscount.discount_code;
       }
 
       // Calculate final price
-      const finalPrice = plan.price * (1 - discountPercentage / 100);
+      const finalPrice = selectedPlanForPayment.price * (1 - discountPercentage / 100);
 
-      // For now, create subscription with pending payment status
-      // In production, you would integrate with a payment gateway here
-      const { data: subscription, error: subError } = await supabase
-        .from('user_subscriptions')
+      // Create subscription payment record with pending status
+      const { error } = await supabase
+        .from('subscription_payments')
         .insert({
           user_id: user.id,
-          plan_id: plan.id,
-          status: 'active', // In production, set to 'pending' until payment is confirmed
-          start_date: new Date().toISOString(),
-          end_date: plan.billingPeriod === 'lifetime' 
-            ? null 
-            : new Date(Date.now() + (plan.billingPeriod === 'yearly' ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString(),
-          auto_renew: plan.billingPeriod !== 'lifetime',
-          discount_percentage: discountPercentage,
-          discount_code: discountCode,
-          price_paid: finalPrice,
-          payment_method: 'manual', // In production, use actual payment method
-          payment_status: 'completed', // In production, set to 'pending' until payment confirmed
-        })
-        .select()
-        .single();
+          plan_id: selectedPlanForPayment.id,
+          amount: finalPrice,
+          currency: selectedPlanForPayment.currency,
+          payment_method: selectedPaymentMethod.name,
+          payment_date: new Date().toISOString(),
+          reference: reference || null,
+          notes: notes || null,
+          proof_of_payment_url: proofImage,
+          verification_status: 'pending',
+        });
 
-      if (subError) {
-        // If subscription already exists, update it
-        if (subError.code === '23505' || subError.message.includes('duplicate')) {
-          const { error: updateError } = await supabase
-            .from('user_subscriptions')
-            .update({
-              plan_id: plan.id,
-              status: 'active',
-              start_date: new Date().toISOString(),
-              end_date: plan.billingPeriod === 'lifetime' 
-                ? null 
-                : new Date(Date.now() + (plan.billingPeriod === 'yearly' ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString(),
-              auto_renew: plan.billingPeriod !== 'lifetime',
-              discount_percentage: discountPercentage,
-              discount_code: discountCode,
-              price_paid: finalPrice,
-              payment_status: 'completed',
-            })
-            .eq('user_id', user.id)
-            .eq('status', 'active');
+      if (error) throw error;
 
-          if (updateError) throw updateError;
-        } else {
-          throw subError;
-        }
-      }
-
-      // Refresh premium status
-      await refreshPremiumStatus();
+      setShowPaymentModal(false);
+      setSelectedPlanForPayment(null);
+      setReference('');
+      setNotes('');
+      setProofImage(null);
 
       RNAlert.alert(
-        'Upgrade Successful! 🎉',
-        `You have successfully upgraded to ${plan.name} plan. You can now create up to ${plan.maxBusinesses === -1 ? 'unlimited' : plan.maxBusinesses} businesses.`,
+        'Payment Submitted!',
+        'Your payment has been submitted for verification. You will be notified once it is approved by an admin.',
         [
           {
             text: 'OK',
             onPress: () => {
-              router.back();
+              refreshPremiumStatus();
             },
           },
         ]
       );
     } catch (error: any) {
-      console.error('Upgrade error:', error);
-      RNAlert.alert(
-        'Upgrade Failed',
-        error.message || 'Failed to upgrade. Please try again or contact support.'
-      );
+      console.error('Failed to submit payment:', error);
+      RNAlert.alert('Error', error.message || 'Failed to submit payment');
     } finally {
-      setUpgradingPlanId(null);
+      setIsSubmittingPayment(false);
     }
   };
 
@@ -215,7 +314,6 @@ export default function SubscriptionScreen() {
 
   const renderPlanCard = (plan: SubscriptionPlan) => {
     const isCurrentPlan = currentPlan?.id === plan.id;
-    const isUpgrading = upgradingPlanId === plan.id;
     const planColor = getPlanColor(plan.name);
 
     return (
@@ -289,15 +387,12 @@ export default function SubscriptionScreen() {
             styles.upgradeButton,
             {
               backgroundColor: isCurrentPlan ? theme.background.secondary : planColor,
-              opacity: isUpgrading ? 0.6 : 1,
             },
           ]}
           onPress={() => handleUpgrade(plan)}
-          disabled={isCurrentPlan || isUpgrading}
+          disabled={isCurrentPlan}
         >
-          {isUpgrading ? (
-            <ActivityIndicator color="#FFF" />
-          ) : isCurrentPlan ? (
+          {isCurrentPlan ? (
             <Text style={styles.upgradeButtonText}>Current Plan</Text>
           ) : (
             <Text style={styles.upgradeButtonText}>
@@ -361,6 +456,202 @@ export default function SubscriptionScreen() {
           </ScrollView>
         )}
       </View>
+
+      {/* Payment Modal */}
+      <Modal
+        visible={showPaymentModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPaymentModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text.primary }]}>
+                Complete Payment
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowPaymentModal(false);
+                  setSelectedPlanForPayment(null);
+                }}
+                style={styles.modalCloseButton}
+              >
+                <X size={24} color={theme.text.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedPlanForPayment && (
+              <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
+                <View style={[styles.paymentPlanInfo, { backgroundColor: theme.background.secondary }]}>
+                  <Text style={[styles.paymentPlanName, { color: theme.text.primary }]}>
+                    {selectedPlanForPayment.name} Plan
+                  </Text>
+                  <Text style={[styles.paymentPlanPrice, { color: theme.accent.primary }]}>
+                    {formatPrice(selectedPlanForPayment)}
+                  </Text>
+                </View>
+
+                {/* Payment Method Selection */}
+                <View style={styles.paymentSection}>
+                  <Text style={[styles.paymentSectionTitle, { color: theme.text.primary }]}>
+                    Select Payment Method *
+                  </Text>
+                  {paymentMethods.length === 0 ? (
+                    <Text style={[styles.paymentSectionText, { color: theme.text.secondary }]}>
+                      No payment methods available. Please contact support.
+                    </Text>
+                  ) : (
+                    <View style={styles.paymentMethodsList}>
+                      {paymentMethods.map((method) => (
+                        <TouchableOpacity
+                          key={method.id}
+                          style={[
+                            styles.paymentMethodCard,
+                            {
+                              backgroundColor: theme.background.secondary,
+                              borderColor: selectedPaymentMethod?.id === method.id
+                                ? theme.accent.primary
+                                : theme.border.light,
+                              borderWidth: selectedPaymentMethod?.id === method.id ? 2 : 1,
+                            },
+                          ]}
+                          onPress={() => setSelectedPaymentMethod(method)}
+                        >
+                          <View style={styles.paymentMethodInfo}>
+                            <Text style={[styles.paymentMethodName, { color: theme.text.primary }]}>
+                              {method.display_name || method.name}
+                            </Text>
+                            <Text style={[styles.paymentMethodType, { color: theme.text.secondary }]}>
+                              {method.type}
+                            </Text>
+                          </View>
+                          {selectedPaymentMethod?.id === method.id && (
+                            <Check size={20} color={theme.accent.primary} />
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+
+                {/* Reference Number */}
+                <View style={styles.paymentSection}>
+                  <Text style={[styles.paymentSectionTitle, { color: theme.text.primary }]}>
+                    Payment Reference (Optional)
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.paymentInput,
+                      {
+                        backgroundColor: theme.background.secondary,
+                        color: theme.text.primary,
+                        borderColor: theme.border.light,
+                      },
+                    ]}
+                    value={reference}
+                    onChangeText={setReference}
+                    placeholder="Enter transaction reference"
+                    placeholderTextColor={theme.text.tertiary}
+                  />
+                </View>
+
+                {/* Notes */}
+                <View style={styles.paymentSection}>
+                  <Text style={[styles.paymentSectionTitle, { color: theme.text.primary }]}>
+                    Notes (Optional)
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.paymentInput,
+                      styles.paymentTextArea,
+                      {
+                        backgroundColor: theme.background.secondary,
+                        color: theme.text.primary,
+                        borderColor: theme.border.light,
+                      },
+                    ]}
+                    value={notes}
+                    onChangeText={setNotes}
+                    placeholder="Additional information"
+                    placeholderTextColor={theme.text.tertiary}
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+
+                {/* Proof of Payment Upload */}
+                <View style={styles.paymentSection}>
+                  <Text style={[styles.paymentSectionTitle, { color: theme.text.primary }]}>
+                    Proof of Payment *
+                  </Text>
+                  <Text style={[styles.paymentSectionHint, { color: theme.text.secondary }]}>
+                    Upload a screenshot or photo of your payment receipt
+                  </Text>
+                  {proofImage ? (
+                    <View style={styles.proofImageContainer}>
+                      <Image source={{ uri: proofImage }} style={styles.proofImagePreview} />
+                      <TouchableOpacity
+                        style={[styles.removeProofButton, { backgroundColor: theme.accent.danger }]}
+                        onPress={() => setProofImage(null)}
+                      >
+                        <X size={16} color="#FFF" />
+                        <Text style={styles.removeProofText}>Remove</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={[
+                        styles.uploadProofButton,
+                        {
+                          backgroundColor: theme.background.secondary,
+                          borderColor: theme.border.light,
+                        },
+                      ]}
+                      onPress={handlePickProofImage}
+                      disabled={isUploadingProof}
+                    >
+                      {isUploadingProof ? (
+                        <ActivityIndicator color={theme.accent.primary} />
+                      ) : (
+                        <>
+                          <Upload size={24} color={theme.accent.primary} />
+                          <Text style={[styles.uploadProofText, { color: theme.accent.primary }]}>
+                            Upload Proof of Payment
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Submit Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.submitPaymentButton,
+                    {
+                      backgroundColor: theme.accent.primary,
+                      opacity: (!selectedPaymentMethod || !proofImage || isSubmittingPayment) ? 0.6 : 1,
+                    },
+                  ]}
+                  onPress={handleSubmitPayment}
+                  disabled={!selectedPaymentMethod || !proofImage || isSubmittingPayment}
+                >
+                  {isSubmittingPayment ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.submitPaymentButtonText}>Submit Payment for Verification</Text>
+                  )}
+                </TouchableOpacity>
+
+                <Text style={[styles.paymentInfoText, { color: theme.text.secondary }]}>
+                  Your payment will be reviewed by an administrator. You will be notified once it is approved.
+                </Text>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -482,6 +773,154 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalScrollView: {
+    flex: 1,
+    padding: 20,
+  },
+  paymentPlanInfo: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+    alignItems: 'center',
+  },
+  paymentPlanName: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  paymentPlanPrice: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  paymentSection: {
+    marginBottom: 24,
+  },
+  paymentSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  paymentSectionHint: {
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  paymentSectionText: {
+    fontSize: 14,
+  },
+  paymentMethodsList: {
+    gap: 12,
+  },
+  paymentMethodCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  paymentMethodInfo: {
+    flex: 1,
+  },
+  paymentMethodName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  paymentMethodType: {
+    fontSize: 13,
+  },
+  paymentInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    minHeight: 48,
+  },
+  paymentTextArea: {
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  proofImageContainer: {
+    marginTop: 12,
+  },
+  proofImagePreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 12,
+    resizeMode: 'cover',
+  },
+  removeProofButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  removeProofText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  uploadProofButton: {
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 12,
+  },
+  uploadProofText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  submitPaymentButton: {
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  submitPaymentButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  paymentInfoText: {
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
 
