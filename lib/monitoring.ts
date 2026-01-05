@@ -57,10 +57,16 @@ export function initSentry() {
   }
 
   try {
+    // Get app version from Constants
+    const appVersion = Constants.expoConfig?.version || '1.0.0';
+    const appBuildNumber = Constants.expoConfig?.ios?.buildNumber || Constants.expoConfig?.android?.versionCode || '1';
+    const release = `${Constants.expoConfig?.slug || 'dreambiz'}@${appVersion}+${appBuildNumber}`;
+
     Sentry.init({
       dsn: SENTRY_DSN,
       debug: isDevelopment,
       environment: isDevelopment ? 'development' : 'production',
+      release: release,
       tracesSampleRate: isProduction ? 0.1 : 1.0, // 10% of transactions in production
       profilesSampleRate: isProduction ? 0.1 : 1.0, // 10% of profiles in production
       enableAutoSessionTracking: true,

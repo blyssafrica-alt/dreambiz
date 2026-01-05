@@ -724,14 +724,15 @@ export default function POSScreen() {
         )}
 
         {/* Cart Bottom Sheet */}
-        <Animated.View
-          style={[
-            styles.cartSheet,
-            {
-              transform: [{ translateY: cartSlideAnim }],
-            },
-          ]}
-        >
+        {cartOpen && !showReceiptModal && (
+          <Animated.View
+            style={[
+              styles.cartSheet,
+              {
+                transform: [{ translateY: cartSlideAnim }],
+              },
+            ]}
+          >
           <View style={[styles.cartSheetContent, { backgroundColor: theme.background.card, paddingBottom: cartSheetPaddingBottom }]}>
             {/* Cart Header */}
             <View style={styles.cartHeader}>
@@ -961,7 +962,8 @@ export default function POSScreen() {
               </TouchableOpacity>
             )}
           </View>
-        </Animated.View>
+          </Animated.View>
+        )}
 
         {/* Customer Selection Modal */}
         <Modal
