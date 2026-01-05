@@ -1,8 +1,11 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useEffect, useState, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 import type { Currency } from '@/types/business';
+
+const LANGUAGE_STORAGE_KEY = '@dreambiz:language';
 
 interface AppSettings {
   notificationsEnabled: boolean;
@@ -25,7 +28,32 @@ export const [SettingsContext, useSettings] = createContextHook(() => {
   });
   const [isLoading, setIsLoading] = useState(true);
 
+  // Load language from AsyncStorage on mount (works for unauthenticated users)
+  useEffect(() => {
+    const loadLanguage = async () => {
+      try {
+        const savedLanguage = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
+        if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'sn' || savedLanguage === 'nd')) {
+          setSettings(prev => ({ ...prev, language: savedLanguage }));
+        }
+      } catch (error) {
+        console.error('Error loading language from storage:', error);
+      }
+    };
+    loadLanguage();
+  }, []);
+
   const loadSettings = useCallback(async () => {
+    // Load language from AsyncStorage first (works for unauthenticated users)
+    try {
+      const savedLanguage = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
+      if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'sn' || savedLanguage === 'nd')) {
+        setSettings(prev => ({ ...prev, language: savedLanguage }));
+      }
+    } catch (error) {
+      console.error('Error loading language from storage:', error);
+    }
+
     if (!user) {
       setIsLoading(false);
       return;
@@ -62,9 +90,20 @@ export const [SettingsContext, useSettings] = createContextHook(() => {
         integrationConfigs?.map((c: any) => [c.id, { isActive: c.is_active, hasConfig: !!c.config }]) || []
       );
 
+      // Check AsyncStorage for language preference (prefer over database for immediate updates)
+      let languagePreference = appSettings?.language || 'en';
+      try {
+        const savedLanguage = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
+        if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'sn' || savedLanguage === 'nd')) {
+          languagePreference = savedLanguage;
+        }
+      } catch (error) {
+        console.error('Error reading language from storage:', error);
+      }
+
       setSettings({
         notificationsEnabled: appSettings?.notifications_enabled ?? true,
-        language: appSettings?.language || 'en',
+        language: languagePreference,
         currencyPreference: (appSettings?.currency_preference as Currency) || 'USD',
         smsEnabled: integrationPrefsMap.get('sms') ?? false,
         emailEnabled: integrationPrefsMap.get('email') ?? true,
@@ -105,22 +144,27 @@ export const [SettingsContext, useSettings] = createContextHook(() => {
   }, [user]);
 
   const updateLanguage = useCallback(async (language: string) => {
-    if (!user) return;
-
     try {
-      const { error } = await supabase
-        .from('app_settings')
-        .upsert({
-          user_id: user.id,
-          language,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id',
-        });
-
-      if (error) throw error;
-
+      // Always save to AsyncStorage first (works for unauthenticated users)
+      await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+      
+      // Update local state immediately
       setSettings(prev => ({ ...prev, language }));
+
+      // If user is authenticated, also save to database
+      if (user) {
+        const { error } = await supabase
+          .from('app_settings')
+          .upsert({
+            user_id: user.id,
+            language,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'user_id',
+          });
+
+        if (error) throw error;
+      }
     } catch (error) {
       console.error('Error updating language:', error);
       throw error;
