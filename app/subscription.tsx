@@ -53,7 +53,7 @@ export default function SubscriptionScreen() {
             features: row.features || [],
             maxBusinesses: row.max_businesses,
             maxUsers: row.max_users,
-            maxStorageMb: row.max_storage,
+            maxStorageMb: row.max_storage_mb,
             isActive: row.is_active,
             displayOrder: row.display_order,
             createdAt: row.created_at,
