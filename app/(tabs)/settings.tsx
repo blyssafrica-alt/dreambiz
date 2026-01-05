@@ -277,11 +277,15 @@ export default function SettingsScreen() {
   };
 
   const handleBookChange = async (bookId: DreamBigBook) => {
-    if (!business) return;
+    if (!business || !business.id) {
+      RNAlert.alert('Error', 'Business profile not found. Please refresh and try again.');
+      return;
+    }
 
     try {
       await saveBusiness({
         ...business,
+        id: business.id, // Explicitly ensure ID is present
         dreamBigBook: bookId,
       });
       setShowBookModal(false);
