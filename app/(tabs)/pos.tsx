@@ -134,27 +134,28 @@ export default function POSScreen() {
     }).start();
   }, [cartOpen, cartSlideAnim]);
 
-  // Auto-print receipt when sale completes
-  useEffect(() => {
-    if (showReceiptModal && createdReceipt && business) {
-      // Automatically generate and print receipt after a short delay
-      const timer = setTimeout(async () => {
-        try {
-          setIsProcessing(true);
-          await exportToPDF(createdReceipt, business);
-          // Silently generate PDF - user can manually print if needed
-          console.log('Receipt PDF generated automatically');
-        } catch (error: any) {
-          console.error('Auto-print failed:', error);
-          // Don't show alert for auto-print failures, user can manually print
-        } finally {
-          setIsProcessing(false);
-        }
-      }, 500); // Small delay to ensure modal is fully rendered
+  // Auto-print receipt when sale completes (disabled to prevent UI freezing)
+  // Users can manually print using the Print Receipt button
+  // useEffect(() => {
+  //   if (showReceiptModal && createdReceipt && business) {
+  //     // Automatically generate and print receipt after a short delay
+  //     const timer = setTimeout(async () => {
+  //       try {
+  //         setIsProcessing(true);
+  //         await exportToPDF(createdReceipt, business);
+  //         // Silently generate PDF - user can manually print if needed
+  //         console.log('Receipt PDF generated automatically');
+  //       } catch (error: any) {
+  //         console.error('Auto-print failed:', error);
+  //         // Don't show alert for auto-print failures, user can manually print
+  //       } finally {
+  //         setIsProcessing(false);
+  //       }
+  //     }, 500); // Small delay to ensure modal is fully rendered
 
-      return () => clearTimeout(timer);
-    }
-  }, [showReceiptModal, createdReceipt, business]);
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [showReceiptModal, createdReceipt, business]);
 
   // Don't early return - handle undefined theme gracefully
   // Theme should always be available from ThemeContext, but if not, use defaults
@@ -1200,7 +1201,7 @@ export default function POSScreen() {
                         </Text>
                       </View>
                     )}
-                    {amountReceived && parseFloat(amountReceived) < cartTotal && (
+                    {!!amountReceived && amountReceived.trim() !== '' && parseFloat(amountReceived) < cartTotal && (
                       <Text style={[styles.insufficientAmount, { color: theme.accent.danger }]}>
                         Insufficient amount. Need {formatCurrency(cartTotal - parseFloat(amountReceived))} more.
                       </Text>
