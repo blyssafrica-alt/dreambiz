@@ -348,17 +348,48 @@ export default function PremiumManagementScreen() {
     }
 
     try {
+      // Validate numeric fields
+      const price = parseFloat(planForm.price);
+      if (isNaN(price) || price < 0) {
+        Alert.alert('Error', 'Please enter a valid price');
+        return;
+      }
+
+      const maxBusinesses = planForm.maxBusinesses === '-1' || planForm.maxBusinesses === '' 
+        ? -1 
+        : parseInt(planForm.maxBusinesses);
+      const maxUsers = planForm.maxUsers === '-1' || planForm.maxUsers === '' 
+        ? -1 
+        : parseInt(planForm.maxUsers);
+      const maxStorage = planForm.maxStorageMb === '-1' || planForm.maxStorageMb === '' 
+        ? -1 
+        : parseInt(planForm.maxStorageMb);
+      const displayOrder = parseInt(planForm.displayOrder) || 0;
+
+      if ((planForm.maxBusinesses !== '-1' && planForm.maxBusinesses !== '') && isNaN(maxBusinesses)) {
+        Alert.alert('Error', 'Please enter a valid number for max businesses');
+        return;
+      }
+      if ((planForm.maxUsers !== '-1' && planForm.maxUsers !== '') && isNaN(maxUsers)) {
+        Alert.alert('Error', 'Please enter a valid number for max users');
+        return;
+      }
+      if ((planForm.maxStorageMb !== '-1' && planForm.maxStorageMb !== '') && isNaN(maxStorage)) {
+        Alert.alert('Error', 'Please enter a valid number for max storage');
+        return;
+      }
+
       const planData: any = {
         name: planForm.name,
         description: planForm.description || null,
-        price: parseFloat(planForm.price),
+        price: price,
         currency: planForm.currency,
         billing_period: planForm.billingPeriod,
-        max_businesses: planForm.maxBusinesses === '-1' ? -1 : parseInt(planForm.maxBusinesses),
-        max_users: planForm.maxUsers === '-1' ? -1 : parseInt(planForm.maxUsers),
-        max_storage: planForm.maxStorageMb === '-1' ? -1 : parseInt(planForm.maxStorageMb),
+        max_businesses: maxBusinesses,
+        max_users: maxUsers,
+        max_storage: maxStorage,
         is_active: planForm.isActive,
-        display_order: parseInt(planForm.displayOrder),
+        display_order: displayOrder,
         features: [],
       };
 
@@ -379,9 +410,10 @@ export default function PremiumManagementScreen() {
 
       setShowPlanModal(false);
       loadPlans();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save plan:', error);
-      Alert.alert('Error', 'Failed to save plan');
+      const errorMessage = error?.message || error?.details || error?.hint || 'Unknown error occurred';
+      Alert.alert('Error', `Failed to save plan: ${errorMessage}`);
     }
   };
 
