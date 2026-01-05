@@ -1129,6 +1129,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       };
 
       setTransactions([newTransaction, ...transactions]);
+      return newTransaction;
     } catch (error) {
       console.error('Failed to add transaction:', error);
       throw error;
@@ -1278,6 +1279,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       };
 
       setDocuments([newDocument, ...documents]);
+      return newDocument;
     } catch (error) {
       console.error('Failed to add document:', error);
       throw error;
@@ -1656,6 +1658,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       };
 
       setSuppliers([newSupplier, ...suppliers]);
+      return newSupplier;
     } catch (error) {
       console.error('Failed to add supplier:', error);
       throw error;
@@ -1872,6 +1875,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       };
 
       setBudgets([newBudget, ...budgets]);
+      return newBudget;
     } catch (error) {
       console.error('Failed to add budget:', error);
       throw error;
@@ -1959,6 +1963,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       setCashflowProjections([...cashflowProjections, newProjection].sort((a, b) => 
         a.month.localeCompare(b.month)
       ));
+      return newProjection;
     } catch (error) {
       console.error('Failed to add cashflow projection:', error);
       throw error;
@@ -2052,6 +2057,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       };
 
       setTaxRates([newTaxRate, ...taxRates]);
+      return newTaxRate;
     } catch (error) {
       console.error('Failed to add tax rate:', error);
       throw error;
@@ -2158,6 +2164,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       };
 
       setEmployees([newEmployee, ...employees]);
+      return newEmployee;
     } catch (error) {
       console.error('Failed to add employee:', error);
       throw error;
@@ -2257,6 +2264,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       };
 
       setProjects([newProject, ...projects]);
+      return newProject;
     } catch (error) {
       console.error('Failed to add project:', error);
       throw error;
@@ -2448,6 +2456,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
 
       setRecurringInvoices([newInvoice, ...recurringInvoices]);
       await logActivity('recurring_invoice', newInvoice.id, 'created', `Created recurring invoice for ${invoice.customerName}`);
+      return newInvoice;
     } catch (error) {
       console.error('Failed to add recurring invoice:', error);
       throw error;
@@ -2560,6 +2569,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       }
 
       await logActivity('payment', newPayment.id, 'created', `Added payment of ${payment.amount} ${payment.currency} for document ${payment.documentId}`);
+      return newPayment;
     } catch (error) {
       console.error('Failed to add payment:', error);
       throw error;

@@ -1394,11 +1394,11 @@ export default function POSScreen() {
                             {createdReceipt.paymentMethod?.replace('_', ' ').toUpperCase() || 'CASH'}
                           </Text>
                         </View>
-                        {paymentMethod === 'cash' && changeAmount > 0 && (
+                        {(createdReceipt as any)?.paymentMethod === 'cash' && (createdReceipt as any)?.changeAmount > 0 && (
                           <View style={styles.receiptSummaryRow}>
                             <Text style={[styles.receiptSummaryLabel, { color: theme.text.secondary }]}>Change</Text>
                             <Text style={[styles.receiptSummaryValue, { color: '#10B981' }]}>
-                              {formatCurrency(changeAmount)}
+                              {formatCurrency((createdReceipt as any)?.changeAmount || 0)}
                             </Text>
                           </View>
                         )}
