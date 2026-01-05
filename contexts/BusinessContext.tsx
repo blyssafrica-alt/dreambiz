@@ -823,8 +823,87 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       console.log('  - authUserId:', authUserId);
       console.log('  - Match: ✅');
 
-      // STEP 4: Create new business profile using DIRECT INSERT (no RPC)
-      // This approach is simpler and more reliable - bypasses all RPC functions
+      // STEP 4: Check if this is an update or insert
+      const isUpdate = !!newBusiness.id;
+      
+      if (isUpdate) {
+        // UPDATE existing business profile
+        console.log('📤 Step 4: Updating existing business profile...');
+        console.log('  - Business ID:', newBusiness.id);
+        console.log('  - User ID:', authUserId);
+        console.log('  - Business name:', newBusiness.name);
+        
+        const { data: updateDataArray, error: updateError } = await supabase
+          .from('business_profiles')
+          .update({
+            name: newBusiness.name,
+            type: newBusiness.type,
+            stage: newBusiness.stage,
+            location: newBusiness.location,
+            capital: newBusiness.capital,
+            currency: newBusiness.currency,
+            owner: newBusiness.owner,
+            phone: newBusiness.phone || null,
+            email: newBusiness.email || null,
+            address: newBusiness.address || null,
+            dream_big_book: newBusiness.dreamBigBook || 'none',
+            logo: newBusiness.logo || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', newBusiness.id)
+          .eq('user_id', authUserId)
+          .select();
+        
+        const updateData = updateDataArray && updateDataArray.length > 0 ? updateDataArray[0] : null;
+        
+        if (updateError) {
+          let errorMessage = '';
+          if (typeof updateError === 'string') {
+            errorMessage = updateError;
+          } else if (updateError?.message) {
+            errorMessage = updateError.message;
+          } else {
+            try {
+              errorMessage = JSON.stringify(updateError, null, 2);
+            } catch {
+              errorMessage = 'Unknown error occurred while updating business profile';
+            }
+          }
+          
+          console.error('❌ Failed to update business profile:', errorMessage);
+          throw new Error(`Failed to update business profile: ${errorMessage}`);
+        }
+        
+        if (!updateData) {
+          throw new Error('Business profile update failed - no data returned');
+        }
+        
+        const savedBusiness: BusinessProfile = {
+          id: updateData.id,
+          name: updateData.name,
+          type: updateData.type as any,
+          stage: updateData.stage as any,
+          location: updateData.location,
+          capital: Number(updateData.capital),
+          currency: updateData.currency as any,
+          owner: updateData.owner,
+          phone: updateData.phone || undefined,
+          email: updateData.email || undefined,
+          address: updateData.address || undefined,
+          dreamBigBook: updateData.dream_big_book || updateData.dreamBigBook || 'none' as any,
+          createdAt: updateData.created_at || updateData.createdAt,
+          logo: updateData.logo || undefined,
+        };
+        
+        // Update state and reload data to refresh features
+        setBusiness(savedBusiness);
+        await loadData(savedBusiness.id);
+        
+        console.log('✅ Business profile updated successfully!');
+        return savedBusiness;
+      }
+      
+      // INSERT new business profile
       console.log('📤 Step 4: Creating new business profile using direct INSERT...');
       console.log('  - User ID:', authUserId);
       console.log('  - Business name:', newBusiness.name);
