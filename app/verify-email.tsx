@@ -253,7 +253,43 @@ export default function VerifyEmailScreen() {
         }
         
         console.error('Error getting user:', userError);
-        // Fallback to session if getUser fails
+        
+        // For user-initiated checks (showUI=true), try refreshing session again and retry
+        if (showUI) {
+          // Try refreshing session one more time and retry getUser
+          try {
+            await supabase.auth.refreshSession();
+            const { data: { user: retryUser }, error: retryError } = await supabase.auth.getUser();
+            
+            if (!retryError && retryUser) {
+              // Retry succeeded - check verification status
+              if (retryUser.email_confirmed_at) {
+                setIsVerified(true);
+                setIsChecking(false);
+                setCheckMessage(null);
+                // Animate success
+                Animated.parallel([
+                  Animated.spring(scaleAnim, {
+                    toValue: 1.05,
+                    tension: 50,
+                    friction: 7,
+                    useNativeDriver: true,
+                  }),
+                ]).start();
+                return;
+              } else {
+                setIsChecking(false);
+                setCheckMessage('Email not verified yet. Please check your inbox and click the verification link.');
+                setTimeout(() => setCheckMessage(null), 4000);
+                return;
+              }
+            }
+          } catch (retryError) {
+            console.error('Retry getUser failed:', retryError);
+          }
+        }
+        
+        // Fallback to session if getUser fails (for silent checks)
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError || !session) {
@@ -265,7 +301,8 @@ export default function VerifyEmailScreen() {
           return;
         }
         
-        // Use session user data as fallback
+        // Use session user data as fallback (may be stale, but better than nothing)
+        // NOTE: This might not reflect cross-device verification until session refreshes
         if (session.user?.email_confirmed_at) {
           setIsVerified(true);
           if (showUI) {
@@ -281,9 +318,6 @@ export default function VerifyEmailScreen() {
               useNativeDriver: true,
             }),
           ]).start();
-          
-          // Email verified - let the main navigation logic in _layout.tsx handle navigation
-          // This prevents conflicts and ensures consistent navigation flow
         } else {
           if (showUI) {
             setIsChecking(false);
