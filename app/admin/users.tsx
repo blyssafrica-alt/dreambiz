@@ -16,6 +16,7 @@ interface UserData {
   subscription_status?: string;
   subscription_plan_id?: string;
   subscription_end_date?: string;
+  subscription_plan_name?: string;
 }
 
 export default function UsersManagementScreen() {
@@ -50,17 +51,78 @@ export default function UsersManagementScreen() {
   const loadUsers = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+      
+      // Load all users
+      const { data: usersData, error: usersError } = await supabase
         .from('users')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (usersError) throw usersError;
 
-      if (data) {
-        setUsers(data);
-        setFilteredUsers(data);
+      if (!usersData) {
+        setUsers([]);
+        setFilteredUsers([]);
+        return;
       }
+
+      // Load active subscriptions for all users
+      const { data: subscriptionsData, error: subscriptionsError } = await supabase
+        .from('user_subscriptions')
+        .select(`
+          user_id,
+          status,
+          end_date,
+          subscription_plans (
+            id,
+            name
+          )
+        `)
+        .in('status', ['active', 'trial'])
+        .or('end_date.is.null,end_date.gt.' + new Date().toISOString());
+
+      if (subscriptionsError) {
+        console.error('Failed to load subscriptions:', subscriptionsError);
+        // Continue without subscription data
+      }
+
+      // Map subscriptions by user_id
+      const subscriptionsMap = new Map();
+      if (subscriptionsData) {
+        subscriptionsData.forEach((sub: any) => {
+          if (!subscriptionsMap.has(sub.user_id)) {
+            subscriptionsMap.set(sub.user_id, {
+              status: sub.status,
+              end_date: sub.end_date,
+              plan_name: sub.subscription_plans?.name || 'Premium',
+            });
+          }
+        });
+      }
+
+      // Enrich users with subscription data
+      const enrichedUsers = usersData.map((user: any) => {
+        const subscription = subscriptionsMap.get(user.id);
+        
+        if (subscription) {
+          return {
+            ...user,
+            subscription_status: subscription.status === 'active' ? 'premium' : subscription.status,
+            subscription_plan_name: subscription.plan_name,
+            subscription_end_date: subscription.end_date,
+          };
+        } else {
+          return {
+            ...user,
+            subscription_status: 'free',
+            subscription_plan_name: undefined,
+            subscription_end_date: undefined,
+          };
+        }
+      });
+
+      setUsers(enrichedUsers);
+      setFilteredUsers(enrichedUsers);
     } catch (error) {
       console.error('Failed to load users:', error);
       Alert.alert('Error', 'Failed to load users');
@@ -105,13 +167,15 @@ export default function UsersManagementScreen() {
   };
 
   const getSubscriptionBadgeColor = (status?: string) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case 'premium':
         return '#10B981';
       case 'trial':
         return '#3B82F6';
       case 'expired':
         return '#EF4444';
+      case 'free':
+        return '#64748B';
       default:
         return '#64748B';
     }
@@ -200,7 +264,7 @@ export default function UsersManagementScreen() {
                         <Text style={[styles.badgeText, { color: '#F59E0B' }]}>Admin</Text>
                       </View>
                     )}
-                    {user.subscription_status && (
+                    {user.subscription_status && user.subscription_status !== 'free' && (
                       <View
                         style={[
                           styles.badge,
@@ -213,7 +277,26 @@ export default function UsersManagementScreen() {
                             { color: getSubscriptionBadgeColor(user.subscription_status) },
                           ]}
                         >
-                          {user.subscription_status}
+                          {user.subscription_status === 'premium' 
+                            ? (user.subscription_plan_name || 'PREMIUM').toUpperCase()
+                            : user.subscription_status.toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    {(!user.subscription_status || user.subscription_status === 'free') && (
+                      <View
+                        style={[
+                          styles.badge,
+                          { backgroundColor: getSubscriptionBadgeColor('free') + '20' },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.badgeText,
+                            { color: getSubscriptionBadgeColor('free') },
+                          ]}
+                        >
+                          FREE
                         </Text>
                       </View>
                     )}
