@@ -9,6 +9,9 @@ export interface BookChapter {
   title: string;
   description?: string;
   pageCount?: number;
+  pageStart?: number;
+  pageEnd?: number;
+  content?: string;
 }
 
 export interface Book {
@@ -39,6 +42,17 @@ export interface Book {
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
+  extractedChaptersData?: {
+    fullText?: string;
+    extractedAt?: string;
+    pageCount?: number;
+    metadata?: {
+      title?: string | null;
+      author?: string | null;
+      subject?: string | null;
+      [key: string]: any;
+    };
+  };
 }
 
 export interface BookFormData {

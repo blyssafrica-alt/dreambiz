@@ -48,6 +48,7 @@ export async function getBookBySlug(slug: string): Promise<Book | null> {
       createdBy: data.created_by,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
+      extractedChaptersData: data.extracted_chapters_data || undefined,
     };
   } catch (error) {
     console.error('Failed to fetch book:', error);
@@ -147,6 +148,69 @@ export async function getChapterForTopic(
   } catch (error) {
     console.error('Failed to get chapter for topic:', error);
     return undefined;
+  }
+}
+
+/**
+ * Extract chapter content from fullText using page ranges
+ */
+export function extractChapterContentFromFullText(
+  fullText: string | undefined,
+  pageStart: number,
+  pageEnd: number
+): string {
+  if (!fullText) return '';
+
+  const lines = fullText.split('\n');
+  let currentPage = 0;
+  let chapterText: string[] = [];
+  let inChapter = false;
+
+  for (const line of lines) {
+    // Check for page markers: --- Page X ---
+    const pageMatch = line.match(/---\s*Page\s+(\d+)\s+---/i);
+    if (pageMatch) {
+      currentPage = parseInt(pageMatch[1], 10);
+      inChapter = (currentPage >= pageStart && currentPage <= pageEnd);
+      if (inChapter) {
+        // Optionally include page marker (can remove if you don't want it)
+        // chapterText.push(line);
+      }
+    } else if (inChapter) {
+      chapterText.push(line);
+    }
+  }
+
+  return chapterText.join('\n').trim();
+}
+
+/**
+ * Get full chapter content (metadata + extracted text)
+ */
+export async function getFullChapterContent(
+  bookSlug: string,
+  chapterNumber: number
+): Promise<{ chapter: BookChapter | null; content: string } | null> {
+  try {
+    const book = await getBookBySlug(bookSlug);
+    if (!book) return null;
+
+    const chapter = getChapterFromBook(book, chapterNumber);
+    if (!chapter || !chapter.pageStart || !chapter.pageEnd) {
+      return { chapter, content: chapter?.content || '' };
+    }
+
+    const fullText = book.extractedChaptersData?.fullText || '';
+    const content = extractChapterContentFromFullText(
+      fullText,
+      chapter.pageStart,
+      chapter.pageEnd
+    );
+
+    return { chapter, content: content || chapter.content || '' };
+  } catch (error) {
+    console.error('Failed to get chapter content:', error);
+    return null;
   }
 }
 

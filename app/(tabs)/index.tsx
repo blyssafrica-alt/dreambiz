@@ -380,21 +380,30 @@ export default function DashboardScreen() {
     }
   };
 
-  const handleBookReferencePress = (bookReference: AlertType['bookReference']) => {
-    if (bookReference) {
-      // Navigate to book chapter or show book details
-      // For now, open modal with book info
-      RNAlert.alert(
-        'DreamBig Book Reference',
-        `Chapter ${bookReference.chapter}: ${bookReference.chapterTitle}\n\nThis chapter in your DreamBig book contains relevant guidance for this alert.`,
-        [
-          { text: 'OK', style: 'default' },
-          { text: 'View Book', onPress: () => {
-            // Navigate to books/insights page if available
-            router.push('/insights' as any);
-          }}
-        ]
-      );
+  const handleBookReferencePress = async (bookReference: AlertType['bookReference']) => {
+    if (!bookReference) return;
+    
+    try {
+      // Get book by slug to get book ID
+      const { getBookBySlug } = await import('@/lib/book-service');
+      const book = await getBookBySlug(bookReference.book);
+      
+      if (!book) {
+        RNAlert.alert('Book Not Found', 'The referenced book is not available. It may have been removed or unpublished.');
+        return;
+      }
+      
+      // Navigate to book reader with chapter parameter
+      router.push({
+        pathname: '/books/read/[id]',
+        params: { 
+          id: book.id,
+          chapter: bookReference.chapter.toString()
+        }
+      } as any);
+    } catch (error: any) {
+      console.error('Failed to open book chapter:', error);
+      RNAlert.alert('Error', 'Failed to open book chapter. Please try again.');
     }
   };
 

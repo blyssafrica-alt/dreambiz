@@ -19,27 +19,44 @@ import { WebView } from 'react-native-webview';
 import { ArrowLeft, Download, Share2, X } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBusiness } from '@/contexts/BusinessContext';
 import { supabase } from '@/lib/supabase';
+import { getBookBySlug, getFullChapterContent, getChapterFromBook } from '@/lib/book-service';
+import type { Book, BookChapter } from '@/types/books';
+import ChapterContentView from '@/components/ChapterContentView';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
 
 export default function BookReaderScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, chapter } = useLocalSearchParams<{ id: string; chapter?: string }>();
   const { theme } = useTheme();
   const { user } = useAuth();
+  const { business } = useBusiness();
+  const [book, setBook] = useState<Book | null>(null);
   const [bookUrl, setBookUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  
+  // Chapter content state
+  const [chapterContent, setChapterContent] = useState<string | null>(null);
+  const [currentChapter, setCurrentChapter] = useState<BookChapter | null>(null);
+  const [loadingChapter, setLoadingChapter] = useState(false);
 
   useEffect(() => {
     loadBook();
   }, [id, user]);
 
+  useEffect(() => {
+    if (chapter && book) {
+      loadChapterContent(parseInt(chapter, 10));
+    }
+  }, [chapter, book]);
+
   const loadBook = async () => {
-    if (!id || !user) {
-      setError('Book ID or user not found');
+    if (!id) {
+      setError('Book ID not found');
       setLoading(false);
       return;
     }
@@ -48,70 +65,154 @@ export default function BookReaderScreen() {
       setLoading(true);
       setError(null);
 
-      // Verify user has purchased and has access to this book
-      const { data: purchase, error: purchaseError } = await supabase
-        .from('book_purchases')
-        .select(`
-          id,
-          access_granted,
-          books (
-            id,
-            title,
-            document_file_url
-          )
-        `)
-        .eq('book_id', id)
-        .eq('user_id', user.id)
-        .eq('payment_status', 'completed')
-        .eq('access_granted', true)
+      // Load book data directly from books table
+      const { data: bookData, error: bookError } = await supabase
+        .from('books')
+        .select('*')
+        .eq('id', id)
+        .eq('status', 'published')
         .single();
 
-      if (purchaseError || !purchase) {
-        setError('You do not have access to this book. Please purchase it first.');
-        setLoading(false);
-        return;
-      }
+      if (bookError || !bookData) {
+        // Try to check if user has access via purchase
+        if (user) {
+          const { data: purchase } = await supabase
+            .from('book_purchases')
+            .select(`
+              books (*)
+            `)
+            .eq('book_id', id)
+            .eq('user_id', user.id)
+            .eq('payment_status', 'completed')
+            .eq('access_granted', true)
+            .single();
 
-      const book = (purchase as any).books;
-      if (!book || !book.document_file_url) {
-        setError('Book document not available. Please contact support.');
-        setLoading(false);
-        return;
-      }
-
-      // Get signed URL from Supabase Storage if it's a storage URL
-      let fileUrl = book.document_file_url;
-      
-      // If it's a Supabase storage URL, get a signed URL
-      if (fileUrl.includes('supabase.co/storage')) {
-        try {
-          // Extract bucket and path from URL
-          const urlParts = fileUrl.split('/storage/v1/object/public/');
-          if (urlParts.length === 2) {
-            const [bucket, ...pathParts] = urlParts[1].split('/');
-            const filePath = pathParts.join('/');
-            
-            // Get signed URL (valid for 1 hour)
-            const { data: signedData, error: signedError } = await supabase
-              .storage
-              .from(bucket)
-              .createSignedUrl(filePath, 3600); // 1 hour expiry
-
-            if (!signedError && signedData) {
-              fileUrl = signedData.signedUrl;
-            }
+          if (purchase && (purchase as any).books) {
+            bookData = (purchase as any).books;
+          } else {
+            setError('You do not have access to this book.');
+            setLoading(false);
+            return;
           }
-        } catch (urlError) {
-          console.warn('Could not create signed URL, using original:', urlError);
+        } else {
+          setError('Book not found or not published.');
+          setLoading(false);
+          return;
         }
       }
 
-      setBookUrl(fileUrl);
+      // Map database book to Book type
+      const loadedBook: Book = {
+        id: bookData.id,
+        slug: bookData.slug,
+        title: bookData.title,
+        subtitle: bookData.subtitle,
+        description: bookData.description,
+        coverImage: bookData.cover_image,
+        documentFileUrl: bookData.document_file_url,
+        price: parseFloat(bookData.price || '0'),
+        currency: bookData.currency || 'USD',
+        salePrice: bookData.sale_price ? parseFloat(bookData.sale_price) : undefined,
+        saleStartDate: bookData.sale_start_date,
+        saleEndDate: bookData.sale_end_date,
+        totalChapters: bookData.total_chapters || 0,
+        chapters: Array.isArray(bookData.chapters) ? bookData.chapters : (typeof bookData.chapters === 'string' ? JSON.parse(bookData.chapters) : []),
+        author: bookData.author,
+        isbn: bookData.isbn,
+        publicationDate: bookData.publication_date,
+        pageCount: bookData.page_count,
+        status: bookData.status,
+        isFeatured: bookData.is_featured || false,
+        displayOrder: bookData.display_order || 0,
+        totalSales: bookData.total_sales || 0,
+        totalRevenue: parseFloat(bookData.total_revenue || '0'),
+        createdBy: bookData.created_by,
+        createdAt: bookData.created_at,
+        updatedAt: bookData.updated_at,
+        extractedChaptersData: bookData.extracted_chapters_data || undefined,
+      };
+
+      setBook(loadedBook);
+
+      // If chapter is specified, we'll load it in the separate effect
+      // Otherwise, set up PDF URL
+      if (!chapter && loadedBook.documentFileUrl) {
+        // Get signed URL from Supabase Storage if it's a storage URL
+        let fileUrl = loadedBook.documentFileUrl;
+        
+        if (fileUrl.includes('supabase.co/storage')) {
+          try {
+            const urlParts = fileUrl.split('/storage/v1/object/public/');
+            if (urlParts.length === 2) {
+              const [bucket, ...pathParts] = urlParts[1].split('/');
+              const filePath = pathParts.join('/');
+              
+              const { data: signedData, error: signedError } = await supabase
+                .storage
+                .from(bucket)
+                .createSignedUrl(filePath, 3600);
+
+              if (!signedError && signedData) {
+                fileUrl = signedData.signedUrl;
+              }
+            }
+          } catch (urlError) {
+            console.warn('Could not create signed URL, using original:', urlError);
+          }
+        }
+
+        setBookUrl(fileUrl);
+      }
     } catch (err: any) {
       console.error('Error loading book:', err);
       setError(err.message || 'Failed to load book');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadChapterContent = async (chapterNumber: number) => {
+    if (!book) return;
+
+    try {
+      setLoadingChapter(true);
+      
+      // Get chapter content
+      const chapterData = await getFullChapterContent(book.slug, chapterNumber);
+      
+      if (chapterData) {
+        setCurrentChapter(chapterData.chapter);
+        setChapterContent(chapterData.content);
+      } else {
+        setError('Chapter content not available.');
+      }
+    } catch (err: any) {
+      console.error('Error loading chapter:', err);
+      setError('Failed to load chapter content.');
+    } finally {
+      setLoadingChapter(false);
+    }
+  };
+
+  const handlePreviousChapter = () => {
+    if (!currentChapter || !book) return;
+    const prevChapterNum = currentChapter.number - 1;
+    if (prevChapterNum >= 1) {
+      router.push({
+        pathname: '/books/read/[id]',
+        params: { id: book.id, chapter: prevChapterNum.toString() }
+      } as any);
+    }
+  };
+
+  const handleNextChapter = () => {
+    if (!currentChapter || !book) return;
+    const nextChapterNum = currentChapter.number + 1;
+    if (nextChapterNum <= book.totalChapters) {
+      router.push({
+        pathname: '/books/read/[id]',
+        params: { id: book.id, chapter: nextChapterNum.toString() }
+      } as any);
     }
   };
 
@@ -187,13 +288,34 @@ export default function BookReaderScreen() {
     }
   };
 
-  if (loading) {
+  // If chapter is specified and we have chapter content, show chapter view
+  if (chapter && currentChapter && chapterContent !== null && !loadingChapter) {
+    const chapterNum = parseInt(chapter, 10);
+    const hasPrevious = chapterNum > 1;
+    const hasNext = book ? chapterNum < book.totalChapters : false;
+
+    return (
+      <ChapterContentView
+        chapter={currentChapter}
+        content={chapterContent}
+        book={book!}
+        onPreviousChapter={handlePreviousChapter}
+        onNextChapter={handleNextChapter}
+        hasPrevious={hasPrevious}
+        hasNext={hasNext}
+      />
+    );
+  }
+
+  if (loading || loadingChapter) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background.secondary }]} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.accent.primary} />
-          <Text style={[styles.loadingText, { color: theme.text.secondary }]}>Loading book...</Text>
+          <Text style={[styles.loadingText, { color: theme.text.secondary }]}>
+            {chapter ? 'Loading chapter...' : 'Loading book...'}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -254,8 +376,8 @@ export default function BookReaderScreen() {
         </View>
       </View>
 
-      {/* WebView for PDF */}
-      {bookUrl && (
+      {/* WebView for PDF (only if no chapter specified) */}
+      {!chapter && bookUrl && (
         <WebView
           source={{ 
             uri: bookUrl,
