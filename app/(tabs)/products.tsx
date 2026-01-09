@@ -192,7 +192,10 @@ export default function ProductsScreen() {
 
     const cost = parseFloat(costPrice);
     const selling = parseFloat(sellingPrice);
-    const qty = parseInt(quantity) || 0;
+    const qty = parseFloat(quantity) || 0;
+    
+    // Round quantity to 2 decimal places for precision
+    const roundedQty = Math.round(qty * 100) / 100;
 
     if (cost < 0 || selling < 0) {
       RNAlert.alert('Invalid Price', 'Prices cannot be negative');
@@ -201,6 +204,11 @@ export default function ProductsScreen() {
 
     if (selling < cost) {
       RNAlert.alert('Invalid Price', 'Selling price should be higher than cost price');
+      return;
+    }
+    
+    if (roundedQty < 0) {
+      RNAlert.alert('Invalid Quantity', 'Quantity cannot be negative');
       return;
     }
 
@@ -212,7 +220,7 @@ export default function ProductsScreen() {
           costPrice: cost,
           sellingPrice: selling,
           currency: business?.currency || 'USD',
-          quantity: qty,
+          quantity: roundedQty,
           category: category || undefined,
           isActive,
           isTaxExempt,
@@ -226,7 +234,7 @@ export default function ProductsScreen() {
           costPrice: cost,
           sellingPrice: selling,
           currency: business?.currency || 'USD',
-          quantity: qty,
+          quantity: roundedQty,
           category: category || undefined,
           isActive,
           isTaxExempt,
@@ -547,7 +555,7 @@ export default function ProductsScreen() {
                       styles.detailValue,
                       { color: isLowStock ? theme.accent.warning : theme.text.primary, fontWeight: '600' }
                     ]}>
-                      {product.quantity} {isLowStock && '⚠️'}
+                      {product.quantity % 1 === 0 ? product.quantity.toFixed(0) : product.quantity.toFixed(2)} {isLowStock && '⚠️'}
                     </Text>
                   </View>
                 </View>
@@ -811,13 +819,35 @@ export default function ProductsScreen() {
               <View style={styles.row}>
                 <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
                   <Text style={[styles.label, { color: theme.text.primary }]}>Quantity</Text>
+                  <Text style={[styles.inputHint, { color: theme.text.tertiary }]}>
+                    Enter quantity (e.g., 1, 1.5, 2.3)
+                  </Text>
                   <TextInput
                     style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
                     value={quantity}
-                    onChangeText={setQuantity}
-                    placeholder="0"
+                    onChangeText={(text) => {
+                      // Allow numbers and one decimal point
+                      let cleaned = text.replace(/[^0-9.]/g, '');
+                      
+                      // Only allow one decimal point
+                      const parts = cleaned.split('.');
+                      if (parts.length > 2) {
+                        cleaned = parts[0] + '.' + parts.slice(1).join('');
+                      }
+                      
+                      // Allow up to 2 decimal places
+                      if (parts.length === 2 && parts[1].length > 2) {
+                        cleaned = parts[0] + '.' + parts[1].substring(0, 2);
+                      }
+                      
+                      // Allow empty string or valid decimal
+                      if (cleaned === '' || cleaned === '.' || parseFloat(cleaned) >= 0 || cleaned === '0.') {
+                        setQuantity(cleaned);
+                      }
+                    }}
+                    placeholder="0.0"
                     placeholderTextColor={theme.text.tertiary}
-                    keyboardType="number-pad"
+                    keyboardType="decimal-pad"
                   />
                 </View>
                 <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
@@ -1153,6 +1183,11 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: 12,
     marginTop: 4,
+  },
+  inputHint: {
+    fontSize: 11,
+    marginBottom: 6,
+    fontStyle: 'italic',
   },
   input: {
     padding: 12,
