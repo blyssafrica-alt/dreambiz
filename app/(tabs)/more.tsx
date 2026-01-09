@@ -188,7 +188,9 @@ export default function MoreScreen() {
           route: '/(tabs)/pos',
           color: '#F59E0B',
           gradient: ['#F59E0B', '#D97706'],
-          visible: business?.type === 'retail',
+          // Only show in More menu if POS is not already a main tab (i.e., for non-retail that might need it)
+          // For retail businesses, POS appears as main tab, so don't duplicate here
+          visible: false, // POS is now a main tab for retail businesses, so hide from More menu
         },
         {
           id: 'appointments',

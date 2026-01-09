@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS books (
   
   -- Content
   total_chapters INTEGER DEFAULT 0,
-  chapters JSONB DEFAULT '[]'::jsonb, -- [{number: 1, title: "Chapter 1", description: "..."}]
+  chapters JSONB DEFAULT '[]'::jsonb, -- [{number: 1, title: "Chapter 1", description: "...", pageStart: 1, pageEnd: 10}]
+  extracted_chapters_data JSONB DEFAULT '{}'::jsonb, -- Full PDF text content: {fullText: "...", extractedAt: "...", pageCount: 150, metadata: {...}}
   
   -- Metadata
   author TEXT,
@@ -109,6 +110,13 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
                  WHERE table_name = 'books' AND column_name = 'chapters') THEN
     ALTER TABLE books ADD COLUMN chapters JSONB DEFAULT '[]'::jsonb;
+  END IF;
+
+  -- Add extracted_chapters_data column if it doesn't exist
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                 WHERE table_name = 'books' AND column_name = 'extracted_chapters_data') THEN
+    ALTER TABLE books ADD COLUMN extracted_chapters_data JSONB DEFAULT '{}'::jsonb;
+    COMMENT ON COLUMN books.extracted_chapters_data IS 'Full chapter content extracted from PDF for search and reference purposes';
   END IF;
 
   -- Add author column if it doesn't exist
@@ -281,7 +289,8 @@ SELECT
   'Advanced strategies for scaling your business', 0, 'published', 6, 10, 'business'
 WHERE NOT EXISTS (SELECT 1 FROM books WHERE slug = 'scale-up');
 
--- Add comment for documentation
+-- Add comments for documentation
 COMMENT ON COLUMN books.slug IS 'Unique identifier for the book (used in URLs and references)';
 COMMENT ON COLUMN books.cover_image IS 'Base64 encoded image or URI for the book cover';
-COMMENT ON COLUMN books.chapters IS 'JSON array of chapter information';
+COMMENT ON COLUMN books.chapters IS 'JSON array of chapter information with pageStart and pageEnd ranges';
+COMMENT ON COLUMN books.extracted_chapters_data IS 'Full PDF text content extracted from book documents: {fullText: string, extractedAt: timestamp, pageCount: number, metadata: object}';

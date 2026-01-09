@@ -4,13 +4,15 @@ import {
   TrendingUp, 
   FileCheck, 
   CreditCard, 
-  Grid3x3 
+  Grid3x3,
+  ShoppingCart
 } from "lucide-react-native";
 import React, { useEffect, useRef } from "react";
 import { Platform, View, ActivityIndicator, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useFeatures } from "@/contexts/FeatureContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { LinearGradient } from "expo-linear-gradient";
 
 // Animated Tab Icon Component
@@ -97,7 +99,11 @@ function AnimatedTabIcon({
 export default function TabLayout() {
   const { theme, isLoading } = useTheme();
   const { shouldShowAsTab, isLoading: featuresLoading } = useFeatures();
+  const { business } = useBusiness();
   const insets = useSafeAreaInsets();
+  
+  // Check if POS should be shown as main tab (only for retail businesses)
+  const showPOSTab = business?.type === 'retail';
   
   // Show loading indicator while theme or features are loading
   if (isLoading || featuresLoading || !theme) {
@@ -198,6 +204,24 @@ export default function TabLayout() {
         />
       )}
       
+      {/* POS tab - visible only for retail businesses (primary feature) */}
+      {showPOSTab && (
+        <Tabs.Screen
+          name="pos"
+          options={{
+            title: "POS",
+            tabBarIcon: ({ color, focused }) => (
+              <AnimatedTabIcon
+                Icon={ShoppingCart}
+                color={color}
+                focused={focused}
+                gradientColors={['#F59E0B', '#D97706']}
+              />
+            ),
+          }}
+        />
+      )}
+      
       {/* Payments tab - always visible (no feature config, but allow if needed) */}
       <Tabs.Screen
         name="payments"
@@ -208,7 +232,7 @@ export default function TabLayout() {
               Icon={CreditCard}
               color={color}
               focused={focused}
-              gradientColors={['#F59E0B', '#D97706']}
+              gradientColors={showPOSTab ? ['#8B5CF6', '#7C3AED'] : ['#F59E0B', '#D97706']}
             />
           ),
         }}
@@ -242,8 +266,9 @@ export default function TabLayout() {
       <Tabs.Screen name="tax" options={{ href: null }} />
       <Tabs.Screen name="accounts" options={{ href: null }} />
       <Tabs.Screen name="recurring-invoices" options={{ href: null }} />
-             <Tabs.Screen name="pos" options={{ href: null }} />
-             <Tabs.Screen name="pos-day-end" options={{ href: null }} />
+      {/* POS is conditionally shown as main tab above, but hide it here if not retail */}
+      {!showPOSTab && <Tabs.Screen name="pos" options={{ href: null }} />}
+      <Tabs.Screen name="pos-day-end" options={{ href: null }} />
       <Tabs.Screen name="appointments" options={{ href: null }} />
       <Tabs.Screen name="integrations" options={{ href: null }} />
       <Tabs.Screen name="insights" options={{ href: null }} />
