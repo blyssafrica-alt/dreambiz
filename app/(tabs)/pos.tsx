@@ -22,7 +22,8 @@ import {
   Tag,
   Share2,
   FileText,
-  Calculator
+  Calculator,
+  ScanLine
 } from 'lucide-react-native';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import {
@@ -236,14 +237,17 @@ export default function POSScreen() {
       return;
     }
 
-    if (quantity > product.quantity) {
+    // Round to 2 decimal places for precision
+    const roundedQuantity = Math.round(quantity * 100) / 100;
+
+    if (roundedQuantity > product.quantity) {
       RNAlert.alert('Insufficient Stock', `Only ${product.quantity} units available`);
       return;
     }
 
     const existingItem = cart.find(item => item.product.id === product.id);
     if (existingItem) {
-      const newQuantity = existingItem.quantity + quantity;
+      const newQuantity = Math.round((existingItem.quantity + roundedQuantity) * 100) / 100;
       if (newQuantity > product.quantity) {
         RNAlert.alert('Insufficient Stock', `Only ${product.quantity} units available. You already have ${existingItem.quantity} in cart.`);
         return;
@@ -254,7 +258,7 @@ export default function POSScreen() {
           : item
       ));
     } else {
-      setCart([...cart, { product, quantity }]);
+      setCart([...cart, { product, quantity: roundedQuantity }]);
       setCartOpen(true);
     }
   };
@@ -262,13 +266,16 @@ export default function POSScreen() {
   const handleAddToCartWithQuantity = () => {
     if (!selectedProductForQuantity) return;
     
-    const quantity = parseInt(quantityInput, 10);
+    const quantity = parseFloat(quantityInput);
     if (isNaN(quantity) || quantity <= 0) {
-      RNAlert.alert('Invalid Quantity', 'Please enter a valid quantity');
+      RNAlert.alert('Invalid Quantity', 'Please enter a valid quantity (e.g., 1, 1.5, 2.3)');
       return;
     }
 
-    addToCart(selectedProductForQuantity, quantity);
+    // Round to 2 decimal places for precision
+    const roundedQuantity = Math.round(quantity * 100) / 100;
+
+    addToCart(selectedProductForQuantity, roundedQuantity);
     setShowQuantityModal(false);
     setSelectedProductForQuantity(null);
     setQuantityInput('1');
@@ -281,7 +288,10 @@ export default function POSScreen() {
   const updateQuantity = (productId: string, delta: number) => {
     setCart(cart.map(item => {
       if (item.product.id === productId) {
-        const newQuantity = item.quantity + delta;
+        // For decimal quantities, step by 0.1, for whole numbers step by 1
+        const step = item.quantity % 1 === 0 ? 1 : 0.1;
+        const actualDelta = delta === 1 ? step : -step;
+        const newQuantity = Math.round((item.quantity + actualDelta) * 100) / 100;
         if (newQuantity <= 0) return null;
         if (newQuantity > item.product.quantity) {
           RNAlert.alert('Insufficient Stock', `Only ${item.product.quantity} units available`);
@@ -799,7 +809,7 @@ export default function POSScreen() {
                         {item.product.name}
                       </Text>
                       <Text style={[styles.cartItemPrice, { color: theme.text.secondary }]}>
-                        {formatCurrency(item.product.sellingPrice)} × {item.quantity}
+                        {formatCurrency(item.product.sellingPrice)} × {item.quantity % 1 === 0 ? item.quantity.toFixed(0) : item.quantity.toFixed(2)}
                       </Text>
                     </View>
                     <View style={styles.cartItemRight}>
@@ -811,7 +821,7 @@ export default function POSScreen() {
                           <Minus size={16} color={theme.text.primary} />
                         </TouchableOpacity>
                         <Text style={[styles.quantityText, { color: theme.text.primary }]}>
-                          {item.quantity}
+                          {item.quantity % 1 === 0 ? item.quantity.toFixed(0) : item.quantity.toFixed(2)}
                         </Text>
                         <TouchableOpacity
                           style={[styles.quantityButton, { backgroundColor: theme.background.card }]}
@@ -1278,20 +1288,23 @@ export default function POSScreen() {
                         {formatCurrency(selectedProductForQuantity.sellingPrice)} each
                       </Text>
                       <Text style={[styles.quantityStockInfo, { color: theme.text.secondary }]}>
-                        Available: {selectedProductForQuantity.quantity} units
+                        Available: {selectedProductForQuantity.quantity} {selectedProductForQuantity.quantity === 1 ? 'unit' : 'units'}
                       </Text>
                     </View>
 
-                    <View style={styles.quantityInputSection}>
+                      <View style={styles.quantityInputSection}>
                       <Text style={[styles.quantityLabel, { color: theme.text.primary }]}>Quantity</Text>
+                      <Text style={[styles.quantityHint, { color: theme.text.tertiary }]}>
+                        Enter quantity (e.g., 1, 1.5, 2.3 kg)
+                      </Text>
                       <View style={styles.quantityInputContainer}>
                         <TouchableOpacity
                           style={[styles.quantityModalButton, { backgroundColor: theme.background.secondary }]}
                           onPress={() => {
-                            const current = parseInt(quantityInput, 10) || 1;
-                            if (current > 1) {
-                              setQuantityInput(String(current - 1));
-                            }
+                            const current = parseFloat(quantityInput) || 1;
+                            const step = current % 1 === 0 ? 1 : 0.1; // Step by 1 for whole numbers, 0.1 for decimals
+                            const newValue = Math.max(0.1, Math.round((current - step) * 100) / 100);
+                            setQuantityInput(String(newValue));
                           }}
                         >
                           <Minus size={20} color={theme.text.primary} />
@@ -1304,22 +1317,42 @@ export default function POSScreen() {
                           }]}
                           value={quantityInput}
                           onChangeText={(text) => {
-                            // Only allow numbers
-                            const numericValue = text.replace(/[^0-9]/g, '');
-                            if (numericValue === '' || parseInt(numericValue, 10) > 0) {
-                              setQuantityInput(numericValue || '1');
+                            // Allow numbers and one decimal point
+                            // Remove any characters that aren't digits or decimal point
+                            let cleaned = text.replace(/[^0-9.]/g, '');
+                            
+                            // Only allow one decimal point
+                            const parts = cleaned.split('.');
+                            if (parts.length > 2) {
+                              cleaned = parts[0] + '.' + parts.slice(1).join('');
+                            }
+                            
+                            // Allow up to 2 decimal places
+                            if (parts.length === 2 && parts[1].length > 2) {
+                              cleaned = parts[0] + '.' + parts[1].substring(0, 2);
+                            }
+                            
+                            // Don't allow empty string, default to 1
+                            if (cleaned === '' || cleaned === '.') {
+                              setQuantityInput('1');
+                            } else if (parseFloat(cleaned) > 0 || cleaned === '0.') {
+                              setQuantityInput(cleaned);
                             }
                           }}
-                          keyboardType="number-pad"
+                          keyboardType="decimal-pad"
                           selectTextOnFocus
+                          placeholder="1.0"
+                          placeholderTextColor={theme.text.tertiary}
                         />
                         <TouchableOpacity
                           style={[styles.quantityModalButton, { backgroundColor: theme.background.secondary }]}
                           onPress={() => {
-                            const current = parseInt(quantityInput, 10) || 1;
+                            const current = parseFloat(quantityInput) || 1;
+                            const step = current % 1 === 0 ? 1 : 0.1; // Step by 1 for whole numbers, 0.1 for decimals
                             const maxQuantity = selectedProductForQuantity.quantity;
-                            if (current < maxQuantity) {
-                              setQuantityInput(String(current + 1));
+                            const newValue = Math.round((current + step) * 100) / 100;
+                            if (newValue <= maxQuantity) {
+                              setQuantityInput(String(newValue));
                             } else {
                               RNAlert.alert('Insufficient Stock', `Only ${maxQuantity} units available`);
                             }
@@ -1329,7 +1362,7 @@ export default function POSScreen() {
                         </TouchableOpacity>
                       </View>
                       <Text style={[styles.quantityTotal, { color: theme.text.secondary }]}>
-                        Total: {formatCurrency(selectedProductForQuantity.sellingPrice * (parseInt(quantityInput, 10) || 1))}
+                        Total: {formatCurrency(selectedProductForQuantity.sellingPrice * (parseFloat(quantityInput) || 1))}
                       </Text>
                     </View>
 
@@ -2012,7 +2045,13 @@ const styles = StyleSheet.create({
   quantityLabel: {
     fontSize: 16,
     fontWeight: '600' as const,
+    marginBottom: 8,
+  },
+  quantityHint: {
+    fontSize: 12,
+    fontWeight: '400' as const,
     marginBottom: 16,
+    fontStyle: 'italic',
   },
   quantityInputContainer: {
     flexDirection: 'row',

@@ -5,7 +5,8 @@ import {
   FileCheck, 
   CreditCard, 
   Grid3x3,
-  ShoppingCart
+  ShoppingCart,
+  ScanLine
 } from "lucide-react-native";
 import React, { useEffect, useRef } from "react";
 import { Platform, View, ActivityIndicator, Animated } from "react-native";
@@ -212,7 +213,7 @@ export default function TabLayout() {
             title: "POS",
             tabBarIcon: ({ color, focused }) => (
               <AnimatedTabIcon
-                Icon={ShoppingCart}
+                Icon={ScanLine}
                 color={color}
                 focused={focused}
                 gradientColors={['#F59E0B', '#D97706']}
