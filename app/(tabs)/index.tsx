@@ -244,23 +244,34 @@ export default function DashboardScreen() {
         date.setDate(date.getDate() + 6);
         endDate = date.toISOString().split('T')[0];
       } else if (chartPeriod === 'month') {
-        const date = new Date(startDate);
-        // Set to last day of the month (day before next month)
-        date.setMonth(date.getMonth() + 1);
-        date.setDate(0); // This sets to last day of the previous month (which is the target month)
-        endDate = date.toISOString().split('T')[0];
+        // Parse startDate as YYYY-MM-DD and get last day of that month
+        const [year, month] = startDate.split('-').map(Number);
+        const lastDay = new Date(year, month, 0).getDate(); // Day 0 of next month = last day of current month
+        endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
       } else {
         const date = new Date(startDate);
         date.setFullYear(date.getFullYear() + 1);
         endDate = date.toISOString().split('T')[0];
       }
 
+      // Compare date strings directly (YYYY-MM-DD format from database)
+      // This avoids timezone issues with Date objects
       const revenue = transactions
-        .filter(t => t.type === 'sale' && t.date >= startDate && t.date <= endDate)
+        .filter(t => {
+          if (t.type !== 'sale') return false;
+          // Extract just the date part (YYYY-MM-DD) from transaction date string
+          const txDateStr = t.date.split('T')[0];
+          return txDateStr >= startDate && txDateStr <= endDate;
+        })
         .reduce((sum, t) => sum + t.amount, 0);
 
       const expenses = transactions
-        .filter(t => t.type === 'expense' && t.date >= startDate && t.date <= endDate)
+        .filter(t => {
+          if (t.type !== 'expense') return false;
+          // Extract just the date part (YYYY-MM-DD) from transaction date string
+          const txDateStr = t.date.split('T')[0];
+          return txDateStr >= startDate && txDateStr <= endDate;
+        })
         .reduce((sum, t) => sum + t.amount, 0);
 
       const profit = revenue - expenses;
