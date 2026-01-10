@@ -220,30 +220,59 @@ export default function DashboardScreen() {
         labels = dateRange.map((d, i) => `Week ${i + 1}`);
         break;
       case 'month':
-        // Calculate 12 months: start from January of the previous year through December
-        // This gives chronological order: Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec
-        dateRange = Array.from({ length: 12 }, (_, i) => {
-          const currentYear = now.getFullYear();
-          const currentMonth = now.getMonth(); // 0-based: 0=Jan, 11=Dec
-          
-          // Always start from January of the previous year
-          // If current month is January, show Jan-Dec of previous year
-          // If current month is after January, show Jan of previous year through December of previous year
-          const year = currentMonth === 0 ? currentYear - 1 : currentYear - 1;
-          const month = i; // 0-11 for Jan-Dec
-          
-          const date = new Date(year, month, 1);
-          // Use local date to avoid timezone conversion issues
+        // Calculate last 12 months: 11 months ago to current month
+        // Store with original order for data matching
+        const monthDataWithOrder: Array<{ date: string; monthIndex: number; year: number; originalIndex: number }> = [];
+        for (let i = 0; i < 12; i++) {
+          const monthsAgo = 11 - i; // 11 months ago (i=0) to current month (i=11)
+          const date = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);
           const yearStr = date.getFullYear();
           const monthStr = String(date.getMonth() + 1).padStart(2, '0');
           const dayStr = String(date.getDate()).padStart(2, '0');
-          return `${yearStr}-${monthStr}-${dayStr}`;
-        });
-        labels = dateRange.map(d => {
-          const [year, month, day] = d.split('-');
-          const date = new Date(Number(year), Number(month) - 1, Number(day));
-          return date.toLocaleDateString('en-US', { month: 'short' });
-        });
+          monthDataWithOrder.push({
+            date: `${yearStr}-${monthStr}-${dayStr}`,
+            monthIndex: date.getMonth(), // 0=Jan, 11=Dec
+            year: date.getFullYear(),
+            originalIndex: i
+          });
+        }
+        
+        // Create a map to store the most recent occurrence of each month (Jan-Dec)
+        const monthMap = new Map<number, { date: string; originalIndex: number }>();
+        for (const item of monthDataWithOrder) {
+          const existing = monthMap.get(item.monthIndex);
+          // Keep the most recent year for each month, or if same year, keep later in sequence
+          if (!existing || item.year > monthDataWithOrder[existing.originalIndex].year || 
+              (item.year === monthDataWithOrder[existing.originalIndex].year && item.originalIndex > existing.originalIndex)) {
+            monthMap.set(item.monthIndex, { date: item.date, originalIndex: item.originalIndex });
+          }
+        }
+        
+        // Build dateRange and labels in Jan-Dec order, using data from our 12-month window
+        // The key is: dateRange must contain the actual dates for filtering transactions
+        dateRange = [];
+        labels = [];
+        
+        for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+          const monthItem = monthMap.get(monthIndex);
+          if (monthItem) {
+            // Use the date from our calculated month data - this is what will match transactions
+            dateRange.push(monthItem.date);
+            const [year, month, day] = monthItem.date.split('-');
+            const date = new Date(Number(year), Number(month) - 1, Number(day));
+            labels.push(date.toLocaleDateString('en-US', { month: 'short' }));
+          } else {
+            // Fallback: shouldn't happen if we have 12 consecutive months
+            // This ensures we always have 12 months even if something goes wrong
+            const year = now.getFullYear() - 1;
+            const date = new Date(year, monthIndex, 1);
+            const yearStr = date.getFullYear();
+            const monthStr = String(date.getMonth() + 1).padStart(2, '0');
+            const dayStr = String(date.getDate()).padStart(2, '0');
+            dateRange.push(`${yearStr}-${monthStr}-${dayStr}`);
+            labels.push(date.toLocaleDateString('en-US', { month: 'short' }));
+          }
+        }
         break;
       case 'year':
         dateRange = Array.from({ length: 5 }, (_, i) => {
