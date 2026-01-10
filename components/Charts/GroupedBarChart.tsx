@@ -137,7 +137,7 @@ export default function GroupedBarChart({
               {group.series.map((series, seriesIndex) => {
                 const barHeight = (series.value / niceMaxValue) * chartHeight;
                 const x = groupX + seriesIndex * (barWidth + barSpacing);
-                const y = PADDING + chartHeight - barHeight;
+                const y = PADDING_TOP + chartHeight - barHeight;
 
                 return (
                   <React.Fragment key={seriesIndex}>
