@@ -32,16 +32,34 @@ export default function LineChart({
     );
   }
 
-  const maxValue = Math.max(...data, 1);
+  const maxValue = Math.max(...data, 0);
   const minValue = Math.min(...data, 0);
   const range = maxValue - minValue || 1;
-  const chartHeight = height - PADDING * 2;
+  const chartHeight = height - PADDING * 2 - 30; // Extra space for labels
   const chartWidth = CHART_WIDTH - PADDING * 2;
   const stepX = chartWidth / (data.length - 1 || 1);
 
+  // Calculate a "nice" maximum value for Y-axis labels
+  const getNiceMaxValue = (value: number): number => {
+    if (value === 0) return 1;
+    if (value <= 2) return 2;
+    const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+    const normalized = value / magnitude;
+    let niceValue;
+    if (normalized <= 1) niceValue = 1;
+    else if (normalized <= 2) niceValue = 2;
+    else if (normalized <= 5) niceValue = 5;
+    else niceValue = 10;
+    return niceValue * magnitude;
+  };
+
+  const niceMaxValue = getNiceMaxValue(maxValue);
+  const niceMinValue = minValue < 0 ? -getNiceMaxValue(Math.abs(minValue)) : 0;
+  const niceRange = niceMaxValue - niceMinValue || 1;
+
   const points = data.map((value, index) => {
     const x = PADDING + index * stepX;
-    const y = PADDING + chartHeight - ((value - minValue) / range) * chartHeight;
+    const y = PADDING + chartHeight - ((value - niceMinValue) / niceRange) * chartHeight;
     return { x, y, value };
   });
 
@@ -51,14 +69,18 @@ export default function LineChart({
   const gridStep = chartHeight / gridLines;
 
   // Format Y-axis values with abbreviations for large numbers
-  const formatYAxisValue = (value: number): string => {
+  const formatYAxisValue = (value: number, useDecimals: boolean = false): string => {
     if (value >= 1000000) {
       return `${(value / 1000000).toFixed(1)}M`;
     } else if (value >= 1000) {
       return `${(value / 1000).toFixed(1)}K`;
+    } else if (value < 1 && value > 0) {
+      return value.toFixed(2);
     }
-    return value.toFixed(0);
+    return useDecimals ? value.toFixed(1) : value.toFixed(0);
   };
+  
+  const useDecimalLabels = niceMaxValue <= 5;
 
   // Calculate which X-axis labels to show (show max 8 labels to avoid clustering)
   const getVisibleXLabels = () => {
@@ -92,7 +114,8 @@ export default function LineChart({
         {showGrid &&
           Array.from({ length: gridLines + 1 }).map((_, i) => {
             const y = PADDING + i * gridStep;
-            const value = maxValue - (i / gridLines) * range;
+            // Calculate value from top (niceMaxValue) to bottom (niceMinValue)
+            const value = niceMaxValue - (i / gridLines) * niceRange;
             return (
               <React.Fragment key={i}>
                 <Line
@@ -112,7 +135,7 @@ export default function LineChart({
                   textAnchor="end"
                   fontWeight="500"
                 >
-                  {formatYAxisValue(value)}
+                  {formatYAxisValue(value, useDecimalLabels)}
                 </SvgText>
               </React.Fragment>
             );

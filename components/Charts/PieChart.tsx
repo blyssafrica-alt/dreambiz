@@ -84,36 +84,38 @@ export default function PieChart({
 
   return (
     <View style={styles.container}>
-      <Svg width={size} height={size}>
-        <G>
-          {paths.map((path, index) => (
-            <Path
-              key={index}
-              d={path.path}
-              fill={path.color}
-              stroke="#FFF"
-              strokeWidth="2"
-            />
-          ))}
-          {showLabels &&
-            paths.map((path, index) => {
-              if (path.percentage < 0.05) return null; // Don't show labels for very small slices
-              return (
-                <SvgText
-                  key={index}
-                  x={path.labelX}
-                  y={path.labelY}
-                  fontSize="12"
-                  fill="#FFF"
-                  fontWeight="600"
-                  textAnchor="middle"
-                >
-                  {`${(path.percentage * 100).toFixed(0)}%`}
-                </SvgText>
-              );
-            })}
-        </G>
-      </Svg>
+      <View style={{ width: size, height: size }}>
+        <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <G>
+            {paths.map((path, index) => (
+              <Path
+                key={index}
+                d={path.path}
+                fill={path.color}
+                stroke="#FFF"
+                strokeWidth="2"
+              />
+            ))}
+            {showLabels &&
+              paths.map((path, index) => {
+                if (path.percentage < 0.05) return null; // Don't show labels for very small slices
+                return (
+                  <SvgText
+                    key={index}
+                    x={path.labelX}
+                    y={path.labelY}
+                    fontSize="12"
+                    fill="#FFF"
+                    fontWeight="600"
+                    textAnchor="middle"
+                  >
+                    {`${(path.percentage * 100).toFixed(0)}%`}
+                  </SvgText>
+                );
+              })}
+          </G>
+        </Svg>
+      </View>
 
       {showLegend && (
         <View style={styles.legend}>
@@ -136,6 +138,8 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 200,
+    paddingVertical: 20,
   },
   emptyText: {
     fontSize: 14,
@@ -145,6 +149,7 @@ const styles = StyleSheet.create({
   legend: {
     marginTop: 16,
     width: '100%',
+    paddingHorizontal: 20,
   },
   legendItem: {
     flexDirection: 'row',

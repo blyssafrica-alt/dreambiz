@@ -43,7 +43,7 @@ import { useAds } from '@/contexts/AdContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { Alert as AlertType } from '@/types/business';
 import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
-import { LineChart, PieChart, BarChart } from '@/components/Charts';
+import { LineChart, PieChart, BarChart, GroupedBarChart } from '@/components/Charts';
 import GlobalSearch from '@/components/GlobalSearch';
 import { AdCard } from '@/components/AdCard';
 import AnimatedLogo from '@/components/AnimatedLogo';
@@ -1009,11 +1009,26 @@ export default function DashboardScreen() {
                 </View>
                 {/* Combined Bar Chart */}
                 <View style={styles.combinedChartContainer}>
-                  <BarChart
+                  <GroupedBarChart
                     data={chartData.revenueExpenseProfit.map(d => ({
                       label: d.label,
-                      value: d.revenue,
-                      color: '#0066CC',
+                      series: [
+                        {
+                          label: 'Revenue',
+                          value: d.revenue,
+                          color: '#0066CC',
+                        },
+                        {
+                          label: 'Expenses',
+                          value: d.expenses,
+                          color: '#EF4444',
+                        },
+                        {
+                          label: 'Profit',
+                          value: d.profit,
+                          color: '#10B981',
+                        },
+                      ],
                     }))}
                     height={200}
                     showValues={false}
