@@ -1103,27 +1103,42 @@ export default function DashboardScreen() {
                   </Text>
                   <ChevronDown size={16} color={theme.text.secondary} />
                 </TouchableOpacity>
-                {showPeriodDropdown && (
-                  <View style={[styles.periodDropdown, { backgroundColor: theme.background.card }]}>
-                    {(['day', 'week', 'month', 'year'] as const).map((period) => (
-                      <TouchableOpacity
-                        key={period}
-                        style={styles.periodOption}
-                        onPress={() => {
-                          setChartPeriod(period);
-                          setShowPeriodDropdown(false);
-                        }}
-                      >
-                        <Text style={[styles.periodOptionText, { 
-                          color: chartPeriod === period ? theme.accent.primary : theme.text.primary 
-                        }]}>
-                          {period.charAt(0).toUpperCase() + period.slice(1)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
               </View>
+              
+              {/* Period Dropdown Modal */}
+              <Modal
+                visible={showPeriodDropdown}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowPeriodDropdown(false)}
+              >
+                <TouchableOpacity
+                  style={styles.dropdownBackdrop}
+                  activeOpacity={1}
+                  onPress={() => setShowPeriodDropdown(false)}
+                >
+                  <View style={styles.periodDropdownContainer} pointerEvents="box-none">
+                    <View style={[styles.periodDropdown, { backgroundColor: theme.background.card }]}>
+                      {(['day', 'week', 'month', 'year'] as const).map((period) => (
+                        <TouchableOpacity
+                          key={period}
+                          style={styles.periodOption}
+                          onPress={() => {
+                            setChartPeriod(period);
+                            setShowPeriodDropdown(false);
+                          }}
+                        >
+                          <Text style={[styles.periodOptionText, { 
+                            color: chartPeriod === period ? theme.accent.primary : theme.text.primary 
+                          }]}>
+                            {period.charAt(0).toUpperCase() + period.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </Modal>
             </View>
             
             {/* Sales Trend Chart */}
@@ -2150,10 +2165,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
   },
+  dropdownBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 100,
+    paddingRight: 20,
+  },
+  periodDropdownContainer: {
+    alignItems: 'flex-end',
+  },
   periodDropdown: {
-    position: 'absolute',
-    top: 40,
-    right: 0,
     minWidth: 120,
     borderRadius: 12,
     padding: 8,
@@ -2162,7 +2185,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
-    zIndex: 1000,
   },
   periodOption: {
     paddingVertical: 10,
