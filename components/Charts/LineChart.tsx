@@ -34,14 +34,14 @@ export default function LineChart({
 
   const maxValue = Math.max(...data, 0);
   const minValue = Math.min(...data, 0);
-  const range = maxValue - minValue || 1;
+  const range = maxValue - minValue;
   const chartHeight = height - PADDING * 2 - 30; // Extra space for labels
   const chartWidth = CHART_WIDTH - PADDING * 2;
   const stepX = chartWidth / (data.length - 1 || 1);
 
   // Calculate a "nice" maximum value for Y-axis labels
   const getNiceMaxValue = (value: number): number => {
-    if (value === 0) return 1;
+    if (value === 0) return 10; // Default to 10 when all values are 0
     if (value <= 2) return 2;
     const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
     const normalized = value / magnitude;
@@ -53,9 +53,13 @@ export default function LineChart({
     return niceValue * magnitude;
   };
 
-  const niceMaxValue = getNiceMaxValue(maxValue);
+  // Calculate nice values for min and max
+  const niceMaxValue = range === 0 && maxValue === 0 
+    ? 10 
+    : getNiceMaxValue(maxValue || 10);
   const niceMinValue = minValue < 0 ? -getNiceMaxValue(Math.abs(minValue)) : 0;
-  const niceRange = niceMaxValue - niceMinValue || 1;
+  // Ensure range is always at least 1 for proper label spacing
+  const niceRange = Math.max(niceMaxValue - niceMinValue, niceMaxValue || 10);
 
   const points = data.map((value, index) => {
     const x = PADDING + index * stepX;
@@ -115,7 +119,11 @@ export default function LineChart({
           Array.from({ length: gridLines + 1 }).map((_, i) => {
             const y = PADDING + i * gridStep;
             // Calculate value from top (niceMaxValue) to bottom (niceMinValue)
-            const value = niceMaxValue - (i / gridLines) * niceRange;
+            // Use proper division to avoid NaN or infinity
+            const stepValue = niceRange / gridLines;
+            const value = niceMaxValue - (i * stepValue);
+            // Ensure value is never negative if min is 0
+            const displayValue = Math.max(niceMinValue, value);
             return (
               <React.Fragment key={i}>
                 <Line
@@ -135,7 +143,7 @@ export default function LineChart({
                   textAnchor="end"
                   fontWeight="500"
                 >
-                  {formatYAxisValue(value, useDecimalLabels)}
+                  {formatYAxisValue(displayValue, useDecimalLabels)}
                 </SvgText>
               </React.Fragment>
             );

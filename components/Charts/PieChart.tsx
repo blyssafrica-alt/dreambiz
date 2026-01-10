@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import Svg, { G, Path, Text as SvgText } from 'react-native-svg';
+import Svg, { G, Path, Circle, Text as SvgText } from 'react-native-svg';
 
 interface PieChartData {
   label: string;
@@ -42,7 +42,7 @@ export default function PieChart({
   }
 
   const center = size / 2;
-  const radius = (size - 40) / 2;
+  const radius = Math.max((size - 40) / 2, 50); // Ensure minimum radius
   let currentAngle = -90; // Start from top
 
   const paths = data.map((item, index) => {
@@ -50,6 +50,22 @@ export default function PieChart({
     const angle = percentage * 360;
     const startAngle = currentAngle;
     const endAngle = currentAngle + angle;
+
+    // Handle full circle (100%) case
+    if (Math.abs(angle - 360) < 0.01) {
+      // Full circle - use a simpler path that definitely works
+      const pathData = `M ${center} ${center} m -${radius} 0 a ${radius} ${radius} 0 1 0 ${radius * 2} 0 a ${radius} ${radius} 0 1 0 -${radius * 2} 0`;
+      
+      return {
+        path: pathData,
+        color: item.color,
+        label: item.label,
+        percentage,
+        labelX: center,
+        labelY: center,
+        isFullCircle: true,
+      };
+    }
 
     const x1 = center + radius * Math.cos((startAngle * Math.PI) / 180);
     const y1 = center + radius * Math.sin((startAngle * Math.PI) / 180);
@@ -79,32 +95,52 @@ export default function PieChart({
       percentage,
       labelX,
       labelY,
+      isFullCircle: false,
     };
   });
 
   return (
     <View style={styles.container}>
-      <View style={{ width: size, height: size }}>
+      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
         <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
           <G>
-            {paths.map((path, index) => (
-              <Path
-                key={index}
-                d={path.path}
-                fill={path.color}
-                stroke="#FFF"
-                strokeWidth="2"
-              />
-            ))}
+            {paths.map((path, index) => {
+              // For full circle, use Circle element for better rendering
+              if ((path as any).isFullCircle) {
+                return (
+                  <React.Fragment key={index}>
+                    <Circle
+                      cx={center}
+                      cy={center}
+                      r={radius}
+                      fill={path.color || '#0066CC'}
+                      stroke="#FFF"
+                      strokeWidth="2"
+                    />
+                  </React.Fragment>
+                );
+              }
+              return (
+                <Path
+                  key={index}
+                  d={path.path}
+                  fill={path.color || '#0066CC'}
+                  stroke="#FFF"
+                  strokeWidth="2"
+                />
+              );
+            })}
             {showLabels &&
               paths.map((path, index) => {
                 if (path.percentage < 0.05) return null; // Don't show labels for very small slices
+                // For full circle (100%), center the label
+                const isFullCircle = (path as any).isFullCircle || false;
                 return (
                   <SvgText
                     key={index}
-                    x={path.labelX}
-                    y={path.labelY}
-                    fontSize="12"
+                    x={isFullCircle ? center : path.labelX}
+                    y={isFullCircle ? center + 5 : path.labelY}
+                    fontSize="14"
                     fill="#FFF"
                     fontWeight="600"
                     textAnchor="middle"
@@ -140,6 +176,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 200,
     paddingVertical: 20,
+    width: '100%',
   },
   emptyText: {
     fontSize: 14,

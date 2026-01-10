@@ -38,14 +38,14 @@ export default function GroupedBarChart({
   }
 
   // Find the maximum value across all series
-  const maxValue = Math.max(
+  const rawMaxValue = Math.max(
     ...data.flatMap(d => d.series.map(s => s.value)),
     0
   );
 
   // Calculate a "nice" maximum value for Y-axis labels
   const getNiceMaxValue = (value: number): number => {
-    if (value === 0) return 1;
+    if (value === 0) return 10; // Default to 10 when all values are 0
     if (value <= 2) return 2;
     const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
     const normalized = value / magnitude;
@@ -57,7 +57,7 @@ export default function GroupedBarChart({
     return niceValue * magnitude;
   };
 
-  const niceMaxValue = getNiceMaxValue(maxValue);
+  const niceMaxValue = getNiceMaxValue(rawMaxValue || 10);
   const chartHeight = height - PADDING * 2 - 30;
   const chartWidth = CHART_WIDTH - PADDING * 2;
   
@@ -91,7 +91,11 @@ export default function GroupedBarChart({
         {showGrid &&
           Array.from({ length: gridLines + 1 }).map((_, i) => {
             const y = PADDING + i * gridStep;
-            const value = niceMaxValue * (1 - i / gridLines);
+            // Calculate value from top to bottom using proper step
+            const stepValue = niceMaxValue / gridLines;
+            const value = niceMaxValue - (i * stepValue);
+            // Ensure value is never negative
+            const displayValue = Math.max(0, value);
             return (
               <React.Fragment key={i}>
                 <Line
@@ -111,7 +115,7 @@ export default function GroupedBarChart({
                   textAnchor="end"
                   fontWeight="500"
                 >
-                  {formatYAxisValue(value, useDecimalLabels)}
+                  {formatYAxisValue(displayValue, useDecimalLabels)}
                 </SvgText>
               </React.Fragment>
             );

@@ -47,7 +47,7 @@ export default function BarChart({
 
   // Calculate a "nice" maximum value for Y-axis labels to avoid rounding issues
   const getNiceMaxValue = (value: number): number => {
-    if (value === 0) return 1;
+    if (value === 0) return 10; // Default to 10 when all values are 0
     // For very small values (0-2), use at least 2 to ensure proper label spacing
     if (value <= 2) return 2;
     const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
@@ -60,7 +60,7 @@ export default function BarChart({
     return niceValue * magnitude;
   };
 
-  const niceMaxValue = getNiceMaxValue(rawMaxValue);
+  const niceMaxValue = getNiceMaxValue(rawMaxValue || 10);
 
   // Format Y-axis values with abbreviations for large numbers
   const formatYAxisValue = (value: number, useDecimals: boolean = false): string => {
@@ -86,7 +86,11 @@ export default function BarChart({
           Array.from({ length: gridLines + 1 }).map((_, i) => {
             const y = PADDING + i * gridStep;
             // Calculate value from top to bottom using nice max value for labels
-            const value = niceMaxValue * (1 - i / gridLines);
+            // Ensure proper step calculation
+            const stepValue = niceMaxValue / gridLines;
+            const value = niceMaxValue - (i * stepValue);
+            // Ensure value is never negative
+            const displayValue = Math.max(0, value);
             return (
               <React.Fragment key={i}>
                 <Line
@@ -106,7 +110,7 @@ export default function BarChart({
                   textAnchor="end"
                   fontWeight="500"
                 >
-                  {formatYAxisValue(value, useDecimalLabels)}
+                  {formatYAxisValue(displayValue, useDecimalLabels)}
                 </SvgText>
               </React.Fragment>
             );
