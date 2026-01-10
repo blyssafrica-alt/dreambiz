@@ -234,13 +234,34 @@ export default function DashboardScreen() {
         break;
     }
 
+    // Normalize transaction dates to YYYY-MM-DD format for comparison
+    // This function should be defined once outside the map for efficiency
+    const normalizeDate = (dateStr: string): string => {
+      // Extract YYYY-MM-DD from any format (could be "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm:ss" or "YYYY-MM-DD HH:mm:ss")
+      if (!dateStr) return '';
+      // Handle both DATE type (YYYY-MM-DD) and TIMESTAMP type (YYYY-MM-DDTHH:mm:ss.sssZ)
+      const normalized = dateStr.split('T')[0].split(' ')[0].trim();
+      // Validate format (basic check)
+      if (normalized && /^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+        return normalized;
+      }
+      console.warn('Invalid date format:', dateStr);
+      return '';
+    };
+
+    // Pre-normalize all transaction dates for performance
+    const normalizedTransactions = transactions.map(t => ({
+      ...t,
+      normalizedDate: normalizeDate(t.date),
+    })).filter(t => t.normalizedDate); // Filter out invalid dates
+
     // Calculate revenue, expenses, and profit for each period
     const revenueExpenseProfit = dateRange.map((startDate, index) => {
       let endDate: string;
       if (chartPeriod === 'day') {
         endDate = startDate;
       } else if (chartPeriod === 'week') {
-        const date = new Date(startDate);
+        const date = new Date(startDate + 'T00:00:00'); // Add time to avoid timezone issues
         date.setDate(date.getDate() + 6);
         endDate = date.toISOString().split('T')[0];
       } else if (chartPeriod === 'month') {
@@ -250,48 +271,56 @@ export default function DashboardScreen() {
         const yearNum = Number(yearStr);
         const monthNum = Number(monthStr); // 1-12 from date string (1=Jan, 12=Dec)
         // JavaScript Date months are 0-indexed (0=Jan, 11=Dec)
-        // To get last day of current month: get day 0 of next month
-        // For January (monthNum=1): next month is February (month 1 in 0-indexed = monthNum)
-        // So: new Date(yearNum, monthNum, 0) should work, but let's be explicit
         // Convert monthNum (1-12) to 0-indexed (0-11), then add 1 to get next month
         const monthIndex = monthNum - 1; // Convert to 0-indexed: 1->0, 12->11
         const nextMonthIndex = monthIndex + 1; // Next month in 0-indexed
+        // Day 0 of next month = last day of current month
         const lastDay = new Date(yearNum, nextMonthIndex, 0).getDate();
         endDate = `${yearStr}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
       } else {
-        const date = new Date(startDate);
+        const date = new Date(startDate + 'T00:00:00'); // Add time to avoid timezone issues
         date.setFullYear(date.getFullYear() + 1);
+        date.setDate(date.getDate() - 1); // Subtract one day to get last day of year
         endDate = date.toISOString().split('T')[0];
       }
 
       // Compare date strings directly (YYYY-MM-DD format from database)
-      // Transaction dates from database are in YYYY-MM-DD format (DATE type)
-      // Normalize transaction dates to YYYY-MM-DD format for comparison
-      const normalizeDate = (dateStr: string): string => {
-        // Extract YYYY-MM-DD from any format (could be "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm:ss")
-        return dateStr.split('T')[0].split(' ')[0];
-      };
-
-      const revenue = transactions
+      // String comparison works correctly for YYYY-MM-DD format
+      const revenue = normalizedTransactions
         .filter(t => {
           if (t.type !== 'sale') return false;
-          const txDateStr = normalizeDate(t.date);
-          // String comparison works correctly for YYYY-MM-DD format
-          return txDateStr >= startDate && txDateStr <= endDate;
+          return t.normalizedDate >= startDate && t.normalizedDate <= endDate;
         })
         .reduce((sum, t) => sum + t.amount, 0);
 
-      const expenses = transactions
+      const expenses = normalizedTransactions
         .filter(t => {
           if (t.type !== 'expense') return false;
-          const txDateStr = normalizeDate(t.date);
-          // String comparison works correctly for YYYY-MM-DD format
-          return txDateStr >= startDate && txDateStr <= endDate;
+          return t.normalizedDate >= startDate && t.normalizedDate <= endDate;
         })
         .reduce((sum, t) => sum + t.amount, 0);
 
       const profit = revenue - expenses;
       const profitPercent = revenue > 0 ? (profit / revenue) * 100 : 0;
+
+      // Debug logging (only for first and current month to avoid spam)
+      if (index === 0 || index === dateRange.length - 1) {
+        const matchingSales = normalizedTransactions.filter(t => 
+          t.type === 'sale' && t.normalizedDate >= startDate && t.normalizedDate <= endDate
+        );
+        const matchingExpenses = normalizedTransactions.filter(t => 
+          t.type === 'expense' && t.normalizedDate >= startDate && t.normalizedDate <= endDate
+        );
+        if (revenue > 0 || expenses > 0 || matchingSales.length > 0 || matchingExpenses.length > 0) {
+          console.log(`[Chart Debug] ${labels[index]} (${startDate} to ${endDate}):`, {
+            revenue,
+            expenses,
+            matchingSales: matchingSales.length,
+            matchingExpenses: matchingExpenses.length,
+            sampleTxDates: normalizedTransactions.slice(0, 3).map(t => ({ date: t.normalizedDate, type: t.type, amount: t.amount }))
+          });
+        }
+      }
 
       return {
         label: labels[index],
@@ -1047,8 +1076,8 @@ export default function DashboardScreen() {
                       series: [
                         {
                           label: 'Revenue',
-                          value: d.revenue,
-                          color: '#0066CC',
+                      value: d.revenue,
+                      color: '#0066CC',
                         },
                         {
                           label: 'Expenses',
