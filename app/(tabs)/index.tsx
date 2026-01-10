@@ -195,10 +195,15 @@ export default function DashboardScreen() {
         dateRange = Array.from({ length: 7 }, (_, i) => {
           const date = new Date(now);
           date.setDate(date.getDate() - (6 - i));
-          return date.toISOString().split('T')[0];
+          // Use local date to avoid timezone conversion issues
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
         });
         labels = dateRange.map(d => {
-          const date = new Date(d);
+          const [year, month, day] = d.split('-');
+          const date = new Date(Number(year), Number(month) - 1, Number(day));
           return date.toLocaleDateString('en-US', { weekday: 'short' });
         });
         break;
@@ -206,7 +211,11 @@ export default function DashboardScreen() {
         dateRange = Array.from({ length: 4 }, (_, i) => {
           const date = new Date(now);
           date.setDate(date.getDate() - (3 - i) * 7);
-          return date.toISOString().split('T')[0];
+          // Use local date to avoid timezone conversion issues
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
         });
         labels = dateRange.map((d, i) => `Week ${i + 1}`);
         break;
@@ -215,37 +224,65 @@ export default function DashboardScreen() {
           // Calculate months from 11 months ago to current month
           const monthsAgo = 11 - i;
           const date = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);
-          return date.toISOString().split('T')[0];
+          // Use local date to avoid timezone conversion issues
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
         });
         labels = dateRange.map(d => {
-          const date = new Date(d);
+          const [year, month, day] = d.split('-');
+          const date = new Date(Number(year), Number(month) - 1, Number(day));
           return date.toLocaleDateString('en-US', { month: 'short' });
         });
         break;
       case 'year':
         dateRange = Array.from({ length: 5 }, (_, i) => {
           const date = new Date(now.getFullYear() - (4 - i), 0, 1);
-          return date.toISOString().split('T')[0];
+          // Use local date to avoid timezone conversion issues
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
         });
         labels = dateRange.map(d => {
-          const date = new Date(d);
-          return date.getFullYear().toString();
+          const [year] = d.split('-');
+          return year;
         });
         break;
     }
 
     // Normalize transaction dates to YYYY-MM-DD format for comparison
     // This function should be defined once outside the map for efficiency
-    const normalizeDate = (dateStr: string): string => {
-      // Extract YYYY-MM-DD from any format (could be "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm:ss" or "YYYY-MM-DD HH:mm:ss")
+    const normalizeDate = (dateStr: string | Date): string => {
       if (!dateStr) return '';
-      // Handle both DATE type (YYYY-MM-DD) and TIMESTAMP type (YYYY-MM-DDTHH:mm:ss.sssZ)
-      const normalized = dateStr.split('T')[0].split(' ')[0].trim();
+      
+      // Handle Date objects
+      if (dateStr instanceof Date) {
+        const year = dateStr.getFullYear();
+        const month = String(dateStr.getMonth() + 1).padStart(2, '0');
+        const day = String(dateStr.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+      
+      // Handle string dates
+      const str = String(dateStr);
+      
+      // Already in YYYY-MM-DD format
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+        return str;
+      }
+      
+      // Handle ISO strings (YYYY-MM-DDTHH:mm:ss.sssZ)
+      // Handle timestamps with space (YYYY-MM-DD HH:mm:ss)
+      const normalized = str.split('T')[0].split(' ')[0].trim();
+      
       // Validate format (basic check)
       if (normalized && /^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
         return normalized;
       }
-      console.warn('Invalid date format:', dateStr);
+      
+      console.warn('Invalid date format, cannot normalize:', dateStr);
       return '';
     };
 
@@ -255,15 +292,35 @@ export default function DashboardScreen() {
       normalizedDate: normalizeDate(t.date),
     })).filter(t => t.normalizedDate); // Filter out invalid dates
 
+    // Debug: Log transaction date formats and normalization
+    if (transactions.length > 0) {
+      console.log('[Chart Debug] Transaction date formats:', {
+        totalTransactions: transactions.length,
+        sampleDates: transactions.slice(0, 3).map(t => ({ 
+          original: t.date, 
+          normalized: normalizeDate(t.date),
+          type: t.type,
+          amount: t.amount 
+        })),
+        dateRange: dateRange.slice(dateRange.length - 1), // Last month (current)
+      });
+    }
+
     // Calculate revenue, expenses, and profit for each period
     const revenueExpenseProfit = dateRange.map((startDate, index) => {
       let endDate: string;
       if (chartPeriod === 'day') {
         endDate = startDate;
       } else if (chartPeriod === 'week') {
-        const date = new Date(startDate + 'T00:00:00'); // Add time to avoid timezone issues
+        // Parse startDate (YYYY-MM-DD) and add 6 days
+        const [yearStr, monthStr, dayStr] = startDate.split('-');
+        const date = new Date(Number(yearStr), Number(monthStr) - 1, Number(dayStr));
         date.setDate(date.getDate() + 6);
-        endDate = date.toISOString().split('T')[0];
+        // Use local date to avoid timezone conversion issues
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        endDate = `${year}-${month}-${day}`;
       } else if (chartPeriod === 'month') {
         // Parse startDate as YYYY-MM-DD and get last day of that month
         // Example: "2026-01-01" -> year=2026, monthStr="01", monthNum=1 (January)
@@ -278,25 +335,38 @@ export default function DashboardScreen() {
         const lastDay = new Date(yearNum, nextMonthIndex, 0).getDate();
         endDate = `${yearStr}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
       } else {
-        const date = new Date(startDate + 'T00:00:00'); // Add time to avoid timezone issues
+        // Parse startDate (YYYY-MM-DD) for year period
+        const [yearStr, monthStr, dayStr] = startDate.split('-');
+        const date = new Date(Number(yearStr), Number(monthStr) - 1, Number(dayStr));
         date.setFullYear(date.getFullYear() + 1);
         date.setDate(date.getDate() - 1); // Subtract one day to get last day of year
-        endDate = date.toISOString().split('T')[0];
+        // Use local date to avoid timezone conversion issues
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        endDate = `${year}-${month}-${day}`;
       }
 
       // Compare date strings directly (YYYY-MM-DD format from database)
       // String comparison works correctly for YYYY-MM-DD format
+      // Both startDate/endDate and normalizedDate are in YYYY-MM-DD format
       const revenue = normalizedTransactions
         .filter(t => {
           if (t.type !== 'sale') return false;
-          return t.normalizedDate >= startDate && t.normalizedDate <= endDate;
+          const txDate = t.normalizedDate;
+          // Ensure we're comparing YYYY-MM-DD strings correctly
+          const isInRange = txDate >= startDate && txDate <= endDate;
+          return isInRange;
         })
         .reduce((sum, t) => sum + t.amount, 0);
 
       const expenses = normalizedTransactions
         .filter(t => {
           if (t.type !== 'expense') return false;
-          return t.normalizedDate >= startDate && t.normalizedDate <= endDate;
+          const txDate = t.normalizedDate;
+          // Ensure we're comparing YYYY-MM-DD strings correctly
+          const isInRange = txDate >= startDate && txDate <= endDate;
+          return isInRange;
         })
         .reduce((sum, t) => sum + t.amount, 0);
 
@@ -311,13 +381,26 @@ export default function DashboardScreen() {
         const matchingExpenses = normalizedTransactions.filter(t => 
           t.type === 'expense' && t.normalizedDate >= startDate && t.normalizedDate <= endDate
         );
-        if (revenue > 0 || expenses > 0 || matchingSales.length > 0 || matchingExpenses.length > 0) {
-          console.log(`[Chart Debug] ${labels[index]} (${startDate} to ${endDate}):`, {
+        // Always log for the current month (last index) to see what's happening
+        if (index === dateRange.length - 1) {
+          console.log(`[Chart Debug] CURRENT MONTH ${labels[index]} (${startDate} to ${endDate}):`, {
             revenue,
             expenses,
             matchingSales: matchingSales.length,
             matchingExpenses: matchingExpenses.length,
-            sampleTxDates: normalizedTransactions.slice(0, 3).map(t => ({ date: t.normalizedDate, type: t.type, amount: t.amount }))
+            totalSales: normalizedTransactions.filter(t => t.type === 'sale').length,
+            totalExpenses: normalizedTransactions.filter(t => t.type === 'expense').length,
+            allSalesDates: normalizedTransactions.filter(t => t.type === 'sale').slice(0, 5).map(t => ({ 
+              date: t.normalizedDate, 
+              amount: t.amount,
+              inRange: t.normalizedDate >= startDate && t.normalizedDate <= endDate
+            })),
+            dateComparison: {
+              startDate,
+              endDate,
+              sampleTransactionDate: normalizedTransactions[0]?.normalizedDate,
+              comparison: normalizedTransactions[0] ? `${normalizedTransactions[0].normalizedDate} >= ${startDate} && ${normalizedTransactions[0].normalizedDate} <= ${endDate}` : 'no transactions'
+            }
           });
         }
       }
