@@ -18,7 +18,10 @@ interface BarChartProps {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - 80;
 const DEFAULT_HEIGHT = 200;
-const PADDING = 20;
+const PADDING_LEFT = 45; // Increased for Y-axis labels
+const PADDING_RIGHT = 20;
+const PADDING_TOP = 20;
+const PADDING_BOTTOM = 30;
 
 export default function BarChart({
   data,
@@ -37,8 +40,8 @@ export default function BarChart({
   const rawMaxValue = Math.max(...data.map(d => d.value), 0);
   // Ensure maxValue is at least 1 to avoid division by zero, but use raw max for display
   const maxValue = Math.max(rawMaxValue, 1);
-  const chartHeight = height - PADDING * 2 - 30; // Extra space for labels
-  const chartWidth = CHART_WIDTH - PADDING * 2;
+  const chartHeight = height - PADDING_TOP - PADDING_BOTTOM;
+  const chartWidth = CHART_WIDTH - PADDING_LEFT - PADDING_RIGHT;
   const barWidth = (chartWidth / data.length) * 0.7;
   const barSpacing = (chartWidth / data.length) * 0.3;
 
@@ -80,11 +83,11 @@ export default function BarChart({
 
   return (
     <View style={[styles.container, { height }]}>
-      <Svg width={CHART_WIDTH} height={height}>
+      <Svg width={CHART_WIDTH} height={height} viewBox={`0 0 ${CHART_WIDTH} ${height}`}>
         {/* Grid lines */}
         {showGrid &&
           Array.from({ length: gridLines + 1 }).map((_, i) => {
-            const y = PADDING + i * gridStep;
+            const y = PADDING_TOP + i * gridStep;
             // Calculate value from top to bottom
             // Calculate percentage position (0 = top, 1 = bottom)
             const position = i / gridLines;
@@ -97,17 +100,17 @@ export default function BarChart({
             return (
               <React.Fragment key={i}>
                 <Line
-                  x1={PADDING}
+                  x1={PADDING_LEFT}
                   y1={y}
-                  x2={PADDING + chartWidth}
+                  x2={PADDING_LEFT + chartWidth}
                   y2={y}
                   stroke="#E2E8F0"
                   strokeWidth="1"
                   strokeDasharray="4,4"
                 />
                 <SvgText
-                  x={PADDING - 12}
-                  y={y + 5}
+                  x={PADDING_LEFT - 8}
+                  y={y + 4}
                   fontSize="11"
                   fill="#64748B"
                   textAnchor="end"
@@ -123,8 +126,8 @@ export default function BarChart({
         {data.map((item, index) => {
           // Use niceMaxValue for bar height calculation to match Y-axis labels
           const barHeight = (item.value / niceMaxValue) * chartHeight;
-          const x = PADDING + index * (barWidth + barSpacing) + barSpacing / 2;
-          const y = PADDING + chartHeight - barHeight;
+          const x = PADDING_LEFT + index * (barWidth + barSpacing) + barSpacing / 2;
+          const y = PADDING_TOP + chartHeight - barHeight;
           const color = item.color || '#0066CC';
 
           return (
@@ -151,7 +154,7 @@ export default function BarChart({
               )}
               <SvgText
                 x={x + barWidth / 2}
-                y={height - 10}
+                y={height - 8}
                 fontSize="10"
                 fill="#64748B"
                 textAnchor="middle"
