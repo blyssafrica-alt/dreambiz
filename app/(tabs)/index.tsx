@@ -245,9 +245,19 @@ export default function DashboardScreen() {
         endDate = date.toISOString().split('T')[0];
       } else if (chartPeriod === 'month') {
         // Parse startDate as YYYY-MM-DD and get last day of that month
-        const [year, month] = startDate.split('-').map(Number);
-        const lastDay = new Date(year, month, 0).getDate(); // Day 0 of next month = last day of current month
-        endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+        // Example: "2026-01-01" -> year=2026, monthStr="01", monthNum=1 (January)
+        const [yearStr, monthStr] = startDate.split('-');
+        const yearNum = Number(yearStr);
+        const monthNum = Number(monthStr); // 1-12 from date string (1=Jan, 12=Dec)
+        // JavaScript Date months are 0-indexed (0=Jan, 11=Dec)
+        // To get last day of current month: get day 0 of next month
+        // For January (monthNum=1): next month is February (month 1 in 0-indexed = monthNum)
+        // So: new Date(yearNum, monthNum, 0) should work, but let's be explicit
+        // Convert monthNum (1-12) to 0-indexed (0-11), then add 1 to get next month
+        const monthIndex = monthNum - 1; // Convert to 0-indexed: 1->0, 12->11
+        const nextMonthIndex = monthIndex + 1; // Next month in 0-indexed
+        const lastDay = new Date(yearNum, nextMonthIndex, 0).getDate();
+        endDate = `${yearStr}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
       } else {
         const date = new Date(startDate);
         date.setFullYear(date.getFullYear() + 1);
@@ -255,12 +265,18 @@ export default function DashboardScreen() {
       }
 
       // Compare date strings directly (YYYY-MM-DD format from database)
-      // This avoids timezone issues with Date objects
+      // Transaction dates from database are in YYYY-MM-DD format (DATE type)
+      // Normalize transaction dates to YYYY-MM-DD format for comparison
+      const normalizeDate = (dateStr: string): string => {
+        // Extract YYYY-MM-DD from any format (could be "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm:ss")
+        return dateStr.split('T')[0].split(' ')[0];
+      };
+
       const revenue = transactions
         .filter(t => {
           if (t.type !== 'sale') return false;
-          // Extract just the date part (YYYY-MM-DD) from transaction date string
-          const txDateStr = t.date.split('T')[0];
+          const txDateStr = normalizeDate(t.date);
+          // String comparison works correctly for YYYY-MM-DD format
           return txDateStr >= startDate && txDateStr <= endDate;
         })
         .reduce((sum, t) => sum + t.amount, 0);
@@ -268,8 +284,8 @@ export default function DashboardScreen() {
       const expenses = transactions
         .filter(t => {
           if (t.type !== 'expense') return false;
-          // Extract just the date part (YYYY-MM-DD) from transaction date string
-          const txDateStr = t.date.split('T')[0];
+          const txDateStr = normalizeDate(t.date);
+          // String comparison works correctly for YYYY-MM-DD format
           return txDateStr >= startDate && txDateStr <= endDate;
         })
         .reduce((sum, t) => sum + t.amount, 0);
@@ -993,6 +1009,7 @@ export default function DashboardScreen() {
             )}
 
             {/* Combined Revenue/Expenses/Profit Chart */}
+            {/* Always show the chart, even if values are zero */}
             {chartData.revenueExpenseProfit && chartData.revenueExpenseProfit.length > 0 && (
               <View style={[styles.chartCard, { backgroundColor: theme.background.card }]}>
                 <View style={styles.chartHeader}>
