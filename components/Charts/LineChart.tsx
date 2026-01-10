@@ -58,8 +58,8 @@ export default function LineChart({
     ? 10 
     : getNiceMaxValue(maxValue || 10);
   const niceMinValue = minValue < 0 ? -getNiceMaxValue(Math.abs(minValue)) : 0;
-  // Ensure range is always at least 1 for proper label spacing
-  const niceRange = Math.max(niceMaxValue - niceMinValue, niceMaxValue || 10);
+  // Calculate range properly
+  const niceRange = niceMaxValue - niceMinValue;
 
   const points = data.map((value, index) => {
     const x = PADDING + index * stepX;
@@ -119,11 +119,14 @@ export default function LineChart({
           Array.from({ length: gridLines + 1 }).map((_, i) => {
             const y = PADDING + i * gridStep;
             // Calculate value from top (niceMaxValue) to bottom (niceMinValue)
-            // Use proper division to avoid NaN or infinity
-            const stepValue = niceRange / gridLines;
-            const value = niceMaxValue - (i * stepValue);
-            // Ensure value is never negative if min is 0
-            const displayValue = Math.max(niceMinValue, value);
+            // Calculate percentage position (0 = top, 1 = bottom)
+            const position = i / gridLines;
+            // Interpolate value from niceMaxValue to niceMinValue
+            const value = niceMaxValue - (position * niceRange);
+            // Round to avoid floating point precision issues
+            const displayValue = Math.round(value * 100) / 100;
+            // Ensure value doesn't go below minimum
+            const finalValue = Math.max(niceMinValue, displayValue);
             return (
               <React.Fragment key={i}>
                 <Line
@@ -143,7 +146,7 @@ export default function LineChart({
                   textAnchor="end"
                   fontWeight="500"
                 >
-                  {formatYAxisValue(displayValue, useDecimalLabels)}
+                  {formatYAxisValue(finalValue, useDecimalLabels)}
                 </SvgText>
               </React.Fragment>
             );

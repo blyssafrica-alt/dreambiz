@@ -85,12 +85,15 @@ export default function BarChart({
         {showGrid &&
           Array.from({ length: gridLines + 1 }).map((_, i) => {
             const y = PADDING + i * gridStep;
-            // Calculate value from top to bottom using nice max value for labels
-            // Ensure proper step calculation
-            const stepValue = niceMaxValue / gridLines;
-            const value = niceMaxValue - (i * stepValue);
+            // Calculate value from top to bottom
+            // Calculate percentage position (0 = top, 1 = bottom)
+            const position = i / gridLines;
+            // Interpolate value from niceMaxValue to 0
+            const value = niceMaxValue * (1 - position);
+            // Round to avoid floating point precision issues
+            const displayValue = Math.round(value * 100) / 100;
             // Ensure value is never negative
-            const displayValue = Math.max(0, value);
+            const finalValue = Math.max(0, displayValue);
             return (
               <React.Fragment key={i}>
                 <Line
@@ -110,7 +113,7 @@ export default function BarChart({
                   textAnchor="end"
                   fontWeight="500"
                 >
-                  {formatYAxisValue(displayValue, useDecimalLabels)}
+                  {formatYAxisValue(finalValue, useDecimalLabels)}
                 </SvgText>
               </React.Fragment>
             );
