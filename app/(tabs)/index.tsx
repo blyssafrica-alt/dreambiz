@@ -220,15 +220,24 @@ export default function DashboardScreen() {
         labels = dateRange.map((d, i) => `Week ${i + 1}`);
         break;
       case 'month':
+        // Calculate 12 months: start from January of the previous year through December
+        // This gives chronological order: Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec
         dateRange = Array.from({ length: 12 }, (_, i) => {
-          // Calculate months from 11 months ago to current month
-          const monthsAgo = 11 - i;
-          const date = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);
+          const currentYear = now.getFullYear();
+          const currentMonth = now.getMonth(); // 0-based: 0=Jan, 11=Dec
+          
+          // Always start from January of the previous year
+          // If current month is January, show Jan-Dec of previous year
+          // If current month is after January, show Jan of previous year through December of previous year
+          const year = currentMonth === 0 ? currentYear - 1 : currentYear - 1;
+          const month = i; // 0-11 for Jan-Dec
+          
+          const date = new Date(year, month, 1);
           // Use local date to avoid timezone conversion issues
-          const year = date.getFullYear();
-          const month = String(date.getMonth() + 1).padStart(2, '0');
-          const day = String(date.getDate()).padStart(2, '0');
-          return `${year}-${month}-${day}`;
+          const yearStr = date.getFullYear();
+          const monthStr = String(date.getMonth() + 1).padStart(2, '0');
+          const dayStr = String(date.getDate()).padStart(2, '0');
+          return `${yearStr}-${monthStr}-${dayStr}`;
         });
         labels = dateRange.map(d => {
           const [year, month, day] = d.split('-');
