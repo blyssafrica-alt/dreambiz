@@ -212,7 +212,9 @@ export default function DashboardScreen() {
         break;
       case 'month':
         dateRange = Array.from({ length: 12 }, (_, i) => {
-          const date = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
+          // Calculate months from 11 months ago to current month
+          const monthsAgo = 11 - i;
+          const date = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);
           return date.toISOString().split('T')[0];
         });
         labels = dateRange.map(d => {
@@ -243,7 +245,9 @@ export default function DashboardScreen() {
         endDate = date.toISOString().split('T')[0];
       } else if (chartPeriod === 'month') {
         const date = new Date(startDate);
+        // Set to last day of the month (day before next month)
         date.setMonth(date.getMonth() + 1);
+        date.setDate(0); // This sets to last day of the previous month (which is the target month)
         endDate = date.toISOString().split('T')[0];
       } else {
         const date = new Date(startDate);
