@@ -47,12 +47,14 @@ import { LineChart, PieChart, BarChart, GroupedBarChart } from '@/components/Cha
 import GlobalSearch from '@/components/GlobalSearch';
 import { AdCard } from '@/components/AdCard';
 import AnimatedLogo from '@/components/AnimatedLogo';
+import { useResponsive } from '@/hooks/useResponsive';
 
 export default function DashboardScreen() {
   const { business, getDashboardMetrics, transactions, documents, folders } = useBusiness();
   const { theme } = useTheme();
   const { getAdsForLocation } = useAds();
   const { t } = useTranslation();
+  const responsive = useResponsive();
   
   // State declarations
   const [metrics, setMetrics] = useState<any>(null);
@@ -699,40 +701,59 @@ export default function DashboardScreen() {
           colors={theme.gradient.primary as [string, string]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.headerGradient}
+          style={[styles.headerGradient, {
+            paddingTop: responsive.scaleSpacing(16, 0.9),
+            paddingBottom: responsive.scaleSpacing(24, 0.85, 1.1),
+            paddingHorizontal: responsive.scaleSpacing(20, 0.85, 1.1),
+          }]}
         >
           <View style={styles.header}>
-            <View style={styles.headerLeft}>
+            <View style={[styles.headerLeft, responsive.isSmallScreen && { flex: 1, minWidth: 0 }]}>
               <AnimatedLogo 
-                size={48} 
+                size={responsive.scale(48, 0.9, 1.1)} 
                 showGradient={true}
                 rotationSpeed={4000}
                 pulseEnabled={true}
-                style={{ marginRight: 12 }}
+                style={{ marginRight: responsive.scaleSpacing(12) }}
               />
-              <View>
-                <Text style={styles.greeting}>{t('auth.welcomeBack')} 👋</Text>
-                <Text style={styles.businessName}>{business?.name || 'Your Business'}</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[styles.greeting, { fontSize: responsive.scaleFont(14, 0.9) }]}>{t('auth.welcomeBack')} 👋</Text>
+                <Text style={[styles.businessName, { fontSize: responsive.scaleFont(24, 0.85, 1.1) }]} numberOfLines={1} ellipsizeMode="tail">{business?.name || 'Your Business'}</Text>
               </View>
             </View>
             <View style={styles.headerActions}>
               <TouchableOpacity 
-                style={[styles.quickAddButton, { backgroundColor: theme.background.card }]} 
+                style={[styles.quickAddButton, { 
+                  backgroundColor: theme.background.card,
+                  width: responsive.scale(40, 0.9, 1.1),
+                  height: responsive.scale(40, 0.9, 1.1),
+                  borderRadius: responsive.scale(20, 0.9, 1.1),
+                }]} 
                 onPress={() => router.push('/help' as any)}
               >
-                <HelpCircle size={20} color={theme.accent.primary} strokeWidth={2.5} />
+                <HelpCircle size={responsive.scale(20, 0.9, 1.1)} color={theme.accent.primary} strokeWidth={2.5} />
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.quickAddButton, { backgroundColor: theme.background.card }]} 
+                style={[styles.quickAddButton, { 
+                  backgroundColor: theme.background.card,
+                  width: responsive.scale(40, 0.9, 1.1),
+                  height: responsive.scale(40, 0.9, 1.1),
+                  borderRadius: responsive.scale(20, 0.9, 1.1),
+                }]} 
                 onPress={() => setShowSearch(true)}
               >
-                <Search size={20} color={theme.accent.primary} strokeWidth={2.5} />
+                <Search size={responsive.scale(20, 0.9, 1.1)} color={theme.accent.primary} strokeWidth={2.5} />
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.quickAddButton, { backgroundColor: theme.background.card }]} 
+                style={[styles.quickAddButton, { 
+                  backgroundColor: theme.background.card,
+                  width: responsive.scale(40, 0.9, 1.1),
+                  height: responsive.scale(40, 0.9, 1.1),
+                  borderRadius: responsive.scale(20, 0.9, 1.1),
+                }]} 
                 onPress={() => router.push('/(tabs)/finances' as any)}
               >
-                <Plus size={20} color={theme.accent.primary} strokeWidth={3} />
+                <Plus size={responsive.scale(20, 0.9, 1.1)} color={theme.accent.primary} strokeWidth={3} />
               </TouchableOpacity>
             </View>
           </View>
@@ -741,7 +762,11 @@ export default function DashboardScreen() {
 
       <ScrollView 
         style={styles.scrollContainer} 
-        contentContainerStyle={[styles.content, { paddingBottom: Platform.OS === 'ios' ? 120 : 100 }]}
+        contentContainerStyle={[styles.content, { 
+          padding: responsive.scaleSpacing(16, 0.85, 1.1),
+          paddingTop: responsive.scaleSpacing(20, 0.9, 1.1),
+          paddingBottom: Platform.OS === 'ios' ? 120 : 100 
+        }]}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled={true}
         keyboardShouldPersistTaps="handled"
@@ -754,46 +779,58 @@ export default function DashboardScreen() {
             <View style={styles.todaySection}>
               <View style={styles.sectionHeader}>
                 <View>
-                  <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>{t('dashboard.today').toUpperCase()}</Text>
-                  <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>{t('dashboard.today')}&apos;s Overview</Text>
+                  <Text style={[styles.sectionLabel, { color: theme.accent.primary, fontSize: responsive.scaleFont(11, 0.9) }]}>{t('dashboard.today').toUpperCase()}</Text>
+                  <Text style={[styles.sectionTitle, { color: theme.text.primary, fontSize: responsive.scaleFont(20, 0.9, 1.1) }]}>{t('dashboard.today')}&apos;s Overview</Text>
                 </View>
-                <View style={[styles.badge, { backgroundColor: theme.surface.info }]}>
-                  <Sparkles size={12} color={theme.accent.info} />
-                  <Text style={[styles.badgeText, { color: theme.accent.info }]}>Live</Text>
+                <View style={[styles.badge, { backgroundColor: theme.surface.info, paddingHorizontal: responsive.scaleSpacing(10, 0.9), paddingVertical: responsive.scaleSpacing(4, 0.9) }]}>
+                  <Sparkles size={responsive.scale(12, 0.9)} color={theme.accent.info} />
+                  <Text style={[styles.badgeText, { color: theme.accent.info, fontSize: responsive.scaleFont(12, 0.9) }]}>Live</Text>
                 </View>
               </View>
 
-              <View style={styles.metricsGrid}>
+              <View style={[styles.metricsGrid, { gap: responsive.scaleSpacing(12) }]}>
                 <Animated.View style={[styles.metricCard, { 
                   backgroundColor: theme.background.card,
                   transform: [{ scale: scaleAnim }],
+                  padding: responsive.scaleSpacing(20, 0.85),
                 }]}>
                   <LinearGradient
                     colors={['#10B981', '#059669']}
-                    style={styles.metricIconGradient}
+                    style={[styles.metricIconGradient, {
+                      width: responsive.scale(48, 0.85, 1.1),
+                      height: responsive.scale(48, 0.85, 1.1),
+                      borderRadius: responsive.scale(24, 0.85, 1.1),
+                      marginBottom: responsive.scaleSpacing(12, 0.85),
+                    }]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                   >
-                    <ArrowUpRight size={20} color="#FFF" strokeWidth={2.5} />
+                    <ArrowUpRight size={responsive.scale(20, 0.85, 1.1)} color="#FFF" strokeWidth={2.5} />
                   </LinearGradient>
-                  <Text style={[styles.metricLabel, { color: theme.text.secondary }]}>{t('dashboard.sales')}</Text>
-                  <Text style={[styles.metricValue, { color: theme.text.primary }]}>{formatCurrency(metrics?.todaySales || 0)}</Text>
+                  <Text style={[styles.metricLabel, { color: theme.text.secondary, fontSize: responsive.scaleFont(13, 0.9), marginBottom: responsive.scaleSpacing(6, 0.9) }]}>{t('dashboard.sales')}</Text>
+                  <Text style={[styles.metricValue, { color: theme.text.primary, fontSize: responsive.scaleFont(26, 0.85, 1.1) }]}>{formatCurrency(metrics?.todaySales || 0)}</Text>
                 </Animated.View>
 
                 <Animated.View style={[styles.metricCard, { 
                   backgroundColor: theme.background.card,
                   transform: [{ scale: scaleAnim }],
+                  padding: responsive.scaleSpacing(20, 0.85),
                 }]}>
                   <LinearGradient
                     colors={['#EF4444', '#DC2626']}
-                    style={styles.metricIconGradient}
+                    style={[styles.metricIconGradient, {
+                      width: responsive.scale(48, 0.85, 1.1),
+                      height: responsive.scale(48, 0.85, 1.1),
+                      borderRadius: responsive.scale(24, 0.85, 1.1),
+                      marginBottom: responsive.scaleSpacing(12, 0.85),
+                    }]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                   >
-                    <ArrowDownRight size={20} color="#FFF" strokeWidth={2.5} />
+                    <ArrowDownRight size={responsive.scale(20, 0.85, 1.1)} color="#FFF" strokeWidth={2.5} />
                   </LinearGradient>
-                  <Text style={[styles.metricLabel, { color: theme.text.secondary }]}>{t('dashboard.expenses')}</Text>
-                  <Text style={[styles.metricValue, { color: theme.text.primary }]}>{formatCurrency(metrics?.todayExpenses || 0)}</Text>
+                  <Text style={[styles.metricLabel, { color: theme.text.secondary, fontSize: responsive.scaleFont(13, 0.9), marginBottom: responsive.scaleSpacing(6, 0.9) }]}>{t('dashboard.expenses')}</Text>
+                  <Text style={[styles.metricValue, { color: theme.text.primary, fontSize: responsive.scaleFont(26, 0.85, 1.1) }]}>{formatCurrency(metrics?.todayExpenses || 0)}</Text>
                 </Animated.View>
               </View>
 
@@ -801,20 +838,24 @@ export default function DashboardScreen() {
                 colors={(metrics?.todayProfit || 0) >= 0 ? [theme.accent.success, theme.accent.success] : [theme.accent.danger, theme.accent.danger] as [string, string]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.profitCard}
+                style={[styles.profitCard, { padding: responsive.scaleSpacing(24, 0.85) }]}
               >
                 <View style={styles.profitContent}>
                   <View style={styles.profitHeader}>
-                    <Text style={styles.profitLabel}>{t('dashboard.today')}&apos;s {t('dashboard.profit')}</Text>
-                    <View style={styles.profitIconBg}>
+                    <Text style={[styles.profitLabel, { fontSize: responsive.scaleFont(15, 0.9) }]}>{t('dashboard.today')}&apos;s {t('dashboard.profit')}</Text>
+                    <View style={[styles.profitIconBg, {
+                      width: responsive.scale(32, 0.9, 1.1),
+                      height: responsive.scale(32, 0.9, 1.1),
+                      borderRadius: responsive.scale(16, 0.9, 1.1),
+                    }]}>
                       {(metrics?.todayProfit || 0) >= 0 ? (
-                        <TrendingUp size={20} color="#FFF" strokeWidth={2.5} />
+                        <TrendingUp size={responsive.scale(20, 0.9, 1.1)} color="#FFF" strokeWidth={2.5} />
                       ) : (
-                        <TrendingDown size={20} color="#FFF" strokeWidth={2.5} />
+                        <TrendingDown size={responsive.scale(20, 0.9, 1.1)} color="#FFF" strokeWidth={2.5} />
                       )}
                     </View>
                   </View>
-                  <Text style={styles.profitValue}>
+                  <Text style={[styles.profitValue, { fontSize: responsive.scaleFont(36, 0.85, 1.15) }]}>
                     {formatCurrency(metrics?.todayProfit || 0)}
                   </Text>
                 </View>
@@ -830,21 +871,37 @@ export default function DashboardScreen() {
             }]}>
               <View style={styles.healthHeader}>
                 <View>
-                  <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>HEALTH SCORE</Text>
-                  <Text style={[styles.healthTitle, { color: theme.text.primary }]}>Business Health</Text>
+                  <Text style={[styles.sectionLabel, { color: theme.accent.primary, fontSize: responsive.scaleFont(11, 0.9) }]}>HEALTH SCORE</Text>
+                  <Text style={[styles.healthTitle, { color: theme.text.primary, fontSize: responsive.scaleFont(20, 0.9, 1.1) }]}>Business Health</Text>
                 </View>
-                <View style={[styles.healthBadge, { backgroundColor: `${getHealthColor(healthScore)}20` }]}>
-                  <Text style={[styles.healthBadgeText, { color: getHealthColor(healthScore) }]}>
+                <View style={[styles.healthBadge, { 
+                  backgroundColor: `${getHealthColor(healthScore)}20`,
+                  paddingHorizontal: responsive.scaleSpacing(10, 0.9),
+                  paddingVertical: responsive.scaleSpacing(4, 0.9),
+                }]}>
+                  <Text style={[styles.healthBadgeText, { color: getHealthColor(healthScore), fontSize: responsive.scaleFont(12, 0.9) }]}>
                     {getHealthLabel(healthScore)}
                   </Text>
                 </View>
               </View>
               <View style={styles.healthScoreContainer}>
-                <View style={[styles.healthScoreCircle, { borderColor: getHealthColor(healthScore) }]}>
-                  <Text style={[styles.healthScoreValue, { color: getHealthColor(healthScore) }]}>
+                <View style={[styles.healthScoreCircle, { 
+                  borderColor: getHealthColor(healthScore),
+                  width: responsive.scale(80, 0.85, 1.1),
+                  height: responsive.scale(80, 0.85, 1.1),
+                  borderRadius: responsive.scale(40, 0.85, 1.1),
+                }]}>
+                  <Text style={[styles.healthScoreValue, { 
+                    color: getHealthColor(healthScore),
+                    fontSize: responsive.scaleFont(36, 0.85, 1.15),
+                    lineHeight: responsive.scaleFont(40, 0.85, 1.15),
+                  }]}>
                     {String(healthScore)}
                   </Text>
-                  <Text style={[styles.healthScoreLabel, { color: theme.text.tertiary }]}>/ 100</Text>
+                  <Text style={[styles.healthScoreLabel, { 
+                    color: theme.text.tertiary,
+                    fontSize: responsive.scaleFont(14, 0.9),
+                  }]}>/ 100</Text>
                 </View>
                 <View style={styles.healthIndicators}>
                   <View style={styles.healthIndicator}>
@@ -880,47 +937,72 @@ export default function DashboardScreen() {
             <View style={styles.monthSection}>
               <View style={styles.sectionHeader}>
                 <View>
-                  <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>MONTHLY</Text>
-                  <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>This Month</Text>
+                  <Text style={[styles.sectionLabel, { color: theme.accent.primary, fontSize: responsive.scaleFont(11, 0.9) }]}>MONTHLY</Text>
+                  <Text style={[styles.sectionTitle, { color: theme.text.primary, fontSize: responsive.scaleFont(20, 0.9, 1.1) }]}>This Month</Text>
                 </View>
-                <Activity size={16} color={theme.text.tertiary} />
+                <Activity size={responsive.scale(16, 0.9, 1.1)} color={theme.text.tertiary} />
               </View>
               
-              <View style={[styles.summaryCard, { backgroundColor: theme.background.card }]}>
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>{t('dashboard.sales')}</Text>
-                  <Text style={[styles.summaryValue, { color: theme.text.primary }]}>{formatCurrency(metrics?.monthSales || 0)}</Text>
+              <View style={[styles.summaryCard, { 
+                backgroundColor: theme.background.card,
+                padding: responsive.scaleSpacing(20, 0.85),
+              }]}>
+                <View style={[styles.summaryRow, { marginBottom: responsive.scaleSpacing(14, 0.9) }]}>
+                  <Text style={[styles.summaryLabel, { color: theme.text.secondary, fontSize: responsive.scaleFont(15, 0.9) }]}>{t('dashboard.sales')}</Text>
+                  <Text style={[styles.summaryValue, { color: theme.text.primary, fontSize: responsive.scaleFont(16, 0.9, 1.1) }]}>{formatCurrency(metrics?.monthSales || 0)}</Text>
                 </View>
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>{t('dashboard.expenses')}</Text>
-                  <Text style={[styles.summaryValue, { color: theme.text.primary }]}>{formatCurrency(metrics?.monthExpenses || 0)}</Text>
+                <View style={[styles.summaryRow, { marginBottom: responsive.scaleSpacing(14, 0.9) }]}>
+                  <Text style={[styles.summaryLabel, { color: theme.text.secondary, fontSize: responsive.scaleFont(15, 0.9) }]}>{t('dashboard.expenses')}</Text>
+                  <Text style={[styles.summaryValue, { color: theme.text.primary, fontSize: responsive.scaleFont(16, 0.9, 1.1) }]}>{formatCurrency(metrics?.monthExpenses || 0)}</Text>
                 </View>
-                <View style={[styles.summaryDivider, { backgroundColor: theme.border.light }]} />
+                <View style={[styles.summaryDivider, { backgroundColor: theme.border.light, marginVertical: responsive.scaleSpacing(8, 0.9) }]} />
                 <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabelBold, { color: theme.text.primary }]}>Net Profit</Text>
+                  <Text style={[styles.summaryLabelBold, { color: theme.text.primary, fontSize: responsive.scaleFont(16, 0.9, 1.1) }]}>Net Profit</Text>
                   <Text style={[
                     styles.summaryValueBold,
-                    { color: (metrics?.monthProfit || 0) >= 0 ? theme.accent.success : theme.accent.danger }
+                    { 
+                      color: (metrics?.monthProfit || 0) >= 0 ? theme.accent.success : theme.accent.danger,
+                      fontSize: responsive.scaleFont(20, 0.9, 1.1),
+                    }
                   ]}>
                     {formatCurrency(metrics?.monthProfit || 0)}
                   </Text>
                 </View>
               </View>
 
-              <View style={[styles.cashCard, { backgroundColor: theme.background.card }]}>
+              <View style={[styles.cashCard, { 
+                backgroundColor: theme.background.card,
+                padding: responsive.scaleSpacing(20, 0.85),
+                gap: responsive.scaleSpacing(16),
+              }]}>
                 <LinearGradient
                   colors={theme.gradient.primary as [string, string]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={styles.cashGradient}
+                  style={[styles.cashGradient, {
+                    width: responsive.scale(52, 0.85, 1.1),
+                    height: responsive.scale(52, 0.85, 1.1),
+                    borderRadius: responsive.scale(26, 0.85, 1.1),
+                  }]}
                 >
-                  <View style={[styles.cashIconBg, { backgroundColor: theme.background.card }]}>
-                    <DollarSign size={20} color={theme.accent.primary} strokeWidth={2.5} />
+                  <View style={[styles.cashIconBg, { 
+                    backgroundColor: theme.background.card,
+                    width: responsive.scale(44, 0.85, 1.1),
+                    height: responsive.scale(44, 0.85, 1.1),
+                    borderRadius: responsive.scale(22, 0.85, 1.1),
+                  }]}>
+                    <DollarSign size={responsive.scale(20, 0.85, 1.1)} color={theme.accent.primary} strokeWidth={2.5} />
                   </View>
                 </LinearGradient>
                 <View style={styles.cashContent}>
-                  <Text style={[styles.cashLabel, { color: theme.text.secondary }]}>Cash Position</Text>
-                  <Text style={[styles.cashValue, { color: theme.accent.primary }]}>{formatCurrency(metrics?.cashPosition || 0)}</Text>
+                  <Text style={[styles.cashLabel, { 
+                    color: theme.text.secondary,
+                    fontSize: responsive.scaleFont(13, 0.9),
+                  }]}>Cash Position</Text>
+                  <Text style={[styles.cashValue, { 
+                    color: theme.accent.primary,
+                    fontSize: responsive.scaleFont(28, 0.85, 1.1),
+                  }]}>{formatCurrency(metrics?.cashPosition || 0)}</Text>
                 </View>
               </View>
             </View>
@@ -931,9 +1013,9 @@ export default function DashboardScreen() {
               <View style={styles.alertsHeader}>
                 <View style={styles.alertsHeaderLeft}>
                   <View>
-                    <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>{t('dashboard.alerts').toUpperCase()}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>{t('dashboard.alerts')}</Text>
+                    <Text style={[styles.sectionLabel, { color: theme.accent.primary, fontSize: responsive.scaleFont(11, 0.9) }]}>{t('dashboard.alerts').toUpperCase()}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: responsive.scaleSpacing(8) }}>
+                      <Text style={[styles.sectionTitle, { color: theme.text.primary, fontSize: responsive.scaleFont(20, 0.9, 1.1) }]}>{t('dashboard.alerts')}</Text>
                       {activeAlerts.length > 0 && (
                         <View style={[styles.notificationBadge, { backgroundColor: theme.accent.danger }]}>
                           <Text style={styles.notificationBadgeText}>{activeAlerts.length}</Text>
@@ -1090,18 +1172,25 @@ export default function DashboardScreen() {
           <View style={styles.chartsSection}>
             <View style={styles.sectionHeader}>
               <View>
-                <Text style={[styles.sectionLabel, { color: theme.accent.primary }]}>ANALYTICS</Text>
-                <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Interactive charts</Text>
+                <Text style={[styles.sectionLabel, { color: theme.accent.primary, fontSize: responsive.scaleFont(11, 0.9) }]}>ANALYTICS</Text>
+                <Text style={[styles.sectionTitle, { color: theme.text.primary, fontSize: responsive.scaleFont(20, 0.9, 1.1) }]}>Interactive charts</Text>
               </View>
               <View style={styles.periodSelectorContainer}>
                 <TouchableOpacity
-                  style={[styles.periodSelector, { backgroundColor: theme.background.secondary }]}
+                  style={[styles.periodSelector, { 
+                    backgroundColor: theme.background.secondary,
+                    paddingHorizontal: responsive.scaleSpacing(12, 0.9),
+                    paddingVertical: responsive.scaleSpacing(8, 0.9),
+                  }]}
                   onPress={() => setShowPeriodDropdown(!showPeriodDropdown)}
                 >
-                  <Text style={[styles.periodSelectorText, { color: theme.text.primary }]}>
+                  <Text style={[styles.periodSelectorText, { 
+                    color: theme.text.primary,
+                    fontSize: responsive.scaleFont(14, 0.9),
+                  }]}>
                     {chartPeriod.charAt(0).toUpperCase() + chartPeriod.slice(1)}
                   </Text>
-                  <ChevronDown size={16} color={theme.text.secondary} />
+                  <ChevronDown size={responsive.scale(16, 0.9, 1.1)} color={theme.text.secondary} />
                 </TouchableOpacity>
               </View>
               
