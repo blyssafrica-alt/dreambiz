@@ -1333,9 +1333,9 @@ export default function SettingsScreen() {
                       </Text>
                       <View style={styles.bookFeaturesGrid}>
                         {features.map((feature, idx) => (
-                          <View key={idx} style={[styles.bookFeatureTag, { backgroundColor: book.color + '20' }]}>
-                            <Zap size={12} color={book.color} />
-                            <Text style={[styles.bookFeatureText, { color: book.color }]}>
+                          <View key={idx} style={[styles.bookFeatureTag, { backgroundColor: book.color }]}>
+                            <Zap size={12} color="#FFF" />
+                            <Text style={[styles.bookFeatureText, { color: '#FFF' }]}>
                               {feature}
                             </Text>
                           </View>
@@ -1399,22 +1399,16 @@ export default function SettingsScreen() {
                           </Text>
                           <View style={styles.bookFeaturesGrid}>
                             {featureNames.map((featureName, idx) => (
-                              <View key={idx} style={[styles.bookFeatureTag, { backgroundColor: bookColor + '20' }]}>
-                                <Zap size={12} color={bookColor} />
-                                <Text style={[styles.bookFeatureText, { color: bookColor }]}>
+                              <View key={idx} style={[styles.bookFeatureTag, { backgroundColor: bookColor }]}>
+                                <Zap size={12} color="#FFF" />
+                                <Text style={[styles.bookFeatureText, { color: '#FFF' }]}>
                                   {featureName}
                                 </Text>
                               </View>
                             ))}
                           </View>
                         </View>
-                      ) : (
-                        <View style={styles.bookFeaturesContainer}>
-                          <Text style={[styles.bookFeaturesTitle, { color: theme.text.secondary, fontStyle: 'italic' }]}>
-                            Features will be unlocked based on book content
-                          </Text>
-                        </View>
-                      )}
+                      ) : null}
                     </TouchableOpacity>
                   );
                 })}
@@ -1815,6 +1809,7 @@ const styles = StyleSheet.create({
   bookModalSubtitle: {
     fontSize: 14,
     fontWeight: '500' as const,
+    marginTop: 2,
   },
   bookCheckCircle: {
     width: 24,
@@ -1823,6 +1818,7 @@ const styles = StyleSheet.create({
   },
   bookModalDescription: {
     fontSize: 14,
+    marginTop: 8,
     marginBottom: 12,
     lineHeight: 20,
   },
