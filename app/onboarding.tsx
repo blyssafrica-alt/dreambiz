@@ -49,6 +49,7 @@ export default function OnboardingScreen() {
   const { t } = useTranslation();
   const [step, setStep] = useState(1);
   const [databaseBooks, setDatabaseBooks] = useState<Book[]>([]);
+  const [featureConfigs, setFeatureConfigs] = useState<Array<{ featureId: string; name: string }>>([]);
 
   // GUARD: If already onboarded, redirect immediately to dashboard
   // This prevents showing onboarding screen to users who have already completed this step
@@ -59,7 +60,7 @@ export default function OnboardingScreen() {
     }
   }, [hasOnboarded]);
 
-  // Load books from database
+  // Load books and features from database
   useEffect(() => {
     const loadDatabaseBooks = async () => {
       try {
@@ -69,7 +70,29 @@ export default function OnboardingScreen() {
         console.error('Failed to load books from database:', error);
       }
     };
+
+    const loadFeatures = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('feature_config')
+          .select('feature_id, name')
+          .eq('enabled', true);
+
+        if (error) throw error;
+
+        if (data) {
+          setFeatureConfigs(data.map((row: any) => ({
+            featureId: row.feature_id,
+            name: row.name,
+          })));
+        }
+      } catch (error) {
+        console.error('Failed to load features:', error);
+      }
+    };
+
     loadDatabaseBooks();
+    loadFeatures();
   }, []);
   const [formData, setFormData] = useState({
     name: '',
@@ -430,6 +453,14 @@ export default function OnboardingScreen() {
           .map((dbBook) => {
             const isSelected = formData.dreamBigBook === dbBook.slug;
             const bookColor = dbBook.isFeatured ? '#0066CC' : '#64748B';
+            const featureIds = dbBook.enabledFeatures || [];
+            // Map feature IDs to display names
+            const featureNames = featureIds
+              .map(id => {
+                const feature = featureConfigs.find(f => f.featureId === id);
+                return feature ? feature.name : id;
+              })
+              .filter(Boolean);
             return (
               <TouchableOpacity
                 key={dbBook.id}
@@ -452,14 +483,14 @@ export default function OnboardingScreen() {
                 <Text style={styles.bookDescription}>
                   {dbBook.description || 'A DreamBig book to help you grow your business'}
                 </Text>
-                {dbBook.enabledFeatures && dbBook.enabledFeatures.length > 0 && (
+                {featureNames.length > 0 && (
                   <View style={styles.bookUnlocks}>
                     <Text style={styles.bookUnlocksTitle}>🔓 Unlocks:</Text>
-                    {dbBook.enabledFeatures.slice(0, 3).map((feature, idx) => (
-                      <Text key={idx} style={styles.bookUnlockItem}>• {feature}</Text>
+                    {featureNames.slice(0, 3).map((featureName, idx) => (
+                      <Text key={idx} style={styles.bookUnlockItem}>• {featureName}</Text>
                     ))}
-                    {dbBook.enabledFeatures.length > 3 && (
-                      <Text style={styles.bookUnlockMore}>+{dbBook.enabledFeatures.length - 3} more...</Text>
+                    {featureNames.length > 3 && (
+                      <Text style={styles.bookUnlockMore}>+{featureNames.length - 3} more...</Text>
                     )}
                   </View>
                 )}

@@ -61,6 +61,7 @@ export default function SettingsScreen() {
   const [showBookModal, setShowBookModal] = useState(false);
   const [databaseBooks, setDatabaseBooks] = useState<Book[]>([]);
   const [isLoadingBooks, setIsLoadingBooks] = useState(false);
+  const [featureConfigs, setFeatureConfigs] = useState<Array<{ featureId: string; name: string }>>([]);
   const [name, setName] = useState(business?.name || '');
   const [owner, setOwner] = useState(business?.owner || '');
   const [phone, setPhone] = useState(business?.phone || '');
@@ -86,7 +87,7 @@ export default function SettingsScreen() {
     }
   }, [business]);
 
-  // Load books from database
+  // Load books and features from database
   useEffect(() => {
     const loadDatabaseBooks = async () => {
       try {
@@ -99,7 +100,29 @@ export default function SettingsScreen() {
         setIsLoadingBooks(false);
       }
     };
+
+    const loadFeatures = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('feature_config')
+          .select('feature_id, name')
+          .eq('enabled', true);
+
+        if (error) throw error;
+
+        if (data) {
+          setFeatureConfigs(data.map((row: any) => ({
+            featureId: row.feature_id,
+            name: row.name,
+          })));
+        }
+      } catch (error) {
+        console.error('Failed to load features:', error);
+      }
+    };
+
     loadDatabaseBooks();
+    loadFeatures();
   }, []);
 
   const handleToggleSMS = async (enabled: boolean) => {
@@ -1284,7 +1307,14 @@ export default function SettingsScreen() {
                 .map((dbBook) => {
                   const isSelected = business?.dreamBigBook === dbBook.slug;
                   const bookColor = dbBook.isFeatured ? '#0066CC' : '#64748B';
-                  const features = dbBook.enabledFeatures || [];
+                  const featureIds = dbBook.enabledFeatures || [];
+                  // Map feature IDs to display names
+                  const featureNames = featureIds
+                    .map(id => {
+                      const feature = featureConfigs.find(f => f.featureId === id);
+                      return feature ? feature.name : id;
+                    })
+                    .filter(Boolean);
                   return (
                     <TouchableOpacity
                       key={dbBook.id}
@@ -1317,28 +1347,27 @@ export default function SettingsScreen() {
                       <Text style={[styles.bookModalDescription, { color: theme.text.secondary }]}>
                         {dbBook.description || 'A DreamBig book to help you grow your business'}
                       </Text>
-                      {features.length > 0 && (
+                      {featureNames.length > 0 ? (
                         <View style={styles.bookFeaturesContainer}>
                           <Text style={[styles.bookFeaturesTitle, { color: theme.text.primary }]}>
-                            Unlocks {features.length} features:
+                            Unlocks {featureNames.length} features:
                           </Text>
                           <View style={styles.bookFeaturesGrid}>
-                            {features.slice(0, 5).map((feature, idx) => (
+                            {featureNames.map((featureName, idx) => (
                               <View key={idx} style={[styles.bookFeatureTag, { backgroundColor: bookColor + '20' }]}>
                                 <Zap size={12} color={bookColor} />
                                 <Text style={[styles.bookFeatureText, { color: bookColor }]}>
-                                  {feature}
+                                  {featureName}
                                 </Text>
                               </View>
                             ))}
-                            {features.length > 5 && (
-                              <View style={[styles.bookFeatureTag, { backgroundColor: bookColor + '20' }]}>
-                                <Text style={[styles.bookFeatureText, { color: bookColor }]}>
-                                  +{features.length - 5} more
-                                </Text>
-                              </View>
-                            )}
                           </View>
+                        </View>
+                      ) : (
+                        <View style={styles.bookFeaturesContainer}>
+                          <Text style={[styles.bookFeaturesTitle, { color: theme.text.secondary, fontStyle: 'italic' }]}>
+                            Features will be unlocked based on book content
+                          </Text>
                         </View>
                       )}
                     </TouchableOpacity>

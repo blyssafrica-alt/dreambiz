@@ -71,6 +71,7 @@ export default function BusinessesScreen() {
   const [limitInfo, setLimitInfo] = useState<{ canCreate: boolean; currentCount: number; maxBusinesses: number | null; planName: string | null } | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [databaseBooks, setDatabaseBooks] = useState<Book[]>([]);
+  const [featureConfigs, setFeatureConfigs] = useState<Array<{ featureId: string; name: string }>>([]);
 
   // Onboarding form state
   const [step, setStep] = useState(1);
@@ -92,7 +93,7 @@ export default function BusinessesScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load books from database
+  // Load books and features from database
   useEffect(() => {
     const loadDatabaseBooks = async () => {
       try {
@@ -102,7 +103,29 @@ export default function BusinessesScreen() {
         console.error('Failed to load books from database:', error);
       }
     };
+
+    const loadFeatures = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('feature_config')
+          .select('feature_id, name')
+          .eq('enabled', true);
+
+        if (error) throw error;
+
+        if (data) {
+          setFeatureConfigs(data.map((row: any) => ({
+            featureId: row.feature_id,
+            name: row.name,
+          })));
+        }
+      } catch (error) {
+        console.error('Failed to load features:', error);
+      }
+    };
+
     loadDatabaseBooks();
+    loadFeatures();
   }, []);
 
   // Refresh limit info when premium status changes (e.g., after trial is granted)
@@ -557,6 +580,14 @@ export default function BusinessesScreen() {
           .map((dbBook) => {
             const isSelected = formData.dreamBigBook === dbBook.slug;
             const bookColor = dbBook.isFeatured ? '#0066CC' : '#64748B';
+            const featureIds = dbBook.enabledFeatures || [];
+            // Map feature IDs to display names
+            const featureNames = featureIds
+              .map(id => {
+                const feature = featureConfigs.find(f => f.featureId === id);
+                return feature ? feature.name : id;
+              })
+              .filter(Boolean);
             return (
               <TouchableOpacity
                 key={dbBook.id}
@@ -583,6 +614,17 @@ export default function BusinessesScreen() {
                 <Text style={[styles.bookDescription, { color: theme.text.secondary }]}>
                   {dbBook.description || 'A DreamBig book to help you grow your business'}
                 </Text>
+                {featureNames.length > 0 && (
+                  <View style={styles.bookUnlocks}>
+                    <Text style={[styles.bookUnlocksTitle, { color: theme.text.primary }]}>🔓 Unlocks:</Text>
+                    {featureNames.slice(0, 3).map((featureName, idx) => (
+                      <Text key={idx} style={[styles.bookUnlockItem, { color: theme.text.secondary }]}>• {featureName}</Text>
+                    ))}
+                    {featureNames.length > 3 && (
+                      <Text style={[styles.bookUnlockMore, { color: theme.text.secondary }]}>+{featureNames.length - 3} more...</Text>
+                    )}
+                  </View>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -1023,6 +1065,26 @@ const styles = StyleSheet.create({
   },
   bookDescription: {
     fontSize: 12,
+  },
+  bookUnlocks: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  bookUnlocksTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  bookUnlockItem: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  bookUnlockMore: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   buttonRow: {
     flexDirection: 'row',
