@@ -319,6 +319,43 @@ export default function SettingsScreen() {
     );
   };
 
+  // Helper function to get book info (checks both hardcoded and database books)
+  const getSelectedBookInfo = () => {
+    if (!business?.dreamBigBook) return null;
+    
+    // First check hardcoded books
+    const hardcodedBook = DREAMBIG_BOOKS.find(b => b.id === business.dreamBigBook);
+    if (hardcodedBook) {
+      return {
+        title: hardcodedBook.title,
+        subtitle: hardcodedBook.subtitle,
+        color: hardcodedBook.color,
+        features: getBookFeatures(business.dreamBigBook),
+      };
+    }
+    
+    // Then check database books
+    const dbBook = databaseBooks.find(b => b.slug === business.dreamBigBook);
+    if (dbBook) {
+      const featureIds = dbBook.enabledFeatures || [];
+      const featureNames = featureIds
+        .map(id => {
+          const feature = featureConfigs.find(f => f.featureId === id);
+          return feature ? feature.name : id;
+        })
+        .filter(Boolean);
+      
+      return {
+        title: dbBook.title,
+        subtitle: dbBook.subtitle || 'DreamBig Book',
+        color: dbBook.isFeatured ? '#0066CC' : '#64748B',
+        features: featureNames,
+      };
+    }
+    
+    return null;
+  };
+
   const handleBookChange = async (bookId: DreamBigBook) => {
     if (!business || !business.id) {
       RNAlert.alert('Error', 'Business profile not found. Please refresh and try again.');
@@ -758,38 +795,46 @@ export default function SettingsScreen() {
             <View style={styles.settingLeft}>
               <View style={styles.bookInfoRow}>
                 <View style={[styles.bookColorDot, { 
-                  backgroundColor: business?.dreamBigBook 
-                    ? getBookInfo(business.dreamBigBook).color 
-                    : '#64748B' 
+                  backgroundColor: (() => {
+                    const bookInfo = getSelectedBookInfo();
+                    return bookInfo ? bookInfo.color : '#64748B';
+                  })()
                 }]} />
                 <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
-                  {business?.dreamBigBook 
-                    ? getBookInfo(business.dreamBigBook).title 
-                    : 'No Book Selected'}
+                  {(() => {
+                    const bookInfo = getSelectedBookInfo();
+                    return bookInfo ? bookInfo.title : 'No Book Selected';
+                  })()}
                 </Text>
               </View>
               <Text style={[styles.settingDesc, { color: theme.text.secondary, marginTop: 4 }]}>
-                {business?.dreamBigBook 
-                  ? `${getBookInfo(business.dreamBigBook).subtitle} - ${getBookFeatures(business.dreamBigBook).length} features unlocked`
-                  : 'Select a book to unlock specialized features'}
+                {(() => {
+                  const bookInfo = getSelectedBookInfo();
+                  if (!bookInfo) return 'Select a book to unlock specialized features';
+                  return `${bookInfo.subtitle} - ${bookInfo.features.length} features unlocked`;
+                })()}
               </Text>
-              {business?.dreamBigBook && (
-                <View style={styles.featuresList}>
-                  {getBookFeatures(business.dreamBigBook).slice(0, 3).map((feature, idx) => (
-                    <View key={idx} style={[styles.featureTag, { backgroundColor: theme.background.secondary }]}>
-                      <Zap size={12} color={getBookInfo(business.dreamBigBook!).color} />
-                      <Text style={[styles.featureTagText, { color: theme.text.secondary }]}>
-                        {feature}
+              {(() => {
+                const bookInfo = getSelectedBookInfo();
+                if (!bookInfo || bookInfo.features.length === 0) return null;
+                return (
+                  <View style={styles.featuresList}>
+                    {bookInfo.features.slice(0, 3).map((feature, idx) => (
+                      <View key={idx} style={[styles.featureTag, { backgroundColor: theme.background.secondary }]}>
+                        <Zap size={12} color={bookInfo.color} />
+                        <Text style={[styles.featureTagText, { color: theme.text.secondary }]}>
+                          {feature}
+                        </Text>
+                      </View>
+                    ))}
+                    {bookInfo.features.length > 3 && (
+                      <Text style={[styles.featureMoreText, { color: theme.text.tertiary }]}>
+                        +{bookInfo.features.length - 3} more
                       </Text>
-                    </View>
-                  ))}
-                  {getBookFeatures(business.dreamBigBook).length > 3 && (
-                    <Text style={[styles.featureMoreText, { color: theme.text.tertiary }]}>
-                      +{getBookFeatures(business.dreamBigBook).length - 3} more
-                    </Text>
-                  )}
-                </View>
-              )}
+                    )}
+                  </View>
+                );
+              })()}
             </View>
             <ChevronRight size={20} color={theme.text.tertiary} />
           </TouchableOpacity>
