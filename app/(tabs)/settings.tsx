@@ -26,6 +26,8 @@ import { decode } from 'base64-arraybuffer';
 import type { Currency, DreamBigBook } from '@/types/business';
 import { exportAllData, shareData } from '@/lib/data-export';
 import { DREAMBIG_BOOKS, getBookInfo, getBookFeatures } from '@/constants/books';
+import { getAllPublishedBooks } from '@/lib/book-service';
+import type { Book } from '@/types/books';
 
 export default function SettingsScreen() {
   const { 
@@ -57,6 +59,8 @@ export default function SettingsScreen() {
   const { currentPlan } = usePremium();
   const { t } = useTranslation();
   const [showBookModal, setShowBookModal] = useState(false);
+  const [databaseBooks, setDatabaseBooks] = useState<Book[]>([]);
+  const [isLoadingBooks, setIsLoadingBooks] = useState(false);
   const [name, setName] = useState(business?.name || '');
   const [owner, setOwner] = useState(business?.owner || '');
   const [phone, setPhone] = useState(business?.phone || '');
@@ -81,6 +85,22 @@ export default function SettingsScreen() {
       setLogo(business.logo);
     }
   }, [business]);
+
+  // Load books from database
+  useEffect(() => {
+    const loadDatabaseBooks = async () => {
+      try {
+        setIsLoadingBooks(true);
+        const books = await getAllPublishedBooks();
+        setDatabaseBooks(books);
+      } catch (error) {
+        console.error('Failed to load books from database:', error);
+      } finally {
+        setIsLoadingBooks(false);
+      }
+    };
+    loadDatabaseBooks();
+  }, []);
 
   const handleToggleSMS = async (enabled: boolean) => {
     try {
@@ -1197,6 +1217,13 @@ export default function SettingsScreen() {
             </Text>
 
             <ScrollView style={styles.booksScrollView} showsVerticalScrollIndicator={false}>
+              {isLoadingBooks && (
+                <View style={{ padding: 20, alignItems: 'center' }}>
+                  <Text style={{ color: theme.text.secondary }}>Loading books...</Text>
+                </View>
+              )}
+              
+              {/* Hardcoded books */}
               {DREAMBIG_BOOKS.map((book) => {
                 const isSelected = business?.dreamBigBook === book.id;
                 const features = getBookFeatures(book.id);
@@ -1250,6 +1277,73 @@ export default function SettingsScreen() {
                   </TouchableOpacity>
                 );
               })}
+
+              {/* Database books (excluding those already in hardcoded list) */}
+              {databaseBooks
+                .filter(dbBook => !DREAMBIG_BOOKS.some(hb => hb.id === dbBook.slug))
+                .map((dbBook) => {
+                  const isSelected = business?.dreamBigBook === dbBook.slug;
+                  const bookColor = dbBook.isFeatured ? '#0066CC' : '#64748B';
+                  const features = dbBook.enabledFeatures || [];
+                  return (
+                    <TouchableOpacity
+                      key={dbBook.id}
+                      style={[
+                        styles.bookModalCard,
+                        {
+                          backgroundColor: isSelected ? bookColor + '10' : theme.background.secondary,
+                          borderColor: isSelected ? bookColor : theme.border.light,
+                        },
+                      ]}
+                      onPress={() => handleBookChange(dbBook.slug as DreamBigBook)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.bookModalHeader}>
+                        <View style={styles.bookModalLeft}>
+                          <View style={[styles.bookColorDotLarge, { backgroundColor: bookColor }]} />
+                          <View>
+                            <Text style={[styles.bookModalTitle, { color: bookColor }]}>
+                              {dbBook.title}
+                            </Text>
+                            <Text style={[styles.bookModalSubtitle, { color: theme.text.secondary }]}>
+                              {dbBook.subtitle || 'DreamBig Book'}
+                            </Text>
+                          </View>
+                        </View>
+                        {isSelected && (
+                          <View style={[styles.bookCheckCircle, { backgroundColor: bookColor }]} />
+                        )}
+                      </View>
+                      <Text style={[styles.bookModalDescription, { color: theme.text.secondary }]}>
+                        {dbBook.description || 'A DreamBig book to help you grow your business'}
+                      </Text>
+                      {features.length > 0 && (
+                        <View style={styles.bookFeaturesContainer}>
+                          <Text style={[styles.bookFeaturesTitle, { color: theme.text.primary }]}>
+                            Unlocks {features.length} features:
+                          </Text>
+                          <View style={styles.bookFeaturesGrid}>
+                            {features.slice(0, 5).map((feature, idx) => (
+                              <View key={idx} style={[styles.bookFeatureTag, { backgroundColor: bookColor + '20' }]}>
+                                <Zap size={12} color={bookColor} />
+                                <Text style={[styles.bookFeatureText, { color: bookColor }]}>
+                                  {feature}
+                                </Text>
+                              </View>
+                            ))}
+                            {features.length > 5 && (
+                              <View style={[styles.bookFeatureTag, { backgroundColor: bookColor + '20' }]}>
+                                <Text style={[styles.bookFeatureText, { color: bookColor }]}>
+                                  +{features.length - 5} more
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
             </ScrollView>
           </View>
         </View>

@@ -34,6 +34,8 @@ import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import type { BusinessProfile, BusinessType, BusinessStage, Currency, DreamBigBook } from '@/types/business';
 import { DREAMBIG_BOOKS } from '@/constants/books';
+import { getAllPublishedBooks } from '@/lib/book-service';
+import type { Book } from '@/types/books';
 
 const businessTypes: { value: BusinessType; label: string }[] = [
   { value: 'retail', label: 'Retail Shop' },
@@ -68,6 +70,7 @@ export default function BusinessesScreen() {
   const [isCreating, setIsCreating] = useState(false);
   const [limitInfo, setLimitInfo] = useState<{ canCreate: boolean; currentCount: number; maxBusinesses: number | null; planName: string | null } | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [databaseBooks, setDatabaseBooks] = useState<Book[]>([]);
 
   // Onboarding form state
   const [step, setStep] = useState(1);
@@ -87,6 +90,19 @@ export default function BusinessesScreen() {
     loadBusinesses();
     checkLimit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Load books from database
+  useEffect(() => {
+    const loadDatabaseBooks = async () => {
+      try {
+        const books = await getAllPublishedBooks();
+        setDatabaseBooks(books);
+      } catch (error) {
+        console.error('Failed to load books from database:', error);
+      }
+    };
+    loadDatabaseBooks();
   }, []);
 
   // Refresh limit info when premium status changes (e.g., after trial is granted)
@@ -506,6 +522,7 @@ export default function BusinessesScreen() {
       </Text>
 
       <ScrollView style={styles.booksContainer} showsVerticalScrollIndicator={false}>
+        {/* Hardcoded books */}
         {DREAMBIG_BOOKS.map((book) => {
           const isSelected = formData.dreamBigBook === book.id;
           return (
@@ -533,6 +550,42 @@ export default function BusinessesScreen() {
             </TouchableOpacity>
           );
         })}
+
+        {/* Database books (excluding those already in hardcoded list) */}
+        {databaseBooks
+          .filter(dbBook => !DREAMBIG_BOOKS.some(hb => hb.id === dbBook.slug))
+          .map((dbBook) => {
+            const isSelected = formData.dreamBigBook === dbBook.slug;
+            const bookColor = dbBook.isFeatured ? '#0066CC' : '#64748B';
+            return (
+              <TouchableOpacity
+                key={dbBook.id}
+                style={[
+                  styles.bookCard,
+                  { 
+                    backgroundColor: isSelected ? theme.accent.primary + '10' : theme.background.secondary,
+                    borderColor: isSelected ? bookColor : theme.border.light,
+                  },
+                ]}
+                onPress={() => setFormData({ ...formData, dreamBigBook: dbBook.slug as DreamBigBook })}
+              >
+                <View style={styles.bookHeader}>
+                  <View>
+                    <Text style={[styles.bookTitle, { color: bookColor }]}>{dbBook.title}</Text>
+                    <Text style={[styles.bookSubtitle, { color: theme.text.secondary }]}>
+                      {dbBook.subtitle || 'DreamBig Book'}
+                    </Text>
+                  </View>
+                  {isSelected && (
+                    <View style={[styles.bookCheckCircle, { backgroundColor: bookColor }]} />
+                  )}
+                </View>
+                <Text style={[styles.bookDescription, { color: theme.text.secondary }]}>
+                  {dbBook.description || 'A DreamBig book to help you grow your business'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
       </ScrollView>
 
       <View style={styles.buttonRow}>

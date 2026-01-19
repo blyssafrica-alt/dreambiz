@@ -21,6 +21,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { BusinessProfile, BusinessType, BusinessStage, Currency, DreamBigBook } from '@/types/business';
 import { DREAMBIG_BOOKS } from '@/constants/books';
+import { getAllPublishedBooks } from '@/lib/book-service';
+import type { Book } from '@/types/books';
 import { supabase } from '@/lib/supabase';
 
 const businessTypes: { value: BusinessType; label: string }[] = [
@@ -46,6 +48,7 @@ export default function OnboardingScreen() {
   const { authUser } = useAuth();
   const { t } = useTranslation();
   const [step, setStep] = useState(1);
+  const [databaseBooks, setDatabaseBooks] = useState<Book[]>([]);
 
   // GUARD: If already onboarded, redirect immediately to dashboard
   // This prevents showing onboarding screen to users who have already completed this step
@@ -55,6 +58,19 @@ export default function OnboardingScreen() {
       return;
     }
   }, [hasOnboarded]);
+
+  // Load books from database
+  useEffect(() => {
+    const loadDatabaseBooks = async () => {
+      try {
+        const books = await getAllPublishedBooks();
+        setDatabaseBooks(books);
+      } catch (error) {
+        console.error('Failed to load books from database:', error);
+      }
+    };
+    loadDatabaseBooks();
+  }, []);
   const [formData, setFormData] = useState({
     name: '',
     owner: '',
@@ -369,7 +385,8 @@ export default function OnboardingScreen() {
         Your book unlocks specialized tools and guidance
       </Text>
 
-      <View style={styles.booksContainer}>
+      <ScrollView style={styles.booksContainer} showsVerticalScrollIndicator={false}>
+        {/* Hardcoded books */}
         {DREAMBIG_BOOKS.map((book) => {
           const isSelected = formData.dreamBigBook === book.id;
           return (
@@ -406,7 +423,50 @@ export default function OnboardingScreen() {
             </TouchableOpacity>
           );
         })}
-      </View>
+
+        {/* Database books (excluding those already in hardcoded list) */}
+        {databaseBooks
+          .filter(dbBook => !DREAMBIG_BOOKS.some(hb => hb.id === dbBook.slug))
+          .map((dbBook) => {
+            const isSelected = formData.dreamBigBook === dbBook.slug;
+            const bookColor = dbBook.isFeatured ? '#0066CC' : '#64748B';
+            return (
+              <TouchableOpacity
+                key={dbBook.id}
+                style={[
+                  styles.bookCard,
+                  isSelected && styles.bookCardActive,
+                  { borderColor: isSelected ? bookColor : '#E2E8F0' },
+                ]}
+                onPress={() => setFormData({ ...formData, dreamBigBook: dbBook.slug as DreamBigBook })}
+              >
+                <View style={styles.bookHeader}>
+                  <View>
+                    <Text style={[styles.bookTitle, { color: bookColor }]}>{dbBook.title}</Text>
+                    <Text style={styles.bookSubtitle}>{dbBook.subtitle || 'DreamBig Book'}</Text>
+                  </View>
+                  {isSelected && (
+                    <View style={[styles.bookCheckCircle, { backgroundColor: bookColor }]} />
+                  )}
+                </View>
+                <Text style={styles.bookDescription}>
+                  {dbBook.description || 'A DreamBig book to help you grow your business'}
+                </Text>
+                {dbBook.enabledFeatures && dbBook.enabledFeatures.length > 0 && (
+                  <View style={styles.bookUnlocks}>
+                    <Text style={styles.bookUnlocksTitle}>🔓 Unlocks:</Text>
+                    {dbBook.enabledFeatures.slice(0, 3).map((feature, idx) => (
+                      <Text key={idx} style={styles.bookUnlockItem}>• {feature}</Text>
+                    ))}
+                    {dbBook.enabledFeatures.length > 3 && (
+                      <Text style={styles.bookUnlockMore}>+{dbBook.enabledFeatures.length - 3} more...</Text>
+                    )}
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+      </ScrollView>
 
       <View style={styles.buttonRow}>
         <TouchableOpacity style={styles.backButton} onPress={() => setStep(3)}>
