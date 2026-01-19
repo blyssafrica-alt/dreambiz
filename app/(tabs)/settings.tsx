@@ -319,6 +319,31 @@ export default function SettingsScreen() {
     );
   };
 
+  // Generate a vibrant color from book title/slug
+  const getBookColor = (book: Book): string => {
+    if (book.isFeatured) return '#0066CC';
+    
+    // Use a color palette similar to hardcoded books
+    const colors = [
+      '#8B5CF6', // Purple (like Hire and Lead)
+      '#EC4899', // Pink (like Marketing Mastery)
+      '#6366F1', // Indigo (like Scale Up)
+      '#10B981', // Green
+      '#F59E0B', // Orange
+      '#EF4444', // Red
+      '#06B6D4', // Cyan
+    ];
+    
+    // Generate a consistent color based on book title
+    let hash = 0;
+    const title = book.title || book.slug || '';
+    for (let i = 0; i < title.length; i++) {
+      hash = title.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % colors.length;
+    return colors[index];
+  };
+
   // Helper function to get book info (checks both hardcoded and database books)
   const getSelectedBookInfo = () => {
     if (!business?.dreamBigBook) return null;
@@ -1301,8 +1326,8 @@ export default function SettingsScreen() {
                     style={[
                       styles.bookModalCard,
                       {
-                        backgroundColor: isSelected ? book.color + '10' : theme.background.secondary,
-                        borderColor: isSelected ? book.color : theme.border.light,
+                        backgroundColor: isSelected ? book.color + '10' : '#FFFFFF',
+                        borderColor: isSelected ? book.color : '#E5E7EB',
                       },
                     ]}
                     onPress={() => handleBookChange(book.id)}
@@ -1315,7 +1340,7 @@ export default function SettingsScreen() {
                           <Text style={[styles.bookModalTitle, { color: book.color }]}>
                             {book.title}
                           </Text>
-                          <Text style={[styles.bookModalSubtitle, { color: theme.text.secondary }]}>
+                          <Text style={[styles.bookModalSubtitle, { color: '#64748B' }]}>
                             {book.subtitle}
                           </Text>
                         </View>
@@ -1324,7 +1349,11 @@ export default function SettingsScreen() {
                         <View style={[styles.bookCheckCircle, { backgroundColor: book.color }]} />
                       )}
                     </View>
-                    <Text style={[styles.bookModalDescription, { color: theme.text.secondary }]}>
+                    <Text 
+                      style={[styles.bookModalDescription, { color: '#64748B' }]}
+                      numberOfLines={2}
+                      ellipsizeMode="tail"
+                    >
                       {book.description}
                     </Text>
                     <View style={styles.bookFeaturesContainer}>
@@ -1366,8 +1395,8 @@ export default function SettingsScreen() {
                       style={[
                         styles.bookModalCard,
                         {
-                          backgroundColor: isSelected ? bookColor + '10' : theme.background.secondary,
-                          borderColor: isSelected ? bookColor : theme.border.light,
+                          backgroundColor: isSelected ? bookColor + '10' : '#FFFFFF',
+                          borderColor: isSelected ? bookColor : '#E5E7EB',
                         },
                       ]}
                       onPress={() => handleBookChange(dbBook.slug as DreamBigBook)}
@@ -1380,7 +1409,7 @@ export default function SettingsScreen() {
                             <Text style={[styles.bookModalTitle, { color: bookColor }]}>
                               {dbBook.title}
                             </Text>
-                            <Text style={[styles.bookModalSubtitle, { color: theme.text.secondary }]}>
+                            <Text style={[styles.bookModalSubtitle, { color: '#64748B' }]}>
                               {dbBook.subtitle || 'DreamBig Book'}
                             </Text>
                           </View>
@@ -1389,10 +1418,14 @@ export default function SettingsScreen() {
                           <View style={[styles.bookCheckCircle, { backgroundColor: bookColor }]} />
                         )}
                       </View>
-                      <Text style={[styles.bookModalDescription, { color: theme.text.secondary }]}>
+                      <Text 
+                        style={[styles.bookModalDescription, { color: '#64748B' }]}
+                        numberOfLines={2}
+                        ellipsizeMode="tail"
+                      >
                         {dbBook.description || 'A DreamBig book to help you grow your business'}
                       </Text>
-                      {featureNames.length > 0 ? (
+                      {featureNames.length > 0 && (
                         <View style={styles.bookFeaturesContainer}>
                           <Text style={[styles.bookFeaturesTitle, { color: theme.text.primary }]}>
                             Unlocks {featureNames.length} features:
@@ -1408,7 +1441,7 @@ export default function SettingsScreen() {
                             ))}
                           </View>
                         </View>
-                      ) : null}
+                      )}
                     </TouchableOpacity>
                   );
                 })}
