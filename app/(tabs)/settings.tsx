@@ -78,6 +78,7 @@ export default function SettingsScreen() {
   const [stage, setStage] = useState<BusinessStage>(business?.stage || 'running');
   const [rate, setRate] = useState(exchangeRate.usdToZwl.toString());
   const [logo, setLogo] = useState<string | undefined>(business?.logo);
+  const selectedStage = businessStages.find(stageOption => stageOption.value === stage);
 
   useEffect(() => {
     if (business) {
@@ -1037,36 +1038,39 @@ export default function SettingsScreen() {
             <Text style={[styles.label, { color: theme.text.secondary }]}>
               Business Stage *
             </Text>
-            {businessStages.map((stageOption) => (
-              <TouchableOpacity
-                key={stageOption.value}
-                style={[
-                  styles.stageOption,
-                  {
-                    backgroundColor: stage === stageOption.value ? theme.accent.primary + '20' : theme.background.secondary,
-                    borderColor: stage === stageOption.value ? theme.accent.primary : theme.border.light,
-                  },
-                ]}
-                onPress={() => setStage(stageOption.value)}
-              >
-                <View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.stageRow}
+            >
+              {businessStages.map((stageOption) => (
+                <TouchableOpacity
+                  key={stageOption.value}
+                  style={[
+                    styles.stageChip,
+                    {
+                      backgroundColor: stage === stageOption.value ? theme.accent.primary : theme.background.secondary,
+                      borderColor: stage === stageOption.value ? theme.accent.primary : theme.border.light,
+                    },
+                  ]}
+                  onPress={() => setStage(stageOption.value)}
+                >
                   <Text
                     style={[
-                      styles.stageLabel,
-                      { color: stage === stageOption.value ? theme.accent.primary : theme.text.primary },
+                      styles.stageChipText,
+                      { color: stage === stageOption.value ? '#FFF' : theme.text.primary },
                     ]}
                   >
                     {stageOption.label}
                   </Text>
-                  <Text style={[styles.stageDesc, { color: theme.text.secondary }]}>
-                    {stageOption.desc}
-                  </Text>
-                </View>
-                {stage === stageOption.value && (
-                  <View style={[styles.stageCheck, { backgroundColor: theme.accent.primary }]} />
-                )}
-              </TouchableOpacity>
-            ))}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            {selectedStage && (
+              <Text style={[styles.stageHint, { color: theme.text.tertiary }]}>
+                {selectedStage.desc}
+              </Text>
+            )}
           </View>
 
           <View style={styles.inputGroup}>
@@ -1502,15 +1506,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 120 : 110,
+    padding: 16,
+    paddingBottom: Platform.OS === 'ios' ? 140 : 120,
   },
   userCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 20,
+    padding: 18,
+    borderRadius: 18,
+    marginBottom: 16,
     borderWidth: 1,
   },
   userAvatar: {
@@ -1537,25 +1541,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   section: {
-    marginBottom: 20,
-    borderRadius: 16,
-    padding: 20,
+    marginBottom: 16,
+    borderRadius: 18,
+    padding: 18,
     borderWidth: 1,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700' as const,
   },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: 6,
   },
   settingLeft: {
     flex: 1,
@@ -1570,29 +1575,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  stageOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 8,
+  stageRow: {
+    paddingVertical: 4,
+  },
+  stageChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 18,
     borderWidth: 1,
+    marginRight: 8,
   },
-  stageLabel: {
-    fontSize: 16,
+  stageChipText: {
+    fontSize: 14,
     fontWeight: '600' as const,
-    marginBottom: 4,
   },
-  stageDesc: {
+  stageHint: {
     fontSize: 12,
-  },
-  stageCheck: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    marginTop: 6,
   },
   label: {
     fontSize: 14,
@@ -1604,9 +1605,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   input: {
-    height: 48,
+    height: 50,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingHorizontal: 16,
     fontSize: 16,
   },
@@ -1614,9 +1615,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    height: 48,
+    height: 50,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingHorizontal: 16,
   },
   inputWithIconField: {
@@ -1625,13 +1626,13 @@ const styles = StyleSheet.create({
   },
   currencyRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     marginBottom: 8,
   },
   currencyButton: {
     flex: 1,
-    height: 44,
-    borderRadius: 10,
+    height: 46,
+    borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1645,8 +1646,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    height: 52,
-    borderRadius: 12,
+    height: 54,
+    borderRadius: 14,
     marginTop: 8,
   },
   saveButtonText: {
@@ -1655,8 +1656,8 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
   rateCard: {
-    padding: 20,
-    borderRadius: 16,
+    padding: 18,
+    borderRadius: 18,
     borderWidth: 1,
     marginBottom: 16,
   },
@@ -1673,8 +1674,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   updateButton: {
-    height: 52,
-    borderRadius: 12,
+    height: 54,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1687,8 +1688,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 12,
+    padding: 14,
+    borderRadius: 14,
     borderWidth: 1,
   },
   toolLeft: {
@@ -1710,8 +1711,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    height: 52,
-    borderRadius: 12,
+    height: 54,
+    borderRadius: 14,
     borderWidth: 2,
     marginBottom: 20,
   },
@@ -1720,8 +1721,8 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
   },
   infoSection: {
-    padding: 20,
-    borderRadius: 16,
+    padding: 18,
+    borderRadius: 18,
     borderWidth: 1,
   },
   infoTitle: {
@@ -1736,7 +1737,7 @@ const styles = StyleSheet.create({
   },
   exportButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   exportButton: {
     flex: 1,
@@ -1744,8 +1745,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    padding: 16,
-    borderRadius: 12,
+    padding: 14,
+    borderRadius: 14,
     borderWidth: 1,
   },
   exportButtonText: {
@@ -1784,7 +1785,7 @@ const styles = StyleSheet.create({
   logoUploadButton: {
     width: 120,
     height: 120,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 2,
     borderStyle: 'dashed',
     alignItems: 'center',

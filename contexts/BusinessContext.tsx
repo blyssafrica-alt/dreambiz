@@ -833,7 +833,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         console.log('  - User ID:', authUserId);
         console.log('  - Business name:', newBusiness.name);
         
-        const { data: updateDataArray, error: updateError } = await supabase
+        const updateQuery = supabase
           .from('business_profiles')
           .update({
             name: newBusiness.name,
@@ -850,9 +850,13 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
             logo: newBusiness.logo || null,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', newBusiness.id)
-          .eq('user_id', authUserId)
-          .select();
+          .eq('id', newBusiness.id);
+
+        if (!isSuperAdmin) {
+          updateQuery.eq('user_id', authUserId);
+        }
+
+        const { data: updateDataArray, error: updateError } = await updateQuery.select();
         
         const updateData = updateDataArray && updateDataArray.length > 0 ? updateDataArray[0] : null;
         
