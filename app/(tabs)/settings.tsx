@@ -23,7 +23,7 @@ import { usePremium } from '@/contexts/PremiumContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { supabase } from '@/lib/supabase';
 import { decode } from 'base64-arraybuffer';
-import type { Currency, DreamBigBook } from '@/types/business';
+import type { BusinessStage, Currency, DreamBigBook } from '@/types/business';
 import { exportAllData, shareData } from '@/lib/data-export';
 import { DREAMBIG_BOOKS, getBookInfo, getBookFeatures } from '@/constants/books';
 import { getAllPublishedBooks } from '@/lib/book-service';
@@ -58,6 +58,11 @@ export default function SettingsScreen() {
   } = useSettings();
   const { currentPlan } = usePremium();
   const { t } = useTranslation();
+  const businessStages: { value: BusinessStage; label: string; desc: string }[] = [
+    { value: 'idea', label: 'Idea Stage', desc: 'Planning to start' },
+    { value: 'running', label: 'Running', desc: 'Already operating' },
+    { value: 'growing', label: 'Growing', desc: 'Expanding operations' },
+  ];
   const [showBookModal, setShowBookModal] = useState(false);
   const [databaseBooks, setDatabaseBooks] = useState<Book[]>([]);
   const [isLoadingBooks, setIsLoadingBooks] = useState(false);
@@ -70,6 +75,7 @@ export default function SettingsScreen() {
   const [location, setLocation] = useState(business?.location || '');
   const [capital, setCapital] = useState(business?.capital.toString() || '');
   const [currency, setCurrency] = useState<Currency>(business?.currency || 'USD');
+  const [stage, setStage] = useState<BusinessStage>(business?.stage || 'running');
   const [rate, setRate] = useState(exchangeRate.usdToZwl.toString());
   const [logo, setLogo] = useState<string | undefined>(business?.logo);
 
@@ -83,6 +89,7 @@ export default function SettingsScreen() {
       setLocation(business.location);
       setCapital(business.capital.toString());
       setCurrency(business.currency);
+      setStage(business.stage || 'running');
       setLogo(business.logo);
     }
   }, [business]);
@@ -281,6 +288,7 @@ export default function SettingsScreen() {
         location,
         capital: parseFloat(capital) || 0,
         currency,
+        stage,
         logo,
       });
 
@@ -1027,6 +1035,42 @@ export default function SettingsScreen() {
 
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.text.secondary }]}>
+              Business Stage *
+            </Text>
+            {businessStages.map((stageOption) => (
+              <TouchableOpacity
+                key={stageOption.value}
+                style={[
+                  styles.stageOption,
+                  {
+                    backgroundColor: stage === stageOption.value ? theme.accent.primary + '20' : theme.background.secondary,
+                    borderColor: stage === stageOption.value ? theme.accent.primary : theme.border.light,
+                  },
+                ]}
+                onPress={() => setStage(stageOption.value)}
+              >
+                <View>
+                  <Text
+                    style={[
+                      styles.stageLabel,
+                      { color: stage === stageOption.value ? theme.accent.primary : theme.text.primary },
+                    ]}
+                  >
+                    {stageOption.label}
+                  </Text>
+                  <Text style={[styles.stageDesc, { color: theme.text.secondary }]}>
+                    {stageOption.desc}
+                  </Text>
+                </View>
+                {stage === stageOption.value && (
+                  <View style={[styles.stageCheck, { backgroundColor: theme.accent.primary }]} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.text.secondary }]}>
               Starting Capital *
             </Text>
             <View style={styles.currencyRow}>
@@ -1527,6 +1571,28 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     marginBottom: 16,
+  },
+  stageOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+  },
+  stageLabel: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    marginBottom: 4,
+  },
+  stageDesc: {
+    fontSize: 12,
+  },
+  stageCheck: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
   },
   label: {
     fontSize: 14,
