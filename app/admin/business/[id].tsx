@@ -107,7 +107,7 @@ export default function BusinessDetailScreen() {
     try {
       // Load statistics in parallel
       const [documentsResult, customersResult, productsResult, transactionsResult] = await Promise.all([
-        supabase.from('documents').select('id, total_amount, type').eq('business_id', businessId),
+        supabase.from('documents').select('id, total, type').eq('business_id', businessId),
         supabase.from('customers').select('id').eq('business_id', businessId),
         supabase.from('products').select('id').eq('business_id', businessId),
         supabase.from('transactions').select('id, amount, type').eq('business_id', businessId),
@@ -118,11 +118,13 @@ export default function BusinessDetailScreen() {
       const products = productsResult.data || [];
       const transactions = transactionsResult.data || [];
 
-      // Calculate revenue (income transactions + invoice payments)
-      const revenueTransactions = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+      // Calculate revenue (sale/income transactions + invoice totals)
+      const revenueTransactions = transactions
+        .filter(t => t.type === 'sale' || t.type === 'income')
+        .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
       const invoiceRevenue = documents
-        .filter(d => d.type === 'invoice' && d.total_amount)
-        .reduce((sum, d) => sum + (Number(d.total_amount) || 0), 0);
+        .filter(d => d.type === 'invoice' && d.total)
+        .reduce((sum, d) => sum + (Number(d.total) || 0), 0);
       const totalRevenue = revenueTransactions + invoiceRevenue;
 
       // Calculate expenses (expense transactions)
