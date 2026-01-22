@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, RefreshControl } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -41,6 +41,12 @@ export default function BusinessesManagementScreen() {
   useEffect(() => {
     loadBusinesses();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadBusinesses();
+    }, [])
+  );
 
   useEffect(() => {
     let filtered = businesses;
