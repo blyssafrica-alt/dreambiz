@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBusiness } from '@/contexts/BusinessContext';
@@ -53,6 +53,12 @@ export default function BusinessDetailScreen() {
   useEffect(() => {
     loadBusinessData();
   }, [id]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadBusinessData();
+    }, [id])
+  );
 
   const loadBusinessData = async () => {
     try {

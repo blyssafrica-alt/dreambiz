@@ -128,9 +128,10 @@ export default function BusinessesScreen() {
     loadFeatures();
   }, []);
 
-  // Refresh limit info when premium status changes (e.g., after trial is granted)
+  // Refresh businesses and limit info when returning to this screen
   useFocusEffect(
     React.useCallback(() => {
+      loadBusinesses();
       checkLimit();
     }, [currentPlan])
   );
