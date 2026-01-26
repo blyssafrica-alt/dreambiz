@@ -16,18 +16,17 @@ export default function AdminLayout() {
     const currentPath = segments.join('/');
     const inAdmin = currentPath.includes('admin');
     const isEmployeeRoles = currentPath.includes('employee-roles');
-    const isUsers = currentPath.includes('users');
-    const canAccessUsers = isSuperAdmin || isAdmin || isModerator;
+    const canAccessAdmin = isSuperAdmin || isAdmin || isModerator;
 
     // Allow business owners to access employee-roles (for managing their employees)
     // Redirect non-super-admins away from admin (except employee-roles)
-    if (!isSuperAdmin && inAdmin && !isEmployeeRoles && !(isUsers && canAccessUsers)) {
+    if (!canAccessAdmin && inAdmin && !isEmployeeRoles) {
       router.replace('/(tabs)' as any);
       return;
     }
 
     // Redirect super admins to admin dashboard if they're in admin section
-    if (isSuperAdmin && inAdmin && currentPath === 'admin') {
+    if (canAccessAdmin && inAdmin && currentPath === 'admin') {
       router.replace('/admin/dashboard' as any);
     }
   }, [isSuperAdmin, isLoading, segments, router]);
@@ -46,10 +45,9 @@ export default function AdminLayout() {
   // Allow business owners to access employee-roles
   const currentPath = segments.join('/');
   const isEmployeeRoles = currentPath.includes('employee-roles');
-  const isUsers = currentPath.includes('users');
-  const canAccessUsers = isSuperAdmin || isAdmin || isModerator;
+  const canAccessAdmin = isSuperAdmin || isAdmin || isModerator;
 
-  if (!isSuperAdmin && !isEmployeeRoles && !(isUsers && canAccessUsers)) {
+  if (!canAccessAdmin && !isEmployeeRoles) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
         <Text style={[styles.errorText, { color: theme.accent.danger }]}>

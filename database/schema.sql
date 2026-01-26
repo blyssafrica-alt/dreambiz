@@ -397,6 +397,11 @@ DROP POLICY IF EXISTS "Users can delete their own business" ON business_profiles
 CREATE POLICY "Users can delete their own business" ON business_profiles
   FOR DELETE USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Staff can view all businesses" ON business_profiles;
+CREATE POLICY "Staff can view all businesses" ON business_profiles
+  FOR SELECT
+  USING (public.has_role('moderator'));
+
 -- Transactions policies
 DROP POLICY IF EXISTS "Users can view their own transactions" ON transactions;
 CREATE POLICY "Users can view their own transactions" ON transactions

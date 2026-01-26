@@ -83,6 +83,12 @@ CREATE POLICY "Staff can view all users" ON public.users
   FOR SELECT
   USING (public.has_role('moderator'));
 
+-- Staff can view all businesses (moderator or higher)
+DROP POLICY IF EXISTS "Staff can view all businesses" ON public.business_profiles;
+CREATE POLICY "Staff can view all businesses" ON public.business_profiles
+  FOR SELECT
+  USING (public.has_role('moderator'));
+
 -- Super admins can update any user/role
 CREATE POLICY "Super admins can update users" ON public.users
   FOR UPDATE
