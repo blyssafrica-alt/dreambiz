@@ -320,8 +320,13 @@ export default function SettingsScreen() {
           text: 'Sign Out',
           style: 'destructive',
           onPress: async () => {
-            await signOut();
-            router.replace('/landing' as any);
+            try {
+              await signOut();
+            } catch (error: any) {
+              console.error('Sign out failed:', error);
+            } finally {
+              router.replace('/landing' as any);
+            }
           },
         },
       ]

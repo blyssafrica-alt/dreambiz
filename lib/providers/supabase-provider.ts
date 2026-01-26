@@ -149,6 +149,7 @@ export class SupabaseProvider implements IBackendProvider {
         name: result.data.name,
         createdAt: result.data.createdAt || result.data.created_at,
         isSuperAdmin: result.data.isSuperAdmin || result.data.is_super_admin,
+        role: result.data.role || (result.data.is_super_admin ? 'super_admin' : 'user'),
       };
     } catch (error: any) {
       // Re-throw with better error message
@@ -195,6 +196,7 @@ export class SupabaseProvider implements IBackendProvider {
               name: profile.name,
               createdAt: new Date().toISOString(),
               isSuperAdmin: false,
+              role: profile.role || 'user',
             };
           }
         }
@@ -229,6 +231,7 @@ export class SupabaseProvider implements IBackendProvider {
         name: profile.name,
         password_hash: '',
         is_super_admin: profile.isSuperAdmin || false,
+        role: profile.role || (profile.isSuperAdmin ? 'super_admin' : 'user'),
       },
     });
 
@@ -398,6 +401,7 @@ export class SupabaseProvider implements IBackendProvider {
       name: result.data.name,
       createdAt: result.data.created_at || new Date().toISOString(),
       isSuperAdmin: result.data.is_super_admin,
+      role: result.data.role || (result.data.is_super_admin ? 'super_admin' : 'user'),
     };
   }
 
@@ -406,6 +410,7 @@ export class SupabaseProvider implements IBackendProvider {
     if (updates.email) updateData.email = updates.email;
     if (updates.name) updateData.name = updates.name;
     if (updates.isSuperAdmin !== undefined) updateData.is_super_admin = updates.isSuperAdmin;
+    if (updates.role) updateData.role = updates.role;
 
     const result = await this.update<any>({
       table: 'users',
@@ -422,6 +427,7 @@ export class SupabaseProvider implements IBackendProvider {
       name: result.data.name,
       createdAt: result.data.created_at,
       isSuperAdmin: result.data.is_super_admin,
+      role: result.data.role || (result.data.is_super_admin ? 'super_admin' : 'user'),
     };
   }
 

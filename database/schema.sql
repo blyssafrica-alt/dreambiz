@@ -20,6 +20,23 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Ensure role column exists for existing databases
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT;
+ALTER TABLE users ALTER COLUMN role SET DEFAULT 'user';
+UPDATE users SET role = 'user' WHERE role IS NULL;
+ALTER TABLE users ALTER COLUMN role SET NOT NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'users_role_check'
+  ) THEN
+    ALTER TABLE users
+      ADD CONSTRAINT users_role_check
+      CHECK (role IN ('user', 'moderator', 'admin', 'super_admin'));
+  END IF;
+END $$;
+
 -- ============================================
 -- BOOKS TABLE (DreamBig Books)
 -- ============================================
@@ -283,151 +300,250 @@ ALTER TABLE budgets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cashflow_projections ENABLE ROW LEVEL SECURITY;
 
 -- Users policies
+DROP POLICY IF EXISTS "Users can view their own profile" ON users;
 CREATE POLICY "Users can view their own profile" ON users
   FOR SELECT USING (auth.uid()::text = id::text);
 
+DROP POLICY IF EXISTS "Users can insert their own profile" ON users;
 CREATE POLICY "Users can insert their own profile" ON users
   FOR INSERT WITH CHECK (auth.uid()::text = id::text);
 
+DROP POLICY IF EXISTS "Users can update their own profile" ON users;
 CREATE POLICY "Users can update their own profile" ON users
   FOR UPDATE USING (auth.uid()::text = id::text);
+
+-- Role helpers
+CREATE OR REPLACE FUNCTION public.role_rank(role TEXT)
+RETURNS INT AS $$
+  SELECT CASE role
+    WHEN 'super_admin' THEN 3
+    WHEN 'admin' THEN 2
+    WHEN 'moderator' THEN 1
+    ELSE 0
+  END;
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION public.current_user_role()
+RETURNS TEXT AS $$
+  SELECT COALESCE(
+    (SELECT role FROM public.users WHERE id::text = auth.uid()::text),
+    CASE WHEN EXISTS (
+      SELECT 1 FROM public.users
+      WHERE id::text = auth.uid()::text AND is_super_admin = TRUE
+    ) THEN 'super_admin' ELSE 'user' END
+  );
+$$ LANGUAGE sql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.has_role(required_role TEXT)
+RETURNS BOOLEAN AS $$
+  SELECT public.role_rank(public.current_user_role()) >= public.role_rank(required_role);
+$$ LANGUAGE sql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.is_super_admin()
+RETURNS BOOLEAN AS $$
+  SELECT public.has_role('super_admin');
+$$ LANGUAGE sql SECURITY DEFINER;
+
+-- Staff can view all users (moderator or higher)
+CREATE POLICY "Staff can view all users" ON users
+  FOR SELECT
+  USING (public.has_role('moderator'));
+
+-- Super admins can update any user/role
+CREATE POLICY "Super admins can update users" ON users
+  FOR UPDATE
+  USING (public.has_role('super_admin'))
+  WITH CHECK (public.has_role('super_admin'));
+
+-- Admins can update user/moderator roles only
+CREATE POLICY "Admins can update limited roles" ON users
+  FOR UPDATE
+  USING (public.has_role('admin') AND users.role IN ('user', 'moderator'))
+  WITH CHECK (role IN ('user', 'moderator'));
+
+-- Moderators can promote users to moderator or keep user
+CREATE POLICY "Moderators can update limited roles" ON users
+  FOR UPDATE
+  USING (public.has_role('moderator') AND users.role = 'user')
+  WITH CHECK (role IN ('user', 'moderator'));
 
 -- Books policies (public read)
 CREATE POLICY "Anyone can view books" ON books
   FOR SELECT USING (true);
 
 -- User books policies
+DROP POLICY IF EXISTS "Users can view their own books" ON user_books;
 CREATE POLICY "Users can view their own books" ON user_books
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can insert their own books" ON user_books;
 CREATE POLICY "Users can insert their own books" ON user_books
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
 -- Business profiles policies
+DROP POLICY IF EXISTS "Users can view their own business" ON business_profiles;
 CREATE POLICY "Users can view their own business" ON business_profiles
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can insert their own business" ON business_profiles;
 CREATE POLICY "Users can insert their own business" ON business_profiles
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can update their own business" ON business_profiles;
 CREATE POLICY "Users can update their own business" ON business_profiles
   FOR UPDATE USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can delete their own business" ON business_profiles;
 CREATE POLICY "Users can delete their own business" ON business_profiles
   FOR DELETE USING (auth.uid()::text = user_id::text);
 
 -- Transactions policies
+DROP POLICY IF EXISTS "Users can view their own transactions" ON transactions;
 CREATE POLICY "Users can view their own transactions" ON transactions
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can insert their own transactions" ON transactions;
 CREATE POLICY "Users can insert their own transactions" ON transactions
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can update their own transactions" ON transactions;
 CREATE POLICY "Users can update their own transactions" ON transactions
   FOR UPDATE USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can delete their own transactions" ON transactions;
 CREATE POLICY "Users can delete their own transactions" ON transactions
   FOR DELETE USING (auth.uid()::text = user_id::text);
 
 -- Documents policies
+DROP POLICY IF EXISTS "Users can view their own documents" ON documents;
 CREATE POLICY "Users can view their own documents" ON documents
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can insert their own documents" ON documents;
 CREATE POLICY "Users can insert their own documents" ON documents
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can update their own documents" ON documents;
 CREATE POLICY "Users can update their own documents" ON documents
   FOR UPDATE USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can delete their own documents" ON documents;
 CREATE POLICY "Users can delete their own documents" ON documents
   FOR DELETE USING (auth.uid()::text = user_id::text);
 
 -- Exchange rates policies
+DROP POLICY IF EXISTS "Users can view their own exchange rates" ON exchange_rates;
 CREATE POLICY "Users can view their own exchange rates" ON exchange_rates
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can insert their own exchange rates" ON exchange_rates;
 CREATE POLICY "Users can insert their own exchange rates" ON exchange_rates
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
 -- Business plans policies
+DROP POLICY IF EXISTS "Users can view their own business plans" ON business_plans;
 CREATE POLICY "Users can view their own business plans" ON business_plans
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can insert their own business plans" ON business_plans;
 CREATE POLICY "Users can insert their own business plans" ON business_plans
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can update their own business plans" ON business_plans;
 CREATE POLICY "Users can update their own business plans" ON business_plans
   FOR UPDATE USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can delete their own business plans" ON business_plans;
 CREATE POLICY "Users can delete their own business plans" ON business_plans
   FOR DELETE USING (auth.uid()::text = user_id::text);
 
 -- Viability calculations policies
+DROP POLICY IF EXISTS "Users can view their own viability calculations" ON viability_calculations;
 CREATE POLICY "Users can view their own viability calculations" ON viability_calculations
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can insert their own viability calculations" ON viability_calculations;
 CREATE POLICY "Users can insert their own viability calculations" ON viability_calculations
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
 -- App settings policies
+DROP POLICY IF EXISTS "Users can view their own settings" ON app_settings;
 CREATE POLICY "Users can view their own settings" ON app_settings
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can insert their own settings" ON app_settings;
 CREATE POLICY "Users can insert their own settings" ON app_settings
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can update their own settings" ON app_settings;
 CREATE POLICY "Users can update their own settings" ON app_settings
   FOR UPDATE USING (auth.uid()::text = user_id::text);
 
 -- Alerts policies
+DROP POLICY IF EXISTS "Users can view their own alerts" ON alerts;
 CREATE POLICY "Users can view their own alerts" ON alerts
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can insert their own alerts" ON alerts;
 CREATE POLICY "Users can insert their own alerts" ON alerts
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can update their own alerts" ON alerts;
 CREATE POLICY "Users can update their own alerts" ON alerts
   FOR UPDATE USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can delete their own alerts" ON alerts;
 CREATE POLICY "Users can delete their own alerts" ON alerts
   FOR DELETE USING (auth.uid()::text = user_id::text);
 
 -- Products policies
+DROP POLICY IF EXISTS "Users can view their own products" ON products;
 CREATE POLICY "Users can view their own products" ON products
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can insert their own products" ON products;
 CREATE POLICY "Users can insert their own products" ON products
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can update their own products" ON products;
 CREATE POLICY "Users can update their own products" ON products
   FOR UPDATE USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can delete their own products" ON products;
 CREATE POLICY "Users can delete their own products" ON products
   FOR DELETE USING (auth.uid()::text = user_id::text);
 
 -- Budgets policies
+DROP POLICY IF EXISTS "Users can view their own budgets" ON budgets;
 CREATE POLICY "Users can view their own budgets" ON budgets
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can insert their own budgets" ON budgets;
 CREATE POLICY "Users can insert their own budgets" ON budgets
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can update their own budgets" ON budgets;
 CREATE POLICY "Users can update their own budgets" ON budgets
   FOR UPDATE USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can delete their own budgets" ON budgets;
 CREATE POLICY "Users can delete their own budgets" ON budgets
   FOR DELETE USING (auth.uid()::text = user_id::text);
 
 -- Cashflow projections policies
+DROP POLICY IF EXISTS "Users can view their own cashflow projections" ON cashflow_projections;
 CREATE POLICY "Users can view their own cashflow projections" ON cashflow_projections
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can insert their own cashflow projections" ON cashflow_projections;
 CREATE POLICY "Users can insert their own cashflow projections" ON cashflow_projections
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can update their own cashflow projections" ON cashflow_projections;
 CREATE POLICY "Users can update their own cashflow projections" ON cashflow_projections
   FOR UPDATE USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can delete their own cashflow projections" ON cashflow_projections;
 CREATE POLICY "Users can delete their own cashflow projections" ON cashflow_projections
   FOR DELETE USING (auth.uid()::text = user_id::text);
 
@@ -445,42 +561,51 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Add triggers for updated_at
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_business_profiles_updated_at ON business_profiles;
 CREATE TRIGGER update_business_profiles_updated_at BEFORE UPDATE ON business_profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_transactions_updated_at ON transactions;
 CREATE TRIGGER update_transactions_updated_at BEFORE UPDATE ON transactions
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_documents_updated_at ON documents;
 CREATE TRIGGER update_documents_updated_at BEFORE UPDATE ON documents
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_business_plans_updated_at ON business_plans;
 CREATE TRIGGER update_business_plans_updated_at BEFORE UPDATE ON business_plans
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_app_settings_updated_at ON app_settings;
 CREATE TRIGGER update_app_settings_updated_at BEFORE UPDATE ON app_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_products_updated_at ON products;
 CREATE TRIGGER update_products_updated_at BEFORE UPDATE ON products
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_budgets_updated_at ON budgets;
 CREATE TRIGGER update_budgets_updated_at BEFORE UPDATE ON budgets
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================
 -- SEED DATA - DEFAULT BOOKS
 -- ============================================
-INSERT INTO books (title, description, category, features) VALUES
-  ('Starting Your Business', 'Complete guide to starting a business in Zimbabwe', 'startup', 
+INSERT INTO books (title, slug, description, category, features) VALUES
+  ('Starting Your Business', 'start-your-business', 'Complete guide to starting a business in Zimbabwe', 'startup', 
    '["Business plan templates", "Registration guide", "Financial planning", "Market research"]'::jsonb),
-  ('Financial Management', 'Master your business finances and cashflow', 'finance', 
+  ('Financial Management', 'manage-your-money', 'Master your business finances and cashflow', 'finance', 
    '["Cashflow tracking", "Profit calculation", "Budgeting tools", "Financial reports"]'::jsonb),
-  ('Marketing & Sales', 'Grow your customer base and increase sales', 'marketing', 
+  ('Marketing & Sales', 'marketing-mastery', 'Grow your customer base and increase sales', 'marketing', 
    '["Customer acquisition", "Pricing strategies", "Social media marketing", "Sales tracking"]'::jsonb),
-  ('Business Growth', 'Scale your business sustainably', 'growth', 
-   '["Expansion strategies", "Team building", "Systems & processes", "Risk management"]'::jsonb);
+  ('Business Growth', 'grow-your-business', 'Scale your business sustainably', 'growth', 
+   '["Expansion strategies", "Team building", "Systems & processes", "Risk management"]'::jsonb)
+ON CONFLICT (slug) DO NOTHING;
 
 -- ============================================
 -- CREATE SUPER ADMIN USER

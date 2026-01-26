@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   name TEXT NOT NULL,
   password_hash TEXT DEFAULT '',
   is_super_admin BOOLEAN DEFAULT FALSE,
+  role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'moderator', 'admin', 'super_admin')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -328,6 +329,65 @@ CREATE POLICY "Users can insert their own profile" ON public.users
 DROP POLICY IF EXISTS "Users can update their own profile" ON public.users;
 CREATE POLICY "Users can update their own profile" ON public.users
   FOR UPDATE USING (auth.uid()::text = id::text);
+
+-- Role helpers
+CREATE OR REPLACE FUNCTION public.role_rank(role TEXT)
+RETURNS INT AS $$
+  SELECT CASE role
+    WHEN 'super_admin' THEN 3
+    WHEN 'admin' THEN 2
+    WHEN 'moderator' THEN 1
+    ELSE 0
+  END;
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION public.current_user_role()
+RETURNS TEXT AS $$
+  SELECT COALESCE(
+    (SELECT role FROM public.users WHERE id::text = auth.uid()::text),
+    CASE WHEN EXISTS (
+      SELECT 1 FROM public.users
+      WHERE id::text = auth.uid()::text AND is_super_admin = TRUE
+    ) THEN 'super_admin' ELSE 'user' END
+  );
+$$ LANGUAGE sql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.has_role(required_role TEXT)
+RETURNS BOOLEAN AS $$
+  SELECT public.role_rank(public.current_user_role()) >= public.role_rank(required_role);
+$$ LANGUAGE sql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.is_super_admin()
+RETURNS BOOLEAN AS $$
+  SELECT public.has_role('super_admin');
+$$ LANGUAGE sql SECURITY DEFINER;
+
+-- Staff can view all users (moderator or higher)
+DROP POLICY IF EXISTS "Staff can view all users" ON public.users;
+CREATE POLICY "Staff can view all users" ON public.users
+  FOR SELECT
+  USING (public.has_role('moderator'));
+
+-- Super admins can update any user/role
+DROP POLICY IF EXISTS "Super admins can update users" ON public.users;
+CREATE POLICY "Super admins can update users" ON public.users
+  FOR UPDATE
+  USING (public.has_role('super_admin'))
+  WITH CHECK (public.has_role('super_admin'));
+
+-- Admins can update user/moderator roles only
+DROP POLICY IF EXISTS "Admins can update limited roles" ON public.users;
+CREATE POLICY "Admins can update limited roles" ON public.users
+  FOR UPDATE
+  USING (public.has_role('admin') AND public.users.role IN ('user', 'moderator'))
+  WITH CHECK (role IN ('user', 'moderator'));
+
+-- Moderators can promote users to moderator or keep user
+DROP POLICY IF EXISTS "Moderators can update limited roles" ON public.users;
+CREATE POLICY "Moderators can update limited roles" ON public.users
+  FOR UPDATE
+  USING (public.has_role('moderator') AND public.users.role = 'user')
+  WITH CHECK (role IN ('user', 'moderator'));
 
 -- Business profiles policies
 DROP POLICY IF EXISTS "Users can view their own business" ON public.business_profiles;

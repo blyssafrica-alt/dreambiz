@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Search, User, Mail, Calendar, Crown, Gift, Percent, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Search, User, Mail, Calendar, Gift, Percent, Trash2 } from 'lucide-react-native';
 
 interface UserData {
   id: string;
@@ -13,6 +13,7 @@ interface UserData {
   created_at: string;
   updated_at: string;
   is_super_admin: boolean;
+  role?: 'user' | 'moderator' | 'admin' | 'super_admin';
   subscription_status?: string;
   subscription_plan_id?: string;
   subscription_end_date?: string;
@@ -21,12 +22,14 @@ interface UserData {
 
 export default function UsersManagementScreen() {
   const { theme } = useTheme();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isSuperAdmin, isAdmin, isModerator } = useAuth();
   const router = useRouter();
   const [users, setUsers] = useState<UserData[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
 
   useEffect(() => {
     loadUsers();
@@ -166,6 +169,65 @@ export default function UsersManagementScreen() {
     );
   };
 
+  const canManageRoles = isSuperAdmin || isAdmin || isModerator;
+
+  const getEffectiveRole = (user: UserData) =>
+    user.role || (user.is_super_admin ? 'super_admin' : 'user');
+
+  const getRoleBadgeColor = (role?: string) => {
+    switch (role) {
+      case 'super_admin':
+        return '#F59E0B';
+      case 'admin':
+        return '#8B5CF6';
+      case 'moderator':
+        return '#3B82F6';
+      default:
+        return '#64748B';
+    }
+  };
+
+  const getAssignableRoles = (targetRole: string) => {
+    if (isSuperAdmin) return ['user', 'moderator', 'admin', 'super_admin'];
+    if (isAdmin) return ['user', 'moderator'];
+    if (isModerator && targetRole === 'user') return ['user', 'moderator'];
+    return [];
+  };
+
+  const handleOpenRoleModal = (user: UserData) => {
+    if (!canManageRoles) return;
+    setSelectedUser(user);
+    setShowRoleModal(true);
+  };
+
+  const handleUpdateRole = async (user: UserData, role: string) => {
+    if (!canManageRoles) return;
+    if (currentUser?.id === user.id && !isSuperAdmin) {
+      Alert.alert('Not Allowed', 'Only super admins can change their own role.');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          role,
+          is_super_admin: role === 'super_admin',
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      Alert.alert('Success', `Role updated to ${role.replace('_', ' ')}`);
+      setShowRoleModal(false);
+      setSelectedUser(null);
+      loadUsers();
+    } catch (error) {
+      console.error('Failed to update role:', error);
+      Alert.alert('Error', 'Failed to update user role');
+    }
+  };
+
   const getSubscriptionBadgeColor = (status?: string) => {
     switch (status?.toLowerCase()) {
       case 'premium':
@@ -258,12 +320,11 @@ export default function UsersManagementScreen() {
                     <Text style={[styles.userName, { color: theme.text.primary }]}>
                       {user.name || user.email}
                     </Text>
-                    {user.is_super_admin && (
-                      <View style={[styles.badge, { backgroundColor: '#F59E0B20' }]}>
-                        <Crown size={12} color="#F59E0B" />
-                        <Text style={[styles.badgeText, { color: '#F59E0B' }]}>Admin</Text>
-                      </View>
-                    )}
+                    <View style={[styles.badge, { backgroundColor: getRoleBadgeColor(getEffectiveRole(user)) + '20' }]}>
+                      <Text style={[styles.badgeText, { color: getRoleBadgeColor(getEffectiveRole(user)) }]}>
+                        {getEffectiveRole(user).replace('_', ' ').toUpperCase()}
+                      </Text>
+                    </View>
                     {user.subscription_status && user.subscription_status !== 'free' && (
                       <View
                         style={[
@@ -316,41 +377,85 @@ export default function UsersManagementScreen() {
                 </View>
               </View>
 
-              {!user.is_super_admin && (
+              {(canManageRoles || !user.is_super_admin) && (
                 <View style={styles.userActions}>
-                  <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: theme.surface.info }]}
-                    onPress={() => handleGrantTrial(user.id)}
-                  >
-                    <Gift size={16} color={theme.accent.info} />
-                    <Text style={[styles.actionButtonText, { color: theme.accent.info }]}>
-                      Grant Trial
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: theme.surface.success }]}
-                    onPress={() => handleGrantDiscount(user.id)}
-                  >
-                    <Percent size={16} color={theme.accent.success} />
-                    <Text style={[styles.actionButtonText, { color: theme.accent.success }]}>
-                      Grant Discount
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: theme.surface.danger }]}
-                    onPress={() => handleDeleteUser(user.id, user.email)}
-                  >
-                    <Trash2 size={16} color={theme.accent.danger} />
-                    <Text style={[styles.actionButtonText, { color: theme.accent.danger }]}>
-                      Delete
-                    </Text>
-                  </TouchableOpacity>
+                  {canManageRoles && (
+                    <TouchableOpacity
+                      style={[styles.actionButton, { backgroundColor: theme.background.secondary }]}
+                      onPress={() => handleOpenRoleModal(user)}
+                    >
+                      <Text style={[styles.actionButtonText, { color: theme.text.primary }]}>
+                        Change Role
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {!user.is_super_admin && (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: theme.surface.info }]}
+                        onPress={() => handleGrantTrial(user.id)}
+                      >
+                        <Gift size={16} color={theme.accent.info} />
+                        <Text style={[styles.actionButtonText, { color: theme.accent.info }]}>
+                          Grant Trial
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: theme.surface.success }]}
+                        onPress={() => handleGrantDiscount(user.id)}
+                      >
+                        <Percent size={16} color={theme.accent.success} />
+                        <Text style={[styles.actionButtonText, { color: theme.accent.success }]}>
+                          Grant Discount
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: theme.surface.danger }]}
+                        onPress={() => handleDeleteUser(user.id, user.email)}
+                      >
+                        <Trash2 size={16} color={theme.accent.danger} />
+                        <Text style={[styles.actionButtonText, { color: theme.accent.danger }]}>
+                          Delete
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
                 </View>
               )}
             </View>
           ))
         )}
       </ScrollView>
+      {showRoleModal && selectedUser && (
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: theme.background.card }]}>
+            <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Change Role</Text>
+            <Text style={[styles.modalSubtitle, { color: theme.text.secondary }]}>
+              {selectedUser.email}
+            </Text>
+            {getAssignableRoles(getEffectiveRole(selectedUser)).map((role) => (
+              <TouchableOpacity
+                key={role}
+                style={[styles.roleOption, { borderColor: theme.border.light }]}
+                onPress={() => handleUpdateRole(selectedUser, role)}
+              >
+                <Text style={[styles.roleOptionText, { color: theme.text.primary }]}>
+                  {role.replace('_', ' ')}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={[styles.cancelButton, { backgroundColor: theme.background.secondary }]}
+              onPress={() => {
+                setShowRoleModal(false);
+                setSelectedUser(null);
+              }}
+            >
+              <Text style={[styles.cancelText, { color: theme.text.primary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -504,6 +609,53 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     fontSize: 13,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    borderRadius: 12,
+    padding: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  roleOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  roleOptionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  cancelButton: {
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  cancelText: {
+    fontSize: 14,
     fontWeight: '600',
   },
 });

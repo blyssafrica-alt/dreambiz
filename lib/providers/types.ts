@@ -15,6 +15,7 @@ export interface UserProfile {
   name: string;
   createdAt: string;
   isSuperAdmin?: boolean;
+  role?: 'user' | 'moderator' | 'admin' | 'super_admin';
 }
 
 export interface AuthSession {

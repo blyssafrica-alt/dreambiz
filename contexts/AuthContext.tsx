@@ -9,6 +9,7 @@ export interface User {
   email: string;
   createdAt: string;
   isSuperAdmin?: boolean;
+  role?: 'user' | 'moderator' | 'admin' | 'super_admin';
 }
 
 export const [AuthContext, useAuth] = createContextHook(() => {
@@ -42,12 +43,14 @@ export const [AuthContext, useAuth] = createContextHook(() => {
       }
 
       if (profile) {
+        const resolvedRole = profile.role || (profile.isSuperAdmin ? 'super_admin' : 'user');
         setUser({
           id: profile.id,
           name: profile.name,
           email: profile.email,
           createdAt: profile.createdAt,
           isSuperAdmin: profile.isSuperAdmin,
+          role: resolvedRole,
         });
       }
     } catch (error: any) {
@@ -258,5 +261,8 @@ export const [AuthContext, useAuth] = createContextHook(() => {
     isAuthenticated: !!authUser || !!user, // Authenticated if we have authUser (even if profile not loaded yet)
     authUser, // Generic auth user (replaces supabaseUser)
     isSuperAdmin: user?.isSuperAdmin || false, // Expose isSuperAdmin as a convenience property
+    role: user?.role || (user?.isSuperAdmin ? 'super_admin' : 'user'),
+    isAdmin: user?.role === 'admin' || user?.role === 'super_admin',
+    isModerator: user?.role === 'moderator' || user?.role === 'admin' || user?.role === 'super_admin',
   };
 });

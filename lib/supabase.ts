@@ -102,6 +102,7 @@ export type Database = {
           name: string;
           password_hash: string;
           is_super_admin: boolean;
+          role: string | null;
           created_at: string;
           updated_at: string;
         };

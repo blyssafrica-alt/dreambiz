@@ -5,7 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 
 export default function AdminLayout() {
-  const { user, isSuperAdmin, isLoading } = useAuth();
+  const { user, isSuperAdmin, isAdmin, isModerator, isLoading } = useAuth();
   const router = useRouter();
   const segments = useSegments();
   const { theme } = useTheme();
@@ -16,10 +16,12 @@ export default function AdminLayout() {
     const currentPath = segments.join('/');
     const inAdmin = currentPath.includes('admin');
     const isEmployeeRoles = currentPath.includes('employee-roles');
+    const isUsers = currentPath.includes('users');
+    const canAccessUsers = isSuperAdmin || isAdmin || isModerator;
 
     // Allow business owners to access employee-roles (for managing their employees)
     // Redirect non-super-admins away from admin (except employee-roles)
-    if (!isSuperAdmin && inAdmin && !isEmployeeRoles) {
+    if (!isSuperAdmin && inAdmin && !isEmployeeRoles && !(isUsers && canAccessUsers)) {
       router.replace('/(tabs)' as any);
       return;
     }
@@ -44,15 +46,17 @@ export default function AdminLayout() {
   // Allow business owners to access employee-roles
   const currentPath = segments.join('/');
   const isEmployeeRoles = currentPath.includes('employee-roles');
+  const isUsers = currentPath.includes('users');
+  const canAccessUsers = isSuperAdmin || isAdmin || isModerator;
 
-  if (!isSuperAdmin && !isEmployeeRoles) {
+  if (!isSuperAdmin && !isEmployeeRoles && !(isUsers && canAccessUsers)) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
         <Text style={[styles.errorText, { color: theme.accent.danger }]}>
           Access Denied
         </Text>
         <Text style={[styles.errorSubtext, { color: theme.text.secondary }]}>
-          Super Admin access required
+          Admin access required
         </Text>
       </View>
     );
