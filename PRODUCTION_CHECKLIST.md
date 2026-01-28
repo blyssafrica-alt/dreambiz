@@ -3,7 +3,7 @@
 ## Pre-Build Verification
 
 ### 1. Configuration Files ✓
-- [x] `app.json` - Updated with production settings
+- [x] `app.config.js` - Updated with production settings
 - [x] `package.json` - Build scripts added
 - [x] `eas.json` - EAS build configuration created
 - [x] `tsconfig.json` - TypeScript configuration verified
@@ -11,8 +11,8 @@
 - [x] `metro.config.js` - Metro bundler configuration verified
 
 ### 2. Environment Variables
-- [x] Supabase URL configured in `app.json`
-- [x] Supabase Anon Key configured in `app.json`
+- [x] Supabase URL configured in `app.config.js`
+- [x] Supabase Anon Key configured in `app.config.js`
 - [x] `.env.example` file exists for reference
 - [ ] EAS secrets configured (if using EAS Build)
 
@@ -25,10 +25,10 @@
 - [x] Version code (Android): `1`
 
 ### 4. Assets
-- [ ] Icon: `./assets/images/icon.png` (1024x1024px)
-- [ ] Adaptive icon: `./assets/images/adaptive-icon.png` (1024x1024px)
-- [ ] Splash screen: `./assets/images/splash-icon.png`
-- [ ] Favicon: `./assets/images/favicon.png` (for web)
+- [x] Icon: `./assets/images/icon.png` (1024x1024px)
+- [ ] Adaptive icon: `./assets/images/adaptive-icon.png` (expected 1024x1024px; current is 1408x1408)
+- [x] Splash screen: `./assets/images/splash-icon.png` (512x512px)
+- [x] Favicon: `./assets/images/favicon.png` (16x16px)
 
 ### 5. Permissions
 - [x] iOS permissions configured (Camera, Photo Library, Microphone)
@@ -43,9 +43,9 @@
 - [x] expo-web-browser configured
 
 ### 7. Code Quality
-- [ ] Run `npm run lint` - No errors
-- [ ] Run `npx tsc --noEmit` - No TypeScript errors
-- [ ] All console.log statements removed or wrapped in development checks
+- [x] Run `npm run lint` - No errors
+- [x] Run `npx tsc --noEmit` - No TypeScript errors
+- [x] All console.log statements removed or wrapped in development checks
 - [ ] Error handling implemented for all API calls
 
 ### 8. Testing

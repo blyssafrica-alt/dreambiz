@@ -11,7 +11,7 @@ const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_959ZId8aR4E5IjTNoyVsJQ_xt8pelv
 // Ensure URL is always HTTPS and properly formatted
 let supabaseUrl = 
   Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL ||
-  Constants.manifest?.extra?.EXPO_PUBLIC_SUPABASE_URL ||
+  (Constants.manifest as any)?.extra?.EXPO_PUBLIC_SUPABASE_URL ||
   process.env.EXPO_PUBLIC_SUPABASE_URL || 
   DEFAULT_SUPABASE_URL;
 
@@ -48,7 +48,7 @@ console.log('[Supabase Client] ✅ Functions will be called at:', `${supabaseUrl
 
 const supabaseAnonKey = 
   Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
-  Constants.manifest?.extra?.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  (Constants.manifest as any)?.extra?.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 
   DEFAULT_SUPABASE_ANON_KEY;
 

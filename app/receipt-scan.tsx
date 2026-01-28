@@ -1,6 +1,6 @@
 import { Stack, router } from 'expo-router';
-import { Camera, X, Check, AlertCircle, Loader, Save } from 'lucide-react-native';
-import { useState, useRef } from 'react';
+import { Camera, X, Save } from 'lucide-react-native';
+import { useState } from 'react';
 import {
   View,
   Text,

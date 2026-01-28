@@ -1,5 +1,5 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import * as Linking from 'expo-linking';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, ShoppingCart, Star, BookOpen, Check, X, CreditCard, Smartphone, Building2, DollarSign, Upload, Image as ImageIcon, Camera, Loader } from 'lucide-react-native';
+import { ArrowLeft, ShoppingCart, Star, BookOpen, Check, X, CreditCard, Smartphone, Building2, DollarSign, Upload, Loader } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getBookBySlug } from '@/lib/book-service';
 import type { Book } from '@/types/books';
@@ -41,12 +41,7 @@ export default function BookDetailScreen() {
   const [proofImage, setProofImage] = useState<string | null>(null);
   const [isUploadingProof, setIsUploadingProof] = useState(false);
 
-  useEffect(() => {
-    loadBook();
-    checkPurchaseStatus();
-  }, [id]);
-
-  const loadBook = async () => {
+  const loadBook = useCallback(async () => {
     try {
       setIsLoading(true);
       // Try to get by ID first, then by slug
@@ -98,9 +93,9 @@ export default function BookDetailScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id]);
 
-  const checkPurchaseStatus = async () => {
+  const checkPurchaseStatus = useCallback(async () => {
     if (!user || !id) return;
 
     try {
@@ -124,11 +119,19 @@ export default function BookDetailScreen() {
         }
       }
     } catch (error) {
+      if (__DEV__) {
+        console.warn('Purchase status check failed:', error);
+      }
       // User hasn't purchased this book
       setHasPurchased(false);
       setPurchaseStatus('none');
     }
-  };
+  }, [id, user]);
+
+  useEffect(() => {
+    loadBook();
+    checkPurchaseStatus();
+  }, [checkPurchaseStatus, loadBook]);
 
   const getCurrentPrice = () => {
     if (!book) return 0;
@@ -246,7 +249,7 @@ export default function BookDetailScreen() {
       const price = getCurrentPrice();
 
       // Create purchase record with pending status
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('book_purchases')
         .insert({
           book_id: book.id,

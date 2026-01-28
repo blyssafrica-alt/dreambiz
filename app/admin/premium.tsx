@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Gift, Percent, Users, Calendar, X, Save, Crown, Edit, Trash2, Plus } from 'lucide-react-native';
+import { ArrowLeft, Gift, Percent, Users, Calendar, X, Save, Crown, Edit, Plus } from 'lucide-react-native';
 import type { SubscriptionPlan, PremiumTrial, UserDiscount } from '@/types/premium';
 import UserSelector from '@/components/UserSelector';
 
@@ -64,6 +64,17 @@ export default function PremiumManagementScreen() {
     displayOrder: '0',
   });
 
+  const loadData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      await Promise.all([loadPlans(), loadTrials(), loadDiscounts()]);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadData();
     if (action === 'grant_trial' && userId) {
@@ -73,18 +84,7 @@ export default function PremiumManagementScreen() {
       setShowDiscountModal(true);
       setDiscountForm(prev => ({ ...prev, userId }));
     }
-  }, [action, userId]);
-
-  const loadData = async () => {
-    try {
-      setIsLoading(true);
-      await Promise.all([loadPlans(), loadTrials(), loadDiscounts()]);
-    } catch (error) {
-      console.error('Failed to load data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [action, loadData, userId]);
 
   const loadPlans = async () => {
     try {

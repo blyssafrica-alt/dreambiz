@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useAuth } from '@/contexts/AuthContext';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Building2, Mail, Calendar, MapPin, DollarSign, Phone, User, TrendingUp, FileText, Users, Package, CreditCard, AlertCircle, CheckCircle, XCircle } from 'lucide-react-native';
+import { ArrowLeft, Building2, Mail, Calendar, MapPin, DollarSign, Phone, User, TrendingUp, FileText, Users, Package, CreditCard, CheckCircle } from 'lucide-react-native';
 import PageHeader from '@/components/PageHeader';
 
 interface BusinessData {
@@ -41,7 +40,6 @@ interface BusinessStats {
 export default function BusinessDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { theme } = useTheme();
-  const { user: currentUser } = useAuth();
   const { switchBusiness, business: currentBusiness } = useBusiness();
   const router = useRouter();
   const [business, setBusiness] = useState<BusinessData | null>(null);
@@ -50,17 +48,7 @@ export default function BusinessDetailScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
 
-  useEffect(() => {
-    loadBusinessData();
-  }, [id]);
-
-  useFocusEffect(
-    React.useCallback(() => {
-      loadBusinessData();
-    }, [id])
-  );
-
-  const loadBusinessData = async () => {
+  const loadBusinessData = useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -107,7 +95,17 @@ export default function BusinessDetailScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    loadBusinessData();
+  }, [loadBusinessData]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadBusinessData();
+    }, [loadBusinessData])
+  );
 
   const loadBusinessStats = async (businessId: string) => {
     try {

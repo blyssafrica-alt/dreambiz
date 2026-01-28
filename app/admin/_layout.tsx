@@ -5,7 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 
 export default function AdminLayout() {
-  const { user, isSuperAdmin, isAdmin, isModerator, isLoading } = useAuth();
+  const { isSuperAdmin, isAdmin, isModerator, isLoading } = useAuth();
   const router = useRouter();
   const segments = useSegments();
   const { theme } = useTheme();
@@ -29,7 +29,7 @@ export default function AdminLayout() {
     if (canAccessAdmin && inAdmin && currentPath === 'admin') {
       router.replace('/admin/dashboard' as any);
     }
-  }, [isSuperAdmin, isLoading, segments, router]);
+  }, [isAdmin, isModerator, isSuperAdmin, isLoading, segments, router]);
 
   if (isLoading) {
     return (
@@ -144,6 +144,13 @@ export default function AdminLayout() {
         name="help-content" 
         options={{ 
           title: 'Help Content',
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
+        name="store-metadata" 
+        options={{ 
+          title: 'Store Metadata',
           headerShown: false,
         }} 
       />

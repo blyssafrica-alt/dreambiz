@@ -8,7 +8,6 @@ import {
   ScrollView, 
   TouchableOpacity,
   Alert as RNAlert,
-  Platform,
   Share,
   Linking,
   Modal,
@@ -23,7 +22,6 @@ import type { Document, DocumentItem, DocumentStatus } from '@/types/business';
 import { getDocumentTemplate, generateDocumentContent } from '@/lib/document-templates';
 import { exportToPDF } from '@/lib/pdf-export';
 import { generateQRCodeData, generatePaymentLink, generateQRCodePattern } from '@/lib/qr-code';
-import type { Payment } from '@/types/payments';
 
 export default function DocumentDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -270,14 +268,6 @@ export default function DocumentDetailScreen() {
     return `${symbol}${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-ZW', { 
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
-  };
 
   const handleShare = async () => {
     if (!document || !business) return;

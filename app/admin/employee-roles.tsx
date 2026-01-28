@@ -4,7 +4,7 @@
  */
 
 import { Stack, router } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,14 +15,12 @@ import {
   Alert as RNAlert,
   ActivityIndicator,
   Modal,
-  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Plus, Edit, Trash2, Save, X, Shield, Users, Check } from 'lucide-react-native';
+import { ArrowLeft, Plus, Edit, Trash2, Save, X, Shield, Check } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { supabase } from '@/lib/supabase';
-import type { PermissionCode } from '@/types/employee-permissions';
 import { PERMISSION_CATEGORIES } from '@/types/employee-permissions';
 
 interface EmployeeRole {
@@ -47,11 +45,7 @@ export default function EmployeeRolesScreen() {
     selectedPermissions: [] as string[],
   });
 
-  useEffect(() => {
-    loadData();
-  }, [business]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!business?.id) return;
 
     try {
@@ -105,7 +99,11 @@ export default function EmployeeRolesScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [business?.id]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleOpenModal = (role?: EmployeeRole) => {
     if (role) {

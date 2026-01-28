@@ -1,5 +1,5 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { FileText, Plus, Receipt, FileCheck, CheckCircle, Clock, XCircle, Send, ShoppingCart, FileSignature, Handshake, AlertCircle, Filter, X, Trash2, Folder, FolderOpen, Settings, Edit, MoreVertical } from 'lucide-react-native';
+import { FileText, Plus, Receipt, FileCheck, CheckCircle, Clock, XCircle, Send, ShoppingCart, FileSignature, Handshake, AlertCircle, Filter, X, Trash2, Folder, FolderOpen, MoreVertical } from 'lucide-react-native';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
@@ -10,10 +10,8 @@ import {
   TextInput,
   Alert as RNAlert,
   Platform,
-  ActivityIndicator,
   Modal,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -21,27 +19,21 @@ import { useAds } from '@/contexts/AdContext';
 import { AdCard } from '@/components/AdCard';
 import type { DocumentType, DocumentItem, DocumentStatus } from '@/types/business';
 import { getDocumentTemplate } from '@/lib/document-templates-db';
-import { getFilterPresets, saveFilterPreset, deleteFilterPreset } from '@/lib/filter-presets';
-import type { FilterPreset } from '@/lib/filter-presets';
 import DocumentWizard from '@/components/DocumentWizard';
 import { useTranslation } from '@/hooks/useTranslation';
 
 export default function DocumentsScreen() {
-  const { business, documents = [], folders = [], addDocument, updateDocument, deleteDocument, addFolder, updateFolder, deleteFolder, loadFolders } = useBusiness();
+  const { business, documents = [], folders = [], addDocument, deleteDocument, addFolder, updateFolder, deleteFolder, loadFolders } = useBusiness();
   const { theme } = useTheme();
   const { t } = useTranslation();
   const { getAdsForLocation } = useAds();
   const documentsAds = getAdsForLocation('documents');
   const [showWizard, setShowWizard] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<DocumentStatus | 'all'>('all');
+  const [statusFilter] = useState<DocumentStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<DocumentType | 'all'>('all');
   const [folderFilter, setFolderFilter] = useState<string | 'all'>('all');
   const [currentView, setCurrentView] = useState<'documents' | 'folders'>('documents');
-  const [showFilters, setShowFilters] = useState(false);
-  const [filterPresets, setFilterPresets] = useState<FilterPreset[]>([]);
-  const [showPresetModal, setShowPresetModal] = useState(false);
-  const [presetName, setPresetName] = useState('');
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [editingFolder, setEditingFolder] = useState<any>(null);
   const [folderName, setFolderName] = useState('');
@@ -49,7 +41,7 @@ export default function DocumentsScreen() {
   const params = useLocalSearchParams();
 
   // Ensure documents is always an array
-  const safeDocuments = Array.isArray(documents) ? documents : [];
+  const safeDocuments = useMemo(() => (Array.isArray(documents) ? documents : []), [documents]);
 
   // Check for filter type or view from navigation params (from dashboard)
   useEffect(() => {
@@ -75,7 +67,7 @@ export default function DocumentsScreen() {
       if (!doc.dueDate) return false;
       return new Date(doc.dueDate) < new Date();
     });
-  }, [documents]);
+  }, [safeDocuments]);
 
   // Filtered documents
   const filteredDocuments = useMemo(() => {
@@ -106,71 +98,6 @@ export default function DocumentsScreen() {
 
     return filtered;
   }, [safeDocuments, searchQuery, statusFilter, typeFilter, folderFilter]);
-
-  // Load filter presets
-  useEffect(() => {
-    loadFilterPresets();
-  }, []);
-
-  const loadFilterPresets = async () => {
-    const presets = await getFilterPresets();
-    setFilterPresets(presets);
-  };
-
-  const handleSavePreset = async () => {
-    if (!presetName.trim()) {
-      RNAlert.alert('Missing Name', 'Please enter a name for this filter preset');
-      return;
-    }
-
-    try {
-      await saveFilterPreset({
-        name: presetName.trim(),
-        filters: {
-          searchQuery,
-          statusFilter,
-          typeFilter,
-        },
-      });
-      await loadFilterPresets();
-      setShowPresetModal(false);
-      setPresetName('');
-      RNAlert.alert('Success', 'Filter preset saved');
-    } catch (error: any) {
-      RNAlert.alert('Error', error.message || 'Failed to save filter preset');
-    }
-  };
-
-  const handleLoadPreset = (preset: FilterPreset) => {
-    const filters = preset.filters;
-    if (filters.searchQuery) setSearchQuery(filters.searchQuery);
-    if (filters.statusFilter) setStatusFilter(filters.statusFilter);
-    if (filters.typeFilter) setTypeFilter(filters.typeFilter);
-    setShowFilters(false);
-    RNAlert.alert('Success', `Loaded preset: ${preset.name}`);
-  };
-
-  const handleDeletePreset = async (id: string) => {
-    RNAlert.alert(
-      'Delete Preset',
-      'Are you sure you want to delete this filter preset?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteFilterPreset(id);
-              await loadFilterPresets();
-            } catch (error: any) {
-              RNAlert.alert('Error', error.message || 'Failed to delete preset');
-            }
-          },
-        },
-      ]
-    );
-  };
 
   // Legacy modal functions removed - DocumentWizard handles document creation
 
@@ -318,15 +245,6 @@ export default function DocumentsScreen() {
     return new Date(doc.dueDate) < new Date();
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleStatusChange = async (docId: string, newStatus: DocumentStatus) => {
-    try {
-      await updateDocument(docId, { status: newStatus });
-    } catch (error: any) {
-      RNAlert.alert('Error', error.message || 'Failed to update status');
-    }
-  };
-
   const handleDeleteDocument = (docId: string, docNumber: string) => {
     RNAlert.alert(
       'Delete Document',
@@ -412,7 +330,6 @@ export default function DocumentsScreen() {
           </View>
           <TouchableOpacity
             style={[styles.filterButton, (statusFilter !== 'all' || typeFilter !== 'all') && styles.filterButtonActive]}
-            onPress={() => setShowFilters(true)}
           >
             <Filter size={18} color={(statusFilter !== 'all' || typeFilter !== 'all') ? '#fff' : '#64748B'} />
           </TouchableOpacity>
@@ -1273,33 +1190,11 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 400,
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
-  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
   },
   modalBody: {
     marginBottom: 20,
@@ -1346,12 +1241,6 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 12,
     gap: 8,
-  },
-  deleteButton: {
-    backgroundColor: '#EF444420',
-  },
-  cancelButton: {
-    backgroundColor: '#F8FAFC',
   },
   saveButton: {
     backgroundColor: '#0066CC',

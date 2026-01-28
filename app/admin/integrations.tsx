@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { Save, Settings, Eye, EyeOff, CheckCircle, XCircle, TestTube } from 'lucide-react-native';
+import { Save, Settings, Eye, EyeOff, TestTube } from 'lucide-react-native';
 import PageHeader from '@/components/PageHeader';
 
 // Type declarations for browser APIs in React Native
@@ -21,7 +21,7 @@ interface IntegrationConfig {
 }
 
 // Define required fields for each integration
-const integrationFields: Record<string, Array<{ key: string; label: string; type: 'text' | 'password' | 'number' | 'email'; placeholder: string; required?: boolean }>> = {
+const integrationFields: Record<string, { key: string; label: string; type: 'text' | 'password' | 'number' | 'email'; placeholder: string; required?: boolean }[]> = {
   stripe: [
     { key: 'publishableKey', label: 'Publishable Key', type: 'text', placeholder: 'pk_test_...', required: true },
     { key: 'secretKey', label: 'Secret Key', type: 'password', placeholder: 'sk_test_...', required: true },
@@ -85,7 +85,7 @@ const integrationFields: Record<string, Array<{ key: string; label: string; type
 
 export default function IntegrationsConfigScreen() {
   const { theme } = useTheme();
-  const { user, isSuperAdmin } = useAuth();
+  const { isSuperAdmin } = useAuth();
   const router = useRouter();
   const [integrations, setIntegrations] = useState<IntegrationConfig[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,15 +93,7 @@ export default function IntegrationsConfigScreen() {
   const [testing, setTesting] = useState<string | null>(null);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    if (!isSuperAdmin) {
-      router.replace('/(tabs)' as any);
-      return;
-    }
-    loadIntegrations();
-  }, [isSuperAdmin]);
-
-  const loadIntegrations = async () => {
+  const loadIntegrations = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -144,8 +136,8 @@ export default function IntegrationsConfigScreen() {
             if (typeof dbIntegration.config === 'string') {
               try {
                 config = JSON.parse(dbIntegration.config);
-              } catch (e) {
-                console.warn(`Failed to parse config for ${dbIntegration.id}:`, e);
+              } catch (error) {
+                console.warn(`Failed to parse config for ${dbIntegration.id}:`, error);
                 config = {};
               }
             } else {
@@ -186,7 +178,15 @@ export default function IntegrationsConfigScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      router.replace('/(tabs)' as any);
+      return;
+    }
+    loadIntegrations();
+  }, [isSuperAdmin, loadIntegrations, router]);
 
   const handleSave = async (integration: IntegrationConfig) => {
     try {
@@ -350,8 +350,8 @@ export default function IntegrationsConfigScreen() {
         }
         base64Credentials = result;
       }
-    } catch (e) {
-      throw new Error('Failed to encode credentials');
+    } catch (error) {
+      throw new Error(`Failed to encode credentials: ${String(error)}`);
     }
     
     // Test PayPal OAuth
@@ -406,8 +406,8 @@ export default function IntegrationsConfigScreen() {
         }
         base64Credentials = result;
       }
-    } catch (e) {
-      throw new Error('Failed to encode credentials');
+    } catch (error) {
+      throw new Error(`Failed to encode credentials: ${String(error)}`);
     }
 
     // Test Twilio API connection

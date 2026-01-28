@@ -10,9 +10,7 @@ import {
   Edit2,
   Search,
   Camera,
-  DollarSign,
-  Calendar,
-  ChevronDown
+  DollarSign
 } from 'lucide-react-native';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
@@ -24,7 +22,6 @@ import {
   TextInput,
   Alert as RNAlert,
   Modal,
-  Share,
   Platform,
   Animated,
 } from 'react-native';
@@ -59,7 +56,10 @@ export default function FinancesScreen() {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
   // Ensure transactions is always an array
-  const safeTransactions = Array.isArray(transactions) ? transactions : [];
+  const safeTransactions = useMemo(
+    () => (Array.isArray(transactions) ? transactions : []),
+    [transactions]
+  );
 
   useEffect(() => {
     Animated.parallel([
@@ -74,7 +74,7 @@ export default function FinancesScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim]);
 
   const filteredTransactions = useMemo(() => {
     let filtered = safeTransactions;

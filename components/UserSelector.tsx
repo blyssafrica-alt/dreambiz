@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, FlatList } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
-import { User, Mail, Search, X } from 'lucide-react-native';
+import { User, Search, X } from 'lucide-react-native';
 
 interface UserOption {
   id: string;
@@ -19,26 +19,10 @@ interface UserSelectorProps {
 export default function UserSelector({ selectedUserId, onSelectUser, placeholder = 'Search users by name or email...' }: UserSelectorProps) {
   const { theme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
-  const [users, setUsers] = useState<UserOption[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserOption[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserOption | null>(null);
 
-  useEffect(() => {
-    if (selectedUserId) {
-      loadSelectedUser();
-    }
-  }, [selectedUserId]);
-
-  useEffect(() => {
-    if (searchQuery.length >= 2) {
-      searchUsers();
-    } else {
-      setFilteredUsers([]);
-    }
-  }, [searchQuery]);
-
-  const loadSelectedUser = async () => {
+  const loadSelectedUser = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('users')
@@ -52,11 +36,10 @@ export default function UserSelector({ selectedUserId, onSelectUser, placeholder
     } catch (error) {
       console.error('Failed to load selected user:', error);
     }
-  };
+  }, [selectedUserId]);
 
-  const searchUsers = async () => {
+  const searchUsers = useCallback(async () => {
     try {
-      setIsSearching(true);
       const query = searchQuery.toLowerCase();
       
       const { data, error } = await supabase
@@ -73,15 +56,26 @@ export default function UserSelector({ selectedUserId, onSelectUser, placeholder
           email: u.email,
           name: u.name,
         }));
-        setUsers(userOptions);
         setFilteredUsers(userOptions);
       }
     } catch (error) {
       console.error('Failed to search users:', error);
-    } finally {
-      setIsSearching(false);
     }
-  };
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (selectedUserId) {
+      loadSelectedUser();
+    }
+  }, [loadSelectedUser, selectedUserId]);
+
+  useEffect(() => {
+    if (searchQuery.length >= 2) {
+      searchUsers();
+    } else {
+      setFilteredUsers([]);
+    }
+  }, [searchQuery, searchUsers]);
 
   const handleSelectUser = (user: UserOption) => {
     setSelectedUser(user);

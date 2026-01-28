@@ -191,7 +191,7 @@ export default function BooksManagementScreen() {
           const fileName = `book-cover-${Date.now()}.${fileExt}`;
           const filePath = `book_covers/${fileName}`;
 
-          const { data, error } = await supabase.storage
+          const { error } = await supabase.storage
             .from('book_covers')
             .upload(filePath, decode(base64), {
               contentType: asset.mimeType || 'image/jpeg',
@@ -263,7 +263,7 @@ export default function BooksManagementScreen() {
       const filePath = `books/${fileName}`;
 
       // Upload to Supabase storage
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from('book-documents')
         .upload(filePath, decode(base64), {
           contentType: fileExtension === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -1598,7 +1598,7 @@ export default function BooksManagementScreen() {
                       </TouchableOpacity>
                     </View>
                     <Text style={[styles.helperText, { color: theme.text.tertiary, marginTop: 8 }]}>
-                      Enter the number of chapters and tap "Add Chapters" to create placeholder chapters, or process PDF from Step 2 to extract automatically.
+                      Enter the number of chapters and tap &quot;Add Chapters&quot; to create placeholder chapters, or process PDF from Step 2 to extract automatically.
                     </Text>
                     {Array.isArray(formData.chapters) && formData.chapters.length > 0 && (
                       <View style={styles.chaptersList}>

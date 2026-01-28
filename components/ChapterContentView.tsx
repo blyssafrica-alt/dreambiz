@@ -5,13 +5,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, ChevronLeft, ChevronRight, Share2 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { router } from 'expo-router';
 import type { Book, BookChapter } from '@/types/books';
-import * as Sharing from 'expo-sharing';
 
 interface ChapterContentViewProps {
   chapter: BookChapter | null;
@@ -40,12 +40,7 @@ export default function ChapterContentView({
     try {
       const shareText = `${book.title}\n\nChapter ${chapter.number}: ${chapter.title}\n\n${content.substring(0, 500)}...`;
       
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync({
-          message: shareText,
-          mimeType: 'text/plain',
-        });
-      }
+      await Share.share({ message: shareText });
     } catch (error) {
       console.error('Failed to share chapter:', error);
     }

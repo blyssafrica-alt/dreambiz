@@ -4,7 +4,7 @@
  */
 
 import { Stack, router } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -18,15 +18,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { User, Lock, Smartphone, Mail, Eye, EyeOff } from 'lucide-react-native';
+import { Lock, Smartphone, Mail, Eye, EyeOff } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
 import AnimatedLogo from '@/components/AnimatedLogo';
 import StartShiftModal from '@/components/modals/StartShiftModal';
 import ShiftHandoverModal from '@/components/modals/ShiftHandoverModal';
-import { checkOpenShift, createShift, takeOverShift, getShiftForEmployee, type ShiftInfo } from '@/lib/shift-management';
-import { getCurrentEmployee } from '@/lib/get-current-employee';
+import { checkOpenShift, createShift, takeOverShift, type ShiftInfo } from '@/lib/shift-management';
 
 export default function EmployeeLoginScreen() {
   const { theme } = useTheme();

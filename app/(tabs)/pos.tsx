@@ -23,7 +23,7 @@ import {
   Share2,
   FileText,
   Calculator,
-  ScanLine
+  CheckCircle
 } from 'lucide-react-native';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import {
@@ -51,7 +51,6 @@ import { exportToPDF } from '@/lib/pdf-export';
 import { getCurrentEmployee } from '@/lib/get-current-employee';
 import { useEmployeePermissions } from '@/hooks/useEmployeePermissions';
 import { checkOpenShift, type ShiftInfo } from '@/lib/shift-management';
-import { Clock, CheckCircle } from 'lucide-react-native';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 

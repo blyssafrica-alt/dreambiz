@@ -6,7 +6,6 @@ import {
   MessageSquare,
   Cloud,
   CheckCircle,
-  XCircle,
   Settings,
   ExternalLink,
   Plug
@@ -138,7 +137,7 @@ const integrations: Integration[] = [
 
 export default function IntegrationsScreen() {
   const { theme } = useTheme();
-  const { isSuperAdmin, user } = useAuth();
+  const { isSuperAdmin } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
   const [connectedIntegrations, setConnectedIntegrations] = useState<string[]>(['email']);
@@ -148,7 +147,7 @@ export default function IntegrationsScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
-  const loadIntegrationStatus = async () => {
+  const loadIntegrationStatus = useCallback(async () => {
     try {
       setLoading(true);
       // Load integration status from database
@@ -178,7 +177,7 @@ export default function IntegrationsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     Animated.parallel([
@@ -194,13 +193,13 @@ export default function IntegrationsScreen() {
       }),
     ]).start();
     loadIntegrationStatus();
-  }, []);
+  }, [fadeAnim, loadIntegrationStatus, slideAnim]);
 
   // Refresh integration status when screen is focused
   useFocusEffect(
     useCallback(() => {
       loadIntegrationStatus();
-    }, [])
+    }, [loadIntegrationStatus])
   );
 
   const handleConnect = async (integration: Integration) => {

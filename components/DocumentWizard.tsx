@@ -8,7 +8,6 @@ import {
   ScrollView,
   Modal,
   Alert as RNAlert,
-  Platform,
 } from 'react-native';
 import { 
   FileText, 
@@ -44,7 +43,7 @@ interface DocumentWizardProps {
     folderId?: string;
   }) => void;
   businessType?: string;
-  folders?: Array<{ id: string; name: string; color: string }>;
+  folders?: { id: string; name: string; color: string }[];
   selectedFolderId?: string;
 }
 

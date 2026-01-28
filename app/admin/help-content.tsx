@@ -14,7 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Plus, Edit, Trash2, X, Save, HelpCircle, Mail, MessageCircle, Book, Lightbulb } from 'lucide-react-native';
+import { ArrowLeft, Plus, Edit, Trash2, X, Save, HelpCircle, Mail, Lightbulb } from 'lucide-react-native';
 
 interface HelpContentItem {
   id: string;

@@ -1,5 +1,5 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -31,11 +31,7 @@ export default function ProductDetailScreen() {
   const [selectedVariations, setSelectedVariations] = useState<Record<string, string>>({});
   const scrollViewRef = useRef<ScrollView>(null);
 
-  useEffect(() => {
-    loadProduct();
-  }, [id]);
-
-  const loadProduct = () => {
+  const loadProduct = useCallback(() => {
     if (!id) {
       setIsLoading(false);
       return;
@@ -61,7 +57,11 @@ export default function ProductDetailScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [getProductById, id]);
+
+  useEffect(() => {
+    loadProduct();
+  }, [loadProduct]);
 
   const getCurrentPrice = () => {
     if (!product) return 0;

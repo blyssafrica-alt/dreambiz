@@ -6,9 +6,7 @@ import {
   Trash2,
   X,
   Calendar,
-  Clock,
   CheckCircle,
-  XCircle
 } from 'lucide-react-native';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import {
@@ -27,7 +25,7 @@ import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { RecurringInvoice } from '@/types/payments';
-import type { DocumentItem, Currency } from '@/types/business';
+import type { DocumentItem } from '@/types/business';
 
 export default function RecurringInvoicesScreen() {
   const { business, recurringInvoices, addRecurringInvoice, updateRecurringInvoice, deleteRecurringInvoice, addDocument } = useBusiness();
@@ -38,7 +36,10 @@ export default function RecurringInvoicesScreen() {
   const [showModal, setShowModal] = useState(false);
 
   // Ensure recurringInvoices is always an array
-  const safeRecurringInvoices = Array.isArray(recurringInvoices) ? recurringInvoices : [];
+  const safeRecurringInvoices = useMemo(
+    () => (Array.isArray(recurringInvoices) ? recurringInvoices : []),
+    [recurringInvoices]
+  );
 
   useEffect(() => {
     Animated.parallel([
@@ -268,11 +269,6 @@ export default function RecurringInvoicesScreen() {
   const removeItem = (index: number) => {
     setItems(items.filter((_, i) => i !== index));
   };
-
-  const activeInvoices = useMemo(() => 
-    safeRecurringInvoices.filter(r => r.isActive),
-    [safeRecurringInvoices]
-  );
 
   const { subtotal, tax, total } = calculateTotals();
 

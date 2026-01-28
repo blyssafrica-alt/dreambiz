@@ -29,9 +29,6 @@ export default function AccountsScreen() {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [activeTab, setActiveTab] = useState<'receivable' | 'payable'>('receivable');
 
-  // Ensure documents is always an array
-  const safeDocuments = useMemo(() => Array.isArray(documents) ? documents : [], [documents]);
-
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {

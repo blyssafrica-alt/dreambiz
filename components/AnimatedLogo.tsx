@@ -173,7 +173,10 @@ export default function AnimatedLogo({
   let logoSource;
   try {
     logoSource = require('@/assets/images/splash-icon.png');
-  } catch (e) {
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('AnimatedLogo: splash icon not found', error);
+    }
     // Logo not found - will use gradient circle
     logoSource = null;
   }

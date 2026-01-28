@@ -45,10 +45,14 @@ exp://127.0.0.1:8081
 
 ## Step 3: App Scheme Configuration
 
-Your app is already configured with the scheme `dreambiz` in `app.json`:
+Your app is already configured with the scheme `dreambiz` in `app.config.js`:
 
-```json
-"scheme": "dreambiz"
+```js
+export default {
+  expo: {
+    scheme: "dreambiz",
+  },
+};
 ```
 
 This means your deep link URLs will be:
@@ -136,7 +140,7 @@ After configuring:
 ### "Invalid redirect URL" error:
 - Check that the redirect URL exactly matches one in your Supabase dashboard
 - Ensure no trailing slashes for mobile schemes
-- Verify the scheme matches your `app.json` scheme
+- Verify the scheme matches your `app.config.js` scheme
 
 ### Email links not working:
 - Check email template redirect URLs
@@ -145,13 +149,13 @@ After configuring:
 - Use `dreambiz://auth/callback` for email link redirects
 
 ### Deep links not working on mobile:
-- Verify `scheme` in `app.json` matches Supabase redirect URLs
+- Verify `scheme` in `app.config.js` matches Supabase redirect URLs
 - Check that app is properly configured for deep linking
 - Test with `npx uri-scheme open dreambiz:// --ios` or `--android`
 
 ## Current Configuration
 
-Based on your `app.json`:
+Based on your `app.config.js`:
 - **App Scheme**: `dreambiz`
 - **Supabase URL**: `https://oqcgerfjjiozltkmmkxf.supabase.co`
 - **Production Domain**: (Set this to your actual domain)

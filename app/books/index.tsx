@@ -1,6 +1,6 @@
 import { Stack, router } from 'expo-router';
 import { BookOpen, ArrowLeft, Star } from 'lucide-react-native';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,18 @@ export default function BooksScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
+  const loadBooks = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const publishedBooks = await getAllPublishedBooks();
+      setBooks(publishedBooks);
+    } catch (error) {
+      console.error('Failed to load books:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadBooks();
     Animated.parallel([
@@ -37,22 +49,9 @@ export default function BooksScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
-
-  const loadBooks = async () => {
-    try {
-      setIsLoading(true);
-      const publishedBooks = await getAllPublishedBooks();
-      setBooks(publishedBooks);
-    } catch (error) {
-      console.error('Failed to load books:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [fadeAnim, loadBooks, slideAnim]);
 
   const featuredBooks = books.filter(b => b.isFeatured);
-  const regularBooks = books.filter(b => !b.isFeatured);
 
   const handleBookPress = (book: Book) => {
     // Navigate to book detail page

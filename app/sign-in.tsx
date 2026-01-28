@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Mail, Lock, LogIn, ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
+import { Mail, Lock, ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   View,
@@ -13,7 +13,6 @@ import {
   Platform,
   Alert as RNAlert,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/hooks/useTranslation';

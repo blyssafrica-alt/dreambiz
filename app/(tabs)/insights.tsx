@@ -2,16 +2,11 @@ import { Stack, useRouter } from 'expo-router';
 import { 
   Sparkles,
   TrendingUp,
-  TrendingDown,
   AlertTriangle,
   Lightbulb,
-  Target,
-  DollarSign,
-  Package,
-  Users,
-  Calendar
+  Target
 } from 'lucide-react-native';
-import { useMemo, useRef, useEffect } from 'react';
+import { useMemo, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,7 +14,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Animated,
-  Platform,
 } from 'react-native';
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
@@ -48,10 +42,10 @@ export default function InsightsScreen() {
   const slideAnim = useRef(new Animated.Value(30)).current;
 
   // Ensure arrays are always valid
-  const safeTransactions = Array.isArray(transactions) ? transactions : [];
-  const safeProducts = Array.isArray(products) ? products : [];
-  const safeCustomers = Array.isArray(customers) ? customers : [];
-  const safeBudgets = Array.isArray(budgets) ? budgets : [];
+  const safeTransactions = useMemo(() => (Array.isArray(transactions) ? transactions : []), [transactions]);
+  const safeProducts = useMemo(() => (Array.isArray(products) ? products : []), [products]);
+  const safeCustomers = useMemo(() => (Array.isArray(customers) ? customers : []), [customers]);
+  const safeBudgets = useMemo(() => (Array.isArray(budgets) ? budgets : []), [budgets]);
 
   useEffect(() => {
     Animated.parallel([
@@ -69,10 +63,10 @@ export default function InsightsScreen() {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = useCallback((amount: number) => {
     const symbol = business?.currency === 'USD' ? '$' : 'ZWL';
     return `${symbol}${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
-  };
+  }, [business?.currency]);
 
   const insights = useMemo(() => {
     const result: Insight[] = [];
@@ -244,7 +238,7 @@ export default function InsightsScreen() {
     // Sort by priority
     const priorityOrder = { high: 0, medium: 1, low: 2 };
     return result.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
-  }, [transactions, products, budgets, customers, formatCurrency]);
+  }, [safeTransactions, safeProducts, safeBudgets, safeCustomers, formatCurrency]);
 
   const getInsightIcon = (type: Insight['type']) => {
     switch (type) {

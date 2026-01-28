@@ -10,7 +10,6 @@ import {
   Mail,
   MapPin,
   User,
-  Eye,
   FileText,
   DollarSign,
   TrendingUp,
@@ -44,8 +43,8 @@ export default function SuppliersScreen() {
   const [showModal, setShowModal] = useState(false);
 
   // Ensure arrays are always valid
-  const safeSuppliers = Array.isArray(suppliers) ? suppliers : [];
-  const safeDocuments = Array.isArray(documents) ? documents : [];
+  const safeSuppliers = useMemo(() => (Array.isArray(suppliers) ? suppliers : []), [suppliers]);
+  const safeDocuments = useMemo(() => (Array.isArray(documents) ? documents : []), [documents]);
 
   useEffect(() => {
     Animated.parallel([
@@ -129,7 +128,7 @@ export default function SuppliersScreen() {
       deliveryRate,
       paidOrders: paidOrders.length,
     };
-  }, [selectedSupplier, documents]);
+  }, [selectedSupplier, safeDocuments]);
 
   const handleSave = async () => {
     if (!name) {
@@ -291,9 +290,13 @@ export default function SuppliersScreen() {
           </View>
         ) : (
           filteredSuppliers.map(supplier => (
-            <View
+            <TouchableOpacity
               key={supplier.id}
               style={[styles.supplierCard, { backgroundColor: theme.background.card }]}
+              onPress={() => {
+                setSelectedSupplier(supplier);
+                setShowSupplierDetail(true);
+              }}
             >
               <View style={styles.supplierHeader}>
                 <View style={styles.supplierInfo}>
@@ -380,7 +383,7 @@ export default function SuppliersScreen() {
                   </Text>
                 )}
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         )}
           </ScrollView>

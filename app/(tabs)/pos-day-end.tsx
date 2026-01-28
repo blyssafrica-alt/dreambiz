@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,6 @@ import {
   Animated,
   RefreshControl,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,8 +31,6 @@ import {
   RefreshCw,
   X,
   FileText,
-  Calendar,
-  Users,
   Percent,
   ShoppingBag,
 } from 'lucide-react-native';
@@ -68,7 +65,6 @@ export default function POSDayEndScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
   const { business } = useBusiness();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -82,23 +78,90 @@ export default function POSDayEndScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
-  useEffect(() => {
-    loadTodayShift();
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
+  const createNewShift = useCallback(async () => {
+    if (!business?.id || !user?.id) return;
 
-  const loadTodayShift = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      // Get last closed shift to get opening cash
+      const { data: lastShift } = await supabase
+        .from('pos_shifts')
+        .select('actual_cash, cash_at_hand')
+        .eq('business_id', business.id)
+        .eq('status', 'closed')
+        .order('shift_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const openingCash = lastShift?.actual_cash || lastShift?.cash_at_hand || 0;
+
+      // Try to get current employee if user is an employee
+      let currentEmployeeId: string | null = null;
+      try {
+        const { data: employee } = await supabase
+          .from('employees')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .eq('is_active', true)
+          .maybeSingle();
+        currentEmployeeId = employee?.id || null;
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('Failed to check employee record:', error);
+        }
+      }
+
+      const { data: shiftData, error } = await supabase
+        .from('pos_shifts')
+        .insert({
+          user_id: user.id,
+          business_id: business.id,
+          shift_date: today,
+          opening_cash: openingCash,
+          opened_by: user.id,
+          current_employee_id: currentEmployeeId,
+          status: 'open',
+          currency: business.currency || 'USD',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (shiftData) {
+        const shift: POSShift = {
+          id: shiftData.id,
+          shiftDate: shiftData.shift_date,
+          shiftStartTime: shiftData.shift_start_time,
+          shiftEndTime: shiftData.shift_end_time,
+          status: shiftData.status,
+          openingCash: parseFloat(shiftData.opening_cash || '0'),
+          expectedCash: parseFloat(shiftData.expected_cash || '0'),
+          actualCash: null,
+          cashAtHand: null,
+          cashDiscrepancy: null,
+          totalSales: 0,
+          cashSales: 0,
+          cardSales: 0,
+          mobileMoneySales: 0,
+          bankTransferSales: 0,
+          totalTransactions: 0,
+          totalReceipts: 0,
+          totalDiscounts: 0,
+          currency: shiftData.currency || business.currency || 'USD',
+          notes: null,
+          discrepancyNotes: null,
+        };
+        setTodayShift(shift);
+      }
+    } catch (error: any) {
+      console.error('Failed to create shift:', error);
+      Alert.alert('Error', error.message || 'Failed to create new shift');
+    }
+  }, [business?.currency, business?.id, user?.id]);
+
+  const loadTodayShift = useCallback(async () => {
     if (!business?.id || !user?.id) return;
 
     try {
@@ -163,88 +226,23 @@ export default function POSDayEndScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [business?.currency, business?.id, createNewShift, user?.id]);
 
-  const createNewShift = async () => {
-    if (!business?.id || !user?.id) return;
-
-    try {
-      const today = new Date().toISOString().split('T')[0];
-
-      // Get last closed shift to get opening cash
-      const { data: lastShift } = await supabase
-        .from('pos_shifts')
-        .select('actual_cash, cash_at_hand')
-        .eq('business_id', business.id)
-        .eq('status', 'closed')
-        .order('shift_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const openingCash = lastShift?.actual_cash || lastShift?.cash_at_hand || 0;
-
-      // Try to get current employee if user is an employee
-      let currentEmployeeId: string | null = null;
-      try {
-        const { data: employee } = await supabase
-          .from('employees')
-          .select('id')
-          .eq('auth_user_id', user.id)
-          .eq('is_active', true)
-          .maybeSingle();
-        currentEmployeeId = employee?.id || null;
-      } catch (e) {
-        // User might not be an employee (could be business owner)
-      }
-
-      const { data: shiftData, error } = await supabase
-        .from('pos_shifts')
-        .insert({
-          user_id: user.id,
-          business_id: business.id,
-          shift_date: today,
-          opening_cash: openingCash,
-          opened_by: user.id,
-          current_employee_id: currentEmployeeId,
-          status: 'open',
-          currency: business.currency || 'USD',
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      if (shiftData) {
-        const shift: POSShift = {
-          id: shiftData.id,
-          shiftDate: shiftData.shift_date,
-          shiftStartTime: shiftData.shift_start_time,
-          shiftEndTime: shiftData.shift_end_time,
-          status: shiftData.status,
-          openingCash: parseFloat(shiftData.opening_cash || '0'),
-          expectedCash: parseFloat(shiftData.expected_cash || '0'),
-          actualCash: null,
-          cashAtHand: null,
-          cashDiscrepancy: null,
-          totalSales: 0,
-          cashSales: 0,
-          cardSales: 0,
-          mobileMoneySales: 0,
-          bankTransferSales: 0,
-          totalTransactions: 0,
-          totalReceipts: 0,
-          totalDiscounts: 0,
-          currency: shiftData.currency || business.currency || 'USD',
-          notes: null,
-          discrepancyNotes: null,
-        };
-        setTodayShift(shift);
-      }
-    } catch (error: any) {
-      console.error('Failed to create shift:', error);
-      Alert.alert('Error', error.message || 'Failed to create new shift');
-    }
-  };
+  useEffect(() => {
+    loadTodayShift();
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, loadTodayShift, slideAnim]);
 
   const refreshShiftTotals = async () => {
     if (!todayShift?.id) return;

@@ -127,7 +127,7 @@ npx expo run:android --variant release
 
 ## 🔧 Configuration Files
 
-### app.json
+### app.config.js
 - App name, version, bundle identifiers
 - Icons, splash screens
 - Permissions and plugins
@@ -146,7 +146,7 @@ npx expo run:android --variant release
 ## 📝 Environment Variables
 
 Environment variables are configured in:
-1. **app.json** → `extra` section (for builds)
+1. **app.config.js** → `extra` section (for builds)
 2. **.env** file (for local development)
 3. **EAS Secrets** (for cloud builds)
 
@@ -162,14 +162,14 @@ eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "
 
 ## ✅ Pre-Build Checklist
 
-- [ ] Update version in `app.json`
+- [ ] Update version in `app.config.js`
 - [ ] Update build number (iOS) / version code (Android)
 - [ ] Verify all environment variables are set
 - [ ] Test app in development mode
 - [ ] Run `npm run lint` to check for errors
 - [ ] Verify all assets (icons, splash screens) exist
 - [ ] Check bundle identifiers match your developer accounts
-- [ ] Review permissions in `app.json`
+- [ ] Review permissions in `app.config.js`
 
 ## 🐛 Troubleshooting
 

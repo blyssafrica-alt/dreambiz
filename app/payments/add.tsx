@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
-import { ArrowLeft, Save, DollarSign, Camera, X } from 'lucide-react-native';
+import { ArrowLeft, Save, Camera, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
@@ -85,7 +85,7 @@ export default function AddPaymentScreen() {
               contentType = mimeMap[fileExt] || 'image/jpeg';
             }
 
-            const { data, error } = await supabase.storage
+            const { error } = await supabase.storage
               .from('payment_proofs')
               .upload(filePath, decode(asset.base64), {
                 contentType: contentType,

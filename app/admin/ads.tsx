@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,7 +9,6 @@ import { ArrowLeft, Plus, Megaphone, TrendingUp, Eye, MousePointerClick, X, Save
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Advertisement, AdType, AdStatus } from '@/types/super-admin';
 import * as ImagePicker from 'expo-image-picker';
-import { Image } from 'react-native';
 import { decode } from 'base64-arraybuffer';
 
 export default function AdsManagementScreen() {

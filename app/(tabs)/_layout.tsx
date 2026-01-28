@@ -5,7 +5,6 @@ import {
   FileCheck, 
   CreditCard, 
   Grid3x3,
-  ShoppingCart,
   ScanLine
 } from "lucide-react-native";
 import React, { useEffect, useRef } from "react";
@@ -45,7 +44,7 @@ function AnimatedTabIcon({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [focused]);
+  }, [focused, opacityAnim, scaleAnim]);
 
   if (focused && gradientColors) {
     return (
@@ -152,76 +151,72 @@ export default function TabLayout() {
       }}
     >
       {/* Dashboard tab - always visible (core feature) */}
-      {shouldShowAsTab('dashboard') && (
-        <Tabs.Screen
-          name="index"
-          options={{
-            title: "Dashboard",
-            tabBarIcon: ({ color, focused }) => (
-              <AnimatedTabIcon
-                Icon={LayoutDashboard}
-                color={color}
-                focused={focused}
-                gradientColors={['#6366F1', '#8B5CF6']}
-              />
-            ),
-          }}
-        />
-      )}
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Dashboard",
+          href: shouldShowAsTab('dashboard') ? undefined : null,
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon
+              Icon={LayoutDashboard}
+              color={color}
+              focused={focused}
+              gradientColors={['#6366F1', '#8B5CF6']}
+            />
+          ),
+        }}
+      />
       
       {/* Finances tab - respect feature settings */}
-      {shouldShowAsTab('finances') && (
-        <Tabs.Screen
-          name="finances"
-          options={{
-            title: "Finances",
-            tabBarIcon: ({ color, focused }) => (
-              <AnimatedTabIcon
-                Icon={TrendingUp}
-                color={color}
-                focused={focused}
-                gradientColors={['#10B981', '#059669']}
-              />
-            ),
-          }}
-        />
-      )}
+      <Tabs.Screen
+        name="finances"
+        options={{
+          title: "Finances",
+          href: shouldShowAsTab('finances') ? undefined : null,
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon
+              Icon={TrendingUp}
+              color={color}
+              focused={focused}
+              gradientColors={['#10B981', '#059669']}
+            />
+          ),
+        }}
+      />
       
       {/* Documents tab - respect feature settings */}
-      {shouldShowAsTab('documents') && (
-        <Tabs.Screen
-          name="documents"
-          options={{
-            title: "Documents",
-            tabBarIcon: ({ color, focused }) => (
-              <AnimatedTabIcon
-                Icon={FileCheck}
-                color={color}
-                focused={focused}
-                gradientColors={['#3B82F6', '#2563EB']}
-              />
-            ),
-          }}
-        />
-      )}
+      <Tabs.Screen
+        name="documents"
+        options={{
+          title: "Documents",
+          href: shouldShowAsTab('documents') ? undefined : null,
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon
+              Icon={FileCheck}
+              color={color}
+              focused={focused}
+              gradientColors={['#3B82F6', '#2563EB']}
+            />
+          ),
+        }}
+      />
       
       {/* POS tab - visible only for retail businesses (primary feature) */}
-      {showPOSTab && (
-        <Tabs.Screen
-          name="pos"
-          options={{
-            title: "POS",
-            tabBarIcon: ({ color, focused }) => (
-              <AnimatedTabIcon
-                Icon={ScanLine}
-                color={color}
-                focused={focused}
-                gradientColors={['#F59E0B', '#D97706']}
-              />
-            ),
-          }}
-        />
-      )}
+      <Tabs.Screen
+        name="pos"
+        options={{
+          title: "POS",
+          href: showPOSTab ? undefined : null,
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon
+              Icon={ScanLine}
+              color={color}
+              focused={focused}
+              gradientColors={['#F59E0B', '#D97706']}
+            />
+          ),
+        }}
+      />
       
       {/* Payments tab - always visible (no feature config, but allow if needed) */}
       <Tabs.Screen
@@ -267,8 +262,6 @@ export default function TabLayout() {
       <Tabs.Screen name="tax" options={{ href: null }} />
       <Tabs.Screen name="accounts" options={{ href: null }} />
       <Tabs.Screen name="recurring-invoices" options={{ href: null }} />
-      {/* POS is conditionally shown as main tab above, but hide it here if not retail */}
-      {!showPOSTab && <Tabs.Screen name="pos" options={{ href: null }} />}
       <Tabs.Screen name="pos-day-end" options={{ href: null }} />
       <Tabs.Screen name="appointments" options={{ href: null }} />
       <Tabs.Screen name="integrations" options={{ href: null }} />

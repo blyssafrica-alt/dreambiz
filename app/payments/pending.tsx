@@ -9,14 +9,14 @@ import {
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
-import { ArrowLeft, Calendar, DollarSign } from 'lucide-react-native';
+import { ArrowLeft, Calendar } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function PendingPaymentsScreen() {
   const { theme } = useTheme();
   const { documents = [] } = useBusiness();
 
-  const safeDocuments = Array.isArray(documents) ? documents : [];
+  const safeDocuments = useMemo(() => (Array.isArray(documents) ? documents : []), [documents]);
   
   const pendingPayments = useMemo(() => {
     return safeDocuments

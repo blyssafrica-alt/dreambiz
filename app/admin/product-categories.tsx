@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,12 +8,11 @@ import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Edit, Trash2, Folder, X, Save } from 'lucide-react-native';
 import type { ProductCategory } from '@/types/super-admin';
 import * as ImagePicker from 'expo-image-picker';
-import { Image } from 'react-native';
 import { decode } from 'base64-arraybuffer';
 
 export default function ProductCategoriesScreen() {
   const { theme } = useTheme();
-  const { user, isSuperAdmin } = useAuth();
+  const { isSuperAdmin } = useAuth();
   const { refreshProducts } = useProducts();
   const router = useRouter();
   const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -30,16 +29,7 @@ export default function ProductCategoriesScreen() {
   });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
-  useEffect(() => {
-    if (!isSuperAdmin) {
-      Alert.alert('Access Denied', 'Only super admins can access this page');
-      router.back();
-      return;
-    }
-    loadCategories();
-  }, [isSuperAdmin]);
-
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase
@@ -68,7 +58,16 @@ export default function ProductCategoriesScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      Alert.alert('Access Denied', 'Only super admins can access this page');
+      router.back();
+      return;
+    }
+    loadCategories();
+  }, [isSuperAdmin, loadCategories, router]);
 
   const handleOpenModal = (category?: ProductCategory) => {
     if (category) {
@@ -137,7 +136,7 @@ export default function ProductCategoriesScreen() {
             const fileName = `category-${Date.now()}.${fileExt}`;
             const filePath = `category_images/${fileName}`;
 
-            const { data, error } = await supabase.storage
+            const { error } = await supabase.storage
               .from('category_images')
               .upload(filePath, decode(asset.base64), {
                 contentType: asset.mimeType || 'image/jpeg',

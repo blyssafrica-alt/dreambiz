@@ -1,5 +1,5 @@
 // Import gesture handler FIRST - this is critical for touch events
-import 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Initialize monitoring services BEFORE any other imports
 import { initMonitoring } from '@/lib/monitoring';
@@ -9,8 +9,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
-// @ts-ignore - react-native-gesture-handler types are included in the package
-import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BusinessContext, useBusiness } from "@/contexts/BusinessContext";
 import { AuthContext, useAuth } from "@/contexts/AuthContext";
 import { ThemeContext, useTheme } from "@/contexts/ThemeContext";
@@ -29,6 +27,14 @@ SplashScreen.preventAutoHideAsync();
 // Initialize monitoring (Sentry, PostHog)
 initMonitoring();
 
+if (!__DEV__) {
+  // Disable noisy logs in production builds.
+  console.log = () => {};
+  console.info = () => {};
+  console.warn = () => {};
+  console.debug = () => {};
+}
+
 const queryClient = new QueryClient();
 
 function RootLayoutNav() {
@@ -43,7 +49,7 @@ function RootLayoutNav() {
   const isLoading = businessLoading || authLoading;
 
   // Hide loading screen after initial load completes - prevent flicker with debouncing
-  const loadingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const loadingTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   
   React.useEffect(() => {
     // Clear any pending timeout
@@ -71,7 +77,7 @@ function RootLayoutNav() {
   // Check email verification status (only when authenticated)
   React.useEffect(() => {
     let isMounted = true;
-    let checkInterval: NodeJS.Timeout | null = null;
+    let checkInterval: ReturnType<typeof setInterval> | null = null;
 
     const checkEmailVerification = async () => {
       // Only check if user is authenticated
@@ -95,7 +101,7 @@ function RootLayoutNav() {
         
         // CRITICAL: Refresh the session first to get the latest email verification status
         // This is especially important when user clicks email verification link and comes back
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        const { error: refreshError } = await supabase.auth.refreshSession();
         if (refreshError) {
           // If refresh fails, try using current session
           console.log('Session refresh error (non-critical):', refreshError.message);
@@ -330,8 +336,10 @@ export default function RootLayout() {
       try {
         // Hide immediately, no delay - custom LoadingScreen will show right away
         await SplashScreen.hideAsync();
-      } catch (e) {
-        // Ignore errors
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('Failed to hide splash screen:', error);
+        }
       }
     })();
   }, []);

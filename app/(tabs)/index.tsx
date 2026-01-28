@@ -19,7 +19,6 @@ import {
   Bell,
   Folder,
   FileText as FileTextIcon,
-  Settings,
   Users as UsersIcon,
   TrendingUp as TrendingUpIcon,
   Receipt,
@@ -43,7 +42,7 @@ import { useAds } from '@/contexts/AdContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { Alert as AlertType } from '@/types/business';
 import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
-import { LineChart, PieChart, BarChart, GroupedBarChart } from '@/components/Charts';
+import { LineChart, PieChart, GroupedBarChart } from '@/components/Charts';
 import GlobalSearch from '@/components/GlobalSearch';
 import { AdCard } from '@/components/AdCard';
 import AnimatedLogo from '@/components/AnimatedLogo';
@@ -153,38 +152,6 @@ export default function DashboardScreen() {
     return colors[index];
   }, []);
 
-  // Recent activity (last 5 transactions and documents)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const recentActivity = useMemo(() => {
-    const recentTransactions = transactions
-      .slice(0, 5)
-      .map(t => ({
-        type: 'transaction' as const,
-        id: t.id,
-        title: t.description,
-        subtitle: `${t.type === 'sale' ? 'Sale' : 'Expense'} • ${formatCurrency(t.amount)}`,
-        date: t.date,
-        icon: t.type === 'sale' ? 'arrow-up' : 'arrow-down',
-        color: t.type === 'sale' ? theme.accent.success : theme.accent.danger,
-      }));
-
-    const recentDocuments = documents
-      .slice(0, 3)
-      .map(d => ({
-        type: 'document' as const,
-        id: d.id,
-        title: `${d.documentNumber} - ${d.customerName}`,
-        subtitle: `${d.type} • ${formatCurrency(d.total)}`,
-        date: d.date,
-        icon: 'file-text',
-        color: theme.accent.primary,
-      }));
-
-    return [...recentTransactions, ...recentDocuments]
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 5);
-  }, [transactions, documents, theme, formatCurrency]);
-
   // Prepare chart data based on selected period
   const chartData = useMemo(() => {
     const now = new Date();
@@ -224,7 +191,7 @@ export default function DashboardScreen() {
       case 'month':
         // Calculate last 12 months: 11 months ago to current month
         // Store with original order for data matching
-        const monthDataWithOrder: Array<{ date: string; monthIndex: number; year: number; originalIndex: number }> = [];
+        const monthDataWithOrder: { date: string; monthIndex: number; year: number; originalIndex: number }[] = [];
         for (let i = 0; i < 12; i++) {
           const monthsAgo = 11 - i; // 11 months ago (i=0) to current month (i=11)
           const date = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);

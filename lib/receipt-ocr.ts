@@ -280,7 +280,7 @@ export async function extractTextFromImage(imageUri: string): Promise<string> {
   // Get API key from environment - try multiple sources like Supabase does
   const apiKey = 
     Constants.expoConfig?.extra?.EXPO_PUBLIC_OCR_SPACE_API_KEY ||
-    Constants.manifest?.extra?.EXPO_PUBLIC_OCR_SPACE_API_KEY ||
+    (Constants.manifest as any)?.extra?.EXPO_PUBLIC_OCR_SPACE_API_KEY ||
     process.env.EXPO_PUBLIC_OCR_SPACE_API_KEY ||
     'K82828017188957'; // Fallback to the provided key
   

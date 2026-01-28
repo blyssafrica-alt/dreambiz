@@ -8,7 +8,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   BarChart3,
-  DollarSign
 } from 'lucide-react-native';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { LineChart, BarChart } from '@/components/Charts';
@@ -38,7 +37,10 @@ export default function CashflowScreen() {
   const [showModal, setShowModal] = useState(false);
 
   // Ensure cashflowProjections is always an array
-  const safeCashflowProjections = Array.isArray(cashflowProjections) ? cashflowProjections : [];
+  const safeCashflowProjections = useMemo(
+    () => (Array.isArray(cashflowProjections) ? cashflowProjections : []),
+    [cashflowProjections]
+  );
 
   useEffect(() => {
     Animated.parallel([

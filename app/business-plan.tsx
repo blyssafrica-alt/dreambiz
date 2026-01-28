@@ -11,12 +11,10 @@ import {
 } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useBusiness } from '@/contexts/BusinessContext';
-import { useTranslation } from '@/hooks/useTranslation';
 import { exportBusinessPlanToPDF } from '@/lib/business-plan-pdf';
 
 export default function BusinessPlanScreen() {
   const { business, getDashboardMetrics } = useBusiness();
-  const { t } = useTranslation();
   const [metrics, setMetrics] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -185,7 +183,8 @@ export default function BusinessPlanScreen() {
   };
 
   const handleShare = async () => {
-    if (!business || !metrics) {
+    const planText = generateBusinessPlan();
+    if (!business || !metrics || !planText) {
       RNAlert.alert('Error', 'Business data is not loaded yet. Please wait a moment and try again.');
       return;
     }

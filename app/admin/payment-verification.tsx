@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Check, X, Eye, Clock, CheckCircle, XCircle, FileText, BookOpen, CreditCard, RefreshCw } from 'lucide-react-native';
+import { ArrowLeft, Check, X, Eye, Clock, CheckCircle, XCircle, FileText, BookOpen, CreditCard } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
@@ -153,7 +153,7 @@ export default function PaymentVerificationScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [filter]);
+  }, [filter, isSuperAdmin, user?.id]);
 
   const loadPayments = useCallback(async () => {
     try {
@@ -304,7 +304,7 @@ export default function PaymentVerificationScreen() {
         friction: 8,
       }).start();
     }
-  }, [viewMode, mainTabLayouts]);
+  }, [mainTabLayouts, mainTabSlideAnim, viewMode]);
 
   // Animate sub tab indicator
   useEffect(() => {
@@ -316,7 +316,7 @@ export default function PaymentVerificationScreen() {
         friction: 8,
       }).start();
     }
-  }, [subViewMode, subTabLayouts]);
+  }, [subTabLayouts, subTabSlideAnim, subViewMode]);
 
   // Animate filter tab indicator
   useEffect(() => {
@@ -328,7 +328,7 @@ export default function PaymentVerificationScreen() {
         friction: 8,
       }).start();
     }
-  }, [filter, filterTabLayouts]);
+  }, [filter, filterTabLayouts, filterTabSlideAnim]);
 
   const onMainTabLayout = (key: string, event: LayoutChangeEvent) => {
     const { x, width } = event.nativeEvent.layout;
@@ -842,7 +842,7 @@ export default function PaymentVerificationScreen() {
           {viewMode === 'documents' ? filteredPayments.map((payment) => {
             const StatusIcon = getStatusIcon(payment.verificationStatus);
             const statusColor = getStatusColor(payment.verificationStatus);
-            const statusGradient = payment.verificationStatus === 'approved' 
+            const statusGradient: [string, string] = payment.verificationStatus === 'approved' 
               ? ['#10B981', '#059669'] 
               : payment.verificationStatus === 'rejected' 
               ? ['#EF4444', '#DC2626']
@@ -926,7 +926,7 @@ export default function PaymentVerificationScreen() {
           }) : viewMode === 'subscriptions' ? filteredSubPayments.map((payment) => {
             const StatusIcon = getStatusIcon(payment.verification_status);
             const statusColor = getStatusColor(payment.verification_status);
-            const statusGradient = payment.verification_status === 'approved' 
+            const statusGradient: [string, string] = payment.verification_status === 'approved' 
               ? ['#10B981', '#059669'] 
               : payment.verification_status === 'rejected' 
               ? ['#EF4444', '#DC2626']
@@ -1013,7 +1013,7 @@ export default function PaymentVerificationScreen() {
           }) : filteredBookPurchases.map((purchase) => {
             const StatusIcon = getStatusIcon(purchase.payment_status);
             const statusColor = getStatusColor(purchase.payment_status);
-            const statusGradient = purchase.payment_status === 'completed' 
+            const statusGradient: [string, string] = purchase.payment_status === 'completed' 
               ? ['#10B981', '#059669'] 
               : purchase.payment_status === 'failed' || purchase.payment_status === 'refunded'
               ? ['#EF4444', '#DC2626']

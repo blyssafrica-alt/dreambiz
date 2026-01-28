@@ -10,7 +10,6 @@ import {
   StatusBar,
   Alert as RNAlert,
   Animated,
-  ActivityIndicator,
   AppState,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -28,7 +27,6 @@ export default function VerifyEmailScreen() {
   const [isChecking, setIsChecking] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [email, setEmail] = useState(authUser?.email || '');
-  const [lastResendTime, setLastResendTime] = useState(0);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [checkMessage, setCheckMessage] = useState<string | null>(null);
 
@@ -100,62 +98,6 @@ export default function VerifyEmailScreen() {
     return () => clearTimeout(timeout);
   }, [authUser, hasOnboarded]);
 
-  useEffect(() => {
-    // Set email from authUser
-    if (authUser?.email) {
-      setEmail(authUser.email);
-    }
-    
-    // Animate entrance
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    
-    // Check if email is already verified (silent check - no UI updates)
-    checkEmailStatus(false);
-    
-    // Poll for email verification every 3 seconds (silent - no UI blinking)
-    // Use longer interval to reduce glitches and unnecessary checks
-    const interval = setInterval(() => {
-      if (!isVerified) {
-        checkEmailStatus(false); // Silent check - won't cause button to blink
-      }
-    }, 3000);
-
-    // CRITICAL: Listen for app state changes to refresh session when app comes to foreground
-    // This handles the case when user clicks email link and returns to app
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (nextAppState === 'active') {
-        // App came to foreground - refresh session to check email verification (silent)
-        checkEmailStatus(false);
-      }
-    });
-
-    return () => {
-      clearInterval(interval);
-      subscription.remove();
-    };
-  }, [authUser]);
-
-  // CRITICAL: Refresh session when screen comes into focus
-  // This handles the case when user clicks email link and navigates back to this screen
-  useFocusEffect(
-    React.useCallback(() => {
-      // Refresh session immediately when screen comes into focus (silent check)
-      checkEmailStatus(false);
-    }, [])
-  );
-
   // Pulse animation for mail icon
   useEffect(() => {
     if (!isVerified) {
@@ -176,7 +118,7 @@ export default function VerifyEmailScreen() {
       pulse.start();
       return () => pulse.stop();
     }
-  }, [isVerified]);
+  }, [isVerified, pulseAnim]);
 
   // Rotate animation for refresh icon
   useEffect(() => {
@@ -193,7 +135,7 @@ export default function VerifyEmailScreen() {
     } else {
       rotateAnim.setValue(0);
     }
-  }, [isChecking]);
+  }, [isChecking, rotateAnim]);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -205,7 +147,7 @@ export default function VerifyEmailScreen() {
     }
   }, [resendCooldown]);
 
-  const checkEmailStatus = async (showUI = false) => {
+  const checkEmailStatus = React.useCallback(async (showUI = false) => {
     if (isVerified) return; // Don't check if already verified
     
     try {
@@ -230,7 +172,7 @@ export default function VerifyEmailScreen() {
       // CRITICAL: Refresh session FIRST to get latest tokens from server
       // This is essential when email is verified on another device - we need fresh tokens
       // that reflect the updated verification status
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      const { error: refreshError } = await supabase.auth.refreshSession();
       if (refreshError) {
         console.log('Session refresh error (non-critical):', refreshError.message);
         // Continue with getUser even if refresh fails - might still work
@@ -365,7 +307,63 @@ export default function VerifyEmailScreen() {
         setTimeout(() => setCheckMessage(null), 3000);
       }
     }
-  };
+  }, [isVerified, scaleAnim]);
+
+  useEffect(() => {
+    // Set email from authUser
+    if (authUser?.email) {
+      setEmail(authUser.email);
+    }
+    
+    // Animate entrance
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    
+    // Check if email is already verified (silent check - no UI updates)
+    checkEmailStatus(false);
+    
+    // Poll for email verification every 3 seconds (silent - no UI blinking)
+    // Use longer interval to reduce glitches and unnecessary checks
+    const interval = setInterval(() => {
+      if (!isVerified) {
+        checkEmailStatus(false); // Silent check - won't cause button to blink
+      }
+    }, 3000);
+
+    // CRITICAL: Listen for app state changes to refresh session when app comes to foreground
+    // This handles the case when user clicks email link and returns to app
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        // App came to foreground - refresh session to check email verification (silent)
+        checkEmailStatus(false);
+      }
+    });
+
+    return () => {
+      clearInterval(interval);
+      subscription.remove();
+    };
+  }, [authUser, checkEmailStatus, fadeAnim, isVerified, scaleAnim]);
+
+  // CRITICAL: Refresh session when screen comes into focus
+  // This handles the case when user clicks email link and navigates back to this screen
+  useFocusEffect(
+    React.useCallback(() => {
+      // Refresh session immediately when screen comes into focus (silent check)
+      checkEmailStatus(false);
+    }, [checkEmailStatus])
+  );
 
   const handleResendEmail = async () => {
     if (!email) {
@@ -396,7 +394,6 @@ export default function VerifyEmailScreen() {
       if (error) {
         RNAlert.alert('Error', error.message || 'Failed to resend verification email');
       } else {
-        setLastResendTime(Date.now());
         setResendCooldown(60); // 60 second cooldown
         RNAlert.alert(
           'Email Sent',
@@ -517,7 +514,7 @@ export default function VerifyEmailScreen() {
                       Check Your Inbox
                     </Text>
                     <Text style={[styles.infoText, { color: theme.text.secondary }]}>
-                      We've sent a verification email to {email}. Click the link in the email to verify your account.
+                      We&apos;ve sent a verification email to {email}. Click the link in the email to verify your account.
                     </Text>
                   </View>
                 </View>
@@ -527,7 +524,7 @@ export default function VerifyEmailScreen() {
                   <View style={styles.instructionHeader}>
                     <Clock size={18} color={theme.text.secondary} />
                     <Text style={[styles.instructionTitle, { color: theme.text.primary }]}>
-                      Didn't receive the email?
+                      Didn&apos;t receive the email?
                     </Text>
                   </View>
                   <View style={styles.instructionList}>

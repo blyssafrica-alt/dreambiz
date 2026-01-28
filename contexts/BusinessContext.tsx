@@ -69,12 +69,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       // Tables without business_id: project_tasks, exchange_rates
       const tablesWithoutBusinessId = ['project_tasks', 'exchange_rates'];
       const buildQuery = (table: string, orderBy: string, orderDir: 'asc' | 'desc' = 'desc', selectFields?: string) => {
-        let query = supabase.from(table);
-        if (selectFields) {
-          query = query.select(selectFields);
-        } else {
-          query = query.select('*');
-        }
+        let query = supabase.from(table).select(selectFields ?? '*') as any;
         query = query.eq('user_id', userId);
         // Only filter by business_id if table has that column
         if (currentBusinessId && !tablesWithoutBusinessId.includes(table)) {
@@ -88,7 +83,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       const queryCache = new Map<string, { promise: Promise<any>; timestamp: number }>();
       const CACHE_TTL = 5000; // 5 seconds cache to prevent duplicate requests
       
-      const safeQuery = async (queryPromise: Promise<any>, tableName: string) => {
+      const safeQuery = async (queryPromise: PromiseLike<any>, tableName: string) => {
         const cacheKey = `${tableName}-${userId}-${currentBusinessId || 'no-business'}`;
         const cached = queryCache.get(cacheKey);
         

@@ -24,10 +24,10 @@ import AnimatedLogo from '@/components/AnimatedLogo';
 
 
 export default function LandingScreen() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isLoading } = useAuth();
   const { theme, isDark } = useTheme();
-  const { settings, updateLanguage } = useSettings();
-  const { t, language } = useTranslation();
+  const { updateLanguage } = useSettings();
+  const { language } = useTranslation();
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   
   const fadeAnim = useRef(new Animated.Value(0)).current;

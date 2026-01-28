@@ -1,16 +1,16 @@
 import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import AnimatedLogo from '@/components/AnimatedLogo';
-import type { LucideIcon } from 'lucide-react-native';
 
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
   icon?: React.ComponentType<any>;
   iconGradient?: [string, string];
+  leftAction?: React.ReactNode;
   rightAction?: React.ReactNode;
   showLogo?: boolean; // Option to show/hide animated logo
 }
@@ -20,6 +20,7 @@ export default function PageHeader({
   subtitle, 
   icon: Icon, 
   iconGradient = ['#0066CC', '#6366F1'],
+  leftAction,
   rightAction,
   showLogo = true, // Show logo by default
 }: PageHeaderProps) {
@@ -35,6 +36,11 @@ export default function PageHeader({
       >
         <View style={styles.header}>
           <View style={styles.headerLeft}>
+            {leftAction && (
+              <View style={styles.headerLeftAction}>
+                {leftAction}
+              </View>
+            )}
             {/* Show animated logo if enabled, otherwise show icon */}
             {showLogo ? (
               <AnimatedLogo 
@@ -93,6 +99,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
     flex: 1,
+  },
+  headerLeftAction: {
+    marginRight: 12,
   },
   headerIcon: {
     width: 56,

@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { 
   Plus, 
   Users,
@@ -8,9 +8,12 @@ import {
   Phone,
   Briefcase,
   DollarSign,
+  Shield,
+  Eye,
+  EyeOff,
   X
 } from 'lucide-react-native';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,16 +24,14 @@ import {
   Alert as RNAlert,
   Modal,
   Animated,
+  Switch,
 } from 'react-native';
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { Employee } from '@/types/business';
-import { router } from 'expo-router';
-import { Shield, Eye, EyeOff } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
-import { Switch } from 'react-native';
 
 export default function EmployeesScreen() {
   const { business, employees, addEmployee, updateEmployee, deleteEmployee } = useBusiness();
@@ -44,6 +45,22 @@ export default function EmployeesScreen() {
   const safeEmployees = Array.isArray(employees) ? employees : [];
 
   const [showPassword, setShowPassword] = useState(false);
+
+  const loadRoles = useCallback(async () => {
+    if (!business?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from('employee_roles')
+        .select('id, name')
+        .eq('business_id', business.id)
+        .order('name');
+      if (!error && data) {
+        setAvailableRoles(data);
+      }
+    } catch (error) {
+      console.error('Failed to load roles:', error);
+    }
+  }, [business?.id]);
 
   useEffect(() => {
     Animated.parallel([
@@ -60,23 +77,7 @@ export default function EmployeesScreen() {
       }),
     ]).start();
     loadRoles();
-  }, [fadeAnim, slideAnim, business]);
-
-  const loadRoles = async () => {
-    if (!business?.id) return;
-    try {
-      const { data, error } = await supabase
-        .from('employee_roles')
-        .select('id, name')
-        .eq('business_id', business.id)
-        .order('name');
-      if (!error && data) {
-        setAvailableRoles(data);
-      }
-    } catch (error) {
-      console.error('Failed to load roles:', error);
-    }
-  };
+  }, [fadeAnim, slideAnim, loadRoles]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

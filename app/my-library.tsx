@@ -1,5 +1,5 @@
 import { Stack, router } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  Alert as RNAlert,
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,7 +17,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import type { Book } from '@/types/books';
 import * as Linking from 'expo-linking';
-import { Alert as RNAlert } from 'react-native';
 
 interface PurchasedBook {
   id: string;
@@ -31,11 +31,7 @@ export default function MyLibraryScreen() {
   const [purchasedBooks, setPurchasedBooks] = useState<PurchasedBook[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadPurchasedBooks();
-  }, [user]);
-
-  const loadPurchasedBooks = async () => {
+  const loadPurchasedBooks = useCallback(async () => {
     if (!user) {
       setIsLoading(false);
       return;
@@ -100,7 +96,11 @@ export default function MyLibraryScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    loadPurchasedBooks();
+  }, [loadPurchasedBooks]);
 
   const handleBookPress = (book: Book) => {
     router.push(`/books/${book.id}` as any);

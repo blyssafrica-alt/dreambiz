@@ -70,8 +70,6 @@ export default function LineChart({
     return { x, y, value };
   });
 
-  const pathData = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-
   const gridLines = 5;
   const gridStep = chartHeight / gridLines;
   

@@ -38,8 +38,6 @@ export default function BarChart({
   }
 
   const rawMaxValue = Math.max(...data.map(d => d.value), 0);
-  // Ensure maxValue is at least 1 to avoid division by zero, but use raw max for display
-  const maxValue = Math.max(rawMaxValue, 1);
   const chartHeight = height - PADDING_TOP - PADDING_BOTTOM;
   const chartWidth = CHART_WIDTH - PADDING_LEFT - PADDING_RIGHT;
   const barWidth = (chartWidth / data.length) * 0.7;

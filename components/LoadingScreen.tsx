@@ -199,7 +199,10 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
   let logoSource;
   try {
     logoSource = require('@/assets/images/splash-icon.png');
-  } catch (e) {
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('LoadingScreen: splash icon not found', error);
+    }
     logoSource = null;
   }
 
@@ -653,6 +656,13 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  fallbackGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fallbackText: {
     fontSize: 48,

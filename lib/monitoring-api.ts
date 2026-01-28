@@ -93,7 +93,7 @@ export async function getSentryStats(): Promise<SentryStats | null> {
       return null;
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as any[];
     
     const now = new Date();
     const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);

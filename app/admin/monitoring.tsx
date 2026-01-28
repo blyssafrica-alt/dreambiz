@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Linking, Animated } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, AlertTriangle, TrendingUp, Users, Activity, ExternalLink, CheckCircle, XCircle, BarChart3, Zap, Shield, Eye, Clock, AlertCircle as AlertIcon, Sparkles, Server, ActivitySquare } from 'lucide-react-native';
+import { ArrowLeft, AlertTriangle, Users, Activity, ExternalLink, CheckCircle, XCircle, BarChart3, Zap, Shield, Clock, AlertCircle as AlertIcon, Sparkles, Server, ActivitySquare } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getMonitoringStatus, getSentryStats, getPostHogStats } from '@/lib/monitoring-api';
-import { Stack } from 'expo-router';
 
 interface MonitoringStatus {
   sentryConfigured: boolean;
@@ -19,14 +18,14 @@ interface SentryStats {
   totalErrors: number;
   unresolvedErrors: number;
   errorsLast24h: number;
-  recentErrors: Array<{
+  recentErrors: {
     id: string;
     title: string;
     count: number;
     lastSeen: string;
     level: string;
     status: string;
-  }>;
+  }[];
 }
 
 interface PostHogStats {
@@ -34,11 +33,11 @@ interface PostHogStats {
   activeUsers24h: number;
   activeUsers7d: number;
   totalEvents: number;
-  topEvents: Array<{
+  topEvents: {
     event: string;
     count: number;
     lastSeen: string;
-  }>;
+  }[];
 }
 
 export default function MonitoringScreen() {
@@ -52,16 +51,7 @@ export default function MonitoringScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const fadeAnim = useState(new Animated.Value(0))[0];
 
-  useEffect(() => {
-    loadData();
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 400,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
     try {
       setIsLoading(true);
       const monitoringStatus = getMonitoringStatus();
@@ -79,7 +69,16 @@ export default function MonitoringScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim, loadData]);
 
   const onRefresh = async () => {
     setRefreshing(true);

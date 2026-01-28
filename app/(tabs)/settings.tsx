@@ -25,7 +25,7 @@ import { supabase } from '@/lib/supabase';
 import { decode } from 'base64-arraybuffer';
 import type { BusinessStage, Currency, DreamBigBook } from '@/types/business';
 import { exportAllData, shareData } from '@/lib/data-export';
-import { DREAMBIG_BOOKS, getBookInfo, getBookFeatures } from '@/constants/books';
+import { DREAMBIG_BOOKS, getBookFeatures } from '@/constants/books';
 import { getAllPublishedBooks } from '@/lib/book-service';
 import type { Book } from '@/types/books';
 
@@ -66,7 +66,7 @@ export default function SettingsScreen() {
   const [showBookModal, setShowBookModal] = useState(false);
   const [databaseBooks, setDatabaseBooks] = useState<Book[]>([]);
   const [isLoadingBooks, setIsLoadingBooks] = useState(false);
-  const [featureConfigs, setFeatureConfigs] = useState<Array<{ featureId: string; name: string }>>([]);
+  const [featureConfigs, setFeatureConfigs] = useState<{ featureId: string; name: string }[]>([]);
   const [name, setName] = useState(business?.name || '');
   const [owner, setOwner] = useState(business?.owner || '');
   const [phone, setPhone] = useState(business?.phone || '');
@@ -333,30 +333,6 @@ export default function SettingsScreen() {
     );
   };
 
-  // Generate a vibrant color from book title/slug
-  const getBookColor = (book: Book): string => {
-    if (book.isFeatured) return '#0066CC';
-    
-    // Use a color palette similar to hardcoded books
-    const colors = [
-      '#8B5CF6', // Purple (like Hire and Lead)
-      '#EC4899', // Pink (like Marketing Mastery)
-      '#6366F1', // Indigo (like Scale Up)
-      '#10B981', // Green
-      '#F59E0B', // Orange
-      '#EF4444', // Red
-      '#06B6D4', // Cyan
-    ];
-    
-    // Generate a consistent color based on book title
-    let hash = 0;
-    const title = book.title || book.slug || '';
-    for (let i = 0; i < title.length; i++) {
-      hash = title.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const index = Math.abs(hash) % colors.length;
-    return colors[index];
-  };
 
   // Helper function to get book info (checks both hardcoded and database books)
   const getSelectedBookInfo = () => {

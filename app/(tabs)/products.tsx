@@ -8,8 +8,7 @@ import {
   Search,
   Filter,
   X,
-  Image as ImageIcon,
-  Camera
+  Image as ImageIcon
 } from 'lucide-react-native';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
@@ -27,7 +26,6 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import PageHeader from '@/components/PageHeader';
 import { supabase } from '@/lib/supabase';
 import { decode } from 'base64-arraybuffer';
 import { useBusiness } from '@/contexts/BusinessContext';
@@ -54,7 +52,7 @@ const PRODUCT_CATEGORIES = [
 export default function ProductsScreen() {
   const { business, products, addProduct, updateProduct, deleteProduct } = useBusiness();
   const { theme } = useTheme();
-  const { hasPermission, isOwner, loading: permissionsLoading } = useEmployeePermissions();
+  const { hasPermission, isOwner } = useEmployeePermissions();
   const { t } = useTranslation();
   const { getAdsForLocation } = useAds();
   const productsAds = getAdsForLocation('products');
@@ -63,7 +61,7 @@ export default function ProductsScreen() {
   const [showModal, setShowModal] = useState(false);
 
   // Ensure products is always an array
-  const safeProducts = Array.isArray(products) ? products : [];
+  const safeProducts = useMemo(() => (Array.isArray(products) ? products : []), [products]);
 
   useEffect(() => {
     Animated.parallel([
@@ -169,7 +167,7 @@ export default function ProductsScreen() {
       bestSelling,
       bestMargin,
     };
-  }, [products, lowStockProducts]);
+  }, [lowStockProducts, safeProducts]);
 
   const handleSave = async () => {
     // Check permissions

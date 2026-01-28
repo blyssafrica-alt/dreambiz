@@ -4,24 +4,22 @@
  */
 
 import { Stack, useLocalSearchParams, router } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
-  Platform,
   Alert as RNAlert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
-import { ArrowLeft, Download, Share2, X } from 'lucide-react-native';
+import { ArrowLeft, Download, Share2 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useBusiness } from '@/contexts/BusinessContext';
 import { supabase } from '@/lib/supabase';
-import { getBookBySlug, getFullChapterContent, getChapterFromBook } from '@/lib/book-service';
+import { getFullChapterContent } from '@/lib/book-service';
 import type { Book, BookChapter } from '@/types/books';
 import ChapterContentView from '@/components/ChapterContentView';
 import * as FileSystem from 'expo-file-system';
@@ -32,7 +30,6 @@ export default function BookReaderScreen() {
   const { id, chapter } = useLocalSearchParams<{ id: string; chapter?: string }>();
   const { theme } = useTheme();
   const { user } = useAuth();
-  const { business } = useBusiness();
   const [book, setBook] = useState<Book | null>(null);
   const [bookUrl, setBookUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,17 +41,7 @@ export default function BookReaderScreen() {
   const [currentChapter, setCurrentChapter] = useState<BookChapter | null>(null);
   const [loadingChapter, setLoadingChapter] = useState(false);
 
-  useEffect(() => {
-    loadBook();
-  }, [id, user]);
-
-  useEffect(() => {
-    if (chapter && book) {
-      loadChapterContent(parseInt(chapter, 10));
-    }
-  }, [chapter, book]);
-
-  const loadBook = async () => {
+  const loadBook = useCallback(async () => {
     if (!id) {
       setError('Book ID not found');
       setLoading(false);
@@ -66,12 +53,13 @@ export default function BookReaderScreen() {
       setError(null);
 
       // Load book data directly from books table
-      const { data: bookData, error: bookError } = await supabase
+      const { data: initialBookData, error: bookError } = await supabase
         .from('books')
         .select('*')
         .eq('id', id)
         .eq('status', 'published')
         .single();
+      let bookData = initialBookData;
 
       if (bookError || !bookData) {
         // Try to check if user has access via purchase
@@ -169,30 +157,33 @@ export default function BookReaderScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [chapter, id, user]);
 
-  const loadChapterContent = async (chapterNumber: number) => {
+  const loadChapterContent = useCallback(async (chapterNumber: number) => {
     if (!book) return;
-
+    setLoadingChapter(true);
     try {
-      setLoadingChapter(true);
-      
-      // Get chapter content
-      const chapterData = await getFullChapterContent(book.slug, chapterNumber);
-      
-      if (chapterData) {
-        setCurrentChapter(chapterData.chapter);
-        setChapterContent(chapterData.content);
-      } else {
-        setError('Chapter content not available.');
-      }
-    } catch (err: any) {
-      console.error('Error loading chapter:', err);
-      setError('Failed to load chapter content.');
+      const contentData = await getFullChapterContent(book.slug, chapterNumber);
+      setChapterContent(contentData?.content || '');
+      setCurrentChapter(contentData?.chapter || null);
+    } catch (error: any) {
+      console.error('Failed to load chapter content:', error);
+      RNAlert.alert('Error', error.message || 'Failed to load chapter content');
     } finally {
       setLoadingChapter(false);
     }
-  };
+  }, [book]);
+
+  useEffect(() => {
+    loadBook();
+  }, [loadBook]);
+
+  useEffect(() => {
+    if (chapter && book) {
+      loadChapterContent(parseInt(chapter, 10));
+    }
+  }, [book, chapter, loadChapterContent]);
+
 
   const handlePreviousChapter = () => {
     if (!currentChapter || !book) return;

@@ -6,7 +6,6 @@ import {
   Trash2,
   CheckCircle,
   X,
-  AlertCircle,
   Bell,
   Calendar
 } from 'lucide-react-native';
@@ -29,7 +28,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import type { TaxRate } from '@/types/business';
 
 export default function TaxScreen() {
-  const { business, taxRates, addTaxRate, updateTaxRate, deleteTaxRate } = useBusiness();
+  const { taxRates, addTaxRate, updateTaxRate, deleteTaxRate } = useBusiness();
   const { theme } = useTheme();
   const { t } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -44,7 +43,7 @@ export default function TaxScreen() {
   const [appliesTo, setAppliesTo] = useState<'all' | 'products' | 'services' | 'custom'>('all');
 
   // Ensure taxRates is always an array
-  const safeTaxRates = Array.isArray(taxRates) ? taxRates : [];
+  const safeTaxRates = useMemo(() => (Array.isArray(taxRates) ? taxRates : []), [taxRates]);
 
   useEffect(() => {
     Animated.parallel([
@@ -145,7 +144,6 @@ export default function TaxScreen() {
     setAppliesTo('all');
   };
 
-  const activeRates = safeTaxRates.filter(t => t.isActive);
   const defaultRate = safeTaxRates.find(t => t.isDefault && t.isActive);
 
   // Tax reminders - upcoming tax deadlines

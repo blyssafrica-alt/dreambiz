@@ -191,7 +191,7 @@ This template includes:
 ├── assets/                # Static assets
 │   └── images/           # App icons and images
 ├── constants/            # App constants and configuration
-├── app.json             # Expo configuration
+├── app.config.js        # Expo configuration
 ├── package.json         # Dependencies and scripts
 └── tsconfig.json        # TypeScript configuration
 ```
@@ -289,7 +289,7 @@ For web deployments, you can use custom domains with:
 - **Netlify** - Free custom domain support
 - **Vercel** - Custom domains with automatic SSL
 
-For mobile apps, you'll configure your app's deep linking scheme in `app.json`.
+For mobile apps, you'll configure your app's deep linking scheme in `app.config.js`.
 
 ## Troubleshooting
 

@@ -10,7 +10,6 @@ import {
   Animated,
   TextInput,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import PageHeader from '@/components/PageHeader';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -44,7 +43,7 @@ export default function StoreScreen() {
     ]).start();
     // Refresh products when screen is focused
     refreshProducts();
-  }, [refreshProducts]);
+  }, [fadeAnim, refreshProducts, slideAnim]);
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

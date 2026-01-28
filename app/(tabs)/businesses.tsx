@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, useFocusEffect } from 'expo-router';
 import { 
   Plus, 
   Building2,
@@ -10,7 +10,7 @@ import {
   DollarSign,
   Briefcase,
 } from 'lucide-react-native';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -28,9 +28,7 @@ import PremiumUpgradeModal from '@/components/PremiumUpgradeModal';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/hooks/useTranslation';
-import { usePremium } from '@/contexts/PremiumContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import type { BusinessProfile, BusinessType, BusinessStage, Currency, DreamBigBook } from '@/types/business';
 import { DREAMBIG_BOOKS } from '@/constants/books';
@@ -57,7 +55,6 @@ const businessStages: { value: BusinessStage; label: string; desc: string }[] = 
 
 export default function BusinessesScreen() {
   const { business: currentBusiness, getAllBusinesses, switchBusiness, deleteBusiness, saveBusiness, checkBusinessLimit } = useBusiness();
-  const { currentPlan, refreshPremiumStatus } = usePremium();
   const { theme } = useTheme();
   const { isSuperAdmin } = useAuth();
   const { t } = useTranslation();
@@ -71,7 +68,7 @@ export default function BusinessesScreen() {
   const [limitInfo, setLimitInfo] = useState<{ canCreate: boolean; currentCount: number; maxBusinesses: number | null; planName: string | null } | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [databaseBooks, setDatabaseBooks] = useState<Book[]>([]);
-  const [featureConfigs, setFeatureConfigs] = useState<Array<{ featureId: string; name: string }>>([]);
+  const [featureConfigs, setFeatureConfigs] = useState<{ featureId: string; name: string }[]>([]);
 
   // Onboarding form state
   const [step, setStep] = useState(1);
@@ -86,12 +83,6 @@ export default function BusinessesScreen() {
     phone: '',
     dreamBigBook: 'none' as DreamBigBook,
   });
-
-  useEffect(() => {
-    loadBusinesses();
-    checkLimit();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Load books and features from database
   useEffect(() => {
@@ -129,14 +120,7 @@ export default function BusinessesScreen() {
   }, []);
 
   // Refresh businesses and limit info when returning to this screen
-  useFocusEffect(
-    React.useCallback(() => {
-      loadBusinesses();
-      checkLimit();
-    }, [currentPlan])
-  );
-
-  const loadBusinesses = async () => {
+  const loadBusinesses = useCallback(async () => {
     try {
       setIsLoading(true);
       const allBusinesses = await getAllBusinesses();
@@ -166,12 +150,24 @@ export default function BusinessesScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [getAllBusinesses, isSuperAdmin]);
 
-  const checkLimit = async () => {
+  const checkLimit = useCallback(async () => {
     const info = await checkBusinessLimit();
     setLimitInfo(info);
-  };
+  }, [checkBusinessLimit]);
+
+  useEffect(() => {
+    loadBusinesses();
+    checkLimit();
+  }, [checkLimit, loadBusinesses]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadBusinesses();
+      checkLimit();
+    }, [checkLimit, loadBusinesses])
+  );
 
   useEffect(() => {
     Animated.parallel([

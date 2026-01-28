@@ -28,7 +28,6 @@ import {
   FileText,
   BookOpen,
   Camera,
-  Zap,
   Store
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -53,7 +52,7 @@ interface MenuItem {
 export default function MoreScreen() {
   const { theme } = useTheme();
   const { business } = useBusiness();
-  const { isFeatureVisible, shouldShowAsTab } = useFeatures();
+  const { isFeatureVisible } = useFeatures();
   const router = useRouter();
 
   const menuSections: MenuSection[] = [

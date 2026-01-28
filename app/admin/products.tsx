@@ -1,19 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, Switch } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, Switch, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useAuth } from '@/contexts/AuthContext';
 import { useProducts } from '@/contexts/ProductContext';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Edit, Trash2, Package, X, Save, ImageIcon } from 'lucide-react-native';
-import type { PlatformProduct, ProductType, ProductStatus, StockStatus } from '@/types/super-admin';
+import type { PlatformProduct, ProductType, ProductStatus } from '@/types/super-admin';
 import * as ImagePicker from 'expo-image-picker';
-import { Image } from 'react-native';
 import { decode } from 'base64-arraybuffer';
 
 export default function ProductsManagementScreen() {
   const { theme } = useTheme();
-  const { user } = useAuth();
   const { refreshProducts } = useProducts();
   const router = useRouter();
   const [products, setProducts] = useState<PlatformProduct[]>([]);
@@ -43,12 +40,7 @@ export default function ProductsManagementScreen() {
     images: [] as string[],
   });
 
-  useEffect(() => {
-    loadProducts();
-    loadCategories();
-  }, []);
-
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('product_categories')
@@ -62,9 +54,9 @@ export default function ProductsManagementScreen() {
     } catch (error) {
       console.error('Failed to load categories:', error);
     }
-  };
+  }, []);
 
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase
@@ -73,7 +65,6 @@ export default function ProductsManagementScreen() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
       if (data) {
         setProducts(data.map((row: any) => ({
           id: row.id,
@@ -82,35 +73,39 @@ export default function ProductsManagementScreen() {
           shortDescription: row.short_description,
           sku: row.sku,
           type: row.type,
-          basePrice: parseFloat(row.base_price),
+          basePrice: row.base_price,
           currency: row.currency,
-          salePrice: row.sale_price ? parseFloat(row.sale_price) : undefined,
+          salePrice: row.sale_price,
           saleStartDate: row.sale_start_date,
           saleEndDate: row.sale_end_date,
           variations: row.variations || [],
           manageStock: row.manage_stock,
           stockQuantity: row.stock_quantity,
           lowStockThreshold: row.low_stock_threshold,
-          stockStatus: row.stock_status,
-          images: row.images || [],
-          videoUrl: row.video_url,
-          categoryId: row.category_id,
-          tags: row.tags || [],
-          visibilityRules: row.visibility_rules || {},
+          stockStatus: row.stock_status || (row.manage_stock && row.stock_quantity > 0 ? 'in_stock' : 'out_of_stock'),
           status: row.status,
           featured: row.featured,
-          createdBy: row.created_by,
+          visibilityRules: row.visibility_rules || {},
+          categoryId: row.category_id,
+          tags: row.tags,
+          images: row.images || [],
+          videoUrl: row.video_url || undefined,
+          createdBy: row.created_by || undefined,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
         })));
       }
     } catch (error) {
       console.error('Failed to load products:', error);
-      Alert.alert('Error', 'Failed to load products');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadProducts();
+    loadCategories();
+  }, [loadCategories, loadProducts]);
 
   const handleOpenModal = (product?: PlatformProduct) => {
     if (product) {
@@ -185,7 +180,7 @@ export default function ProductsManagementScreen() {
         const filePath = `product_images/${fileName}`;
 
         try {
-          const { data, error } = await supabase.storage
+          const { error } = await supabase.storage
             .from('product_images')
             .upload(filePath, decode(base64), {
               contentType: asset.mimeType || 'image/jpeg',
@@ -227,6 +222,9 @@ export default function ProductsManagementScreen() {
     }
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
       const productData: any = {
         name: formData.name,
         description: formData.description || null,
@@ -247,7 +245,7 @@ export default function ProductsManagementScreen() {
         tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(t => t) : [],
         status: formData.status,
         featured: formData.featured,
-        created_by: user?.id,
+        created_by: user.id,
       };
 
       if (editingProduct) {

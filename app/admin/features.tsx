@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Save, Eye, EyeOff } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import type { FeatureConfig } from '@/types/super-admin';
 
 export default function FeaturesManagementScreen() {
@@ -13,13 +13,8 @@ export default function FeaturesManagementScreen() {
   const { refreshFeatures } = useFeatures();
   const [features, setFeatures] = useState<FeatureConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    loadFeatures();
-  }, []);
-
-  const loadFeatures = async () => {
+  const [, setIsSaving] = useState(false);
+  const loadFeatures = useCallback(async () => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase
@@ -51,7 +46,11 @@ export default function FeaturesManagementScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadFeatures();
+  }, [loadFeatures]);
 
   const toggleFeature = async (featureId: string, enabled: boolean) => {
     try {

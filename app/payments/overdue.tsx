@@ -9,14 +9,14 @@ import {
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
-import { ArrowLeft, AlertTriangle, DollarSign } from 'lucide-react-native';
+import { ArrowLeft, AlertTriangle } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function OverduePaymentsScreen() {
   const { theme } = useTheme();
   const { documents = [] } = useBusiness();
 
-  const safeDocuments = Array.isArray(documents) ? documents : [];
+  const safeDocuments = useMemo(() => (Array.isArray(documents) ? documents : []), [documents]);
   
   const overduePayments = useMemo(() => {
     const today = new Date();

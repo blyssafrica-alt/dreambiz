@@ -30,7 +30,7 @@ export default function ProviderSettingsScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim]);
 
   const handleSwitchProvider = async (providerType: ProviderType) => {
     if (providerType === currentProvider) {

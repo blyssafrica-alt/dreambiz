@@ -21,7 +21,6 @@ import {
   Animated,
 } from 'react-native';
 import PageHeader from '@/components/PageHeader';
-import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/hooks/useTranslation';
 
@@ -40,9 +39,8 @@ interface Appointment {
 }
 
 export default function AppointmentsScreen() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _ = useBusiness(); // Context hook - values not needed yet
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [appointments, setAppointments] = useState<Appointment[]>([]);

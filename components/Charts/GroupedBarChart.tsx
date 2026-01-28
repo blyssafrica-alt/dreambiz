@@ -4,11 +4,11 @@ import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
 
 interface GroupedBarData {
   label: string;
-  series: Array<{
+  series: {
     label: string;
     value: number;
     color: string;
-  }>;
+  }[];
 }
 
 interface GroupedBarChartProps {
