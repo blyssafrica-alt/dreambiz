@@ -9,7 +9,7 @@ import { ArrowLeft, Plus, Megaphone, TrendingUp, Eye, MousePointerClick, X, Save
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Advertisement, AdType, AdStatus } from '@/types/super-admin';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
+import { getBase64FromAsset } from '@/lib/upload-utils';
 import { decode } from 'base64-arraybuffer';
 
 export default function AdsManagementScreen() {
@@ -146,11 +146,7 @@ export default function AdsManagementScreen() {
       const asset = result.assets[0];
       setIsUploadingImage(true);
       try {
-        const base64 = asset.base64
-          ? asset.base64
-          : await FileSystem.readAsStringAsync(asset.uri, {
-              encoding: 'base64',
-            });
+        const base64 = await getBase64FromAsset(asset);
         const fileExt = asset.uri.split('.').pop()?.toLowerCase() || 'jpg';
         const fileName = `ad-${field}-${Date.now()}.${fileExt}`;
         const filePath = `ad_images/${fileName}`;

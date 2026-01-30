@@ -18,7 +18,7 @@ import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Edit, Trash2, Book as BookIcon, X, ImageIcon, Save, FileText, Upload, Check, Sparkles, ChevronRight, ChevronLeft } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system/legacy';
+import { getBase64FromAsset, readBase64FromUri } from '@/lib/upload-utils';
 import { decode } from 'base64-arraybuffer';
 import type { Book, BookFormData, BookChapter } from '@/types/books';
 import type { FeatureConfig } from '@/types/super-admin';
@@ -186,11 +186,7 @@ export default function BooksManagementScreen() {
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
       try {
-        const base64 = asset.base64
-          ? asset.base64
-          : await FileSystem.readAsStringAsync(asset.uri, {
-              encoding: 'base64',
-            });
+        const base64 = await getBase64FromAsset(asset);
         const fileExt = asset.uri.split('.').pop() || 'jpg';
         const fileName = `book-cover-${Date.now()}.${fileExt}`;
         const filePath = `book_covers/${fileName}`;
@@ -244,10 +240,8 @@ export default function BooksManagementScreen() {
     try {
       setIsUploadingDocument(true);
       
-      // Read file as base64 (FileSystem is more reliable on mobile)
-      const base64 = await FileSystem.readAsStringAsync(fileUri, {
-        encoding: 'base64',
-      });
+      // Read file as base64 (supports native + web)
+      const base64 = await readBase64FromUri(fileUri);
 
       // Get file extension
       const fileExtension = fileUri.split('.').pop()?.toLowerCase() || 'pdf';

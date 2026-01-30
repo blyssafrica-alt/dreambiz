@@ -25,7 +25,7 @@ import {
   Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
+import { getBase64FromAsset } from '@/lib/upload-utils';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { decode } from 'base64-arraybuffer';
@@ -665,11 +665,7 @@ export default function ProductsScreen() {
                         if (!result.canceled && result.assets[0]) {
                           const asset = result.assets[0];
                           try {
-                            const base64 = asset.base64
-                              ? asset.base64
-                              : await FileSystem.readAsStringAsync(asset.uri, {
-                                  encoding: 'base64',
-                                });
+                            const base64 = await getBase64FromAsset(asset);
                             // Upload to Supabase Storage
                             const fileExt = asset.uri.split('.').pop() || 'jpg';
                             const fileName = `product-${Date.now()}.${fileExt}`;
@@ -752,11 +748,7 @@ export default function ProductsScreen() {
                           if (!result.canceled && result.assets[0]) {
                             const asset = result.assets[0];
                             try {
-                              const base64 = asset.base64
-                                ? asset.base64
-                                : await FileSystem.readAsStringAsync(asset.uri, {
-                                    encoding: 'base64',
-                                  });
+                              const base64 = await getBase64FromAsset(asset);
                               // Upload to Supabase Storage
                               const fileExt = asset.uri.split('.').pop() || 'jpg';
                               const fileName = `product-${Date.now()}.${fileExt}`;

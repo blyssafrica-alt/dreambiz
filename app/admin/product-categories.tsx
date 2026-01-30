@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Edit, Trash2, Folder, X, Save } from 'lucide-react-native';
 import type { ProductCategory } from '@/types/super-admin';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
+import { getBase64FromAsset } from '@/lib/upload-utils';
 import { decode } from 'base64-arraybuffer';
 
 export default function ProductCategoriesScreen() {
@@ -132,11 +132,7 @@ export default function ProductCategoriesScreen() {
         const asset = result.assets[0];
       setIsUploadingImage(true);
       try {
-        const base64 = asset.base64
-          ? asset.base64
-          : await FileSystem.readAsStringAsync(asset.uri, {
-              encoding: 'base64',
-            });
+        const base64 = await getBase64FromAsset(asset);
         const fileExt = asset.uri.split('.').pop();
         const fileName = `category-${Date.now()}.${fileExt}`;
         const filePath = `category_images/${fileName}`;

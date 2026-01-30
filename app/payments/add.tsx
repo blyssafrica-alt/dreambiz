@@ -16,7 +16,7 @@ import { useBusiness } from '@/contexts/BusinessContext';
 import { ArrowLeft, Save, Camera, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
+import { getBase64FromAsset } from '@/lib/upload-utils';
 import { supabase } from '@/lib/supabase';
 import { decode } from 'base64-arraybuffer';
 
@@ -58,11 +58,7 @@ export default function AddPaymentScreen() {
         const asset = result.assets[0];
         setIsUploadingProof(true);
         try {
-          const base64 = asset.base64
-            ? asset.base64
-            : await FileSystem.readAsStringAsync(asset.uri, {
-                encoding: 'base64',
-              });
+          const base64 = await getBase64FromAsset(asset);
           const fileExt = asset.uri.split('.').pop()?.toLowerCase() || 'jpg';
           const fileName = `payment-proof-${Date.now()}.${fileExt}`;
           const filePath = `payment_proofs/${fileName}`;

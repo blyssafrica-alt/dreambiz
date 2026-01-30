@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Edit, Trash2, Package, X, Save, ImageIcon } from 'lucide-react-native';
 import type { PlatformProduct, ProductType, ProductStatus } from '@/types/super-admin';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
+import { getBase64FromAsset } from '@/lib/upload-utils';
 import { decode } from 'base64-arraybuffer';
 
 export default function ProductsManagementScreen() {
@@ -175,11 +175,7 @@ export default function ProductsManagementScreen() {
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
       try {
-        const base64 = asset.base64
-          ? asset.base64
-          : await FileSystem.readAsStringAsync(asset.uri, {
-              encoding: 'base64',
-            });
+        const base64 = await getBase64FromAsset(asset);
         const fileExt = asset.uri.split('.').pop();
         const fileName = `${Date.now()}.${fileExt}`;
         const filePath = `product_images/${fileName}`;
