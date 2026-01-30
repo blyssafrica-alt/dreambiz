@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Edit, Trash2, Package, X, Save, ImageIcon } from 'lucide-react-native';
 import type { PlatformProduct, ProductType, ProductStatus } from '@/types/super-admin';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 
 export default function ProductsManagementScreen() {

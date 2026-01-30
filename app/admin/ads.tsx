@@ -9,7 +9,7 @@ import { ArrowLeft, Plus, Megaphone, TrendingUp, Eye, MousePointerClick, X, Save
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Advertisement, AdType, AdStatus } from '@/types/super-admin';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 
 export default function AdsManagementScreen() {

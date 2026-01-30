@@ -22,7 +22,7 @@ import { getBookBySlug } from '@/lib/book-service';
 import type { Book } from '@/types/books';
 import { supabase } from '@/lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 
 export default function BookDetailScreen() {

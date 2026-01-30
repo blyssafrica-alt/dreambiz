@@ -18,7 +18,7 @@ import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Edit, Trash2, Book as BookIcon, X, ImageIcon, Save, FileText, Upload, Check, Sparkles, ChevronRight, ChevronLeft } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import type { Book, BookFormData, BookChapter } from '@/types/books';
 import type { FeatureConfig } from '@/types/super-admin';
