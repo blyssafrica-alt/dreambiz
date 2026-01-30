@@ -185,6 +185,7 @@ export default function BooksManagementScreen() {
 
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
+      setFormData(prev => ({ ...prev, coverImage: asset.uri }));
       try {
         const base64 = await getBase64FromAsset(asset);
         const fileExt = asset.uri.split('.').pop() || 'jpg';
@@ -211,7 +212,7 @@ export default function BooksManagementScreen() {
           .getPublicUrl(filePath);
 
         if (publicUrlData?.publicUrl) {
-          setFormData({ ...formData, coverImage: publicUrlData.publicUrl });
+          setFormData(prev => ({ ...prev, coverImage: publicUrlData.publicUrl }));
         }
       } catch (error: any) {
         console.error('Error uploading cover image:', error);
@@ -228,7 +229,7 @@ export default function BooksManagementScreen() {
       });
 
       if (!result.canceled && result.assets[0]) {
-        setFormData({ ...formData, documentFile: result.assets[0].uri });
+        setFormData(prev => ({ ...prev, documentFile: result.assets[0].uri }));
       }
     } catch (error) {
       console.error('Error picking document:', error);
@@ -281,7 +282,8 @@ export default function BooksManagementScreen() {
   };
 
   const processPDFDocument = async () => {
-    if (!formData.documentFileUrl) {
+    let pdfUrl = formData.documentFileUrl;
+    if (!pdfUrl) {
       if (!formData.documentFile) {
         Alert.alert('No Document', 'Please upload a PDF document first');
         return;
@@ -294,7 +296,8 @@ export default function BooksManagementScreen() {
       if (!uploadedUrl) {
         return;
       }
-      setFormData({ ...formData, documentFileUrl: uploadedUrl });
+      pdfUrl = uploadedUrl;
+      setFormData(prev => ({ ...prev, documentFileUrl: uploadedUrl }));
     }
 
     // Prevent multiple simultaneous calls (only for fresh calls, not retries)
@@ -541,7 +544,7 @@ export default function BooksManagementScreen() {
           // Use supabase.functions.invoke() - handles auth automatically
           const { data, error } = await supabase.functions.invoke('process-pdf', {
             body: {
-              pdfUrl: formData.documentFileUrl,
+              pdfUrl: pdfUrl,
               bookId: editingId || null,
             },
           });
