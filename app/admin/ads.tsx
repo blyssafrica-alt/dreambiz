@@ -149,7 +149,7 @@ export default function AdsManagementScreen() {
         const base64 = asset.base64
           ? asset.base64
           : await FileSystem.readAsStringAsync(asset.uri, {
-              encoding: FileSystem.EncodingType.Base64,
+              encoding: 'base64',
             });
         const fileExt = asset.uri.split('.').pop()?.toLowerCase() || 'jpg';
         const fileName = `ad-${field}-${Date.now()}.${fileExt}`;

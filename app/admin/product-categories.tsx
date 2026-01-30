@@ -135,7 +135,7 @@ export default function ProductCategoriesScreen() {
         const base64 = asset.base64
           ? asset.base64
           : await FileSystem.readAsStringAsync(asset.uri, {
-              encoding: FileSystem.EncodingType.Base64,
+              encoding: 'base64',
             });
         const fileExt = asset.uri.split('.').pop();
         const fileName = `category-${Date.now()}.${fileExt}`;

@@ -189,7 +189,7 @@ export default function BooksManagementScreen() {
         const base64 = asset.base64
           ? asset.base64
           : await FileSystem.readAsStringAsync(asset.uri, {
-              encoding: FileSystem.EncodingType.Base64,
+              encoding: 'base64',
             });
         const fileExt = asset.uri.split('.').pop() || 'jpg';
         const fileName = `book-cover-${Date.now()}.${fileExt}`;
@@ -246,7 +246,7 @@ export default function BooksManagementScreen() {
       
       // Read file as base64 (FileSystem is more reliable on mobile)
       const base64 = await FileSystem.readAsStringAsync(fileUri, {
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: 'base64',
       });
 
       // Get file extension

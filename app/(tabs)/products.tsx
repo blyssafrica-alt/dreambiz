@@ -668,7 +668,7 @@ export default function ProductsScreen() {
                             const base64 = asset.base64
                               ? asset.base64
                               : await FileSystem.readAsStringAsync(asset.uri, {
-                                  encoding: FileSystem.EncodingType.Base64,
+                                  encoding: 'base64',
                                 });
                             // Upload to Supabase Storage
                             const fileExt = asset.uri.split('.').pop() || 'jpg';
@@ -755,7 +755,7 @@ export default function ProductsScreen() {
                               const base64 = asset.base64
                                 ? asset.base64
                                 : await FileSystem.readAsStringAsync(asset.uri, {
-                                    encoding: FileSystem.EncodingType.Base64,
+                                    encoding: 'base64',
                                   });
                               // Upload to Supabase Storage
                               const fileExt = asset.uri.split('.').pop() || 'jpg';
