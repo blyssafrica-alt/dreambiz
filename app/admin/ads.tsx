@@ -9,8 +9,7 @@ import { ArrowLeft, Plus, Megaphone, TrendingUp, Eye, MousePointerClick, X, Save
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Advertisement, AdType, AdStatus } from '@/types/super-admin';
 import * as ImagePicker from 'expo-image-picker';
-import { getBase64FromAsset } from '@/lib/upload-utils';
-import { decode } from 'base64-arraybuffer';
+import { getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 
 export default function AdsManagementScreen() {
   const { theme } = useTheme();
@@ -174,25 +173,18 @@ export default function AdsManagementScreen() {
           contentType = mimeMap[fileExt] || 'image/jpeg';
         }
 
-        const { error } = await supabase.storage
-          .from('ad_images')
-          .upload(filePath, decode(base64), {
-            contentType,
-            upsert: false,
-          });
+        const publicUrl = await uploadBase64ToStorage(supabase, {
+          bucket: 'ad_images',
+          filePath,
+          base64,
+          contentType,
+          upsert: false,
+        });
 
-        if (error) throw error;
-
-        const { data: publicUrlData } = supabase.storage
-          .from('ad_images')
-          .getPublicUrl(filePath);
-
-        if (publicUrlData?.publicUrl) {
-          setFormData(prev => ({
-            ...prev,
-            [field]: publicUrlData.publicUrl,
-          }));
-        }
+        setFormData(prev => ({
+          ...prev,
+          [field]: publicUrl,
+        }));
       } catch (error) {
         console.error('Error uploading image:', error);
         Alert.alert('Upload Error', `Failed to upload image: ${(error as Error).message}`);

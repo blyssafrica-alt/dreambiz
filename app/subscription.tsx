@@ -14,8 +14,7 @@ import {
 import { Stack, useRouter } from 'expo-router';
 import { ArrowLeft, Check, Crown, Building2, Users, HardDrive, Zap, X, Upload } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { getBase64FromAsset } from '@/lib/upload-utils';
-import { decode } from 'base64-arraybuffer';
+import { getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/contexts/PremiumContext';
@@ -187,22 +186,15 @@ export default function SubscriptionScreen() {
             contentType = mimeMap[fileExt] || 'image/jpeg';
           }
 
-          const { error } = await supabase.storage
-            .from('payment_proofs')
-            .upload(filePath, decode(base64), {
-              contentType: contentType,
-              upsert: false,
-            });
+          const publicUrl = await uploadBase64ToStorage(supabase, {
+            bucket: 'payment_proofs',
+            filePath,
+            base64,
+            contentType,
+            upsert: false,
+          });
 
-          if (error) throw error;
-
-          const { data: publicUrlData } = supabase.storage
-            .from('payment_proofs')
-            .getPublicUrl(filePath);
-
-          if (publicUrlData?.publicUrl) {
-            setProofImage(publicUrlData.publicUrl);
-          }
+          setProofImage(publicUrl);
         } catch (error: any) {
           console.error('Error uploading proof:', error);
           RNAlert.alert('Upload Error', error.message || 'Failed to upload proof of payment');

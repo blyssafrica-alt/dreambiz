@@ -16,7 +16,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { getBase64FromAsset } from '@/lib/upload-utils';
+import { getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,7 +24,6 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { usePremium } from '@/contexts/PremiumContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { supabase } from '@/lib/supabase';
-import { decode } from 'base64-arraybuffer';
 import type { BusinessStage, Currency, DreamBigBook } from '@/types/business';
 import { exportAllData, shareData } from '@/lib/data-export';
 import { DREAMBIG_BOOKS, getBookFeatures } from '@/constants/books';
@@ -237,28 +236,15 @@ export default function SettingsScreen() {
           const fileName = `business-logo-${business?.id || 'temp'}-${Date.now()}.${fileExt}`;
           const filePath = `logos/${fileName}`;
 
-          const { error } = await supabase.storage
-            .from('business_logos')
-            .upload(filePath, decode(base64), {
-              contentType: asset.mimeType || 'image/jpeg',
-              upsert: true, // Allow overwriting existing logo
-            });
+          const publicUrl = await uploadBase64ToStorage(supabase, {
+            bucket: 'business_logos',
+            filePath,
+            base64,
+            contentType: asset.mimeType || 'image/jpeg',
+            upsert: true,
+          });
 
-          if (error) {
-            if (error.message.includes('Bucket not found')) {
-              RNAlert.alert('Storage Error', 'Business logos bucket not found. Please create a "business_logos" bucket in Supabase Storage.');
-              return;
-            }
-            throw error;
-          }
-
-          const { data: publicUrlData } = supabase.storage
-            .from('business_logos')
-            .getPublicUrl(filePath);
-
-          if (publicUrlData?.publicUrl) {
-            setLogo(publicUrlData.publicUrl);
-          }
+          setLogo(publicUrl);
         } catch (error: any) {
           console.error('Error uploading logo:', error);
           RNAlert.alert('Upload Error', error.message || 'Failed to upload logo');

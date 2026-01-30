@@ -18,8 +18,7 @@ import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Edit, Trash2, Book as BookIcon, X, ImageIcon, Save, FileText, Upload, Check, Sparkles, ChevronRight, ChevronLeft } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { getBase64FromAsset, readBase64FromUri } from '@/lib/upload-utils';
-import { decode } from 'base64-arraybuffer';
+import { getBase64FromAsset, readBase64FromUri, uploadBase64ToStorage } from '@/lib/upload-utils';
 import type { Book, BookFormData, BookChapter } from '@/types/books';
 import type { FeatureConfig } from '@/types/super-admin';
 import type { DreamBigBook } from '@/types/business';
@@ -194,28 +193,15 @@ export default function BooksManagementScreen() {
         const fileName = `book-cover-${Date.now()}.${fileExt}`;
         const filePath = `book_covers/${fileName}`;
 
-        const { error } = await supabase.storage
-          .from('book_covers')
-          .upload(filePath, decode(base64), {
-            contentType: asset.mimeType || 'image/jpeg',
-            upsert: false,
-          });
+        const publicUrl = await uploadBase64ToStorage(supabase, {
+          bucket: 'book_covers',
+          filePath,
+          base64,
+          contentType: asset.mimeType || 'image/jpeg',
+          upsert: false,
+        });
 
-        if (error) {
-          if (error.message.includes('Bucket not found')) {
-            Alert.alert('Storage Error', 'Book covers bucket not found. Please create a "book_covers" bucket in Supabase Storage.');
-            return;
-          }
-          throw error;
-        }
-
-        const { data: publicUrlData } = supabase.storage
-          .from('book_covers')
-          .getPublicUrl(filePath);
-
-        if (publicUrlData?.publicUrl) {
-          setFormData(prev => ({ ...prev, coverImage: publicUrlData.publicUrl }));
-        }
+        setFormData(prev => ({ ...prev, coverImage: publicUrl }));
       } catch (error: any) {
         console.error('Error uploading cover image:', error);
         Alert.alert('Upload Error', error.message || 'Failed to upload cover image');
@@ -253,29 +239,18 @@ export default function BooksManagementScreen() {
       const fileName = `${bookSlug}-${Date.now()}.${fileExtension}`;
       const filePath = `books/${fileName}`;
 
-      // Upload to Supabase storage
-      const { error } = await supabase.storage
-        .from('book-documents')
-        .upload(filePath, decode(base64), {
-          contentType: fileExtension === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          upsert: false,
-        });
+      const publicUrl = await uploadBase64ToStorage(supabase, {
+        bucket: 'book-documents',
+        filePath,
+        base64,
+        contentType:
+          fileExtension === 'pdf'
+            ? 'application/pdf'
+            : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        upsert: false,
+      });
 
-      if (error) {
-        // If bucket doesn't exist, show error
-        if (error.message.includes('Bucket not found')) {
-          Alert.alert('Storage Error', 'Book documents bucket not found. Please create a "book-documents" bucket in Supabase Storage.');
-          return null;
-        }
-        throw error;
-      }
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('book-documents')
-        .getPublicUrl(filePath);
-
-      return urlData.publicUrl;
+      return publicUrl;
     } catch (error: any) {
       console.error('Failed to upload document:', error);
       Alert.alert('Upload Error', error.message || 'Failed to upload document');

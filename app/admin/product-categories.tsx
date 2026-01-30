@@ -8,8 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Edit, Trash2, Folder, X, Save } from 'lucide-react-native';
 import type { ProductCategory } from '@/types/super-admin';
 import * as ImagePicker from 'expo-image-picker';
-import { getBase64FromAsset } from '@/lib/upload-utils';
-import { decode } from 'base64-arraybuffer';
+import { getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 
 export default function ProductCategoriesScreen() {
   const { theme } = useTheme();
@@ -137,22 +136,15 @@ export default function ProductCategoriesScreen() {
         const fileName = `category-${Date.now()}.${fileExt}`;
         const filePath = `category_images/${fileName}`;
 
-        const { error } = await supabase.storage
-          .from('category_images')
-          .upload(filePath, decode(base64), {
-            contentType: asset.mimeType || 'image/jpeg',
-            upsert: false,
-          });
+        const publicUrl = await uploadBase64ToStorage(supabase, {
+          bucket: 'category_images',
+          filePath,
+          base64,
+          contentType: asset.mimeType || 'image/jpeg',
+          upsert: false,
+        });
 
-        if (error) throw error;
-
-        const { data: publicUrlData } = supabase.storage
-          .from('category_images')
-          .getPublicUrl(filePath);
-
-        if (publicUrlData?.publicUrl) {
-          setFormData({ ...formData, imageUrl: publicUrlData.publicUrl });
-        }
+        setFormData({ ...formData, imageUrl: publicUrl });
       } catch (error: any) {
         console.error('Error uploading image:', error);
         Alert.alert('Upload Error', `Failed to upload image: ${(error as Error).message}`);

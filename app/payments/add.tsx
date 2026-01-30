@@ -16,9 +16,8 @@ import { useBusiness } from '@/contexts/BusinessContext';
 import { ArrowLeft, Save, Camera, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { getBase64FromAsset } from '@/lib/upload-utils';
+import { getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 import { supabase } from '@/lib/supabase';
-import { decode } from 'base64-arraybuffer';
 
 export default function AddPaymentScreen() {
   const { theme } = useTheme();
@@ -86,22 +85,15 @@ export default function AddPaymentScreen() {
             contentType = mimeMap[fileExt] || 'image/jpeg';
           }
 
-          const { error } = await supabase.storage
-            .from('payment_proofs')
-            .upload(filePath, decode(base64), {
-              contentType: contentType,
-              upsert: false,
-            });
+          const publicUrl = await uploadBase64ToStorage(supabase, {
+            bucket: 'payment_proofs',
+            filePath,
+            base64,
+            contentType,
+            upsert: false,
+          });
 
-          if (error) throw error;
-
-          const { data: publicUrlData } = supabase.storage
-            .from('payment_proofs')
-            .getPublicUrl(filePath);
-
-          if (publicUrlData?.publicUrl) {
-            setProofImage(publicUrlData.publicUrl);
-          }
+          setProofImage(publicUrl);
         } catch (error: any) {
           console.error('Error uploading proof:', error);
           Alert.alert('Upload Error', error.message || 'Failed to upload proof of payment');

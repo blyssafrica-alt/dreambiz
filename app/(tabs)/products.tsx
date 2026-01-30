@@ -26,10 +26,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { getBase64FromAsset } from '@/lib/upload-utils';
+import { getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
-import { decode } from 'base64-arraybuffer';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAds } from '@/contexts/AdContext';
@@ -675,29 +674,15 @@ export default function ProductsScreen() {
                             const fileName = `product-${Date.now()}.${fileExt}`;
                             const filePath = `product_images/${fileName}`;
 
-                            const { error: uploadError } = await supabase.storage
-                              .from('product_images')
-                              .upload(filePath, decode(base64), {
-                                contentType: asset.mimeType || 'image/jpeg',
-                                upsert: false,
-                              });
+                            const publicUrl = await uploadBase64ToStorage(supabase, {
+                              bucket: 'product_images',
+                              filePath,
+                              base64,
+                              contentType: asset.mimeType || 'image/jpeg',
+                              upsert: false,
+                            });
 
-                            if (uploadError) {
-                              console.error('Upload error:', uploadError);
-                              RNAlert.alert('Upload Error', 'Failed to upload image. Using local image instead.');
-                              setFeaturedImage(asset.uri);
-                              return;
-                            }
-
-                            const { data: publicUrlData } = supabase.storage
-                              .from('product_images')
-                              .getPublicUrl(filePath);
-
-                            if (publicUrlData?.publicUrl) {
-                              setFeaturedImage(publicUrlData.publicUrl);
-                            } else {
-                              setFeaturedImage(asset.uri);
-                            }
+                            setFeaturedImage(publicUrl);
                           } catch (error: any) {
                             console.error('Error picking image:', error);
                             RNAlert.alert('Error', 'Failed to pick image');
@@ -768,29 +753,15 @@ export default function ProductsScreen() {
                               const fileName = `product-${Date.now()}.${fileExt}`;
                               const filePath = `product_images/${fileName}`;
 
-                              const { error: uploadError } = await supabase.storage
-                                .from('product_images')
-                                .upload(filePath, decode(base64), {
-                                  contentType: asset.mimeType || 'image/jpeg',
-                                  upsert: false,
-                                });
+                              const publicUrl = await uploadBase64ToStorage(supabase, {
+                                bucket: 'product_images',
+                                filePath,
+                                base64,
+                                contentType: asset.mimeType || 'image/jpeg',
+                                upsert: false,
+                              });
 
-                              if (uploadError) {
-                                console.error('Upload error:', uploadError);
-                                RNAlert.alert('Upload Error', 'Failed to upload image. Using local image instead.');
-                                setAdditionalImages([...additionalImages, asset.uri]);
-                                return;
-                              }
-
-                              const { data: publicUrlData } = supabase.storage
-                                .from('product_images')
-                                .getPublicUrl(filePath);
-
-                              if (publicUrlData?.publicUrl) {
-                                setAdditionalImages([...additionalImages, publicUrlData.publicUrl]);
-                              } else {
-                                setAdditionalImages([...additionalImages, asset.uri]);
-                              }
+                              setAdditionalImages([...additionalImages, publicUrl]);
                             } catch (error: any) {
                               console.error('Error picking image:', error);
                               RNAlert.alert('Error', 'Failed to pick image');

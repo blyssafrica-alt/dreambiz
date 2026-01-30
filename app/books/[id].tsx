@@ -22,8 +22,7 @@ import { getBookBySlug } from '@/lib/book-service';
 import type { Book } from '@/types/books';
 import { supabase } from '@/lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
-import { getBase64FromAsset } from '@/lib/upload-utils';
-import { decode } from 'base64-arraybuffer';
+import { getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 
 export default function BookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -208,22 +207,15 @@ export default function BookDetailScreen() {
             contentType = mimeMap[fileExt] || 'image/jpeg';
           }
 
-          const { error: uploadError } = await supabase.storage
-            .from('payment_proofs')
-            .upload(filePath, decode(base64), {
-              contentType: contentType,
-              upsert: false,
-            });
+          const publicUrl = await uploadBase64ToStorage(supabase, {
+            bucket: 'payment_proofs',
+            filePath,
+            base64,
+            contentType,
+            upsert: false,
+          });
 
-          if (uploadError) throw uploadError;
-
-          const { data: publicUrlData } = supabase.storage
-            .from('payment_proofs')
-            .getPublicUrl(filePath);
-
-          if (publicUrlData?.publicUrl) {
-            setProofImage(publicUrlData.publicUrl);
-          }
+          setProofImage(publicUrl);
         } catch (error: any) {
           console.error('Error uploading proof:', error);
           Alert.alert('Upload Error', error.message || 'Failed to upload proof of payment');
