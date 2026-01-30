@@ -18,6 +18,7 @@ import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Edit, Trash2, Book as BookIcon, X, ImageIcon, Save, FileText, Upload, Check, Sparkles, ChevronRight, ChevronLeft } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { decode } from 'base64-arraybuffer';
 import type { Book, BookFormData, BookChapter } from '@/types/books';
 import type { FeatureConfig } from '@/types/super-admin';
@@ -184,42 +185,41 @@ export default function BooksManagementScreen() {
 
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      if (asset.base64) {
-        try {
-          const base64 = asset.base64;
-          const fileExt = asset.uri.split('.').pop() || 'jpg';
-          const fileName = `book-cover-${Date.now()}.${fileExt}`;
-          const filePath = `book_covers/${fileName}`;
-
-          const { error } = await supabase.storage
-            .from('book_covers')
-            .upload(filePath, decode(base64), {
-              contentType: asset.mimeType || 'image/jpeg',
-              upsert: false,
+      try {
+        const base64 = asset.base64
+          ? asset.base64
+          : await FileSystem.readAsStringAsync(asset.uri, {
+              encoding: FileSystem.EncodingType.Base64,
             });
+        const fileExt = asset.uri.split('.').pop() || 'jpg';
+        const fileName = `book-cover-${Date.now()}.${fileExt}`;
+        const filePath = `book_covers/${fileName}`;
 
-          if (error) {
-            if (error.message.includes('Bucket not found')) {
-              Alert.alert('Storage Error', 'Book covers bucket not found. Please create a "book_covers" bucket in Supabase Storage.');
-              return;
-            }
-            throw error;
+        const { error } = await supabase.storage
+          .from('book_covers')
+          .upload(filePath, decode(base64), {
+            contentType: asset.mimeType || 'image/jpeg',
+            upsert: false,
+          });
+
+        if (error) {
+          if (error.message.includes('Bucket not found')) {
+            Alert.alert('Storage Error', 'Book covers bucket not found. Please create a "book_covers" bucket in Supabase Storage.');
+            return;
           }
-
-          const { data: publicUrlData } = supabase.storage
-            .from('book_covers')
-            .getPublicUrl(filePath);
-
-          if (publicUrlData?.publicUrl) {
-            setFormData({ ...formData, coverImage: publicUrlData.publicUrl });
-          }
-        } catch (error: any) {
-          console.error('Error uploading cover image:', error);
-          Alert.alert('Upload Error', error.message || 'Failed to upload cover image');
+          throw error;
         }
-      } else {
-        // Fallback to local URI if base64 not available
-        setFormData({ ...formData, coverImage: asset.uri });
+
+        const { data: publicUrlData } = supabase.storage
+          .from('book_covers')
+          .getPublicUrl(filePath);
+
+        if (publicUrlData?.publicUrl) {
+          setFormData({ ...formData, coverImage: publicUrlData.publicUrl });
+        }
+      } catch (error: any) {
+        console.error('Error uploading cover image:', error);
+        Alert.alert('Upload Error', error.message || 'Failed to upload cover image');
       }
     }
   };
@@ -244,17 +244,9 @@ export default function BooksManagementScreen() {
     try {
       setIsUploadingDocument(true);
       
-      // Read file as base64
-      const response = await fetch(fileUri);
-      const blob = await response.blob();
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onloadend = () => {
-          const base64String = (reader.result as string).split(',')[1];
-          resolve(base64String);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
+      // Read file as base64 (FileSystem is more reliable on mobile)
+      const base64 = await FileSystem.readAsStringAsync(fileUri, {
+        encoding: FileSystem.EncodingType.Base64,
       });
 
       // Get file extension
@@ -296,8 +288,19 @@ export default function BooksManagementScreen() {
 
   const processPDFDocument = async () => {
     if (!formData.documentFileUrl) {
-      Alert.alert('No Document', 'Please upload a PDF document first');
-      return;
+      if (!formData.documentFile) {
+        Alert.alert('No Document', 'Please upload a PDF document first');
+        return;
+      }
+      if (!formData.slug) {
+        Alert.alert('Missing Slug', 'Please enter a slug before processing the PDF.');
+        return;
+      }
+      const uploadedUrl = await uploadDocumentToStorage(formData.documentFile, formData.slug);
+      if (!uploadedUrl) {
+        return;
+      }
+      setFormData({ ...formData, documentFileUrl: uploadedUrl });
     }
 
     // Prevent multiple simultaneous calls (only for fresh calls, not retries)
@@ -1415,7 +1418,7 @@ export default function BooksManagementScreen() {
                 <Text style={[styles.helperText, { color: theme.text.tertiary }]}>
                   Upload the complete book as PDF or Word document. This will be used to extract book information.
                 </Text>
-                {formData.documentFileUrl && (
+                {(formData.documentFileUrl || formData.documentFile) && (
                   <TouchableOpacity
                     style={[styles.processButton, { backgroundColor: theme.accent.primary }]}
                     onPress={processPDFDocument}

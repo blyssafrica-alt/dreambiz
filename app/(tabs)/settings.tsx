@@ -15,6 +15,7 @@ import {
   Modal,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -227,39 +228,41 @@ export default function SettingsScreen() {
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        if (asset.base64) {
-          try {
-            const base64 = asset.base64;
-            const fileExt = asset.uri.split('.').pop() || 'jpg';
-            const fileName = `business-logo-${business?.id || 'temp'}-${Date.now()}.${fileExt}`;
-            const filePath = `logos/${fileName}`;
-
-            const { error } = await supabase.storage
-              .from('business_logos')
-              .upload(filePath, decode(base64), {
-                contentType: asset.mimeType || 'image/jpeg',
-                upsert: true, // Allow overwriting existing logo
+        try {
+          const base64 = asset.base64
+            ? asset.base64
+            : await FileSystem.readAsStringAsync(asset.uri, {
+                encoding: FileSystem.EncodingType.Base64,
               });
+          const fileExt = asset.uri.split('.').pop() || 'jpg';
+          const fileName = `business-logo-${business?.id || 'temp'}-${Date.now()}.${fileExt}`;
+          const filePath = `logos/${fileName}`;
 
-            if (error) {
-              if (error.message.includes('Bucket not found')) {
-                RNAlert.alert('Storage Error', 'Business logos bucket not found. Please create a "business_logos" bucket in Supabase Storage.');
-                return;
-              }
-              throw error;
+          const { error } = await supabase.storage
+            .from('business_logos')
+            .upload(filePath, decode(base64), {
+              contentType: asset.mimeType || 'image/jpeg',
+              upsert: true, // Allow overwriting existing logo
+            });
+
+          if (error) {
+            if (error.message.includes('Bucket not found')) {
+              RNAlert.alert('Storage Error', 'Business logos bucket not found. Please create a "business_logos" bucket in Supabase Storage.');
+              return;
             }
-
-            const { data: publicUrlData } = supabase.storage
-              .from('business_logos')
-              .getPublicUrl(filePath);
-
-            if (publicUrlData?.publicUrl) {
-              setLogo(publicUrlData.publicUrl);
-            }
-          } catch (error: any) {
-            console.error('Error uploading logo:', error);
-            RNAlert.alert('Upload Error', error.message || 'Failed to upload logo');
+            throw error;
           }
+
+          const { data: publicUrlData } = supabase.storage
+            .from('business_logos')
+            .getPublicUrl(filePath);
+
+          if (publicUrlData?.publicUrl) {
+            setLogo(publicUrlData.publicUrl);
+          }
+        } catch (error: any) {
+          console.error('Error uploading logo:', error);
+          RNAlert.alert('Upload Error', error.message || 'Failed to upload logo');
         }
       }
     } catch (error) {

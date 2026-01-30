@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Edit, Trash2, Folder, X, Save } from 'lucide-react-native';
 import type { ProductCategory } from '@/types/super-admin';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { decode } from 'base64-arraybuffer';
 
 export default function ProductCategoriesScreen() {
@@ -129,36 +130,39 @@ export default function ProductCategoriesScreen() {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        if (asset.base64) {
-          setIsUploadingImage(true);
-          try {
-            const fileExt = asset.uri.split('.').pop();
-            const fileName = `category-${Date.now()}.${fileExt}`;
-            const filePath = `category_images/${fileName}`;
+      setIsUploadingImage(true);
+      try {
+        const base64 = asset.base64
+          ? asset.base64
+          : await FileSystem.readAsStringAsync(asset.uri, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+        const fileExt = asset.uri.split('.').pop();
+        const fileName = `category-${Date.now()}.${fileExt}`;
+        const filePath = `category_images/${fileName}`;
 
-            const { error } = await supabase.storage
-              .from('category_images')
-              .upload(filePath, decode(asset.base64), {
-                contentType: asset.mimeType || 'image/jpeg',
-                upsert: false,
-              });
+        const { error } = await supabase.storage
+          .from('category_images')
+          .upload(filePath, decode(base64), {
+            contentType: asset.mimeType || 'image/jpeg',
+            upsert: false,
+          });
 
-            if (error) throw error;
+        if (error) throw error;
 
-            const { data: publicUrlData } = supabase.storage
-              .from('category_images')
-              .getPublicUrl(filePath);
+        const { data: publicUrlData } = supabase.storage
+          .from('category_images')
+          .getPublicUrl(filePath);
 
-            if (publicUrlData?.publicUrl) {
-              setFormData({ ...formData, imageUrl: publicUrlData.publicUrl });
-            }
-          } catch (error: any) {
-            console.error('Error uploading image:', error);
-            Alert.alert('Upload Error', `Failed to upload image: ${(error as Error).message}`);
-          } finally {
-            setIsUploadingImage(false);
-          }
+        if (publicUrlData?.publicUrl) {
+          setFormData({ ...formData, imageUrl: publicUrlData.publicUrl });
         }
+      } catch (error: any) {
+        console.error('Error uploading image:', error);
+        Alert.alert('Upload Error', `Failed to upload image: ${(error as Error).message}`);
+      } finally {
+        setIsUploadingImage(false);
+      }
       }
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to pick image');

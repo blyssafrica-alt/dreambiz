@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Edit, Trash2, Package, X, Save, ImageIcon } from 'lucide-react-native';
 import type { PlatformProduct, ProductType, ProductStatus } from '@/types/super-admin';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { decode } from 'base64-arraybuffer';
 
 export default function ProductsManagementScreen() {
@@ -173,36 +174,38 @@ export default function ProductsManagementScreen() {
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
-      if (asset.base64) {
-        const base64 = asset.base64;
+      try {
+        const base64 = asset.base64
+          ? asset.base64
+          : await FileSystem.readAsStringAsync(asset.uri, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
         const fileExt = asset.uri.split('.').pop();
         const fileName = `${Date.now()}.${fileExt}`;
         const filePath = `product_images/${fileName}`;
 
-        try {
-          const { error } = await supabase.storage
-            .from('product_images')
-            .upload(filePath, decode(base64), {
-              contentType: asset.mimeType || 'image/jpeg',
-              upsert: false,
-            });
+        const { error } = await supabase.storage
+          .from('product_images')
+          .upload(filePath, decode(base64), {
+            contentType: asset.mimeType || 'image/jpeg',
+            upsert: false,
+          });
 
-          if (error) throw error;
+        if (error) throw error;
 
-          const { data: publicUrlData } = supabase.storage
-            .from('product_images')
-            .getPublicUrl(filePath);
+        const { data: publicUrlData } = supabase.storage
+          .from('product_images')
+          .getPublicUrl(filePath);
 
-          if (publicUrlData?.publicUrl) {
-            setFormData(prev => ({
-              ...prev,
-              images: [...prev.images, publicUrlData.publicUrl],
-            }));
-          }
-        } catch (error) {
-          console.error('Error uploading image:', error);
-          Alert.alert('Upload Error', `Failed to upload image: ${(error as Error).message}`);
+        if (publicUrlData?.publicUrl) {
+          setFormData(prev => ({
+            ...prev,
+            images: [...prev.images, publicUrlData.publicUrl],
+          }));
         }
+      } catch (error) {
+        console.error('Error uploading image:', error);
+        Alert.alert('Upload Error', `Failed to upload image: ${(error as Error).message}`);
       }
     }
   };

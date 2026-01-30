@@ -25,6 +25,7 @@ import {
   Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { decode } from 'base64-arraybuffer';
@@ -663,7 +664,12 @@ export default function ProductsScreen() {
                         });
                         if (!result.canceled && result.assets[0]) {
                           const asset = result.assets[0];
-                          if (asset.base64) {
+                          try {
+                            const base64 = asset.base64
+                              ? asset.base64
+                              : await FileSystem.readAsStringAsync(asset.uri, {
+                                  encoding: FileSystem.EncodingType.Base64,
+                                });
                             // Upload to Supabase Storage
                             const fileExt = asset.uri.split('.').pop() || 'jpg';
                             const fileName = `product-${Date.now()}.${fileExt}`;
@@ -671,7 +677,7 @@ export default function ProductsScreen() {
 
                             const { error: uploadError } = await supabase.storage
                               .from('product_images')
-                              .upload(filePath, decode(asset.base64), {
+                              .upload(filePath, decode(base64), {
                                 contentType: asset.mimeType || 'image/jpeg',
                                 upsert: false,
                               });
@@ -692,8 +698,9 @@ export default function ProductsScreen() {
                             } else {
                               setFeaturedImage(asset.uri);
                             }
-                          } else {
-                            setFeaturedImage(asset.uri);
+                          } catch (error: any) {
+                            console.error('Error picking image:', error);
+                            RNAlert.alert('Error', 'Failed to pick image');
                           }
                         }
                       } catch (error: any) {
@@ -744,7 +751,12 @@ export default function ProductsScreen() {
                           });
                           if (!result.canceled && result.assets[0]) {
                             const asset = result.assets[0];
-                            if (asset.base64) {
+                            try {
+                              const base64 = asset.base64
+                                ? asset.base64
+                                : await FileSystem.readAsStringAsync(asset.uri, {
+                                    encoding: FileSystem.EncodingType.Base64,
+                                  });
                               // Upload to Supabase Storage
                               const fileExt = asset.uri.split('.').pop() || 'jpg';
                               const fileName = `product-${Date.now()}.${fileExt}`;
@@ -752,7 +764,7 @@ export default function ProductsScreen() {
 
                               const { error: uploadError } = await supabase.storage
                                 .from('product_images')
-                                .upload(filePath, decode(asset.base64), {
+                                .upload(filePath, decode(base64), {
                                   contentType: asset.mimeType || 'image/jpeg',
                                   upsert: false,
                                 });
@@ -773,8 +785,9 @@ export default function ProductsScreen() {
                               } else {
                                 setAdditionalImages([...additionalImages, asset.uri]);
                               }
-                            } else {
-                              setAdditionalImages([...additionalImages, asset.uri]);
+                            } catch (error: any) {
+                              console.error('Error picking image:', error);
+                              RNAlert.alert('Error', 'Failed to pick image');
                             }
                           }
                         } catch (error: any) {

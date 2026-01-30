@@ -22,6 +22,7 @@ import { getBookBySlug } from '@/lib/book-service';
 import type { Book } from '@/types/books';
 import { supabase } from '@/lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { decode } from 'base64-arraybuffer';
 
 export default function BookDetailScreen() {
@@ -177,58 +178,61 @@ export default function BookDetailScreen() {
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        if (asset.base64) {
-          setIsUploadingProof(true);
-          try {
-            const fileExt = asset.uri.split('.').pop()?.toLowerCase() || 'jpg';
-            const fileName = `book-payment-proof-${Date.now()}.${fileExt}`;
-            const filePath = `payment_proofs/${fileName}`;
-
-            // Determine correct MIME type from file extension or asset.mimeType
-            let contentType = 'image/jpeg'; // default
-            if (asset.mimeType) {
-              // Extract the first valid mime type if multiple are present
-              const mimeTypes = asset.mimeType.split(',').map(m => m.trim());
-              const imageMime = mimeTypes.find(m => m.startsWith('image/'));
-              if (imageMime) {
-                contentType = imageMime;
-              }
-            }
-            
-            // Fallback to MIME type based on file extension
-            if (!contentType || contentType === 'image/jpeg') {
-              const mimeMap: Record<string, string> = {
-                'jpg': 'image/jpeg',
-                'jpeg': 'image/jpeg',
-                'png': 'image/png',
-                'webp': 'image/webp',
-                'gif': 'image/gif',
-              };
-              contentType = mimeMap[fileExt] || 'image/jpeg';
-            }
-
-            const { error: uploadError } = await supabase.storage
-              .from('payment_proofs')
-              .upload(filePath, decode(asset.base64), {
-                contentType: contentType,
-                upsert: false,
+        setIsUploadingProof(true);
+        try {
+          const base64 = asset.base64
+            ? asset.base64
+            : await FileSystem.readAsStringAsync(asset.uri, {
+                encoding: FileSystem.EncodingType.Base64,
               });
+          const fileExt = asset.uri.split('.').pop()?.toLowerCase() || 'jpg';
+          const fileName = `book-payment-proof-${Date.now()}.${fileExt}`;
+          const filePath = `payment_proofs/${fileName}`;
 
-            if (uploadError) throw uploadError;
-
-            const { data: publicUrlData } = supabase.storage
-              .from('payment_proofs')
-              .getPublicUrl(filePath);
-
-            if (publicUrlData?.publicUrl) {
-              setProofImage(publicUrlData.publicUrl);
+          // Determine correct MIME type from file extension or asset.mimeType
+          let contentType = 'image/jpeg'; // default
+          if (asset.mimeType) {
+            // Extract the first valid mime type if multiple are present
+            const mimeTypes = asset.mimeType.split(',').map(m => m.trim());
+            const imageMime = mimeTypes.find(m => m.startsWith('image/'));
+            if (imageMime) {
+              contentType = imageMime;
             }
-          } catch (error: any) {
-            console.error('Error uploading proof:', error);
-            Alert.alert('Upload Error', error.message || 'Failed to upload proof of payment');
-          } finally {
-            setIsUploadingProof(false);
           }
+          
+          // Fallback to MIME type based on file extension
+          if (!contentType || contentType === 'image/jpeg') {
+            const mimeMap: Record<string, string> = {
+              'jpg': 'image/jpeg',
+              'jpeg': 'image/jpeg',
+              'png': 'image/png',
+              'webp': 'image/webp',
+              'gif': 'image/gif',
+            };
+            contentType = mimeMap[fileExt] || 'image/jpeg';
+          }
+
+          const { error: uploadError } = await supabase.storage
+            .from('payment_proofs')
+            .upload(filePath, decode(base64), {
+              contentType: contentType,
+              upsert: false,
+            });
+
+          if (uploadError) throw uploadError;
+
+          const { data: publicUrlData } = supabase.storage
+            .from('payment_proofs')
+            .getPublicUrl(filePath);
+
+          if (publicUrlData?.publicUrl) {
+            setProofImage(publicUrlData.publicUrl);
+          }
+        } catch (error: any) {
+          console.error('Error uploading proof:', error);
+          Alert.alert('Upload Error', error.message || 'Failed to upload proof of payment');
+        } finally {
+          setIsUploadingProof(false);
         }
       }
     } catch (error: any) {
