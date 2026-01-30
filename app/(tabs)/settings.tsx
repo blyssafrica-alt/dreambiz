@@ -13,6 +13,7 @@ import {
   Image,
   Platform,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { getBase64FromAsset } from '@/lib/upload-utils';
@@ -79,6 +80,7 @@ export default function SettingsScreen() {
   const [stage, setStage] = useState<BusinessStage>(business?.stage || 'running');
   const [rate, setRate] = useState(exchangeRate.usdToZwl.toString());
   const [logo, setLogo] = useState<string | undefined>(business?.logo);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const selectedStage = businessStages.find(stageOption => stageOption.value === stage);
 
   useEffect(() => {
@@ -228,6 +230,7 @@ export default function SettingsScreen() {
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        setIsUploadingLogo(true);
         try {
           const base64 = await getBase64FromAsset(asset);
           const fileExt = asset.uri.split('.').pop() || 'jpg';
@@ -259,6 +262,8 @@ export default function SettingsScreen() {
         } catch (error: any) {
           console.error('Error uploading logo:', error);
           RNAlert.alert('Upload Error', error.message || 'Failed to upload logo');
+        } finally {
+          setIsUploadingLogo(false);
         }
       }
     } catch (error) {
@@ -891,11 +896,18 @@ export default function SettingsScreen() {
                     borderColor: theme.border.light,
                   }]}
                   onPress={handlePickImage}
+                  disabled={isUploadingLogo}
                 >
-                  <ImageIcon size={24} color={theme.accent.primary} />
-                  <Text style={[styles.logoUploadText, { color: theme.text.secondary }]}>
-                    Upload Logo
-                  </Text>
+                  {isUploadingLogo ? (
+                    <ActivityIndicator color={theme.accent.primary} />
+                  ) : (
+                    <>
+                      <ImageIcon size={24} color={theme.accent.primary} />
+                      <Text style={[styles.logoUploadText, { color: theme.text.secondary }]}>
+                        Upload Logo
+                      </Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               )}
             </View>

@@ -23,6 +23,7 @@ import {
   Platform,
   Animated,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { getBase64FromAsset } from '@/lib/upload-utils';
@@ -93,6 +94,8 @@ export default function ProductsScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [featuredImage, setFeaturedImage] = useState<string | null>(null);
   const [additionalImages, setAdditionalImages] = useState<string[]>([]);
+  const [isUploadingFeaturedImage, setIsUploadingFeaturedImage] = useState(false);
+  const [isUploadingAdditionalImage, setIsUploadingAdditionalImage] = useState(false);
 
   const filteredProducts = useMemo(() => {
     if (!safeProducts || safeProducts.length === 0) return [];
@@ -664,6 +667,7 @@ export default function ProductsScreen() {
                         });
                         if (!result.canceled && result.assets[0]) {
                           const asset = result.assets[0];
+                          setIsUploadingFeaturedImage(true);
                           try {
                             const base64 = await getBase64FromAsset(asset);
                             // Upload to Supabase Storage
@@ -697,6 +701,8 @@ export default function ProductsScreen() {
                           } catch (error: any) {
                             console.error('Error picking image:', error);
                             RNAlert.alert('Error', 'Failed to pick image');
+                          } finally {
+                            setIsUploadingFeaturedImage(false);
                           }
                         }
                       } catch (error: any) {
@@ -704,11 +710,18 @@ export default function ProductsScreen() {
                         RNAlert.alert('Error', 'Failed to pick image');
                       }
                     }}
+                    disabled={isUploadingFeaturedImage}
                   >
-                    <ImageIcon size={24} color={theme.accent.primary} />
-                    <Text style={[styles.imageUploadText, { color: theme.text.secondary }]}>
-                      Add Featured Image
-                    </Text>
+                    {isUploadingFeaturedImage ? (
+                      <ActivityIndicator color={theme.accent.primary} />
+                    ) : (
+                      <>
+                        <ImageIcon size={24} color={theme.accent.primary} />
+                        <Text style={[styles.imageUploadText, { color: theme.text.secondary }]}>
+                          Add Featured Image
+                        </Text>
+                      </>
+                    )}
                   </TouchableOpacity>
                 )}
               </View>
@@ -747,6 +760,7 @@ export default function ProductsScreen() {
                           });
                           if (!result.canceled && result.assets[0]) {
                             const asset = result.assets[0];
+                            setIsUploadingAdditionalImage(true);
                             try {
                               const base64 = await getBase64FromAsset(asset);
                               // Upload to Supabase Storage
@@ -780,6 +794,8 @@ export default function ProductsScreen() {
                             } catch (error: any) {
                               console.error('Error picking image:', error);
                               RNAlert.alert('Error', 'Failed to pick image');
+                            } finally {
+                              setIsUploadingAdditionalImage(false);
                             }
                           }
                         } catch (error: any) {
@@ -787,8 +803,13 @@ export default function ProductsScreen() {
                           RNAlert.alert('Error', 'Failed to pick image');
                         }
                       }}
+                      disabled={isUploadingAdditionalImage}
                     >
-                      <Plus size={20} color={theme.accent.primary} />
+                      {isUploadingAdditionalImage ? (
+                        <ActivityIndicator color={theme.accent.primary} />
+                      ) : (
+                        <Plus size={20} color={theme.accent.primary} />
+                      )}
                     </TouchableOpacity>
                   )}
                 </ScrollView>

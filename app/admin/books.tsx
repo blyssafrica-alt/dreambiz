@@ -71,6 +71,7 @@ export default function BooksManagementScreen() {
     return value ?? '';
   };
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
 
   useEffect(() => {
     loadBooks();
@@ -186,6 +187,7 @@ export default function BooksManagementScreen() {
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
       setFormData(prev => ({ ...prev, coverImage: asset.uri }));
+      setIsUploadingCover(true);
       try {
         const base64 = await getBase64FromAsset(asset);
         const fileExt = asset.uri.split('.').pop() || 'jpg';
@@ -217,6 +219,8 @@ export default function BooksManagementScreen() {
       } catch (error: any) {
         console.error('Error uploading cover image:', error);
         Alert.alert('Upload Error', error.message || 'Failed to upload cover image');
+      } finally {
+        setIsUploadingCover(false);
       }
     }
   };
@@ -1360,11 +1364,18 @@ export default function BooksManagementScreen() {
                   <TouchableOpacity
                     style={[styles.imageUploadButton, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}
                     onPress={handlePickCoverImage}
+                    disabled={isUploadingCover}
                   >
-                    <ImageIcon size={24} color={theme.accent.primary} />
-                    <Text style={[styles.imageUploadText, { color: theme.text.secondary }]}>
-                      Add Cover Image
-                    </Text>
+                    {isUploadingCover ? (
+                      <ActivityIndicator color={theme.accent.primary} />
+                    ) : (
+                      <>
+                        <ImageIcon size={24} color={theme.accent.primary} />
+                        <Text style={[styles.imageUploadText, { color: theme.text.secondary }]}>
+                          Add Cover Image
+                        </Text>
+                      </>
+                    )}
                   </TouchableOpacity>
                 )}
               </View>
@@ -1406,10 +1417,16 @@ export default function BooksManagementScreen() {
                     onPress={handlePickDocument}
                     disabled={isUploadingDocument}
                   >
-                    <Upload size={24} color={theme.accent.primary} />
-                    <Text style={[styles.imageUploadText, { color: theme.text.secondary }]}>
-                      {isUploadingDocument ? 'Uploading...' : 'Upload PDF/Word Document'}
-                    </Text>
+                    {isUploadingDocument ? (
+                      <ActivityIndicator color={theme.accent.primary} />
+                    ) : (
+                      <>
+                        <Upload size={24} color={theme.accent.primary} />
+                        <Text style={[styles.imageUploadText, { color: theme.text.secondary }]}>
+                          Upload PDF/Word Document
+                        </Text>
+                      </>
+                    )}
                   </TouchableOpacity>
                 )}
                 <Text style={[styles.helperText, { color: theme.text.tertiary }]}>

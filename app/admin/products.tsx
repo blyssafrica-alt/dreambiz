@@ -20,6 +20,7 @@ export default function ProductsManagementScreen() {
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<PlatformProduct | null>(null);
   const [categories, setCategories] = useState<any[]>([]);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -174,6 +175,7 @@ export default function ProductsManagementScreen() {
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
+      setIsUploadingImage(true);
       try {
         const base64 = await getBase64FromAsset(asset);
         const fileExt = asset.uri.split('.').pop();
@@ -202,6 +204,8 @@ export default function ProductsManagementScreen() {
       } catch (error) {
         console.error('Error uploading image:', error);
         Alert.alert('Upload Error', `Failed to upload image: ${(error as Error).message}`);
+      } finally {
+        setIsUploadingImage(false);
       }
     }
   };
@@ -703,9 +707,15 @@ export default function ProductsManagementScreen() {
                     </TouchableOpacity>
                   </View>
                 ))}
-                <TouchableOpacity style={styles.imagePickerButton} onPress={handlePickImage}>
-                  <ImageIcon size={24} color={theme.accent.primary} />
-                  <Text style={[styles.imagePickerButtonText, { color: theme.accent.primary }]}>Add Image</Text>
+                <TouchableOpacity style={styles.imagePickerButton} onPress={handlePickImage} disabled={isUploadingImage}>
+                  {isUploadingImage ? (
+                    <ActivityIndicator color={theme.accent.primary} />
+                  ) : (
+                    <>
+                      <ImageIcon size={24} color={theme.accent.primary} />
+                      <Text style={[styles.imagePickerButtonText, { color: theme.accent.primary }]}>Add Image</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </View>
             </ScrollView>
