@@ -805,6 +805,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   modalContent: {
+    minHeight: '70%',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '90%',
@@ -906,4 +907,5 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
+
 

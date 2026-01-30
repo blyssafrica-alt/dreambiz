@@ -365,7 +365,8 @@ const styles = StyleSheet.create({
   alertMessage: { fontSize: 14, lineHeight: 20, marginBottom: 8 },
   alertAction: { fontSize: 13, fontStyle: 'italic', marginTop: 4 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
-  modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' },
+  modalContent: {
+    minHeight: '70%', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
   modalTitle: { fontSize: 20, fontWeight: '700' },
   modalBody: { padding: 20, maxHeight: 500 },
@@ -382,3 +383,4 @@ const styles = StyleSheet.create({
   saveButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 10, gap: 8 },
   saveButtonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
 });
+

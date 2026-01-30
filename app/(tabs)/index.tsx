@@ -1837,6 +1837,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   modalContent: {
+    minHeight: '70%',
     flex: 1,
     maxHeight: '100%',
   },
@@ -2280,3 +2281,4 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
   },
 });
+

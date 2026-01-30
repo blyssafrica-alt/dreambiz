@@ -711,6 +711,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
+    minHeight: '70%',
     width: '80%',
     maxWidth: 300,
     borderRadius: 16,
@@ -1139,3 +1140,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+

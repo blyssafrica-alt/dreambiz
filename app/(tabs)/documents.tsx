@@ -772,6 +772,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
+    minHeight: '70%',
     backgroundColor: '#FFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -1250,3 +1251,4 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
   },
 });
+

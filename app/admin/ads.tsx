@@ -590,7 +590,8 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 18, fontWeight: '700', marginTop: 4 },
   statLabel: { fontSize: 12, marginTop: 2 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
-  modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' },
+  modalContent: {
+    minHeight: '70%', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
   modalTitle: { fontSize: 20, fontWeight: '700' },
   modalBody: { padding: 20, maxHeight: 500 },
@@ -668,3 +669,4 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
+
