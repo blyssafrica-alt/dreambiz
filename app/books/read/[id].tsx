@@ -15,7 +15,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
-import { ArrowLeft, Download, Share2 } from 'lucide-react-native';
+import { ArrowLeft, Download, Share2, Volume2, Pause } from 'lucide-react-native';
+import * as Speech from 'expo-speech';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -40,6 +41,7 @@ export default function BookReaderScreen() {
   const [chapterContent, setChapterContent] = useState<string | null>(null);
   const [currentChapter, setCurrentChapter] = useState<BookChapter | null>(null);
   const [loadingChapter, setLoadingChapter] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const loadBook = useCallback(async () => {
     if (!id) {
@@ -184,6 +186,12 @@ export default function BookReaderScreen() {
     }
   }, [book, chapter, loadChapterContent]);
 
+  useEffect(() => {
+    return () => {
+      Speech.stop();
+    };
+  }, []);
+
 
   const handlePreviousChapter = () => {
     if (!currentChapter || !book) return;
@@ -205,6 +213,24 @@ export default function BookReaderScreen() {
         params: { id: book.id, chapter: nextChapterNum.toString() }
       } as any);
     }
+  };
+
+  const handleToggleSpeak = () => {
+    if (!chapterContent) {
+      RNAlert.alert('Audio Unavailable', 'Audio is available when reading a chapter.');
+      return;
+    }
+    if (isSpeaking) {
+      Speech.stop();
+      setIsSpeaking(false);
+      return;
+    }
+    setIsSpeaking(true);
+    Speech.speak(chapterContent, {
+      onDone: () => setIsSpeaking(false),
+      onStopped: () => setIsSpeaking(false),
+      onError: () => setIsSpeaking(false),
+    });
   };
 
   const handleDownload = async () => {
@@ -347,6 +373,18 @@ export default function BookReaderScreen() {
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Reading Book</Text>
         <View style={styles.headerActions}>
+          {chapter && (
+            <TouchableOpacity
+              onPress={handleToggleSpeak}
+              style={styles.headerButton}
+            >
+              {isSpeaking ? (
+                <Pause size={20} color={theme.accent.primary} />
+              ) : (
+                <Volume2 size={20} color={theme.accent.primary} />
+              )}
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             onPress={handleDownload}
             disabled={downloading}
