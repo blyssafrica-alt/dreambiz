@@ -47,6 +47,20 @@ export default function EmployeesScreen() {
   const safeEmployees = Array.isArray(employees) ? employees : [];
 
   const [showPassword, setShowPassword] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [role, setRole] = useState('');
+  const [position, setPosition] = useState('');
+  const [hireDate, setHireDate] = useState('');
+  const [salary, setSalary] = useState('');
+  const [isActive, setIsActive] = useState(true);
+  const [notes, setNotes] = useState('');
+  const [password, setPassword] = useState('');
+  const [canLogin, setCanLogin] = useState(false);
+  const [roleId, setRoleId] = useState<string | null>(null);
+  const [availableRoles, setAvailableRoles] = useState<any[]>([]);
 
   const loadRoles = useCallback(async () => {
     if (!business?.id) return;
@@ -88,21 +102,6 @@ export default function EmployeesScreen() {
       }
     }
   }, [roleId, availableRoles, role]);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [role, setRole] = useState('');
-  const [position, setPosition] = useState('');
-  const [hireDate, setHireDate] = useState('');
-  const [salary, setSalary] = useState('');
-  const [isActive, setIsActive] = useState(true);
-  const [notes, setNotes] = useState('');
-  const [password, setPassword] = useState('');
-  const [canLogin, setCanLogin] = useState(false);
-  const [roleId, setRoleId] = useState<string | null>(null);
-  const [availableRoles, setAvailableRoles] = useState<any[]>([]);
-
   const formatCurrency = (amount: number) => {
     const symbol = business?.currency === 'USD' ? '$' : 'ZWL';
     return `${symbol}${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
@@ -762,6 +761,13 @@ function EmployeeCard({ employee, theme, formatCurrency, onEdit, onDelete, canMa
           <Text style={[styles.employeeName, { color: theme.text.primary }]}>
             {employee.name}
           </Text>
+          <View style={[styles.roleBadge, { backgroundColor: theme.surface.info }]}>
+            <Text style={[styles.roleBadgeText, { color: theme.accent.info }]}>
+              {employee.role || employee.position
+                ? [employee.role, employee.position].filter(Boolean).join(' • ')
+                : 'Unassigned'}
+            </Text>
+          </View>
           {(employee.role || employee.position) && (
             <Text style={[styles.employeeRole, { color: theme.text.tertiary }]}>
               {[employee.position, employee.role].filter(Boolean).join(' • ')}
@@ -914,6 +920,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 4,
+  },
+  roleBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    marginBottom: 6,
+  },
+  roleBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   employeeRole: {
     fontSize: 14,
