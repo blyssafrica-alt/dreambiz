@@ -25,6 +25,7 @@ export function FeatureContextProvider({ children }: { children: React.ReactNode
   const [features, setFeatures] = useState<FeatureConfig[]>([]);
   const [enabledFeatureIds, setEnabledFeatureIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [bookFeatureIds, setBookFeatureIds] = useState<string[]>([]);
 
   const loadFeatures = useCallback(async () => {
     if (!user) {
@@ -87,12 +88,44 @@ export function FeatureContextProvider({ children }: { children: React.ReactNode
     loadFeatures();
   }, [loadFeatures]);
 
+  useEffect(() => {
+    const loadBookFeatures = async () => {
+      const bookSlug = business?.dreamBigBook;
+      if (!user || !bookSlug) {
+        setBookFeatureIds([]);
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from('books')
+          .select('enabled_features')
+          .eq('slug', bookSlug)
+          .single();
+        if (error) {
+          setBookFeatureIds([]);
+          return;
+        }
+        const enabled = Array.isArray((data as any)?.enabled_features)
+          ? (data as any).enabled_features
+          : [];
+        setBookFeatureIds(enabled);
+      } catch {
+        setBookFeatureIds([]);
+      }
+    };
+    loadBookFeatures();
+  }, [business?.dreamBigBook, user]);
+
   const isFeatureVisible = useCallback((featureId: string): boolean => {
     // Super admins can always see everything
     if (isSuperAdmin) return true;
 
     const feature = features.find(f => f.featureId === featureId);
-    if (!feature || !feature.enabled) return false;
+    const hasBookFeature = bookFeatureIds.includes(featureId);
+    if (!feature) {
+      return hasBookFeature;
+    }
+    if (!feature.enabled) return false;
 
     // Check premium requirement
     if (feature.isPremium) {
@@ -112,7 +145,12 @@ export function FeatureContextProvider({ children }: { children: React.ReactNode
     const businessType = business?.type;
     const businessStage = business?.stage;
 
-    // Check book requirement
+    // If a book defines enabled features, use it as the primary gate
+    if (bookFeatureIds.length > 0) {
+      return hasBookFeature || feature.enabledByDefault;
+    }
+
+    // Otherwise, fall back to access rules
     if (feature.access.requiresBook && feature.access.requiresBook.length > 0) {
       if (!userBook || !feature.access.requiresBook.includes(userBook)) {
         return false;
@@ -151,7 +189,9 @@ export function FeatureContextProvider({ children }: { children: React.ReactNode
     const feature = features.find(f => f.featureId === featureId);
     if (!feature) return false;
 
-    return feature.visibility.showAsTab && feature.visibility.type === 'tab';
+    // Keep tabs limited: only show when explicitly configured as a tab
+    const visibility = feature.visibility || {};
+    return visibility.showAsTab === true && visibility.type === 'tab';
   }, [features, isFeatureVisible]);
 
   const getVisibleTabs = useCallback((): string[] => {
