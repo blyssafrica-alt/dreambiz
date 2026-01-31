@@ -45,6 +45,7 @@ function RootLayoutNav() {
   const router = useRouter();
   const [emailVerified, setEmailVerified] = React.useState<boolean | null>(null);
   const [showLoadingScreen, setShowLoadingScreen] = React.useState(true);
+  const hasCompletedInitialLoad = React.useRef(false);
 
   const isLoading = businessLoading || authLoading;
 
@@ -61,9 +62,10 @@ function RootLayoutNav() {
       // Small delay to prevent flicker if loading state changes rapidly
       loadingTimeoutRef.current = setTimeout(() => {
         setShowLoadingScreen(false);
+        hasCompletedInitialLoad.current = true;
       }, 100);
-    } else {
-      // Show loading screen immediately when loading starts
+    } else if (!hasCompletedInitialLoad.current) {
+      // Only show the loading screen during the initial load to avoid blinking
       setShowLoadingScreen(true);
     }
 
@@ -77,7 +79,6 @@ function RootLayoutNav() {
   // Check email verification status (only when authenticated)
   React.useEffect(() => {
     let isMounted = true;
-    let checkInterval: ReturnType<typeof setInterval> | null = null;
 
     const checkEmailVerification = async () => {
       // Only check if user is authenticated
@@ -98,23 +99,8 @@ function RootLayoutNav() {
           }
           return;
         }
-        
-        // CRITICAL: Refresh the session first to get the latest email verification status
-        // This is especially important when user clicks email verification link and comes back
-        const { error: refreshError } = await supabase.auth.refreshSession();
-        if (refreshError) {
-          // If refresh fails, try using current session
-          console.log('Session refresh error (non-critical):', refreshError.message);
-          if (refreshError.message?.includes('Auth session missing')) {
-            // Session not established yet - wait
-            if (isMounted) {
-              setEmailVerified(null);
-            }
-            return;
-          }
-        }
-        
-        // Use static import from top of file - get the refreshed session
+ 
+        // Use current session without forcing refresh to avoid auth flicker
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -153,17 +139,6 @@ function RootLayoutNav() {
     if (isAuthenticated && authUser) {
       // Check immediately when authenticated
       checkEmailVerification();
-      
-      // Poll for email verification (every 3 seconds) - reduced frequency to prevent glitches
-      // This helps when user clicks email link and returns to app
-      checkInterval = setInterval(() => {
-        if (isMounted) {
-          // Only poll if email is not verified yet to reduce unnecessary checks
-          if (emailVerified !== true) {
-            checkEmailVerification();
-          }
-        }
-      }, 3000); // Poll every 3 seconds - balance between responsiveness and performance
     } else {
       if (isMounted) {
         setEmailVerified(null);
@@ -172,11 +147,8 @@ function RootLayoutNav() {
 
     return () => {
       isMounted = false;
-      if (checkInterval) {
-        clearInterval(checkInterval);
-      }
     };
-  }, [isAuthenticated, authUser, emailVerified]);
+  }, [isAuthenticated, authUser]);
 
   // Navigation logic - simplified to prevent race conditions
   // Use ref to prevent rapid navigation attempts
