@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import AnimatedLogo from '@/components/AnimatedLogo';
+import { useBusiness } from '@/contexts/BusinessContext';
 
 interface PageHeaderProps {
   title: string;
@@ -25,6 +26,7 @@ export default function PageHeader({
   showLogo = true, // Show logo by default
 }: PageHeaderProps) {
   const { theme } = useTheme();
+  const { isEmployee, currentEmployee, business } = useBusiness();
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
@@ -66,6 +68,13 @@ export default function PageHeader({
               <Text style={styles.headerTitle}>{title}</Text>
               {subtitle && (
                 <Text style={styles.headerSubtitle}>{subtitle}</Text>
+              )}
+              {isEmployee && (
+                <View style={styles.employeeBadge}>
+                  <Text style={styles.employeeBadgeText} numberOfLines={1}>
+                    Assigned • {business?.name || 'Business'} • {currentEmployee?.roleName || 'Employee'}
+                  </Text>
+                </View>
               )}
             </View>
           </View>
@@ -128,6 +137,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '500' as const,
+  },
+  employeeBadge: {
+    marginTop: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  employeeBadgeText: {
+    fontSize: 12,
+    color: '#FFF',
+    fontWeight: '600' as const,
   },
   headerRight: {
     marginLeft: 12,
