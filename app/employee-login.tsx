@@ -22,6 +22,7 @@ import { Lock, Smartphone, Mail, Eye, EyeOff } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { useAuth } from '@/contexts/AuthContext';
 import AnimatedLogo from '@/components/AnimatedLogo';
 import StartShiftModal from '@/components/modals/StartShiftModal';
 import ShiftHandoverModal from '@/components/modals/ShiftHandoverModal';
@@ -30,6 +31,7 @@ import { checkOpenShift, createShift, takeOverShift, type ShiftInfo } from '@/li
 export default function EmployeeLoginScreen() {
   const { theme } = useTheme();
   const { business } = useBusiness();
+  const { signIn, signOut } = useAuth();
   const [loginMethod, setLoginMethod] = useState<'email' | 'pin'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,34 +56,33 @@ export default function EmployeeLoginScreen() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password,
-      });
-
-      if (error) throw error;
+      await signIn(email.trim(), password);
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('Authentication failed. Please try again.');
+      }
 
       // Verify the user is an active employee
       const { data: employee, error: employeeError } = await supabase
         .from('employees')
         .select('id, name, is_active, can_login')
-        .eq('auth_user_id', data.user.id)
-        .single();
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
 
       if (employeeError || !employee) {
-        await supabase.auth.signOut();
+        await signOut();
         RNAlert.alert('Access Denied', 'This account is not registered as an employee');
         return;
       }
 
       if (!employee.is_active) {
-        await supabase.auth.signOut();
+        await signOut();
         RNAlert.alert('Account Inactive', 'Your employee account has been deactivated. Please contact your manager.');
         return;
       }
 
       if (!employee.can_login) {
-        await supabase.auth.signOut();
+        await signOut();
         RNAlert.alert('Login Disabled', 'Login access has been disabled for your account. Please contact your manager.');
         return;
       }
