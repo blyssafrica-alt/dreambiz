@@ -59,6 +59,7 @@ export default function SettingsScreen() {
     addTaxRate,
     addEmployee,
     addProject,
+    updateEmployee,
     isEmployee,
     currentEmployee,
     employeePermissions,
@@ -97,8 +98,12 @@ export default function SettingsScreen() {
   const [isImportingData, setIsImportingData] = useState(false);
   const [logo, setLogo] = useState<string | undefined>(business?.logo);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [employeeProfileName, setEmployeeProfileName] = useState('');
+  const [employeeProfileEmail, setEmployeeProfileEmail] = useState('');
+  const [employeeProfilePhone, setEmployeeProfilePhone] = useState('');
+  const [isSavingEmployeeProfile, setIsSavingEmployeeProfile] = useState(false);
   const selectedStage = businessStages.find(stageOption => stageOption.value === stage);
-  const canViewSettings =
+  const hasSettingsAccess =
     !isEmployee ||
     employeePermissions.includes('settings:view') ||
     employeePermissions.includes('settings:edit');
@@ -128,6 +133,14 @@ export default function SettingsScreen() {
       setLogo(business.logo);
     }
   }, [business]);
+
+  useEffect(() => {
+    if (isEmployee) {
+      setEmployeeProfileName(currentEmployee?.name || '');
+      setEmployeeProfileEmail(currentEmployee?.email || '');
+      setEmployeeProfilePhone(currentEmployee?.phone || '');
+    }
+  }, [isEmployee, currentEmployee?.name, currentEmployee?.email, currentEmployee?.phone]);
 
   // Load books and features from database
   useEffect(() => {
@@ -321,6 +334,31 @@ export default function SettingsScreen() {
       RNAlert.alert('Success', 'Profile updated successfully. All documents will now use the updated information.');
     } catch (error: any) {
       RNAlert.alert('Error', error.message || 'Failed to update profile');
+    }
+  };
+
+  const handleSaveEmployeeProfile = async () => {
+    if (!currentEmployee?.id) {
+      RNAlert.alert('Error', 'Employee profile not found');
+      return;
+    }
+    if (!employeeProfileName.trim()) {
+      RNAlert.alert('Missing Fields', 'Please enter your name');
+      return;
+    }
+
+    setIsSavingEmployeeProfile(true);
+    try {
+      await updateEmployee(currentEmployee.id, {
+        name: employeeProfileName.trim(),
+        email: employeeProfileEmail.trim() || undefined,
+        phone: employeeProfilePhone.trim() || undefined,
+      });
+      RNAlert.alert('Success', 'Profile updated successfully');
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to update profile');
+    } finally {
+      setIsSavingEmployeeProfile(false);
     }
   };
 
@@ -579,33 +617,6 @@ export default function SettingsScreen() {
     }
   };
 
-  if (!canViewSettings) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.background.secondary, justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text.primary, textAlign: 'center' }]}>
-          Settings access is restricted
-        </Text>
-        <Text style={[styles.sectionSubtitle, { color: theme.text.secondary, textAlign: 'center' }]}>
-          Your business owner controls which settings employees can view.
-        </Text>
-        <TouchableOpacity
-          style={[styles.signOutButton, { 
-            backgroundColor: theme.surface.danger,
-            borderColor: theme.accent.danger,
-            marginTop: 24,
-            width: '100%',
-          }]}
-          onPress={handleSignOut}
-        >
-          <LogOut size={20} color={theme.accent.danger} />
-          <Text style={[styles.signOutText, { color: theme.accent.danger }]}>
-            Sign Out
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   return (
     <>
       <Stack.Screen options={{ title: t('settings.title') }} />
@@ -656,6 +667,97 @@ export default function SettingsScreen() {
             </Text>
           </View>
         )}
+        {isEmployee && (
+          <View style={[styles.section, { 
+            backgroundColor: theme.background.card,
+            borderColor: theme.border.light,
+          }]}>
+            <View style={styles.sectionHeader}>
+              <UsersIcon size={20} color={theme.accent.primary} />
+              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
+                My Profile
+              </Text>
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.text.primary }]}>Full Name</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: theme.background.secondary,
+                  borderColor: theme.border.light,
+                  color: theme.text.primary,
+                }]}
+                value={employeeProfileName}
+                onChangeText={setEmployeeProfileName}
+                placeholder="Enter your name"
+                placeholderTextColor={theme.text.tertiary}
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.text.primary }]}>Email</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: theme.background.secondary,
+                  borderColor: theme.border.light,
+                  color: theme.text.primary,
+                }]}
+                value={employeeProfileEmail}
+                onChangeText={setEmployeeProfileEmail}
+                placeholder="Enter your email"
+                placeholderTextColor={theme.text.tertiary}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.text.primary }]}>Phone</Text>
+              <TextInput
+                style={[styles.input, { 
+                  backgroundColor: theme.background.secondary,
+                  borderColor: theme.border.light,
+                  color: theme.text.primary,
+                }]}
+                value={employeeProfilePhone}
+                onChangeText={setEmployeeProfilePhone}
+                placeholder="Enter your phone number"
+                placeholderTextColor={theme.text.tertiary}
+                keyboardType="phone-pad"
+              />
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.saveButton,
+                {
+                  backgroundColor: theme.accent.primary,
+                  opacity: isSavingEmployeeProfile ? 0.7 : 1,
+                },
+              ]}
+              onPress={handleSaveEmployeeProfile}
+              disabled={isSavingEmployeeProfile}
+            >
+              {isSavingEmployeeProfile ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <>
+                  <Save size={20} color="#FFF" />
+                  <Text style={styles.saveButtonText}>Save Profile</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+        {isEmployee && !hasSettingsAccess && (
+          <View style={{ alignItems: 'center', marginTop: 8 }}>
+            <Text style={[styles.sectionTitle, { color: theme.text.primary, textAlign: 'center' }]}>
+              Limited settings access
+            </Text>
+            <Text style={[styles.sectionSubtitle, { color: theme.text.secondary, textAlign: 'center' }]}>
+              Your business owner controls which settings employees can view or edit.
+            </Text>
+          </View>
+        )}
+
+        {hasSettingsAccess && (
+          <>
 
         <View style={[styles.section, { 
           backgroundColor: theme.background.card,
@@ -1631,6 +1733,9 @@ export default function SettingsScreen() {
               </View>
             </TouchableOpacity>
           </View>
+        )}
+
+        </>
         )}
 
         <TouchableOpacity

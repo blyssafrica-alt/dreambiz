@@ -69,6 +69,11 @@ export default function DashboardScreen() {
   
   // Computed values
   const dashboardAds = getAdsForLocation('dashboard');
+  const employeeName = currentEmployee?.name || 'Employee';
+  const welcomeText = isEmployee ? `${t('auth.welcomeBack')}, ${employeeName}` : t('auth.welcomeBack');
+  const businessDisplayName = isEmployee
+    ? (business?.name || 'Assigned Business')
+    : (business?.name || 'Your Business');
 
   useEffect(() => {
     const loadMetrics = async () => {
@@ -684,8 +689,8 @@ export default function DashboardScreen() {
                 style={{ marginRight: responsive.scaleSpacing(12) }}
               />
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[styles.greeting, { fontSize: responsive.scaleFont(14, 0.9) }]}>{t('auth.welcomeBack')} 👋</Text>
-                <Text style={[styles.businessName, { fontSize: responsive.scaleFont(24, 0.85, 1.1) }]} numberOfLines={1} ellipsizeMode="tail">{business?.name || 'Your Business'}</Text>
+                <Text style={[styles.greeting, { fontSize: responsive.scaleFont(14, 0.9) }]}>{welcomeText} 👋</Text>
+                <Text style={[styles.businessName, { fontSize: responsive.scaleFont(24, 0.85, 1.1) }]} numberOfLines={1} ellipsizeMode="tail">{businessDisplayName}</Text>
                 {isEmployee && (
                   <View style={styles.employeeBadge}>
                     <UsersIcon size={12} color="rgba(255, 255, 255, 0.9)" />

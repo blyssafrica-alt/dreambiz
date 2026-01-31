@@ -325,7 +325,7 @@ export default function MoreScreen() {
           route: '/(tabs)/settings',
           color: '#64748B',
           gradient: ['#64748B', '#475569'],
-          visible: hasPermission(['settings:view', 'settings:edit']),
+          visible: true,
         },
         {
           id: 'integrations',

@@ -53,6 +53,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     const [currentEmployee, setCurrentEmployee] = useState<{
       id: string;
       name: string;
+      phone?: string;
       email?: string;
       roleId?: string;
       roleName?: string;
@@ -84,7 +85,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       try {
         const { data } = await supabase
           .from('employees')
-          .select('id, name, email, role_id, business_id, can_login, is_active, employee_roles(name)')
+          .select('id, name, email, phone, role_id, business_id, can_login, is_active, employee_roles(name)')
           .eq('auth_user_id', userId)
           .maybeSingle();
         employeeRecord = data;
@@ -99,6 +100,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         setCurrentEmployee({
           id: employeeRecord.id,
           name: employeeRecord.name,
+          phone: employeeRecord.phone || undefined,
           email: employeeRecord.email || undefined,
           roleId: employeeRecord.role_id || undefined,
           roleName: (employeeRecord.employee_roles as any)?.name || undefined,

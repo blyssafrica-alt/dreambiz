@@ -66,6 +66,15 @@ CREATE POLICY "Employees can manage employees by permission" ON public.employees
     OR public.employee_has_permission(business_id, 'employees:manage')
   );
 
+DROP POLICY IF EXISTS "Employees can update own profile" ON public.employees;
+CREATE POLICY "Employees can update own profile" ON public.employees
+  FOR UPDATE USING (
+    auth.uid()::text = auth_user_id::text
+  )
+  WITH CHECK (
+    auth.uid()::text = auth_user_id::text
+  );
+
 -- ============================================
 -- PRODUCTS
 -- ============================================
