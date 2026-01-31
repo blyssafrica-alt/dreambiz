@@ -173,6 +173,9 @@ function RootLayoutNav() {
 
     // Use authUser as source of truth for authentication (more reliable than isAuthenticated computed value)
     const actuallyAuthenticated = !!authUser || isAuthenticated;
+    const isEmployeeUser = !!authUser?.metadata?.is_employee;
+    const effectiveHasOnboarded = isEmployeeUser ? true : hasOnboarded;
+    const effectiveEmailVerified = isEmployeeUser ? true : emailVerified;
 
     // CRITICAL: Always allow navigation from auth screens when authenticated, even while loading
     // This is the key fix - don't block navigation after sign-in
@@ -211,28 +214,28 @@ function RootLayoutNav() {
       // Authenticated - PRIORITY: Get off auth screens first
       if (inAuth) {
         // On auth screen but authenticated - navigate away IMMEDIATELY
-        if (hasOnboarded) {
+        if (effectiveHasOnboarded) {
           targetRoute = '/(tabs)';
         } else {
           // Not onboarded - navigate based on email verification status
-          if (emailVerified === true) {
+          if (effectiveEmailVerified === true) {
             targetRoute = '/onboarding';
           } else {
             // Email not verified or status unknown - go to verify-email
             targetRoute = '/verify-email';
           }
         }
-      } else if (emailVerified === true && inVerifyEmail) {
+      } else if (effectiveEmailVerified === true && inVerifyEmail) {
         // Email verified - redirect away from verify-email
-        if (hasOnboarded) {
+        if (effectiveHasOnboarded) {
           targetRoute = '/(tabs)';
         } else {
           targetRoute = '/onboarding';
         }
-      } else if (emailVerified === false && !inVerifyEmail && !inAuth) {
+      } else if (effectiveEmailVerified === false && !inVerifyEmail && !inAuth) {
         // Email not verified - go to verify-email (if not already there)
         targetRoute = '/verify-email';
-      } else if (hasOnboarded) {
+      } else if (effectiveHasOnboarded) {
         // Already onboarded - redirect away from verify-email/onboarding to tabs
         // But don't redirect if user is in admin section or allowed non-tab routes
         if (inVerifyEmail || inOnboarding) {
@@ -240,7 +243,7 @@ function RootLayoutNav() {
         } else if (!inTabs && !inAdmin && !inAllowedNonTabRoute) {
           targetRoute = '/(tabs)';
         }
-      } else if (!hasOnboarded && emailVerified === true && !inOnboarding && !inAuth) {
+      } else if (!effectiveHasOnboarded && effectiveEmailVerified === true && !inOnboarding && !inAuth) {
         // Email verified but not onboarded - go to onboarding
         targetRoute = '/onboarding';
       }
