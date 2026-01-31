@@ -80,6 +80,14 @@ export default function EmployeesScreen() {
     ]).start();
     loadRoles();
   }, [fadeAnim, slideAnim, loadRoles]);
+  useEffect(() => {
+    if (roleId && availableRoles.length > 0) {
+      const matchedRole = availableRoles.find(r => r.id === roleId);
+      if (matchedRole && matchedRole.name && matchedRole.name !== role) {
+        setRole(matchedRole.name);
+      }
+    }
+  }, [roleId, availableRoles, role]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -100,6 +108,39 @@ export default function EmployeesScreen() {
     return `${symbol}${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
   };
 
+  const confirmCreateRole = (roleName: string) => new Promise<boolean>(resolve => {
+    RNAlert.alert(
+      'Create new role?',
+      `No role named "${roleName}" was found. Create it now?`,
+      [
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Create', onPress: () => resolve(true) },
+      ]
+    );
+  });
+
+  const createRole = async (roleName: string) => {
+    if (!business?.id) {
+      throw new Error('Business not found. Please try again.');
+    }
+    const { data, error } = await supabase
+      .from('employee_roles')
+      .insert({
+        business_id: business.id,
+        name: roleName,
+      })
+      .select('id, name')
+      .single();
+    if (error) throw error;
+    if (data) {
+      setAvailableRoles(prev => {
+        const next = [...prev, data];
+        return next.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      });
+    }
+    return data;
+  };
+
   const handleSave = async () => {
     if (!name) {
       RNAlert.alert('Missing Fields', 'Please enter employee name');
@@ -117,6 +158,27 @@ export default function EmployeesScreen() {
     }
 
     try {
+      const trimmedRole = role.trim();
+      let resolvedRoleId = roleId;
+      let resolvedRoleName = trimmedRole || undefined;
+      if (trimmedRole) {
+        const matchedRole = availableRoles.find(r => (r.name || '').toLowerCase() === trimmedRole.toLowerCase());
+        if (matchedRole) {
+          resolvedRoleId = matchedRole.id;
+          resolvedRoleName = matchedRole.name;
+        } else {
+          const shouldCreate = await confirmCreateRole(trimmedRole);
+          if (!shouldCreate) {
+            return;
+          }
+          const createdRole = await createRole(trimmedRole);
+          if (createdRole?.id) {
+            resolvedRoleId = createdRole.id;
+            resolvedRoleName = createdRole.name;
+          }
+        }
+      }
+
       let authUserId: string | null = null;
 
       // Create auth account if login is enabled
@@ -203,7 +265,7 @@ export default function EmployeesScreen() {
           name,
           email: email || undefined,
           phone: phone || undefined,
-          role: role || undefined,
+          role: resolvedRoleName || undefined,
           position: position || undefined,
           hireDate: hireDate || undefined,
           salary: salary ? parseFloat(salary) : undefined,
@@ -211,7 +273,7 @@ export default function EmployeesScreen() {
           isActive,
           notes: notes || undefined,
           authUserId: authUserId || undefined,
-          roleId: roleId || undefined,
+          roleId: resolvedRoleId || undefined,
           canLogin,
         } as any);
       } else {
@@ -219,7 +281,7 @@ export default function EmployeesScreen() {
           name,
           email: email || undefined,
           phone: phone || undefined,
-          role: role || undefined,
+          role: resolvedRoleName || undefined,
           position: position || undefined,
           hireDate: hireDate || undefined,
           salary: salary ? parseFloat(salary) : undefined,
@@ -227,7 +289,7 @@ export default function EmployeesScreen() {
           isActive,
           notes: notes || undefined,
           authUserId: authUserId || undefined,
-          roleId: roleId || undefined,
+          roleId: resolvedRoleId || undefined,
           canLogin,
         } as any);
       }
@@ -245,12 +307,16 @@ export default function EmployeesScreen() {
     setName(employee.name);
     setEmail(employee.email || '');
     setPhone(employee.phone || '');
-    setRole(employee.role || '');
+    const roleFromId = employee.roleId
+      ? availableRoles.find(r => r.id === employee.roleId)?.name
+      : undefined;
+    setRole(roleFromId || employee.role || '');
     setPosition(employee.position || '');
     setHireDate(employee.hireDate || '');
     setSalary(employee.salary?.toString() || '');
     setIsActive(employee.isActive);
     setNotes(employee.notes || '');
+    setRoleId(employee.roleId || null);
     setShowModal(true);
   };
 
@@ -434,10 +500,54 @@ export default function EmployeesScreen() {
                   <TextInput
                     style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
                     value={role}
-                    onChangeText={setRole}
-                    placeholder="e.g., Manager"
+                    onChangeText={text => {
+                      setRole(text);
+                      if (!text.trim()) {
+                        setRoleId(null);
+                      }
+                    }}
+                    placeholder="Select or type a role"
                     placeholderTextColor={theme.text.tertiary}
                   />
+                  {availableRoles.length > 0 && (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.roleChips}
+                    >
+                      {availableRoles.map(r => {
+                        const isSelected = roleId === r.id || (role && r.name?.toLowerCase() === role.toLowerCase());
+                        return (
+                          <TouchableOpacity
+                            key={r.id}
+                            style={[
+                              styles.roleChip,
+                              {
+                                backgroundColor: isSelected ? theme.accent.primary : theme.background.secondary,
+                                borderColor: isSelected ? theme.accent.primary : theme.border.light,
+                              },
+                            ]}
+                            onPress={() => {
+                              setRoleId(r.id);
+                              setRole(r.name || '');
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.roleChipText,
+                                { color: isSelected ? '#FFF' : theme.text.primary },
+                              ]}
+                            >
+                              {r.name}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  )}
+                  <Text style={[styles.hint, { color: theme.text.tertiary }]}>
+                    Choose a role above or type a new one to create it.
+                  </Text>
                 </View>
                 <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
                   <Text style={[styles.label, { color: theme.text.primary }]}>Position</Text>
@@ -946,6 +1056,21 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: 12,
     marginTop: 4,
+  },
+  roleChips: {
+    paddingTop: 8,
+    paddingBottom: 2,
+    gap: 8,
+  },
+  roleChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  roleChipText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   roleScroll: {
     maxHeight: 150,
