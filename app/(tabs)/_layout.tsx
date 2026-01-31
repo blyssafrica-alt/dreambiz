@@ -98,12 +98,12 @@ function AnimatedTabIcon({
 
 export default function TabLayout() {
   const { theme, isLoading } = useTheme();
-  const { shouldShowAsTab, isLoading: featuresLoading } = useFeatures();
+  const { shouldShowAsTab, isFeatureVisible, isLoading: featuresLoading } = useFeatures();
   const { business } = useBusiness();
   const insets = useSafeAreaInsets();
   
-  // Check if POS should be shown as main tab (only for retail businesses)
-  const showPOSTab = business?.type === 'retail';
+  // POS visibility is feature-driven (global + book selection)
+  const showPOSTab = shouldShowAsTab('pos');
   
   // Show loading indicator while theme or features are loading
   if (isLoading || featuresLoading || !theme) {

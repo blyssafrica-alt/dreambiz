@@ -122,10 +122,8 @@ export function FeatureContextProvider({ children }: { children: React.ReactNode
 
     const feature = features.find(f => f.featureId === featureId);
     const hasBookFeature = bookFeatureIds.includes(featureId);
-    if (!feature) {
-      return hasBookFeature;
-    }
-    if (!feature.enabled && !hasBookFeature) return false;
+    if (!feature) return false;
+    if (!feature.enabled) return false;
 
     // Check premium requirement
     if (feature.isPremium) {
