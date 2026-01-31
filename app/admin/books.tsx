@@ -69,6 +69,14 @@ export default function BooksManagementScreen() {
   const ensureString = (value: string | null | undefined): string => {
     return value ?? '';
   };
+
+  const updateChapter = (index: number, updates: Partial<BookChapter>) => {
+    setFormData(prev => {
+      const chapters = [...(prev.chapters || [])];
+      chapters[index] = { ...chapters[index], ...updates };
+      return { ...prev, chapters };
+    });
+  };
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
 
@@ -1599,9 +1607,23 @@ export default function BooksManagementScreen() {
                             <Text style={[styles.chapterNumber, { color: theme.accent.primary }]}>
                               Ch. {chapter.number}
                             </Text>
-                            <Text style={[styles.chapterTitle, { color: theme.text.primary }]}>
-                              {chapter.title}
-                            </Text>
+                            <View style={styles.chapterContent}>
+                              <TextInput
+                                style={[styles.chapterTitleInput, { color: theme.text.primary, borderColor: theme.border.light }]}
+                                value={chapter.title}
+                                onChangeText={(text) => updateChapter(index, { title: text })}
+                                placeholder={`Chapter ${chapter.number}`}
+                                placeholderTextColor={theme.text.tertiary}
+                              />
+                              <TextInput
+                                style={[styles.chapterDescInput, { color: theme.text.secondary, borderColor: theme.border.light }]}
+                                value={chapter.description || ''}
+                                onChangeText={(text) => updateChapter(index, { description: text })}
+                                placeholder="Short description (optional)"
+                                placeholderTextColor={theme.text.tertiary}
+                                multiline
+                              />
+                            </View>
                           </View>
                         ))}
                       </View>
@@ -1967,7 +1989,7 @@ const styles = StyleSheet.create({
   },
   modalBodyContent: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 56,
   },
   stepContent: {
     marginBottom: 24,
@@ -2142,9 +2164,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     minWidth: 50,
   },
-  chapterTitle: {
-    fontSize: 14,
+  chapterContent: {
     flex: 1,
+    gap: 8,
+  },
+  chapterTitleInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 14,
+  },
+  chapterDescInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 12,
+    minHeight: 44,
+    textAlignVertical: 'top',
   },
   featuresList: {
     maxHeight: 200,

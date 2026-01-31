@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalBodyContent: {
-    paddingBottom: 20,
+    paddingBottom: 56,
   },
   inputGroup: {
     marginBottom: 20,

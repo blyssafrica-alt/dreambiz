@@ -174,6 +174,7 @@ export default function ReportsScreen() {
     const totalInvoiced = invoiceDocs.reduce((sum, d) => sum + d.total, 0);
     const paidInvoices = invoiceDocs.filter(d => d.status === 'paid');
     const totalPaid = paidInvoices.reduce((sum, d) => sum + d.total, 0);
+    const cashFromSales = totalSales;
     const outstanding = totalInvoiced - totalPaid;
 
     return {
@@ -195,6 +196,7 @@ export default function ReportsScreen() {
       invoiceStatus,
       totalInvoiced,
       totalPaid,
+      cashFromSales,
       outstanding,
       transactionCount: filtered.length,
     };
@@ -451,7 +453,7 @@ export default function ReportsScreen() {
             <View style={styles.cashflowRow}>
               <Text style={[styles.cashflowLabel, { color: theme.text.tertiary }]}>Cash from Sales</Text>
               <Text style={[styles.cashflowValue, { color: '#10B981' }]}>
-                +{formatCurrency(reportData.totalPaid)}
+                +{formatCurrency(reportData.cashFromSales)}
               </Text>
             </View>
             <View style={styles.cashflowRow}>
@@ -463,7 +465,7 @@ export default function ReportsScreen() {
             <View style={[styles.cashflowTotal, { borderTopColor: theme.background.secondary }]}>
               <Text style={[styles.cashflowTotalLabel, { color: theme.text.primary }]}>Net Cash from Operations</Text>
               <Text style={[styles.cashflowTotalValue, { color: reportData.profit >= 0 ? '#10B981' : '#EF4444' }]}>
-                {formatCurrency(reportData.totalPaid - reportData.totalExpenses)}
+                {formatCurrency(reportData.cashFromSales - reportData.totalExpenses)}
               </Text>
             </View>
           </View>
@@ -486,7 +488,7 @@ export default function ReportsScreen() {
             <View style={styles.cashflowRow}>
               <Text style={[styles.cashflowTotalLabel, { color: theme.text.primary }]}>Net Change in Cash</Text>
               <Text style={[styles.cashflowTotalValue, { color: reportData.profit >= 0 ? '#10B981' : '#EF4444', fontSize: 18 }]}>
-                {formatCurrency(reportData.totalPaid - reportData.totalExpenses)}
+                {formatCurrency(reportData.cashFromSales - reportData.totalExpenses)}
               </Text>
             </View>
           </View>

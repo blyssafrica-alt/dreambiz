@@ -330,6 +330,24 @@ export default function AdminDashboard() {
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/budget-templates' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Budget Templates</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Create templates for different business types
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/alerts' as any)}
           activeOpacity={0.7}
         >
@@ -392,6 +410,24 @@ export default function AdminDashboard() {
               <Text style={[styles.actionText, { color: theme.text.primary }]}>Store Metadata</Text>
               <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
                 Update privacy/terms/support URLs and listing content
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/legal-pages' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Legal Pages</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Edit terms, privacy policy, and other legal pages
               </Text>
             </View>
             <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>

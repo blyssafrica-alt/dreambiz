@@ -237,7 +237,11 @@ export default function PaymentMethodsManagementScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.modalBody}
+              contentContainerStyle={styles.modalBodyContent}
+              showsVerticalScrollIndicator={false}
+            >
               <Text style={[styles.label, { color: theme.text.secondary }]}>Name (internal) *</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
@@ -381,6 +385,7 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
   modalTitle: { fontSize: 20, fontWeight: '700' },
   modalBody: { padding: 20, maxHeight: 500 },
+  modalBodyContent: { paddingBottom: 56 },
   label: { fontSize: 14, fontWeight: '600', marginTop: 12, marginBottom: 8 },
   input: { padding: 12, borderRadius: 10, fontSize: 15, marginBottom: 4 },
   textArea: { minHeight: 100, textAlignVertical: 'top' },

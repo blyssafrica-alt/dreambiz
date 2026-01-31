@@ -395,7 +395,7 @@ export default function EmployeesScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
+            <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: theme.text.primary }]}>Name *</Text>
                 <TextInput
@@ -833,6 +833,9 @@ const styles = StyleSheet.create({
   },
   modalBody: {
     padding: 20,
+  },
+  modalBodyContent: {
+    paddingBottom: 56,
   },
   inputGroup: {
     marginBottom: 16,

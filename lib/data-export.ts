@@ -152,17 +152,45 @@ export function exportAllData(
 
 export async function shareData(data: string, filename: string, mimeType: string) {
   try {
-    const FileSystem = await import('expo-file-system');
+    const FileSystem = await import('expo-file-system/legacy');
     const Sharing = await import('expo-sharing');
-    
+    const { Platform, Share } = await import('react-native');
+
     const docDir = (FileSystem as any).documentDirectory;
     if (!docDir) {
       throw new Error('File system not available');
     }
-    
+
     const fileUri = `${docDir}${filename}`;
-    await (FileSystem as any).writeAsStringAsync(fileUri, data, { encoding: (FileSystem as any).EncodingType.UTF8 });
-    await (Sharing as any).shareAsync(fileUri, { mimeType, UTI: mimeType });
+    await (FileSystem as any).writeAsStringAsync(fileUri, data, { encoding: 'utf8' });
+
+    const canShare = (Sharing as any).isAvailableAsync
+      ? await (Sharing as any).isAvailableAsync()
+      : false;
+
+    if (canShare) {
+      try {
+        await (Sharing as any).shareAsync(fileUri, { mimeType, UTI: mimeType });
+        return;
+      } catch (shareError) {
+        console.warn('Share failed, trying fallback:', shareError);
+      }
+    }
+
+    if ((FileSystem as any).StorageAccessFramework && Platform.OS === 'android') {
+      const permissions = await (FileSystem as any).StorageAccessFramework.requestDirectoryPermissionsAsync();
+      if (permissions.granted) {
+        const targetUri = await (FileSystem as any).StorageAccessFramework.createFileAsync(
+          permissions.directoryUri,
+          filename,
+          mimeType
+        );
+        await (FileSystem as any).writeAsStringAsync(targetUri, data, { encoding: 'utf8' });
+        return;
+      }
+    }
+
+    await Share.share({ message: data, title: filename });
   } catch (error) {
     console.error('Share failed:', error);
     throw new Error('Sharing not supported on this platform');

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react-native';
 import { useState, useRef, useEffect } from 'react';
 import { BarChart } from '@/components/Charts';
-import { getBudgetTemplatesForBusinessType } from '@/constants/budget-templates';
+import { getBudgetTemplatesForBusinessType, type BudgetTemplate } from '@/constants/budget-templates';
 import {
   View,
   Text,
@@ -28,6 +28,7 @@ import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { Budget } from '@/types/business';
+import { supabase } from '@/lib/supabase';
 
 export default function BudgetsScreen() {
   const { business, transactions, budgets, addBudget, updateBudget, deleteBudget } = useBusiness();
@@ -56,6 +57,52 @@ export default function BudgetsScreen() {
       }),
     ]).start();
   }, [fadeAnim, slideAnim]);
+
+  useEffect(() => {
+    loadBudgetTemplates();
+  }, [business?.type]);
+
+  const loadBudgetTemplates = async () => {
+    try {
+      setIsLoadingTemplates(true);
+      const { data, error } = await supabase
+        .from('budget_templates')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+
+      if (data) {
+        const mapped = data.map((row: any) => ({
+          id: row.id,
+          name: row.name,
+          description: row.description || '',
+          businessTypes: Array.isArray(row.business_types) ? row.business_types : [],
+          categories: Array.isArray(row.categories)
+            ? row.categories.map((cat: any) => ({
+                category: cat.category || '',
+                percentage: Number(cat.percentage || 0),
+                description: cat.description || '',
+              }))
+            : [],
+        })) as BudgetTemplate[];
+
+        const filtered = business?.type
+          ? mapped.filter(t => t.businessTypes.length === 0 || t.businessTypes.includes(business.type))
+          : mapped;
+
+        setBudgetTemplates(filtered);
+      } else {
+        setBudgetTemplates([]);
+      }
+    } catch (error) {
+      console.error('Failed to load budget templates:', error);
+      setBudgetTemplates([]);
+    } finally {
+      setIsLoadingTemplates(false);
+    }
+  };
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'quarterly' | 'yearly'>('monthly');
@@ -66,6 +113,8 @@ export default function BudgetsScreen() {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
   const [showBudgetDetail, setShowBudgetDetail] = useState(false);
+  const [budgetTemplates, setBudgetTemplates] = useState<BudgetTemplate[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
 
   const formatCurrency = (amount: number) => {
     const symbol = business?.currency === 'USD' ? '$' : 'ZWL';
@@ -380,11 +429,11 @@ export default function BudgetsScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
+            <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
               <Text style={[styles.templateDescription, { color: theme.text.secondary }]}>
                 Select a template to quickly create a budget based on your business type
               </Text>
-              {getBudgetTemplatesForBusinessType(business?.type).map(template => (
+              {(budgetTemplates.length > 0 ? budgetTemplates : getBudgetTemplatesForBusinessType(business?.type)).map(template => (
                 <TouchableOpacity
                   key={template.id}
                   style={[styles.templateCard, { backgroundColor: theme.background.secondary }]}
@@ -405,6 +454,11 @@ export default function BudgetsScreen() {
                   <Text style={[styles.templateDesc, { color: theme.text.secondary }]}>{template.description}</Text>
                 </TouchableOpacity>
               ))}
+              {isLoadingTemplates && (
+                <Text style={[styles.templateDesc, { color: theme.text.secondary, marginTop: 8 }]}>
+                  Loading templates...
+                </Text>
+              )}
             </ScrollView>
           </View>
         </View>
@@ -423,7 +477,7 @@ export default function BudgetsScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
+            <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
               {selectedBudget && (() => {
                 const categoryData = selectedBudget.categories.map(cat => {
                   const categorySpent = transactions
@@ -511,7 +565,7 @@ export default function BudgetsScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
+            <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: theme.text.primary }]}>Budget Name *</Text>
                 <TextInput
@@ -828,6 +882,9 @@ const styles = StyleSheet.create({
   },
   modalBody: {
     padding: 20,
+  },
+  modalBodyContent: {
+    paddingBottom: 56,
   },
   inputGroup: {
     marginBottom: 16,

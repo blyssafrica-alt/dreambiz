@@ -24,6 +24,18 @@ import { supabase } from '@/lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import { getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 
+interface PaymentMethod {
+  id: string;
+  name: string;
+  display_name: string;
+  description?: string;
+  type: 'cash' | 'bank_transfer' | 'mobile_money' | 'card' | 'crypto' | 'other';
+  is_active: boolean;
+  requires_setup: boolean;
+  setup_instructions?: string;
+  display_order: number;
+}
+
 export default function BookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { theme } = useTheme();
@@ -33,13 +45,15 @@ export default function BookDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bank_transfer' | 'mobile_money' | 'card' | 'other'>('mobile_money');
+  const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [hasPurchased, setHasPurchased] = useState(false);
   const [purchaseStatus, setPurchaseStatus] = useState<'none' | 'pending' | 'completed' | 'failed'>('none');
   const [proofImage, setProofImage] = useState<string | null>(null);
   const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
 
   const loadBook = useCallback(async () => {
     try {
@@ -95,6 +109,33 @@ export default function BookDetailScreen() {
     }
   }, [id]);
 
+  const loadPaymentMethods = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('payment_methods')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setPaymentMethods(data);
+        setSelectedPaymentMethod(data[0]);
+        setPaymentMethod(data[0].name);
+      } else {
+        setPaymentMethods([]);
+        setSelectedPaymentMethod(null);
+        setPaymentMethod('');
+      }
+    } catch (error) {
+      console.error('Failed to load payment methods:', error);
+      setPaymentMethods([]);
+      setSelectedPaymentMethod(null);
+      setPaymentMethod('');
+    }
+  }, []);
+
   const checkPurchaseStatus = useCallback(async () => {
     if (!user || !id) return;
 
@@ -131,7 +172,8 @@ export default function BookDetailScreen() {
   useEffect(() => {
     loadBook();
     checkPurchaseStatus();
-  }, [checkPurchaseStatus, loadBook]);
+    loadPaymentMethods();
+  }, [checkPurchaseStatus, loadBook, loadPaymentMethods]);
 
   const getCurrentPrice = () => {
     if (!book) return 0;
@@ -230,6 +272,11 @@ export default function BookDetailScreen() {
 
   const handleConfirmPurchase = async () => {
     if (!book || !user || !business) return;
+
+    if (!paymentMethod) {
+      Alert.alert('Payment Method Required', 'Please select a payment method to continue');
+      return;
+    }
 
     if (!proofImage) {
       Alert.alert('Proof Required', 'Please upload proof of payment to complete your purchase');
@@ -501,7 +548,11 @@ export default function BookDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.modalBody}
+              contentContainerStyle={styles.modalBodyContent}
+              showsVerticalScrollIndicator={false}
+            >
               {/* Price Summary Card */}
               <View style={[styles.summaryCard, { backgroundColor: theme.background.secondary }]}>
                 <View style={styles.summaryRow}>
@@ -515,38 +566,82 @@ export default function BookDetailScreen() {
               {/* Payment Method Selection */}
               <View style={styles.inputGroupModern}>
                 <Text style={[styles.labelModern, { color: theme.text.primary }]}>Payment Method</Text>
-                <View style={styles.paymentMethodsGrid}>
-                  {(['mobile_money', 'bank_transfer', 'card', 'cash'] as const).map(method => (
-                    <TouchableOpacity
-                      key={method}
-                      style={[
-                        styles.paymentMethodCard,
-                        {
-                          backgroundColor: paymentMethod === method 
-                            ? theme.accent.primary + '15' 
-                            : theme.background.secondary,
-                          borderWidth: paymentMethod === method ? 2 : 1,
-                          borderColor: paymentMethod === method 
-                            ? theme.accent.primary 
-                            : theme.border.light,
-                        }
-                      ]}
-                      onPress={() => setPaymentMethod(method)}
-                    >
-                      {method === 'mobile_money' && <Smartphone size={24} color={paymentMethod === method ? theme.accent.primary : theme.text.secondary} />}
-                      {method === 'bank_transfer' && <Building2 size={24} color={paymentMethod === method ? theme.accent.primary : theme.text.secondary} />}
-                      {method === 'card' && <CreditCard size={24} color={paymentMethod === method ? theme.accent.primary : theme.text.secondary} />}
-                      {method === 'cash' && <DollarSign size={24} color={paymentMethod === method ? theme.accent.primary : theme.text.secondary} />}
-                      <Text style={[
-                        styles.paymentMethodLabel,
-                        { color: paymentMethod === method ? theme.accent.primary : theme.text.primary }
-                      ]}>
-                        {method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                {paymentMethods.length === 0 ? (
+                  <Text style={[styles.labelHint, { color: theme.text.tertiary }]}>
+                    No payment methods configured. Please contact support.
+                  </Text>
+                ) : (
+                  <View style={styles.paymentMethodsGrid}>
+                    {paymentMethods.map(method => {
+                      const isSelected = paymentMethod === method.name;
+                      const iconColor = isSelected ? theme.accent.primary : theme.text.secondary;
+
+                      return (
+                        <TouchableOpacity
+                          key={method.id}
+                          style={[
+                            styles.paymentMethodCard,
+                            {
+                              backgroundColor: isSelected ? theme.accent.primary + '12' : theme.background.secondary,
+                              borderWidth: isSelected ? 2 : 1,
+                              borderColor: isSelected ? theme.accent.primary : theme.border.light,
+                            },
+                          ]}
+                          onPress={() => {
+                            setSelectedPaymentMethod(method);
+                            setPaymentMethod(method.name);
+                          }}
+                        >
+                          {method.type === 'mobile_money' && <Smartphone size={24} color={iconColor} />}
+                          {method.type === 'bank_transfer' && <Building2 size={24} color={iconColor} />}
+                          {method.type === 'card' && <CreditCard size={24} color={iconColor} />}
+                          {method.type === 'cash' && <DollarSign size={24} color={iconColor} />}
+                          {method.type === 'other' && <CreditCard size={24} color={iconColor} />}
+                          <Text
+                            style={[
+                              styles.paymentMethodLabel,
+                              { color: isSelected ? theme.accent.primary : theme.text.primary },
+                            ]}
+                          >
+                            {(method.display_name || method.name)
+                              .replace('_', ' ')
+                              .replace(/\b\w/g, l => l.toUpperCase())}
+                          </Text>
+                          {isSelected && (
+                            <View style={[styles.selectedBadge, { borderColor: theme.accent.primary }]}>
+                              <Check size={14} color={theme.accent.primary} />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
+
+              {selectedPaymentMethod && (
+                <View style={[styles.paymentInstructionsCard, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}>
+                  <Text style={[styles.paymentInstructionsTitle, { color: theme.text.primary }]}>
+                    Payment Instructions
+                  </Text>
+                  {selectedPaymentMethod.setup_instructions ? (
+                    <Text style={[styles.paymentInstructionsText, { color: theme.text.secondary }]}>
+                      {selectedPaymentMethod.setup_instructions}
+                    </Text>
+                  ) : selectedPaymentMethod.description ? (
+                    <Text style={[styles.paymentInstructionsText, { color: theme.text.secondary }]}>
+                      {selectedPaymentMethod.description}
+                    </Text>
+                  ) : (
+                    <Text style={[styles.paymentInstructionsText, { color: theme.text.tertiary }]}>
+                      No instructions set for this method. Please contact support.
+                    </Text>
+                  )}
+                  <Text style={[styles.paymentInstructionsHint, { color: theme.text.tertiary }]}>
+                    Admins can update instructions in Admin → Payment Methods.
+                  </Text>
+                </View>
+              )}
 
               {/* Payment Reference */}
               <View style={styles.inputGroupModern}>
@@ -630,12 +725,12 @@ export default function BookDetailScreen() {
                 style={[
                   styles.submitButton,
                   { 
-                    backgroundColor: proofImage ? theme.accent.primary : theme.text.tertiary,
+                    backgroundColor: proofImage && paymentMethod ? theme.accent.primary : theme.text.tertiary,
                     opacity: isPurchasing ? 0.7 : 1,
                   }
                 ]}
                 onPress={handleConfirmPurchase}
-                disabled={isPurchasing || !proofImage}
+                disabled={isPurchasing || !proofImage || !paymentMethod}
               >
                 {isPurchasing ? (
                   <>
@@ -891,8 +986,11 @@ const styles = StyleSheet.create({
     marginTop: -4,
   },
   modalBody: {
-    padding: 24,
+    paddingHorizontal: 24,
+  },
+  modalBodyContent: {
     paddingTop: 20,
+    paddingBottom: 56,
   },
   summaryCard: {
     padding: 20,
@@ -952,16 +1050,43 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    position: 'relative',
   },
   paymentMethodLabel: {
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  selectedBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentInstructionsCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 20,
+  },
+  paymentInstructionsTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  paymentInstructionsText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  paymentInstructionsHint: {
+    fontSize: 12,
+    marginTop: 8,
   },
   uploadProofButton: {
     borderWidth: 2,

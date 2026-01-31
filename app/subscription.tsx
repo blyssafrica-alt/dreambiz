@@ -26,7 +26,10 @@ interface PaymentMethod {
   id: string;
   name: string;
   display_name: string;
+  description?: string;
   type: string;
+  requires_setup?: boolean;
+  setup_instructions?: string;
 }
 
 export default function SubscriptionScreen() {
@@ -474,7 +477,11 @@ export default function SubscriptionScreen() {
             </View>
 
             {selectedPlanForPayment && (
-              <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={styles.modalScrollView}
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
                 <View style={[styles.paymentPlanInfo, { backgroundColor: theme.background.secondary }]}>
                   <Text style={[styles.paymentPlanName, { color: theme.text.primary }]}>
                     {selectedPlanForPayment.name} Plan
@@ -526,6 +533,30 @@ export default function SubscriptionScreen() {
                     </View>
                   )}
                 </View>
+
+                {selectedPaymentMethod && (
+                  <View style={[styles.paymentInstructionsCard, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}>
+                    <Text style={[styles.paymentInstructionsTitle, { color: theme.text.primary }]}>
+                      Payment Instructions
+                    </Text>
+                    {selectedPaymentMethod.setup_instructions ? (
+                      <Text style={[styles.paymentInstructionsText, { color: theme.text.secondary }]}>
+                        {selectedPaymentMethod.setup_instructions}
+                      </Text>
+                    ) : selectedPaymentMethod.description ? (
+                      <Text style={[styles.paymentInstructionsText, { color: theme.text.secondary }]}>
+                        {selectedPaymentMethod.description}
+                      </Text>
+                    ) : (
+                      <Text style={[styles.paymentInstructionsText, { color: theme.text.tertiary }]}>
+                        No instructions set for this method. Please contact support.
+                      </Text>
+                    )}
+                    <Text style={[styles.paymentInstructionsHint, { color: theme.text.tertiary }]}>
+                      Admins can update instructions in Admin → Payment Methods.
+                    </Text>
+                  </View>
+                )}
 
                 {/* Reference Number */}
                 <View style={styles.paymentSection}>
@@ -797,6 +828,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
+  modalScrollContent: {
+    paddingBottom: 56,
+  },
   paymentPlanInfo: {
     padding: 16,
     borderRadius: 12,
@@ -848,6 +882,25 @@ const styles = StyleSheet.create({
   },
   paymentMethodType: {
     fontSize: 13,
+  },
+  paymentInstructionsCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 24,
+  },
+  paymentInstructionsTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  paymentInstructionsText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  paymentInstructionsHint: {
+    fontSize: 12,
+    marginTop: 8,
   },
   paymentInput: {
     borderWidth: 1,

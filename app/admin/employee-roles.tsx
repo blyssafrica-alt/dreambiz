@@ -697,6 +697,7 @@ const styles = StyleSheet.create({
   },
   modalBodyContent: {
     padding: 20,
+    paddingBottom: 56,
   },
   formGroup: {
     marginBottom: 20,

@@ -106,6 +106,13 @@ export default function AdminLayout() {
         }} 
       />
       <Stack.Screen 
+        name="budget-templates" 
+        options={{ 
+          title: 'Budget Templates',
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
         name="alerts" 
         options={{ 
           title: 'Alert Rules',
@@ -151,6 +158,13 @@ export default function AdminLayout() {
         name="store-metadata" 
         options={{ 
           title: 'Store Metadata',
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
+        name="legal-pages" 
+        options={{ 
+          title: 'Legal Pages',
           headerShown: false,
         }} 
       />

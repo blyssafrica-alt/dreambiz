@@ -1,5 +1,5 @@
 import { Stack, router } from 'expo-router';
-import { DollarSign, Building2, MapPin, Phone, Mail, Save, FileText, Moon, Sun, LogOut, Download, Database, Image as ImageIcon, X, Settings as SettingsIcon, MessageSquare, Bell, Globe, CheckCircle, XCircle, Crown, BookOpen, ChevronRight, Zap } from 'lucide-react-native';
+import { DollarSign, Building2, MapPin, Phone, Mail, Save, FileText, Moon, Sun, LogOut, Download, Upload, Database, Image as ImageIcon, X, Settings as SettingsIcon, MessageSquare, Bell, Globe, CheckCircle, XCircle, Crown, BookOpen, ChevronRight, Zap } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
 import {
   View,
@@ -16,6 +16,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -46,6 +48,16 @@ export default function SettingsScreen() {
     taxRates,
     employees,
     projects,
+    addTransaction,
+    addDocument,
+    addProduct,
+    addCustomer,
+    addSupplier,
+    addBudget,
+    addCashflowProjection,
+    addTaxRate,
+    addEmployee,
+    addProject,
   } = useBusiness();
   const { theme, isDark, toggleTheme } = useTheme();
   const { signOut, user, isSuperAdmin } = useAuth();
@@ -78,6 +90,7 @@ export default function SettingsScreen() {
   const [currency, setCurrency] = useState<Currency>(business?.currency || 'USD');
   const [stage, setStage] = useState<BusinessStage>(business?.stage || 'running');
   const [rate, setRate] = useState(exchangeRate.usdToZwl.toString());
+  const [isImportingData, setIsImportingData] = useState(false);
   const [logo, setLogo] = useState<string | undefined>(business?.logo);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const selectedStage = businessStages.find(stageOption => stageOption.value === stage);
@@ -425,6 +438,114 @@ export default function SettingsScreen() {
       RNAlert.alert('Success', `Data exported successfully as ${format.toUpperCase()}`);
     } catch (error: any) {
       RNAlert.alert('Error', error.message || 'Failed to export data');
+    }
+  };
+
+  const handleImportData = async () => {
+    if (!business?.id) {
+      RNAlert.alert('Error', 'Business profile not found. Please refresh and try again.');
+      return;
+    }
+
+    try {
+      setIsImportingData(true);
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/json', 'text/json', 'text/plain', '*/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets?.[0]) {
+        return;
+      }
+
+      const file = result.assets[0];
+      const content = await FileSystem.readAsStringAsync(file.uri, { encoding: 'utf8' });
+      const parsed = JSON.parse(content);
+
+      if (!parsed || typeof parsed !== 'object') {
+        throw new Error('Invalid JSON file');
+      }
+
+      if (parsed.business) {
+        await saveBusiness({
+          ...business,
+          ...parsed.business,
+          id: business.id,
+        });
+      }
+
+      const stripMeta = <T extends Record<string, any>>(item: T) => {
+        const { id, createdAt, updatedAt, ...rest } = item;
+        return rest as Omit<T, 'id' | 'createdAt' | 'updatedAt'>;
+      };
+
+      if (Array.isArray(parsed.transactions)) {
+        for (const t of parsed.transactions) {
+          await addTransaction(stripMeta(t));
+        }
+      }
+
+      if (Array.isArray(parsed.documents)) {
+        for (const d of parsed.documents) {
+          const { id, createdAt, updatedAt, documentNumber, ...rest } = d;
+          await addDocument(rest);
+        }
+      }
+
+      if (Array.isArray(parsed.products)) {
+        for (const p of parsed.products) {
+          await addProduct(stripMeta(p));
+        }
+      }
+
+      if (Array.isArray(parsed.customers)) {
+        for (const c of parsed.customers) {
+          await addCustomer(stripMeta(c));
+        }
+      }
+
+      if (Array.isArray(parsed.suppliers)) {
+        for (const s of parsed.suppliers) {
+          await addSupplier(stripMeta(s));
+        }
+      }
+
+      if (Array.isArray(parsed.budgets)) {
+        for (const b of parsed.budgets) {
+          await addBudget(stripMeta(b));
+        }
+      }
+
+      if (Array.isArray(parsed.cashflowProjections)) {
+        for (const c of parsed.cashflowProjections) {
+          await addCashflowProjection(stripMeta(c));
+        }
+      }
+
+      if (Array.isArray(parsed.taxRates)) {
+        for (const t of parsed.taxRates) {
+          await addTaxRate(stripMeta(t));
+        }
+      }
+
+      if (Array.isArray(parsed.employees)) {
+        for (const e of parsed.employees) {
+          await addEmployee(stripMeta(e));
+        }
+      }
+
+      if (Array.isArray(parsed.projects)) {
+        for (const p of parsed.projects) {
+          await addProject(stripMeta(p));
+        }
+      }
+
+      RNAlert.alert('Import Complete', 'Your data has been imported successfully.');
+    } catch (error: any) {
+      console.error('Import failed:', error);
+      RNAlert.alert('Import Failed', error.message || 'Failed to import data');
+    } finally {
+      setIsImportingData(false);
     }
   };
 
@@ -1246,6 +1367,83 @@ export default function SettingsScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+
+          <View style={styles.importSection}>
+            <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
+              Import a previous JSON export to restore your data
+            </Text>
+            <TouchableOpacity 
+              style={[styles.importButton, { 
+                backgroundColor: theme.background.secondary,
+                borderColor: theme.border.light,
+              }]}
+              onPress={handleImportData}
+              disabled={isImportingData}
+            >
+              {isImportingData ? (
+                <ActivityIndicator color={theme.accent.primary} />
+              ) : (
+                <>
+                  <Upload size={20} color={theme.accent.primary} />
+                  <Text style={[styles.exportButtonText, { color: theme.text.primary }]}>
+                    Import JSON
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={[styles.section, { 
+          backgroundColor: theme.background.card,
+          borderColor: theme.border.light,
+        }]}>
+          <View style={styles.sectionHeader}>
+            <FileText size={20} color={theme.accent.primary} />
+            <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
+              Legal
+            </Text>
+          </View>
+          <TouchableOpacity 
+            style={[styles.toolButton, { 
+              backgroundColor: theme.background.secondary,
+              borderColor: theme.border.light,
+            }]}
+            onPress={() => router.push('/legal/terms' as any)}
+          >
+            <View style={styles.toolLeft}>
+              <FileText size={22} color={theme.accent.primary} />
+              <View>
+                <Text style={[styles.toolTitle, { color: theme.text.primary }]}>
+                  Terms & Conditions
+                </Text>
+                <Text style={[styles.toolDesc, { color: theme.text.secondary }]}>
+                  View our terms of service
+                </Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color={theme.text.tertiary} />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.toolButton, { 
+              backgroundColor: theme.background.secondary,
+              borderColor: theme.border.light,
+            }]}
+            onPress={() => router.push('/legal/privacy-policy' as any)}
+          >
+            <View style={styles.toolLeft}>
+              <FileText size={22} color={theme.accent.primary} />
+              <View>
+                <Text style={[styles.toolTitle, { color: theme.text.primary }]}>
+                  Privacy Policy
+                </Text>
+                <Text style={[styles.toolDesc, { color: theme.text.secondary }]}>
+                  How we handle your data
+                </Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color={theme.text.tertiary} />
+          </TouchableOpacity>
         </View>
 
         {isSuperAdmin && (
@@ -1730,6 +1928,19 @@ const styles = StyleSheet.create({
   exportButtonText: {
     fontSize: 15,
     fontWeight: '600' as const,
+  },
+  importSection: {
+    marginTop: 16,
+    gap: 10,
+  },
+  importButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
   },
   logoContainer: {
     marginTop: 8,

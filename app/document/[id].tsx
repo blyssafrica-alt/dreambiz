@@ -862,7 +862,7 @@ export default function DocumentDetailScreen() {
                 <X size={24} color={theme.text.tertiary} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalBody}>
+            <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
               <View style={styles.qrContainer}>
                 <Text style={[styles.qrTitle, { color: theme.text.primary }]}>
                   Scan to Pay
@@ -920,7 +920,7 @@ export default function DocumentDetailScreen() {
                 <X size={24} color={theme.text.tertiary} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalBody}>
+            <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
               <View style={styles.paymentLinkContainer}>
                 <Text style={[styles.paymentLinkTitle, { color: theme.text.primary }]}>
                   Shareable Payment Link
@@ -984,7 +984,7 @@ export default function DocumentDetailScreen() {
                 <X size={24} color={theme.text.secondary} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent} showsVerticalScrollIndicator={false}>
               <View style={styles.paymentInfoBox}>
                 <Text style={[styles.paymentInfoLabel, { color: theme.text.secondary }]}>Outstanding Amount</Text>
                 <Text style={[styles.paymentInfoValue, { color: theme.accent.primary }]}>
@@ -1594,6 +1594,9 @@ const styles = StyleSheet.create({
   },
   modalBody: {
     padding: 20,
+  },
+  modalBodyContent: {
+    paddingBottom: 56,
   },
   qrContainer: {
     alignItems: 'center',

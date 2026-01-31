@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Search, User, Mail, Calendar, Gift, Percent, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Search, User, Mail, Calendar, Gift, Percent, Trash2, Crown } from 'lucide-react-native';
 
 interface UserData {
   id: string;
@@ -20,6 +20,14 @@ interface UserData {
   subscription_plan_name?: string;
 }
 
+interface SubscriptionPlan {
+  id: string;
+  name: string;
+  price: number;
+  currency: string;
+  billing_period: string;
+}
+
 export default function UsersManagementScreen() {
   const { theme } = useTheme();
   const { user: currentUser, isSuperAdmin, isAdmin, isModerator } = useAuth();
@@ -30,9 +38,15 @@ export default function UsersManagementScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [planStatus, setPlanStatus] = useState<'free' | 'trial' | 'active'>('active');
+  const [trialDays, setTrialDays] = useState('14');
 
   useEffect(() => {
     loadUsers();
+    loadSubscriptionPlans();
   }, []);
 
   useEffect(() => {
@@ -76,6 +90,7 @@ export default function UsersManagementScreen() {
           user_id,
           status,
           end_date,
+          plan_id,
           subscription_plans (
             id,
             name
@@ -98,6 +113,7 @@ export default function UsersManagementScreen() {
               status: sub.status,
               end_date: sub.end_date,
               plan_name: sub.subscription_plans?.name || 'Premium',
+              plan_id: sub.subscription_plans?.id || sub.plan_id,
             });
           }
         });
@@ -112,6 +128,7 @@ export default function UsersManagementScreen() {
             ...user,
             subscription_status: subscription.status === 'active' ? 'premium' : subscription.status,
             subscription_plan_name: subscription.plan_name,
+            subscription_plan_id: subscription.plan_id,
             subscription_end_date: subscription.end_date,
           };
         } else {
@@ -119,6 +136,7 @@ export default function UsersManagementScreen() {
             ...user,
             subscription_status: 'free',
             subscription_plan_name: undefined,
+            subscription_plan_id: undefined,
             subscription_end_date: undefined,
           };
         }
@@ -134,12 +152,114 @@ export default function UsersManagementScreen() {
     }
   };
 
+  const loadSubscriptionPlans = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('subscription_plans')
+        .select('id, name, price, currency, billing_period')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+      setSubscriptionPlans(data || []);
+    } catch (error) {
+      console.error('Failed to load subscription plans:', error);
+    }
+  };
+
   const handleGrantTrial = (userId: string) => {
     router.push(`/admin/premium?action=grant_trial&userId=${userId}` as any);
   };
 
   const handleGrantDiscount = (userId: string) => {
     router.push(`/admin/premium?action=grant_discount&userId=${userId}` as any);
+  };
+
+  const handleOpenPlanModal = (user: UserData) => {
+    setSelectedUser(user);
+    const status = user.subscription_status === 'trial'
+      ? 'trial'
+      : user.subscription_status === 'premium'
+        ? 'active'
+        : 'free';
+    setPlanStatus(status);
+    setSelectedPlanId(user.subscription_plan_id || subscriptionPlans[0]?.id || null);
+    setTrialDays('14');
+    setShowPlanModal(true);
+  };
+
+  const handleUpdateSubscription = async () => {
+    if (!selectedUser) return;
+
+    try {
+      const now = new Date().toISOString();
+
+      if (planStatus === 'free') {
+        await supabase
+          .from('user_subscriptions')
+          .update({ status: 'cancelled', cancelled_at: now })
+          .eq('user_id', selectedUser.id)
+          .in('status', ['active', 'trial']);
+
+        const { error: userError } = await supabase
+          .from('users')
+          .update({
+            subscription_status: 'free',
+            subscription_plan_id: null,
+            subscription_end_date: null,
+          })
+          .eq('id', selectedUser.id);
+
+        if (userError) throw userError;
+      } else {
+        if (!selectedPlanId) {
+          Alert.alert('Select Plan', 'Please select a subscription plan.');
+          return;
+        }
+
+        const trialDuration = Math.max(1, parseInt(trialDays || '14', 10));
+        const trialEndDate = new Date(Date.now() + trialDuration * 24 * 60 * 60 * 1000).toISOString();
+
+        await supabase
+          .from('user_subscriptions')
+          .update({ status: 'cancelled', cancelled_at: now })
+          .eq('user_id', selectedUser.id)
+          .in('status', ['active', 'trial']);
+
+        const { error: subscriptionError } = await supabase
+          .from('user_subscriptions')
+          .insert({
+            user_id: selectedUser.id,
+            plan_id: selectedPlanId,
+            status: planStatus === 'trial' ? 'trial' : 'active',
+            start_date: now,
+            end_date: planStatus === 'trial' ? trialEndDate : null,
+            trial_end_date: planStatus === 'trial' ? trialEndDate : null,
+            auto_renew: planStatus !== 'trial',
+          });
+
+        if (subscriptionError) throw subscriptionError;
+
+        const { error: userError } = await supabase
+          .from('users')
+          .update({
+            subscription_status: planStatus === 'trial' ? 'trial' : 'premium',
+            subscription_plan_id: selectedPlanId,
+            subscription_end_date: planStatus === 'trial' ? trialEndDate : null,
+          })
+          .eq('id', selectedUser.id);
+
+        if (userError) throw userError;
+      }
+
+      setShowPlanModal(false);
+      setSelectedUser(null);
+      loadUsers();
+      Alert.alert('Success', 'Subscription updated successfully');
+    } catch (error) {
+      console.error('Failed to update subscription:', error);
+      Alert.alert('Error', 'Failed to update subscription');
+    }
   };
 
   const handleDeleteUser = (userId: string, userEmail: string) => {
@@ -389,6 +509,17 @@ export default function UsersManagementScreen() {
                       </Text>
                     </TouchableOpacity>
                   )}
+                  {isSuperAdmin && (
+                    <TouchableOpacity
+                      style={[styles.actionButton, { backgroundColor: theme.surface.info }]}
+                      onPress={() => handleOpenPlanModal(user)}
+                    >
+                      <Crown size={16} color={theme.accent.info} />
+                      <Text style={[styles.actionButtonText, { color: theme.accent.info }]}>
+                        Change Plan
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                   {!user.is_super_admin && (
                     <>
                       <TouchableOpacity
@@ -448,6 +579,96 @@ export default function UsersManagementScreen() {
               style={[styles.cancelButton, { backgroundColor: theme.background.secondary }]}
               onPress={() => {
                 setShowRoleModal(false);
+                setSelectedUser(null);
+              }}
+            >
+              <Text style={[styles.cancelText, { color: theme.text.primary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+      {showPlanModal && selectedUser && (
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: theme.background.card }]}>
+            <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Change Subscription</Text>
+            <Text style={[styles.modalSubtitle, { color: theme.text.secondary }]}>
+              {selectedUser.email}
+            </Text>
+
+            <View style={styles.planStatusRow}>
+              {(['free', 'trial', 'active'] as const).map(status => {
+                const isSelected = planStatus === status;
+                return (
+                  <TouchableOpacity
+                    key={status}
+                    style={[
+                      styles.statusPill,
+                      {
+                        backgroundColor: isSelected ? theme.accent.primary : theme.background.secondary,
+                        borderColor: isSelected ? theme.accent.primary : theme.border.light,
+                      },
+                    ]}
+                    onPress={() => setPlanStatus(status)}
+                  >
+                    <Text style={[styles.statusPillText, { color: isSelected ? '#FFF' : theme.text.primary }]}>
+                      {status === 'active' ? 'Premium' : status.toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {planStatus !== 'free' && (
+              <View style={styles.planList}>
+                {subscriptionPlans.map(plan => {
+                  const isSelected = selectedPlanId === plan.id;
+                  return (
+                    <TouchableOpacity
+                      key={plan.id}
+                      style={[
+                        styles.planOption,
+                        {
+                          borderColor: isSelected ? theme.accent.primary : theme.border.light,
+                          backgroundColor: isSelected ? `${theme.accent.primary}10` : theme.background.secondary,
+                        },
+                      ]}
+                      onPress={() => setSelectedPlanId(plan.id)}
+                    >
+                      <View>
+                        <Text style={[styles.planName, { color: theme.text.primary }]}>{plan.name}</Text>
+                        <Text style={[styles.planPrice, { color: theme.text.tertiary }]}>
+                          {plan.currency} {plan.price} / {plan.billing_period}
+                        </Text>
+                      </View>
+                      {isSelected && <Crown size={18} color={theme.accent.primary} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
+            {planStatus === 'trial' && (
+              <View style={styles.trialInputRow}>
+                <Text style={[styles.trialLabel, { color: theme.text.secondary }]}>Trial days</Text>
+                <TextInput
+                  style={[styles.trialInput, { borderColor: theme.border.light, color: theme.text.primary }]}
+                  value={trialDays}
+                  onChangeText={setTrialDays}
+                  keyboardType="number-pad"
+                />
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[styles.saveButton, { backgroundColor: theme.accent.primary }]}
+              onPress={handleUpdateSubscription}
+            >
+              <Text style={styles.saveButtonText}>Save</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.cancelButton, { backgroundColor: theme.background.secondary }]}
+              onPress={() => {
+                setShowPlanModal(false);
                 setSelectedUser(null);
               }}
             >
@@ -647,6 +868,71 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textTransform: 'capitalize',
+  },
+  planStatusRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  statusPill: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  statusPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  planList: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  planOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  planName: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  planPrice: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  trialInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  trialLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  trialInput: {
+    width: 80,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    textAlign: 'center',
+  },
+  saveButton: {
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  saveButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   cancelButton: {
     paddingVertical: 12,

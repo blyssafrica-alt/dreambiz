@@ -785,7 +785,11 @@ export default function BusinessesScreen() {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={styles.modalBody}
+                contentContainerStyle={styles.modalBodyContent}
+                showsVerticalScrollIndicator={false}
+              >
                 {step === 1 && renderStep1()}
                 {step === 2 && renderStep2()}
                 {step === 3 && renderStep3()}
@@ -947,6 +951,9 @@ const styles = StyleSheet.create({
   modalBody: {
     padding: 20,
     maxHeight: 600,
+  },
+  modalBodyContent: {
+    paddingBottom: 56,
   },
   stepContainer: {
     paddingBottom: 20,

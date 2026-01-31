@@ -601,11 +601,19 @@ export default function PaymentVerificationScreen() {
 
       {/* View Mode Toggle - With Animated Sliding Indicator */}
       <View style={[styles.viewModeContainer, { backgroundColor: theme.background.card }]}>
-        <View style={styles.viewModeTabsWrapper}>
+        <View
+          style={[
+            styles.viewModeTabsWrapper,
+            { backgroundColor: theme.background.secondary, borderColor: theme.border.light },
+          ]}
+        >
           <TouchableOpacity
             style={[
               styles.viewModeTab,
-              viewMode === 'documents' && { backgroundColor: `${theme.accent.primary}10` },
+              {
+                backgroundColor: viewMode === 'documents' ? theme.accent.primary : 'transparent',
+                borderColor: viewMode === 'documents' ? theme.accent.primary : 'transparent',
+              },
             ]}
             onLayout={(e) => onMainTabLayout('documents', e)}
             onPress={() => setViewMode('documents')}
@@ -614,7 +622,7 @@ export default function PaymentVerificationScreen() {
             <Text
               style={[
                 styles.viewModeTabText,
-                { color: viewMode === 'documents' ? theme.accent.primary : theme.text.primary },
+                { color: viewMode === 'documents' ? '#FFF' : theme.text.primary },
               ]}
             >
               Customer Payments
@@ -622,7 +630,7 @@ export default function PaymentVerificationScreen() {
             <Text
               style={[
                 styles.viewModeTabSubtext,
-                { color: viewMode === 'documents' ? theme.accent.primary : theme.text.tertiary },
+                { color: viewMode === 'documents' ? '#FFF' : theme.text.tertiary },
               ]}
             >
               Invoice/Receipt payments
@@ -631,7 +639,10 @@ export default function PaymentVerificationScreen() {
           <TouchableOpacity
             style={[
               styles.viewModeTab,
-              (viewMode === 'books' || viewMode === 'subscriptions') && { backgroundColor: `${theme.accent.primary}10` },
+              {
+                backgroundColor: (viewMode === 'books' || viewMode === 'subscriptions') ? theme.accent.primary : 'transparent',
+                borderColor: (viewMode === 'books' || viewMode === 'subscriptions') ? theme.accent.primary : 'transparent',
+              },
             ]}
             onLayout={(e) => onMainTabLayout('platform', e)}
             onPress={() => {
@@ -645,7 +656,7 @@ export default function PaymentVerificationScreen() {
             <Text
               style={[
                 styles.viewModeTabText,
-                { color: (viewMode === 'books' || viewMode === 'subscriptions') ? theme.accent.primary : theme.text.primary },
+                { color: (viewMode === 'books' || viewMode === 'subscriptions') ? '#FFF' : theme.text.primary },
               ]}
             >
               Platform Payments
@@ -653,7 +664,7 @@ export default function PaymentVerificationScreen() {
             <Text
               style={[
                 styles.viewModeTabSubtext,
-                { color: (viewMode === 'books' || viewMode === 'subscriptions') ? theme.accent.primary : theme.text.tertiary },
+                { color: (viewMode === 'books' || viewMode === 'subscriptions') ? '#FFF' : theme.text.tertiary },
               ]}
             >
               Books & Subscriptions
@@ -678,11 +689,19 @@ export default function PaymentVerificationScreen() {
       {/* Sub-category selector for Platform Payments - With Animated Sliding Indicator */}
       {(viewMode === 'books' || viewMode === 'subscriptions') && (
         <View style={[styles.subModeContainer, { backgroundColor: theme.background.secondary }]}>
-          <View style={styles.subModeTabsWrapper}>
+          <View
+            style={[
+              styles.subModeTabsWrapper,
+              { backgroundColor: theme.background.card, borderColor: theme.border.light },
+            ]}
+          >
             <TouchableOpacity
               style={[
                 styles.subModeTab,
-                subViewMode === 'books' && { backgroundColor: `${theme.accent.primary}10` },
+                {
+                  backgroundColor: subViewMode === 'books' ? theme.accent.primary : 'transparent',
+                  borderColor: subViewMode === 'books' ? theme.accent.primary : 'transparent',
+                },
               ]}
               onLayout={(e) => onSubTabLayout('books', e)}
               onPress={() => {
@@ -694,7 +713,7 @@ export default function PaymentVerificationScreen() {
               <Text
                 style={[
                   styles.subModeTabText,
-                  { color: subViewMode === 'books' ? theme.accent.primary : theme.text.secondary },
+                  { color: subViewMode === 'books' ? '#FFF' : theme.text.secondary },
                 ]}
               >
                 Books
@@ -703,7 +722,10 @@ export default function PaymentVerificationScreen() {
             <TouchableOpacity
               style={[
                 styles.subModeTab,
-                subViewMode === 'subscriptions' && { backgroundColor: `${theme.accent.primary}10` },
+                {
+                  backgroundColor: subViewMode === 'subscriptions' ? theme.accent.primary : 'transparent',
+                  borderColor: subViewMode === 'subscriptions' ? theme.accent.primary : 'transparent',
+                },
               ]}
               onLayout={(e) => onSubTabLayout('subscriptions', e)}
               onPress={() => {
@@ -715,7 +737,7 @@ export default function PaymentVerificationScreen() {
               <Text
                 style={[
                   styles.subModeTabText,
-                  { color: subViewMode === 'subscriptions' ? theme.accent.primary : theme.text.secondary },
+                  { color: subViewMode === 'subscriptions' ? '#FFF' : theme.text.secondary },
                 ]}
               >
                 Subscriptions
@@ -1136,7 +1158,7 @@ export default function PaymentVerificationScreen() {
                   </View>
                 </LinearGradient>
 
-                <ScrollView style={styles.modalBody}>
+                <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
                   <View style={styles.detailRow}>
                     <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>Plan</Text>
                     <Text style={[styles.detailValue, { color: theme.text.primary }]}>
@@ -1236,7 +1258,7 @@ export default function PaymentVerificationScreen() {
                   </View>
                 </LinearGradient>
 
-                <ScrollView style={styles.modalBody}>
+                <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
                   <View style={styles.detailRow}>
                     <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>Book</Text>
                     <Text style={[styles.detailValue, { color: theme.text.primary }]}>
@@ -1367,7 +1389,7 @@ export default function PaymentVerificationScreen() {
                     </TouchableOpacity>
                 </View>
 
-                <ScrollView style={styles.modalBody}>
+                <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
                   <View style={styles.detailRow}>
                     <Text style={[styles.detailLabel, { color: theme.text.secondary }]}>Amount</Text>
                     <Text style={[styles.detailValue, { color: theme.text.primary }]}>
@@ -1486,13 +1508,15 @@ const styles = StyleSheet.create({
   },
   viewModeContainer: {
     padding: 16,
-    paddingTop: 8,
+    paddingTop: 10,
   },
   viewModeTabsWrapper: {
     flexDirection: 'row',
     position: 'relative',
     gap: 8,
-    paddingBottom: 4,
+    padding: 6,
+    borderRadius: 16,
+    borderWidth: 1,
   },
   viewModeTab: {
     flex: 1,
@@ -1501,6 +1525,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'transparent',
     zIndex: 1,
+    borderWidth: 1,
   },
   viewModeTabText: {
     fontSize: 15,
@@ -1521,7 +1546,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     position: 'relative',
     gap: 8,
-    paddingBottom: 4,
+    padding: 6,
+    borderRadius: 14,
+    borderWidth: 1,
   },
   subModeTab: {
     flex: 1,
@@ -1531,6 +1558,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'transparent',
     zIndex: 1,
+    borderWidth: 1,
   },
   subModeTabText: {
     fontSize: 14,
@@ -1741,6 +1769,9 @@ const styles = StyleSheet.create({
     padding: 24,
     maxHeight: 500,
   },
+  modalBodyContent: {
+    paddingBottom: 56,
+  },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1842,8 +1873,8 @@ const styles = StyleSheet.create({
   tabIndicator: {
     position: 'absolute',
     bottom: 0,
-    height: 3,
-    borderRadius: 2,
+    height: 0,
+    opacity: 0,
     zIndex: 0,
   },
 });

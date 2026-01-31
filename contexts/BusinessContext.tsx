@@ -2122,27 +2122,50 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     if (!userId || !business?.id) throw new Error('User or business not found');
 
     try {
-      const { data, error } = await supabase
+      const basePayload: any = {
+        user_id: userId,
+        business_id: business.id,
+        name: employee.name,
+        email: employee.email || null,
+        phone: employee.phone || null,
+        role: employee.role || null,
+        position: employee.position || null,
+        hire_date: employee.hireDate || null,
+        salary: employee.salary || null,
+        currency: employee.currency || null,
+        is_active: employee.isActive,
+        notes: employee.notes || null,
+      };
+      const optionalPayload: any = {
+        auth_user_id: employee.authUserId || null,
+        role_id: employee.roleId || null,
+        can_login: employee.canLogin || false,
+      };
+
+      let insertPayload = { ...basePayload, ...optionalPayload };
+      let insertResult = await supabase
         .from('employees')
-        .insert({
-          user_id: userId,
-          business_id: business.id,
-          name: employee.name,
-          email: employee.email || null,
-          phone: employee.phone || null,
-          role: employee.role || null,
-          position: employee.position || null,
-          hire_date: employee.hireDate || null,
-          salary: employee.salary || null,
-          currency: employee.currency || null,
-          is_active: employee.isActive,
-          notes: employee.notes || null,
-          auth_user_id: employee.authUserId || null,
-          role_id: employee.roleId || null,
-          can_login: employee.canLogin || false,
-        })
+        .insert(insertPayload)
         .select()
         .single();
+
+      if (insertResult.error) {
+        const message = insertResult.error.message || '';
+        if (
+          message.includes('column') &&
+          (message.includes('can_login') || message.includes('role_id') || message.includes('auth_user_id'))
+        ) {
+          // Retry without optional columns when schema isn't fully migrated
+          insertPayload = { ...basePayload };
+          insertResult = await supabase
+            .from('employees')
+            .insert(insertPayload)
+            .select()
+            .single();
+        }
+      }
+
+      const { data, error } = insertResult;
 
       if (error) throw error;
 
@@ -2187,12 +2210,30 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       if (updates.roleId !== undefined) updateData.role_id = updates.roleId || null;
       if (updates.canLogin !== undefined) updateData.can_login = updates.canLogin;
 
-      const { error } = await supabase
+      let updateResult = await supabase
         .from('employees')
         .update(updateData)
         .eq('id', id);
 
-      if (error) throw error;
+      if (updateResult.error) {
+        const message = updateResult.error.message || '';
+        if (
+          message.includes('column') &&
+          (message.includes('can_login') || message.includes('role_id') || message.includes('auth_user_id'))
+        ) {
+          // Retry without optional columns when schema isn't fully migrated
+          const fallbackData = { ...updateData };
+          delete fallbackData.auth_user_id;
+          delete fallbackData.role_id;
+          delete fallbackData.can_login;
+          updateResult = await supabase
+            .from('employees')
+            .update(fallbackData)
+            .eq('id', id);
+        }
+      }
+
+      if (updateResult.error) throw updateResult.error;
 
       const updated = employees.map(e => 
         e.id === id ? { ...e, ...updates, updatedAt: new Date().toISOString() } : e

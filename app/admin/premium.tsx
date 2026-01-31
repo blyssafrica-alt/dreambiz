@@ -892,7 +892,11 @@ export default function PremiumManagementScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.modalBody}
+              contentContainerStyle={styles.modalBodyContent}
+              showsVerticalScrollIndicator={false}
+            >
               <Text style={[styles.label, { color: theme.text.secondary }]}>Name *</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
@@ -1230,6 +1234,10 @@ const styles = StyleSheet.create({
   },
   modalBody: {
     maxHeight: 500,
+  },
+  modalBodyContent: {
+    padding: 24,
+    paddingBottom: 56,
   },
   textArea: {
     minHeight: 80,

@@ -155,7 +155,7 @@ export default function StoreMetadataScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Legal URLs</Text>
         <TextInput
-          style={[styles.input, { backgroundColor: theme.background.card, color: theme.text.primary }]}
+          style={[styles.input, { backgroundColor: theme.background.card, color: theme.text.primary, borderColor: theme.border.light, borderWidth: 1 }]}
           placeholder="Privacy Policy URL"
           placeholderTextColor={theme.text.muted}
           value={formData.privacyPolicyUrl}
@@ -163,7 +163,7 @@ export default function StoreMetadataScreen() {
           autoCapitalize="none"
         />
         <TextInput
-          style={[styles.input, { backgroundColor: theme.background.card, color: theme.text.primary }]}
+          style={[styles.input, { backgroundColor: theme.background.card, color: theme.text.primary, borderColor: theme.border.light, borderWidth: 1 }]}
           placeholder="Terms of Service URL"
           placeholderTextColor={theme.text.muted}
           value={formData.termsUrl}
@@ -171,7 +171,7 @@ export default function StoreMetadataScreen() {
           autoCapitalize="none"
         />
         <TextInput
-          style={[styles.input, { backgroundColor: theme.background.card, color: theme.text.primary }]}
+          style={[styles.input, { backgroundColor: theme.background.card, color: theme.text.primary, borderColor: theme.border.light, borderWidth: 1 }]}
           placeholder="Support URL"
           placeholderTextColor={theme.text.muted}
           value={formData.supportUrl}
@@ -181,7 +181,7 @@ export default function StoreMetadataScreen() {
 
         <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Store Description</Text>
         <TextInput
-          style={[styles.textArea, { backgroundColor: theme.background.card, color: theme.text.primary }]}
+          style={[styles.textArea, { backgroundColor: theme.background.card, color: theme.text.primary, borderColor: theme.border.light, borderWidth: 1 }]}
           placeholder="App store description"
           placeholderTextColor={theme.text.muted}
           value={formData.description}
@@ -191,7 +191,7 @@ export default function StoreMetadataScreen() {
 
         <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Keywords</Text>
         <TextInput
-          style={[styles.input, { backgroundColor: theme.background.card, color: theme.text.primary }]}
+          style={[styles.input, { backgroundColor: theme.background.card, color: theme.text.primary, borderColor: theme.border.light, borderWidth: 1 }]}
           placeholder="Comma-separated keywords"
           placeholderTextColor={theme.text.muted}
           value={keywordsInput}
@@ -207,7 +207,7 @@ export default function StoreMetadataScreen() {
         <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Screenshots</Text>
         <View style={styles.screenshotRow}>
           <TextInput
-            style={[styles.input, styles.screenshotInput, { backgroundColor: theme.background.card, color: theme.text.primary }]}
+            style={[styles.input, styles.screenshotInput, { backgroundColor: theme.background.card, color: theme.text.primary, borderColor: theme.border.light, borderWidth: 1 }]}
             placeholder="Screenshot URL"
             placeholderTextColor={theme.text.muted}
             value={screenshotInput}

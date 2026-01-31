@@ -1978,7 +1978,7 @@ const styles = StyleSheet.create({
   },
   modalBodyContent: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 56,
   },
   customerOption: {
     flexDirection: 'row',
