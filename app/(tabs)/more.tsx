@@ -25,6 +25,7 @@ import {
   Building2,
   ChevronRight,
   Settings,
+  Shield,
   HelpCircle,
   FileText,
   BookOpen,

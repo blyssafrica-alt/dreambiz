@@ -106,6 +106,8 @@ export default function TabLayout() {
     if (employeePermissionsLoading) return true;
     return required.some(permission => employeePermissions.includes(permission as any));
   };
+
+  const tabsDisabled = isEmployee && employeePermissions.length === 0 && !employeePermissionsLoading;
   
   // POS visibility is feature-driven (global + book selection)
   const showPOSTab = shouldShowAsTab('pos');
@@ -177,7 +179,7 @@ export default function TabLayout() {
         name="finances"
         options={{
           title: "Finances",
-          href: hasPermission(['finances:view', 'finances:view_reports', 'finances:manage_transactions']) ? undefined : null,
+          href: tabsDisabled ? undefined : hasPermission(['finances:view', 'finances:view_reports', 'finances:manage_transactions']) ? undefined : null,
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon
               Icon={TrendingUp}
@@ -194,7 +196,7 @@ export default function TabLayout() {
         name="documents"
         options={{
           title: "Documents",
-          href: hasPermission(['documents:view', 'documents:create', 'documents:edit', 'documents:delete']) ? undefined : null,
+          href: tabsDisabled ? undefined : hasPermission(['documents:view', 'documents:create', 'documents:edit', 'documents:delete']) ? undefined : null,
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon
               Icon={FileCheck}
@@ -211,7 +213,7 @@ export default function TabLayout() {
         name="pos"
         options={{
           title: "POS",
-          href: showPOSTab && hasPermission(['pos:view', 'pos:process_sales', 'pos:void_sales', 'pos:apply_discounts', 'pos:view_reports']) ? undefined : null,
+          href: tabsDisabled ? undefined : showPOSTab && hasPermission(['pos:view', 'pos:process_sales', 'pos:void_sales', 'pos:apply_discounts', 'pos:view_reports']) ? undefined : null,
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon
               Icon={ScanLine}
@@ -228,7 +230,7 @@ export default function TabLayout() {
         name="payments"
         options={{
           title: "Payments",
-          href: isEmployee ? null : undefined,
+          href: tabsDisabled ? undefined : isEmployee ? null : undefined,
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon
               Icon={CreditCard}
