@@ -1,5 +1,5 @@
 import { Stack, router } from 'expo-router';
-import { DollarSign, Building2, MapPin, Phone, Mail, Save, FileText, Moon, Sun, LogOut, Download, Upload, Database, Image as ImageIcon, X, Settings as SettingsIcon, MessageSquare, Bell, Globe, CheckCircle, XCircle, Crown, BookOpen, ChevronRight, Zap, Shield } from 'lucide-react-native';
+import { DollarSign, Building2, Users as UsersIcon, MapPin, Phone, Mail, Save, FileText, Moon, Sun, LogOut, Download, Upload, Database, Image as ImageIcon, X, Settings as SettingsIcon, MessageSquare, Bell, Globe, CheckCircle, XCircle, Crown, BookOpen, ChevronRight, Zap, Shield } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
 import {
   View,
@@ -588,6 +588,20 @@ export default function SettingsScreen() {
         <Text style={[styles.sectionSubtitle, { color: theme.text.secondary, textAlign: 'center' }]}>
           Your business owner controls which settings employees can view.
         </Text>
+        <TouchableOpacity
+          style={[styles.signOutButton, { 
+            backgroundColor: theme.surface.danger,
+            borderColor: theme.accent.danger,
+            marginTop: 24,
+            width: '100%',
+          }]}
+          onPress={handleSignOut}
+        >
+          <LogOut size={20} color={theme.accent.danger} />
+          <Text style={[styles.signOutText, { color: theme.accent.danger }]}>
+            Sign Out
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -617,6 +631,31 @@ export default function SettingsScreen() {
             </Text>
           </View>
         </View>
+        {isEmployee && (
+          <View style={[styles.employeeInfoCard, { 
+            backgroundColor: theme.background.card,
+            borderColor: theme.border.light,
+          }]}>
+            <View style={styles.employeeInfoRow}>
+              <Building2 size={18} color={theme.accent.primary} />
+              <Text style={[styles.employeeInfoLabel, { color: theme.text.secondary }]}>
+                Assigned business
+              </Text>
+            </View>
+            <Text style={[styles.employeeInfoValue, { color: theme.text.primary }]} numberOfLines={1}>
+              {business?.name || 'Assigned by owner'}
+            </Text>
+            <View style={[styles.employeeInfoRow, { marginTop: 10 }]}>
+              <UsersIcon size={18} color={theme.accent.primary} />
+              <Text style={[styles.employeeInfoLabel, { color: theme.text.secondary }]}>
+                Role & permissions
+              </Text>
+            </View>
+            <Text style={[styles.employeeInfoValue, { color: theme.text.primary }]} numberOfLines={1}>
+              {currentEmployee?.roleName || 'Employee'} • Managed by owner
+            </Text>
+          </View>
+        )}
 
         <View style={[styles.section, { 
           backgroundColor: theme.background.card,
@@ -1829,6 +1868,26 @@ const styles = StyleSheet.create({
   },
   userEmail: {
     fontSize: 14,
+  },
+  employeeInfoCard: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+  },
+  employeeInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  employeeInfoLabel: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  employeeInfoValue: {
+    marginTop: 6,
+    fontSize: 15,
+    fontWeight: '700' as const,
   },
   section: {
     marginBottom: 16,

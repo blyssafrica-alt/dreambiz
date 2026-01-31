@@ -49,7 +49,7 @@ import AnimatedLogo from '@/components/AnimatedLogo';
 import { useResponsive } from '@/hooks/useResponsive';
 
 export default function DashboardScreen() {
-  const { business, getDashboardMetrics, transactions, documents, folders } = useBusiness();
+  const { business, getDashboardMetrics, transactions, documents, folders, isEmployee, currentEmployee } = useBusiness();
   const { theme } = useTheme();
   const { getAdsForLocation } = useAds();
   const { t } = useTranslation();
@@ -686,6 +686,14 @@ export default function DashboardScreen() {
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={[styles.greeting, { fontSize: responsive.scaleFont(14, 0.9) }]}>{t('auth.welcomeBack')} 👋</Text>
                 <Text style={[styles.businessName, { fontSize: responsive.scaleFont(24, 0.85, 1.1) }]} numberOfLines={1} ellipsizeMode="tail">{business?.name || 'Your Business'}</Text>
+                {isEmployee && (
+                  <View style={styles.employeeBadge}>
+                    <UsersIcon size={12} color="rgba(255, 255, 255, 0.9)" />
+                    <Text style={styles.employeeBadgeText} numberOfLines={1} ellipsizeMode="tail">
+                      Assigned Business • {currentEmployee?.roleName || 'Employee'}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
             <View style={styles.headerActions}>
@@ -1427,6 +1435,24 @@ const styles = StyleSheet.create({
     color: '#FFF',
     marginTop: 2,
     letterSpacing: -0.5,
+  },
+  employeeBadge: {
+    marginTop: 6,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  employeeBadgeText: {
+    color: 'rgba(255, 255, 255, 0.95)',
+    fontSize: 11,
+    fontWeight: '600' as const,
+    letterSpacing: 0.2,
+    maxWidth: 220,
   },
   quickAddButton: {
     width: 40,

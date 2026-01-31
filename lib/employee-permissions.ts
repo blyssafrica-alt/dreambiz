@@ -14,7 +14,7 @@ export async function getEmployeePermissions(employeeId: string): Promise<Permis
       .from('employees')
       .select(`
         role_id,
-        employee_roles!inner (
+        employee_roles (
           id,
           role_permissions (
             employee_permissions (
@@ -25,10 +25,10 @@ export async function getEmployeePermissions(employeeId: string): Promise<Permis
       `)
       .eq('id', employeeId)
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      console.error('Error fetching employee permissions:', error);
+      console.error('Error fetching employee permissions:', error?.message || error);
       return [];
     }
 
@@ -49,7 +49,7 @@ export async function getEmployeePermissions(employeeId: string): Promise<Permis
 
     return permissions;
   } catch (error) {
-    console.error('Error in getEmployeePermissions:', error);
+    console.error('Error in getEmployeePermissions:', (error as any)?.message || error);
     return [];
   }
 }
@@ -67,7 +67,7 @@ export async function getCurrentUserEmployeePermissions(): Promise<PermissionCod
       .select(`
         id,
         role_id,
-        employee_roles!inner (
+        employee_roles (
           id,
           role_permissions (
             employee_permissions (
@@ -79,7 +79,7 @@ export async function getCurrentUserEmployeePermissions(): Promise<PermissionCod
       .eq('auth_user_id', user.id)
       .eq('is_active', true)
       .eq('can_login', true)
-      .single();
+      .maybeSingle();
 
     if (error || !employee) {
       return [];
@@ -98,7 +98,7 @@ export async function getCurrentUserEmployeePermissions(): Promise<PermissionCod
 
     return permissions;
   } catch (error) {
-    console.error('Error in getCurrentUserEmployeePermissions:', error);
+    console.error('Error in getCurrentUserEmployeePermissions:', (error as any)?.message || error);
     return [];
   }
 }
