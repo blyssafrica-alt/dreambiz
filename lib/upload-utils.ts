@@ -23,7 +23,24 @@ export const readBase64FromUri = async (uri: string): Promise<string> => {
     return readBase64FromBlob(blob);
   }
 
-  return FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+  try {
+    return await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+  } catch (error) {
+    // Some Android content URIs need to be copied to cache first.
+    if (Platform.OS === 'android' && uri.startsWith('content://')) {
+      const tempFileName = `upload-${Date.now()}.bin`;
+      const tempUri = `${FileSystem.cacheDirectory ?? ''}${tempFileName}`;
+      try {
+        await FileSystem.copyAsync({ from: uri, to: tempUri });
+        return await FileSystem.readAsStringAsync(tempUri, { encoding: 'base64' });
+      } finally {
+        if (tempUri) {
+          await FileSystem.deleteAsync(tempUri, { idempotent: true });
+        }
+      }
+    }
+    throw error;
+  }
 };
 
 export const getBase64FromAsset = async (asset: ImagePickerAsset): Promise<string> => {
