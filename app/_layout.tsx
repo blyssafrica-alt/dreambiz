@@ -158,7 +158,11 @@ function RootLayoutNav() {
   useEffect(() => {
     // Get current route first
     const currentPath = segments.join('/');
-    const inAuth = currentPath.includes('landing') || currentPath.includes('sign-up') || currentPath.includes('sign-in');
+    const inAuth =
+      currentPath.includes('landing') ||
+      currentPath.includes('sign-up') ||
+      currentPath.includes('sign-in') ||
+      currentPath.includes('employee-login');
     const inVerifyEmail = currentPath.includes('verify-email');
     const inOnboarding = currentPath.includes('onboarding');
     const inAdmin = currentPath.includes('admin');
