@@ -13,12 +13,11 @@ import {
 } from 'react-native';
 import { X, Crown, Check, Zap, CreditCard, Camera } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { decode } from 'base64-arraybuffer';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { usePremium } from '@/contexts/PremiumContext';
 import { supabase } from '@/lib/supabase';
-import { buildAssetFileName } from '@/lib/upload-utils';
+import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 import type { SubscriptionPlan } from '@/types/premium';
 
 interface PremiumUpgradeModalProps {
@@ -195,58 +194,50 @@ export default function PremiumUpgradeModal({
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        if (asset.base64) {
-          setIsUploading(true);
-          try {
-            const fileName = buildAssetFileName(asset, 'subscription-proof');
-            const fileExt = fileName.split('.').pop()?.toLowerCase() || 'jpg';
-            const filePath = `payment_proofs/${fileName}`;
+        setIsUploading(true);
+        try {
+          const base64 = await getBase64FromAsset(asset);
+          const fileName = buildAssetFileName(asset, 'subscription-proof');
+          const fileExt = fileName.split('.').pop()?.toLowerCase() || 'jpg';
+          const filePath = `payment_proofs/${fileName}`;
 
-            // Determine correct MIME type from file extension or asset.mimeType
-            let contentType = 'image/jpeg'; // default
-            if (asset.mimeType) {
-              // Extract the first valid mime type if multiple are present
-              const mimeTypes = asset.mimeType.split(',').map(m => m.trim());
-              const imageMime = mimeTypes.find(m => m.startsWith('image/'));
-              if (imageMime) {
-                contentType = imageMime;
-              }
+          // Determine correct MIME type from file extension or asset.mimeType
+          let contentType = 'image/jpeg'; // default
+          if (asset.mimeType) {
+            // Extract the first valid mime type if multiple are present
+            const mimeTypes = asset.mimeType.split(',').map(m => m.trim());
+            const imageMime = mimeTypes.find(m => m.startsWith('image/'));
+            if (imageMime) {
+              contentType = imageMime;
             }
-            
-            // Fallback to MIME type based on file extension
-            if (!contentType || contentType === 'image/jpeg') {
-              const mimeMap: Record<string, string> = {
-                'jpg': 'image/jpeg',
-                'jpeg': 'image/jpeg',
-                'png': 'image/png',
-                'webp': 'image/webp',
-                'gif': 'image/gif',
-              };
-              contentType = mimeMap[fileExt] || 'image/jpeg';
-            }
-
-            const { error } = await supabase.storage
-              .from('payment_proofs')
-              .upload(filePath, decode(asset.base64), {
-                contentType: contentType,
-                upsert: false,
-              });
-
-            if (error) throw error;
-
-            const { data: publicUrlData } = supabase.storage
-              .from('payment_proofs')
-              .getPublicUrl(filePath);
-
-            if (publicUrlData?.publicUrl) {
-              setProofImage(publicUrlData.publicUrl);
-            }
-          } catch (error: any) {
-            console.error('Error uploading proof:', error);
-            Alert.alert('Upload Error', error.message || 'Failed to upload proof of payment');
-          } finally {
-            setIsUploading(false);
           }
+
+          // Fallback to MIME type based on file extension
+          if (!contentType || contentType === 'image/jpeg') {
+            const mimeMap: Record<string, string> = {
+              'jpg': 'image/jpeg',
+              'jpeg': 'image/jpeg',
+              'png': 'image/png',
+              'webp': 'image/webp',
+              'gif': 'image/gif',
+            };
+            contentType = mimeMap[fileExt] || 'image/jpeg';
+          }
+
+          const publicUrl = await uploadBase64ToStorage(supabase, {
+            bucket: 'payment_proofs',
+            filePath,
+            base64,
+            contentType,
+            upsert: false,
+          });
+
+          setProofImage(publicUrl);
+        } catch (error: any) {
+          console.error('Error uploading proof:', error);
+          Alert.alert('Upload Error', error.message || 'Failed to upload proof of payment');
+        } finally {
+          setIsUploading(false);
         }
       }
     } catch (error: any) {

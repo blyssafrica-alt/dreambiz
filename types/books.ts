@@ -62,6 +62,8 @@ export interface BookFormData {
   description?: string;
   coverImage?: string;
   documentFile?: string; // Local file URI for upload
+  documentFileName?: string;
+  documentMimeType?: string;
   documentFileUrl?: string; // Stored file URL
   price: number;
   currency: string;

@@ -47,6 +47,8 @@ export default function BooksManagementScreen() {
     description: '',
     coverImage: undefined,
     documentFile: undefined,
+    documentFileName: undefined,
+    documentMimeType: undefined,
     documentFileUrl: undefined,
     price: 0,
     currency: 'USD',
@@ -226,7 +228,13 @@ export default function BooksManagementScreen() {
       });
 
       if (!result.canceled && result.assets[0]) {
-        setFormData(prev => ({ ...prev, documentFile: result.assets[0].uri }));
+        const asset = result.assets[0];
+        setFormData(prev => ({
+          ...prev,
+          documentFile: asset.uri,
+          documentFileName: asset.name,
+          documentMimeType: asset.mimeType,
+        }));
       }
     } catch (error) {
       console.error('Error picking document:', error);
@@ -234,26 +242,38 @@ export default function BooksManagementScreen() {
     }
   };
 
-  const uploadDocumentToStorage = async (fileUri: string, bookSlug: string): Promise<string | null> => {
+  const uploadDocumentToStorage = async (
+    fileUri: string,
+    bookSlug: string,
+    fileName?: string,
+    mimeType?: string
+  ): Promise<string | null> => {
     try {
       setIsUploadingDocument(true);
       
       // Read file as base64 (supports native + web)
       const base64 = await readBase64FromUri(fileUri);
 
-      // Get file extension
-      const fileExtension = fileUri.split('.').pop()?.toLowerCase() || 'pdf';
-      const fileName = `${bookSlug}-${Date.now()}.${fileExtension}`;
-      const filePath = `books/${fileName}`;
+      const safeName = (fileName || '')
+        .replace(/[^\w.\- ]/g, '')
+        .replace(/\s+/g, '-')
+        .slice(0, 80);
+      const extension = safeName.includes('.') ? safeName.split('.').pop()?.toLowerCase() : undefined;
+      const resolvedExtension = extension || (mimeType === 'application/pdf' ? 'pdf' : 'docx');
+      const resolvedFileName = safeName
+        ? `${bookSlug}-${Date.now()}-${safeName}`
+        : `${bookSlug}-${Date.now()}.${resolvedExtension}`;
+      const filePath = `books/${resolvedFileName}`;
 
       const publicUrl = await uploadBase64ToStorage(supabase, {
         bucket: 'book-documents',
         filePath,
         base64,
         contentType:
-          fileExtension === 'pdf'
+          mimeType ||
+          (resolvedExtension === 'pdf'
             ? 'application/pdf'
-            : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
         upsert: false,
       });
 
@@ -278,7 +298,12 @@ export default function BooksManagementScreen() {
         Alert.alert('Missing Slug', 'Please enter a slug before processing the PDF.');
         return;
       }
-      const uploadedUrl = await uploadDocumentToStorage(formData.documentFile, formData.slug);
+      const uploadedUrl = await uploadDocumentToStorage(
+        formData.documentFile,
+        formData.slug,
+        formData.documentFileName,
+        formData.documentMimeType
+      );
       if (!uploadedUrl) {
         return;
       }
@@ -891,7 +916,12 @@ export default function BooksManagementScreen() {
       // Upload document if a new file was selected
       let documentFileUrl = formData.documentFileUrl;
       if (formData.documentFile && !formData.documentFileUrl) {
-        const uploadedUrl = await uploadDocumentToStorage(formData.documentFile, formData.slug);
+        const uploadedUrl = await uploadDocumentToStorage(
+          formData.documentFile,
+          formData.slug,
+          formData.documentFileName,
+          formData.documentMimeType
+        );
         if (uploadedUrl) {
           documentFileUrl = uploadedUrl;
         } else {
@@ -983,6 +1013,8 @@ export default function BooksManagementScreen() {
       description: book.description || '',
       coverImage: book.coverImage || undefined,
       documentFile: undefined,
+      documentFileName: undefined,
+      documentMimeType: undefined,
       documentFileUrl: book.documentFileUrl || undefined,
       price: book.price || 0,
       currency: book.currency || 'USD',
@@ -1041,6 +1073,8 @@ export default function BooksManagementScreen() {
       description: '',
       coverImage: undefined,
       documentFile: undefined,
+      documentFileName: undefined,
+      documentMimeType: undefined,
       documentFileUrl: undefined,
       price: 0,
       currency: 'USD',
@@ -1373,7 +1407,15 @@ export default function BooksManagementScreen() {
                         {formData.documentFileUrl.split('/').pop() || 'Document uploaded'}
                       </Text>
                       <TouchableOpacity
-                        onPress={() => setFormData({ ...formData, documentFileUrl: undefined, documentFile: undefined })}
+                        onPress={() =>
+                          setFormData({
+                            ...formData,
+                            documentFileUrl: undefined,
+                            documentFile: undefined,
+                            documentFileName: undefined,
+                            documentMimeType: undefined,
+                          })
+                        }
                       >
                         <X size={18} color={theme.text.secondary} />
                       </TouchableOpacity>
@@ -1384,10 +1426,17 @@ export default function BooksManagementScreen() {
                     <View style={[styles.documentPreview, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}>
                       <FileText size={24} color={theme.accent.primary} />
                       <Text style={[styles.documentPreviewText, { color: theme.text.primary }]} numberOfLines={1}>
-                        {formData.documentFile.split('/').pop() || 'Document selected'}
+                        {formData.documentFileName || formData.documentFile.split('/').pop() || 'Document selected'}
                       </Text>
                       <TouchableOpacity
-                        onPress={() => setFormData({ ...formData, documentFile: undefined })}
+                        onPress={() =>
+                          setFormData({
+                            ...formData,
+                            documentFile: undefined,
+                            documentFileName: undefined,
+                            documentMimeType: undefined,
+                          })
+                        }
                       >
                         <X size={18} color={theme.text.secondary} />
                       </TouchableOpacity>
