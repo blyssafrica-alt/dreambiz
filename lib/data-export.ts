@@ -152,13 +152,32 @@ export function exportAllData(
 
 export async function shareData(data: string, filename: string, mimeType: string) {
   try {
-    const FileSystem = await import('expo-file-system/legacy');
-    const Sharing = await import('expo-sharing');
     const { Platform, Share } = await import('react-native');
 
-    const docDir = (FileSystem as any).documentDirectory;
+    if (Platform.OS === 'web') {
+      try {
+        const blob = new Blob([data], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return;
+      } catch (webError) {
+        console.warn('Web download failed:', webError);
+      }
+    }
+
+    const FileSystem = await import('expo-file-system/legacy');
+    const Sharing = await import('expo-sharing');
+
+    const docDir = (FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory;
     if (!docDir) {
-      throw new Error('File system not available');
+      await Share.share({ message: data, title: filename });
+      return;
     }
 
     const fileUri = `${docDir}${filename}`;
@@ -193,7 +212,7 @@ export async function shareData(data: string, filename: string, mimeType: string
     await Share.share({ message: data, title: filename });
   } catch (error) {
     console.error('Share failed:', error);
-    throw new Error('Sharing not supported on this platform');
+    throw new Error('Failed to export data');
   }
 }
 

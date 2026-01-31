@@ -9,7 +9,7 @@ import { ArrowLeft, Plus, Megaphone, TrendingUp, Eye, MousePointerClick, X, Save
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Advertisement, AdType, AdStatus } from '@/types/super-admin';
 import * as ImagePicker from 'expo-image-picker';
-import { getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
+import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 
 export default function AdsManagementScreen() {
   const { theme } = useTheme();
@@ -146,8 +146,8 @@ export default function AdsManagementScreen() {
       setIsUploadingImage(true);
       try {
         const base64 = await getBase64FromAsset(asset);
-        const fileExt = asset.uri.split('.').pop()?.toLowerCase() || 'jpg';
-        const fileName = `ad-${field}-${Date.now()}.${fileExt}`;
+        const fileName = buildAssetFileName(asset, `ad-${field}`);
+        const fileExt = fileName.split('.').pop()?.toLowerCase() || 'jpg';
         const filePath = `ad_images/${fileName}`;
 
         // Determine correct MIME type from file extension or asset.mimeType

@@ -18,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { usePremium } from '@/contexts/PremiumContext';
 import { supabase } from '@/lib/supabase';
+import { buildAssetFileName } from '@/lib/upload-utils';
 import type { SubscriptionPlan } from '@/types/premium';
 
 interface PremiumUpgradeModalProps {
@@ -197,8 +198,8 @@ export default function PremiumUpgradeModal({
         if (asset.base64) {
           setIsUploading(true);
           try {
-            const fileExt = asset.uri.split('.').pop()?.toLowerCase() || 'jpg';
-            const fileName = `subscription-proof-${Date.now()}.${fileExt}`;
+            const fileName = buildAssetFileName(asset, 'subscription-proof');
+            const fileExt = fileName.split('.').pop()?.toLowerCase() || 'jpg';
             const filePath = `payment_proofs/${fileName}`;
 
             // Determine correct MIME type from file extension or asset.mimeType

@@ -22,7 +22,7 @@ import { getBookBySlug } from '@/lib/book-service';
 import type { Book } from '@/types/books';
 import { supabase } from '@/lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
-import { getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
+import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 
 interface PaymentMethod {
   id: string;
@@ -222,8 +222,8 @@ export default function BookDetailScreen() {
         setIsUploadingProof(true);
         try {
           const base64 = await getBase64FromAsset(asset);
-          const fileExt = asset.uri.split('.').pop()?.toLowerCase() || 'jpg';
-          const fileName = `book-payment-proof-${Date.now()}.${fileExt}`;
+          const fileName = buildAssetFileName(asset, 'book-payment-proof');
+          const fileExt = fileName.split('.').pop()?.toLowerCase() || 'jpg';
           const filePath = `payment_proofs/${fileName}`;
 
           // Determine correct MIME type from file extension or asset.mimeType

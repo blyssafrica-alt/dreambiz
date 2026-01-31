@@ -164,7 +164,7 @@ function RootLayoutNav() {
     const inAdmin = currentPath.includes('admin');
     const inTabs = currentPath.includes('(tabs)') || currentPath === '';
     // Routes that are valid for authenticated users but outside tabs
-    const allowedNonTabRoutes = ['books', 'my-library', 'business-plan', 'help', 'receipt-scan', 'document', 'subscription', 'payments'];
+    const allowedNonTabRoutes = ['books', 'my-library', 'business-plan', 'help', 'receipt-scan', 'document', 'subscription', 'payments', 'legal'];
     const inAllowedNonTabRoute = allowedNonTabRoutes.some(route => currentPath.includes(route));
 
     // Use authUser as source of truth for authentication (more reliable than isAuthenticated computed value)

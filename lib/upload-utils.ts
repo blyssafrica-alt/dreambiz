@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 import type { ImagePickerAsset } from 'expo-image-picker';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { decode } from 'base64-arraybuffer';
@@ -31,6 +31,32 @@ export const getBase64FromAsset = async (asset: ImagePickerAsset): Promise<strin
     return asset.base64;
   }
   return readBase64FromUri(asset.uri);
+};
+
+const MIME_EXTENSION_MAP: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+};
+
+const sanitizeExtension = (value: string | undefined): string | undefined => {
+  if (!value) return undefined;
+  const cleaned = value.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return cleaned || undefined;
+};
+
+export const buildAssetFileName = (asset: ImagePickerAsset, prefix: string): string => {
+  const nameFromAsset = asset.fileName ? asset.fileName.split('?')[0] : undefined;
+  const extFromName = nameFromAsset && nameFromAsset.includes('.')
+    ? nameFromAsset.split('.').pop()
+    : undefined;
+  const extFromMime = asset.mimeType ? MIME_EXTENSION_MAP[asset.mimeType] : undefined;
+  const extension = sanitizeExtension(extFromName) || sanitizeExtension(extFromMime) || 'jpg';
+  const safePrefix = prefix.replace(/[^a-z0-9_-]/gi, '').toLowerCase() || 'file';
+  return `${safePrefix}-${Date.now()}.${extension}`;
 };
 
 type UploadBase64Options = {

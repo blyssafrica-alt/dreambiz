@@ -16,7 +16,7 @@ import { useBusiness } from '@/contexts/BusinessContext';
 import { ArrowLeft, Save, Camera, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
+import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 import { supabase } from '@/lib/supabase';
 
 export default function AddPaymentScreen() {
@@ -58,8 +58,8 @@ export default function AddPaymentScreen() {
         setIsUploadingProof(true);
         try {
           const base64 = await getBase64FromAsset(asset);
-          const fileExt = asset.uri.split('.').pop()?.toLowerCase() || 'jpg';
-          const fileName = `payment-proof-${Date.now()}.${fileExt}`;
+          const fileName = buildAssetFileName(asset, 'payment-proof');
+          const fileExt = fileName.split('.').pop()?.toLowerCase() || 'jpg';
           const filePath = `payment_proofs/${fileName}`;
 
           // Determine correct MIME type from file extension or asset.mimeType

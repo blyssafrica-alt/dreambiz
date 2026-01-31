@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Plus, X, Save, Trash2, Edit } from 'lucide-react-native';
@@ -190,23 +191,59 @@ export default function BudgetTemplatesScreen() {
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {templates.length === 0 ? (
-          <Text style={[styles.emptyText, { color: theme.text.secondary }]}>
-            No templates yet.
-          </Text>
+          <View style={[styles.emptyState, { backgroundColor: theme.background.card }]}>
+            <Text style={[styles.emptyTitle, { color: theme.text.primary }]}>
+              No budget templates yet
+            </Text>
+            <Text style={[styles.emptyText, { color: theme.text.secondary }]}>
+              Create templates for each business type so budgets can be started in seconds.
+            </Text>
+            <TouchableOpacity
+              style={[styles.primaryButton, { backgroundColor: theme.accent.primary }]}
+              onPress={() => handleOpenModal()}
+            >
+              <Plus size={16} color="#FFF" />
+              <Text style={styles.primaryButtonText}>Create Template</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           templates.map(template => (
             <View key={template.id} style={[styles.templateCard, { backgroundColor: theme.background.card }]}>
               <View style={styles.templateHeader}>
                 <View style={styles.templateInfo}>
-                  <Text style={[styles.templateName, { color: theme.text.primary }]}>{template.name}</Text>
+                  <View style={styles.templateTitleRow}>
+                    <Text style={[styles.templateName, { color: theme.text.primary }]}>{template.name}</Text>
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        { backgroundColor: template.is_active ? '#10B98120' : '#64748B20' },
+                      ]}
+                    >
+                      <Text style={[styles.statusBadgeText, { color: template.is_active ? '#10B981' : '#64748B' }]}>
+                        {template.is_active ? 'Active' : 'Inactive'}
+                      </Text>
+                    </View>
+                  </View>
                   {template.description ? (
                     <Text style={[styles.templateDesc, { color: theme.text.secondary }]}>{template.description}</Text>
                   ) : null}
                   {template.business_types && template.business_types.length > 0 && (
-                    <Text style={[styles.templateMeta, { color: theme.text.tertiary }]}>
-                      {template.business_types.join(', ')}
-                    </Text>
+                    <View style={styles.chipRow}>
+                      {template.business_types.map(type => (
+                        <View key={type} style={[styles.chip, { backgroundColor: theme.background.secondary }]}>
+                          <Text style={[styles.chipText, { color: theme.text.secondary }]}>{type}</Text>
+                        </View>
+                      ))}
+                    </View>
                   )}
+                  <View style={styles.metaRow}>
+                    <Text style={[styles.templateMeta, { color: theme.text.tertiary }]}>
+                      {template.categories?.length || 0} categories
+                    </Text>
+                    <Text style={[styles.templateMeta, { color: theme.text.tertiary }]}>
+                      Order {template.display_order ?? 0}
+                    </Text>
+                  </View>
                 </View>
                 <View style={styles.templateActions}>
                   <TouchableOpacity
@@ -259,6 +296,29 @@ export default function BudgetTemplatesScreen() {
                 placeholderTextColor={theme.text.tertiary}
               />
 
+              <View style={styles.rowBetween}>
+                <View style={styles.flexOne}>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Display Order</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                    value={formData.displayOrder}
+                    onChangeText={(text) => setFormData({ ...formData, displayOrder: text })}
+                    placeholder="0"
+                    placeholderTextColor={theme.text.tertiary}
+                    keyboardType="number-pad"
+                  />
+                </View>
+                <View style={styles.switchWrap}>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Active</Text>
+                  <Switch
+                    value={formData.isActive}
+                    onValueChange={(value) => setFormData({ ...formData, isActive: value })}
+                    trackColor={{ false: '#CBD5F5', true: theme.accent.primary }}
+                    thumbColor="#FFF"
+                  />
+                </View>
+              </View>
+
               <Text style={[styles.label, { color: theme.text.secondary }]}>Business Types</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
@@ -270,29 +330,51 @@ export default function BudgetTemplatesScreen() {
 
               <Text style={[styles.label, { color: theme.text.secondary }]}>Categories</Text>
               {formData.categories.map((cat, idx) => (
-                <View key={idx} style={styles.categoryRow}>
+                <View key={idx} style={[styles.categoryCard, { backgroundColor: theme.background.secondary }]}>
+                  <View style={styles.categoryRow}>
+                    <TextInput
+                      style={[styles.input, styles.categoryInput, { color: theme.text.primary }]}
+                      value={cat.category}
+                      onChangeText={(text) => {
+                        const updated = [...formData.categories];
+                        updated[idx].category = text;
+                        setFormData({ ...formData, categories: updated });
+                      }}
+                      placeholder="Category"
+                      placeholderTextColor={theme.text.tertiary}
+                    />
+                    <TextInput
+                      style={[styles.input, styles.percentInput, { color: theme.text.primary }]}
+                      value={cat.percentage}
+                      onChangeText={(text) => {
+                        const updated = [...formData.categories];
+                        updated[idx].percentage = text;
+                        setFormData({ ...formData, categories: updated });
+                      }}
+                      placeholder="%"
+                      placeholderTextColor={theme.text.tertiary}
+                      keyboardType="number-pad"
+                    />
+                    <TouchableOpacity
+                      style={styles.removeChip}
+                      onPress={() => {
+                        const updated = formData.categories.filter((_, i) => i !== idx);
+                        setFormData({ ...formData, categories: updated.length ? updated : [{ category: '', percentage: '', description: '' }] });
+                      }}
+                    >
+                      <X size={16} color={theme.text.tertiary} />
+                    </TouchableOpacity>
+                  </View>
                   <TextInput
-                    style={[styles.input, styles.categoryInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                    value={cat.category}
+                    style={[styles.input, styles.categoryDescInput, { color: theme.text.primary }]}
+                    value={cat.description}
                     onChangeText={(text) => {
                       const updated = [...formData.categories];
-                      updated[idx].category = text;
+                      updated[idx].description = text;
                       setFormData({ ...formData, categories: updated });
                     }}
-                    placeholder="Category"
+                    placeholder="Short description (optional)"
                     placeholderTextColor={theme.text.tertiary}
-                  />
-                  <TextInput
-                    style={[styles.input, styles.percentInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                    value={cat.percentage}
-                    onChangeText={(text) => {
-                      const updated = [...formData.categories];
-                      updated[idx].percentage = text;
-                      setFormData({ ...formData, categories: updated });
-                    }}
-                    placeholder="%"
-                    placeholderTextColor={theme.text.tertiary}
-                    keyboardType="number-pad"
                   />
                 </View>
               ))}
@@ -327,13 +409,37 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '600' },
   content: { flex: 1 },
   contentContainer: { padding: 16, gap: 12 },
-  emptyText: { textAlign: 'center', marginTop: 24 },
+  emptyState: {
+    padding: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+    gap: 10,
+  },
+  emptyTitle: { fontSize: 16, fontWeight: '700' },
+  emptyText: { textAlign: 'center' },
+  primaryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+  },
+  primaryButtonText: { color: '#FFF', fontWeight: '600' },
   templateCard: { padding: 14, borderRadius: 12 },
   templateHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   templateInfo: { flex: 1 },
+  templateTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   templateName: { fontSize: 16, fontWeight: '700' },
   templateDesc: { fontSize: 13, marginTop: 4 },
   templateMeta: { fontSize: 12, marginTop: 4 },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  statusBadgeText: { fontSize: 11, fontWeight: '700' },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  chip: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+  chipText: { fontSize: 11, fontWeight: '600' },
+  metaRow: { flexDirection: 'row', gap: 12, marginTop: 6 },
   templateActions: { flexDirection: 'row', gap: 8 },
   actionButton: { padding: 8, borderRadius: 8 },
   modalOverlay: {
@@ -354,9 +460,22 @@ const styles = StyleSheet.create({
   modalBodyContent: { paddingBottom: 56 },
   label: { fontSize: 12, fontWeight: '600', marginBottom: 6, marginTop: 8 },
   input: { borderRadius: 10, padding: 10, fontSize: 14, marginBottom: 8 },
-  categoryRow: { flexDirection: 'row', gap: 8 },
+  rowBetween: { flexDirection: 'row', gap: 12 },
+  flexOne: { flex: 1 },
+  switchWrap: { alignItems: 'flex-start', justifyContent: 'flex-end', paddingBottom: 6 },
+  categoryRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   categoryInput: { flex: 1 },
   percentInput: { width: 70 },
+  categoryCard: { padding: 10, borderRadius: 12, marginBottom: 8 },
+  categoryDescInput: { marginTop: 6 },
+  removeChip: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.04)',
+  },
   addCategoryButton: { padding: 10, borderRadius: 10, alignItems: 'center', marginBottom: 12 },
   addCategoryText: { fontSize: 13, fontWeight: '600' },
   saveButton: {

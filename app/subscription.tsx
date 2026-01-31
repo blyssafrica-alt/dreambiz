@@ -14,7 +14,7 @@ import {
 import { Stack, useRouter } from 'expo-router';
 import { ArrowLeft, Check, Crown, Building2, Users, HardDrive, Zap, X, Upload } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
+import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/contexts/PremiumContext';
@@ -164,8 +164,8 @@ export default function SubscriptionScreen() {
         setIsUploadingProof(true);
         try {
           const base64 = await getBase64FromAsset(asset);
-          const fileExt = asset.uri.split('.').pop()?.toLowerCase() || 'jpg';
-          const fileName = `subscription-proof-${Date.now()}.${fileExt}`;
+          const fileName = buildAssetFileName(asset, 'subscription-proof');
+          const fileExt = fileName.split('.').pop()?.toLowerCase() || 'jpg';
           const filePath = `payment_proofs/${fileName}`;
 
           // Determine correct MIME type

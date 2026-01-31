@@ -18,7 +18,7 @@ import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Edit, Trash2, Book as BookIcon, X, ImageIcon, Save, FileText, Upload, Check, Sparkles, ChevronRight, ChevronLeft } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { getBase64FromAsset, readBase64FromUri, uploadBase64ToStorage } from '@/lib/upload-utils';
+import { buildAssetFileName, getBase64FromAsset, readBase64FromUri, uploadBase64ToStorage } from '@/lib/upload-utils';
 import type { Book, BookFormData, BookChapter } from '@/types/books';
 import type { FeatureConfig } from '@/types/super-admin';
 import type { DreamBigBook } from '@/types/business';
@@ -197,8 +197,7 @@ export default function BooksManagementScreen() {
       setIsUploadingCover(true);
       try {
         const base64 = await getBase64FromAsset(asset);
-        const fileExt = asset.uri.split('.').pop() || 'jpg';
-        const fileName = `book-cover-${Date.now()}.${fileExt}`;
+        const fileName = buildAssetFileName(asset, 'book-cover');
         const filePath = `book_covers/${fileName}`;
 
         const publicUrl = await uploadBase64ToStorage(supabase, {

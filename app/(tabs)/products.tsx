@@ -26,7 +26,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
+import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { useBusiness } from '@/contexts/BusinessContext';
@@ -670,8 +670,7 @@ export default function ProductsScreen() {
                           try {
                             const base64 = await getBase64FromAsset(asset);
                             // Upload to Supabase Storage
-                            const fileExt = asset.uri.split('.').pop() || 'jpg';
-                            const fileName = `product-${Date.now()}.${fileExt}`;
+                            const fileName = buildAssetFileName(asset, 'product');
                             const filePath = `product_images/${fileName}`;
 
                             const publicUrl = await uploadBase64ToStorage(supabase, {
@@ -684,15 +683,15 @@ export default function ProductsScreen() {
 
                             setFeaturedImage(publicUrl);
                           } catch (error: any) {
-                            console.error('Error picking image:', error);
-                            RNAlert.alert('Error', 'Failed to pick image');
+                            console.error('Error uploading image:', error);
+                            RNAlert.alert('Upload Error', error?.message || 'Failed to upload image');
                           } finally {
                             setIsUploadingFeaturedImage(false);
                           }
                         }
                       } catch (error: any) {
-                        console.error('Error picking image:', error);
-                        RNAlert.alert('Error', 'Failed to pick image');
+                        console.error('Error selecting image:', error);
+                        RNAlert.alert('Error', error?.message || 'Failed to select image');
                       }
                     }}
                     disabled={isUploadingFeaturedImage}
@@ -749,8 +748,7 @@ export default function ProductsScreen() {
                             try {
                               const base64 = await getBase64FromAsset(asset);
                               // Upload to Supabase Storage
-                              const fileExt = asset.uri.split('.').pop() || 'jpg';
-                              const fileName = `product-${Date.now()}.${fileExt}`;
+                              const fileName = buildAssetFileName(asset, 'product');
                               const filePath = `product_images/${fileName}`;
 
                               const publicUrl = await uploadBase64ToStorage(supabase, {
@@ -763,15 +761,15 @@ export default function ProductsScreen() {
 
                               setAdditionalImages([...additionalImages, publicUrl]);
                             } catch (error: any) {
-                              console.error('Error picking image:', error);
-                              RNAlert.alert('Error', 'Failed to pick image');
+                              console.error('Error uploading image:', error);
+                              RNAlert.alert('Upload Error', error?.message || 'Failed to upload image');
                             } finally {
                               setIsUploadingAdditionalImage(false);
                             }
                           }
                         } catch (error: any) {
-                          console.error('Error picking image:', error);
-                          RNAlert.alert('Error', 'Failed to pick image');
+                          console.error('Error selecting image:', error);
+                          RNAlert.alert('Error', error?.message || 'Failed to select image');
                         }
                       }}
                       disabled={isUploadingAdditionalImage}

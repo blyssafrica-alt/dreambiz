@@ -18,7 +18,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import { getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
+import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -245,8 +245,7 @@ export default function SettingsScreen() {
         setIsUploadingLogo(true);
         try {
           const base64 = await getBase64FromAsset(asset);
-          const fileExt = asset.uri.split('.').pop() || 'jpg';
-          const fileName = `business-logo-${business?.id || 'temp'}-${Date.now()}.${fileExt}`;
+          const fileName = buildAssetFileName(asset, `business-logo-${business?.id || 'temp'}`);
           const filePath = `logos/${fileName}`;
 
           const publicUrl = await uploadBase64ToStorage(supabase, {

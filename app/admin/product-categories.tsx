@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Edit, Trash2, Folder, X, Save } from 'lucide-react-native';
 import type { ProductCategory } from '@/types/super-admin';
 import * as ImagePicker from 'expo-image-picker';
-import { getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
+import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 
 export default function ProductCategoriesScreen() {
   const { theme } = useTheme();
@@ -132,8 +132,7 @@ export default function ProductCategoriesScreen() {
       setIsUploadingImage(true);
       try {
         const base64 = await getBase64FromAsset(asset);
-        const fileExt = asset.uri.split('.').pop();
-        const fileName = `category-${Date.now()}.${fileExt}`;
+        const fileName = buildAssetFileName(asset, 'category');
         const filePath = `category_images/${fileName}`;
 
         const publicUrl = await uploadBase64ToStorage(supabase, {
