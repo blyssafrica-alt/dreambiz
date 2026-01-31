@@ -38,7 +38,7 @@ if (!__DEV__) {
 const queryClient = new QueryClient();
 
 function RootLayoutNav() {
-  const { hasOnboarded, isLoading: businessLoading } = useBusiness();
+  const { hasOnboarded, isLoading: businessLoading, isEmployee } = useBusiness();
   const { isAuthenticated, isLoading: authLoading, authUser } = useAuth();
   const { theme, isDark } = useTheme();
   const segments = useSegments();
@@ -173,9 +173,8 @@ function RootLayoutNav() {
 
     // Use authUser as source of truth for authentication (more reliable than isAuthenticated computed value)
     const actuallyAuthenticated = !!authUser || isAuthenticated;
-    const isEmployeeUser = !!authUser?.metadata?.is_employee;
-    const effectiveHasOnboarded = isEmployeeUser ? true : hasOnboarded;
-    const effectiveEmailVerified = isEmployeeUser ? true : emailVerified;
+    const effectiveHasOnboarded = isEmployee ? true : hasOnboarded;
+    const effectiveEmailVerified = isEmployee ? true : emailVerified;
 
     // CRITICAL: Always allow navigation from auth screens when authenticated, even while loading
     // This is the key fix - don't block navigation after sign-in

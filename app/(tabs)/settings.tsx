@@ -1,5 +1,5 @@
 import { Stack, router } from 'expo-router';
-import { DollarSign, Building2, MapPin, Phone, Mail, Save, FileText, Moon, Sun, LogOut, Download, Upload, Database, Image as ImageIcon, X, Settings as SettingsIcon, MessageSquare, Bell, Globe, CheckCircle, XCircle, Crown, BookOpen, ChevronRight, Zap } from 'lucide-react-native';
+import { DollarSign, Building2, MapPin, Phone, Mail, Save, FileText, Moon, Sun, LogOut, Download, Upload, Database, Image as ImageIcon, X, Settings as SettingsIcon, MessageSquare, Bell, Globe, CheckCircle, XCircle, Crown, BookOpen, ChevronRight, Zap, Shield } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
 import {
   View,
@@ -27,6 +27,7 @@ import { usePremium } from '@/contexts/PremiumContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { supabase } from '@/lib/supabase';
 import type { BusinessStage, Currency, DreamBigBook } from '@/types/business';
+import { PERMISSION_CATEGORIES, type PermissionCode } from '@/types/employee-permissions';
 import { exportAllData, shareData } from '@/lib/data-export';
 import { DREAMBIG_BOOKS, getBookFeatures } from '@/constants/books';
 import { getAllPublishedBooks } from '@/lib/book-service';
@@ -58,6 +59,9 @@ export default function SettingsScreen() {
     addTaxRate,
     addEmployee,
     addProject,
+    isEmployee,
+    currentEmployee,
+    employeePermissions,
   } = useBusiness();
   const { theme, isDark, toggleTheme } = useTheme();
   const { signOut, user, isSuperAdmin } = useAuth();
@@ -94,6 +98,21 @@ export default function SettingsScreen() {
   const [logo, setLogo] = useState<string | undefined>(business?.logo);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const selectedStage = businessStages.find(stageOption => stageOption.value === stage);
+  const canViewSettings =
+    !isEmployee ||
+    employeePermissions.includes('settings:view') ||
+    employeePermissions.includes('settings:edit');
+  const canEditSettings = !isEmployee || employeePermissions.includes('settings:edit');
+  const businessSectionDisabled = isEmployee || !canEditSettings;
+  const canManageData = !isEmployee || employeePermissions.includes('settings:edit');
+  const displayName = isEmployee ? currentEmployee?.name || user?.name : user?.name;
+  const displayEmail = isEmployee ? currentEmployee?.email || user?.email : user?.email;
+  const formatPermissionLabel = (code: PermissionCode) => {
+    const [category, action] = code.split(':');
+    const categoryLabel = (PERMISSION_CATEGORIES as any)[category] || category;
+    const actionLabel = action ? action.replace(/_/g, ' ') : 'access';
+    return `${categoryLabel} • ${actionLabel}`;
+  };
 
   useEffect(() => {
     if (business) {
@@ -275,6 +294,10 @@ export default function SettingsScreen() {
   };
 
   const handleSaveProfile = async () => {
+    if (businessSectionDisabled) {
+      RNAlert.alert('Access Restricted', 'Only the business owner can edit business details.');
+      return;
+    }
     if (!business || !name || !owner || !location || !capital) {
       RNAlert.alert('Missing Fields', 'Please fill in all required fields');
       return;
@@ -403,6 +426,10 @@ export default function SettingsScreen() {
   };
 
   const handleExportData = async (format: 'csv' | 'json') => {
+    if (!canManageData) {
+      RNAlert.alert('Access Restricted', 'Only the business owner can export data.');
+      return;
+    }
     try {
       const data = exportAllData({
         transactions,
@@ -441,6 +468,10 @@ export default function SettingsScreen() {
   };
 
   const handleImportData = async () => {
+    if (!canManageData) {
+      RNAlert.alert('Access Restricted', 'Only the business owner can import data.');
+      return;
+    }
     if (!business?.id) {
       RNAlert.alert('Error', 'Business profile not found. Please refresh and try again.');
       return;
@@ -548,6 +579,19 @@ export default function SettingsScreen() {
     }
   };
 
+  if (!canViewSettings) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background.secondary, justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+        <Text style={[styles.sectionTitle, { color: theme.text.primary, textAlign: 'center' }]}>
+          Settings access is restricted
+        </Text>
+        <Text style={[styles.sectionSubtitle, { color: theme.text.secondary, textAlign: 'center' }]}>
+          Your business owner controls which settings employees can view.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <>
       <Stack.Screen options={{ title: t('settings.title') }} />
@@ -561,15 +605,15 @@ export default function SettingsScreen() {
         }]}>
           <View style={[styles.userAvatar, { backgroundColor: theme.surface.info }]}>
             <Text style={[styles.userAvatarText, { color: theme.accent.info }]}>
-              {user?.name.charAt(0).toUpperCase()}
+              {(displayName || 'U').charAt(0).toUpperCase()}
             </Text>
           </View>
           <View style={styles.userInfo}>
             <Text style={[styles.userName, { color: theme.text.primary }]}>
-              {user?.name}
+              {displayName}
             </Text>
             <Text style={[styles.userEmail, { color: theme.text.secondary }]}>
-              {user?.email}
+              {displayEmail}
             </Text>
           </View>
         </View>
@@ -577,6 +621,7 @@ export default function SettingsScreen() {
         <View style={[styles.section, { 
           backgroundColor: theme.background.card,
           borderColor: theme.border.light,
+          opacity: canManageData ? 1 : 0.7,
         }]}>
           <View style={styles.sectionHeader}>
             {isDark ? (
@@ -965,16 +1010,79 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.section, { 
-          backgroundColor: theme.background.card,
-          borderColor: theme.border.light,
-        }]}>
+        {isEmployee && (
+          <View
+            style={[
+              styles.section,
+              {
+                backgroundColor: theme.background.card,
+                borderColor: theme.border.light,
+              },
+            ]}
+          >
+            <View style={styles.sectionHeader}>
+              <Shield size={20} color={theme.accent.primary} />
+              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
+                Employee Access
+              </Text>
+            </View>
+            <Text style={[styles.sectionSubtitle, { color: theme.text.secondary }]}>
+              Assigned by your business owner. Contact them to change your role or permissions.
+            </Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Assigned Role</Text>
+              <Text style={[styles.valueText, { color: theme.text.primary }]}>
+                {currentEmployee?.roleName || 'Unassigned'}
+              </Text>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Permissions</Text>
+              {employeePermissions.length > 0 ? (
+                <View style={styles.featuresList}>
+                  {employeePermissions.map(permission => (
+                    <View
+                      key={permission}
+                      style={[styles.featureTag, { backgroundColor: theme.background.secondary }]}
+                    >
+                      <Text style={[styles.featureTagText, { color: theme.text.secondary }]}>
+                        {formatPermissionLabel(permission)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={[styles.helperText, { color: theme.text.tertiary }]}>
+                  No permissions assigned yet.
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
+
+        <View
+          pointerEvents={businessSectionDisabled ? 'none' : 'auto'}
+          style={[
+            styles.section,
+            {
+              backgroundColor: theme.background.card,
+              borderColor: theme.border.light,
+              opacity: businessSectionDisabled ? 0.7 : 1,
+            },
+          ]}
+        >
           <View style={styles.sectionHeader}>
             <Building2 size={20} color={theme.accent.primary} />
             <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
-              {t('settings.businessProfile')}
+              {isEmployee ? 'Assigned Business' : t('settings.businessProfile')}
             </Text>
           </View>
+          {isEmployee && (
+            <Text style={[styles.sectionSubtitle, { color: theme.text.secondary }]}>
+              Assigned by the business owner. Contact your owner to update details.
+            </Text>
+          )}
 
           {/* Logo Upload */}
           <View style={styles.inputGroup}>
@@ -1339,6 +1447,11 @@ export default function SettingsScreen() {
           <Text style={[styles.settingDesc, { color: theme.text.secondary, marginBottom: 16 }]}>
             Export all your business data for backup or analysis
           </Text>
+          {!canManageData && (
+            <Text style={[styles.settingDesc, { color: theme.text.tertiary, marginBottom: 12 }]}>
+              Only the business owner can export or import data.
+            </Text>
+          )}
 
           <View style={styles.exportButtons}>
             <TouchableOpacity 
@@ -1347,6 +1460,7 @@ export default function SettingsScreen() {
                 borderColor: theme.border.light,
               }]}
               onPress={() => handleExportData('csv')}
+              disabled={!canManageData}
             >
               <Download size={20} color={theme.accent.primary} />
               <Text style={[styles.exportButtonText, { color: theme.text.primary }]}>
@@ -1359,6 +1473,7 @@ export default function SettingsScreen() {
                 borderColor: theme.border.light,
               }]}
               onPress={() => handleExportData('json')}
+              disabled={!canManageData}
             >
               <Download size={20} color={theme.accent.primary} />
               <Text style={[styles.exportButtonText, { color: theme.text.primary }]}>
@@ -1377,7 +1492,7 @@ export default function SettingsScreen() {
                 borderColor: theme.border.light,
               }]}
               onPress={handleImportData}
-              disabled={isImportingData}
+              disabled={isImportingData || !canManageData}
             >
               {isImportingData ? (
                 <ActivityIndicator color={theme.accent.primary} />
@@ -1774,6 +1889,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     marginBottom: 8,
+  },
+  valueText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
   },
   hint: {
     fontSize: 13,

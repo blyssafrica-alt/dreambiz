@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from '
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
+import type { PermissionCode } from '@/types/employee-permissions';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { 
   Calculator, 
@@ -51,10 +52,15 @@ interface MenuItem {
 
 export default function MoreScreen() {
   const { theme } = useTheme();
-  const { business } = useBusiness();
+  const { business, isEmployee, employeePermissions } = useBusiness();
   const { isFeatureVisible, shouldShowAsTab } = useFeatures();
   const router = useRouter();
   const showPOSTab = shouldShowAsTab('pos');
+  const hasPermission = (required: PermissionCode | PermissionCode[]) => {
+    if (!isEmployee) return true;
+    const requiredList = Array.isArray(required) ? required : [required];
+    return requiredList.some(permission => employeePermissions.includes(permission));
+  };
 
   const menuSections: MenuSection[] = [
     {
@@ -78,7 +84,7 @@ export default function MoreScreen() {
           route: '/(tabs)/products',
           color: '#F59E0B',
           gradient: ['#F59E0B', '#D97706'],
-          visible: isFeatureVisible('products'),
+          visible: isFeatureVisible('products') && hasPermission(['products:view', 'products:create', 'products:edit', 'products:delete', 'products:manage_stock']),
         },
         {
           id: 'customers',
@@ -88,7 +94,7 @@ export default function MoreScreen() {
           route: '/(tabs)/customers',
           color: '#10B981',
           gradient: ['#10B981', '#059669'],
-          visible: isFeatureVisible('customers'),
+          visible: isFeatureVisible('customers') && hasPermission(['customers:view', 'customers:create', 'customers:edit', 'customers:delete']),
         },
         {
           id: 'suppliers',
@@ -98,7 +104,7 @@ export default function MoreScreen() {
           route: '/(tabs)/suppliers',
           color: '#8B5CF6',
           gradient: ['#8B5CF6', '#7C3AED'],
-          visible: isFeatureVisible('suppliers'),
+          visible: isFeatureVisible('suppliers') && !isEmployee,
         },
       ],
     },
@@ -113,7 +119,7 @@ export default function MoreScreen() {
           route: '/(tabs)/budgets',
           color: '#EC4899',
           gradient: ['#EC4899', '#DB2777'],
-          visible: isFeatureVisible('budgets'),
+          visible: isFeatureVisible('budgets') && hasPermission(['finances:view', 'finances:view_reports', 'finances:manage_transactions']),
         },
         {
           id: 'cashflow',
@@ -123,7 +129,7 @@ export default function MoreScreen() {
           route: '/(tabs)/cashflow',
           color: '#10B981',
           gradient: ['#10B981', '#059669'],
-          visible: isFeatureVisible('cashflow'),
+          visible: isFeatureVisible('cashflow') && hasPermission(['finances:view', 'finances:view_reports', 'finances:manage_transactions']),
         },
         {
           id: 'tax',
@@ -133,7 +139,7 @@ export default function MoreScreen() {
           route: '/(tabs)/tax',
           color: '#F59E0B',
           gradient: ['#F59E0B', '#D97706'],
-          visible: isFeatureVisible('tax'),
+          visible: isFeatureVisible('tax') && hasPermission(['finances:view', 'finances:view_reports', 'finances:manage_transactions']),
         },
         {
           id: 'accounts',
@@ -143,7 +149,7 @@ export default function MoreScreen() {
           route: '/(tabs)/accounts',
           color: '#3B82F6',
           gradient: ['#3B82F6', '#2563EB'],
-          visible: isFeatureVisible('accounts'),
+          visible: isFeatureVisible('accounts') && hasPermission(['finances:view', 'finances:view_reports', 'finances:manage_transactions']),
         },
         {
           id: 'recurring-invoices',
@@ -153,7 +159,7 @@ export default function MoreScreen() {
           route: '/(tabs)/recurring-invoices',
           color: '#8B5CF6',
           gradient: ['#8B5CF6', '#7C3AED'],
-          visible: isFeatureVisible('recurring-invoices'),
+          visible: isFeatureVisible('recurring-invoices') && hasPermission(['finances:view', 'finances:view_reports', 'finances:manage_transactions']),
         },
       ],
     },
@@ -168,7 +174,7 @@ export default function MoreScreen() {
           route: '/(tabs)/projects',
           color: '#EC4899',
           gradient: ['#EC4899', '#DB2777'],
-          visible: isFeatureVisible('projects'),
+          visible: isFeatureVisible('projects') && !isEmployee,
         },
         {
           id: 'employees',
@@ -178,7 +184,7 @@ export default function MoreScreen() {
           route: '/(tabs)/employees',
           color: '#10B981',
           gradient: ['#10B981', '#059669'],
-          visible: isFeatureVisible('employees'),
+          visible: isFeatureVisible('employees') && hasPermission(['employees:view', 'employees:manage']),
         },
         {
           id: 'pos',
@@ -189,7 +195,7 @@ export default function MoreScreen() {
           color: '#F59E0B',
           gradient: ['#F59E0B', '#D97706'],
           // Show in More when enabled but not already a main tab
-          visible: isFeatureVisible('pos') && !showPOSTab,
+          visible: isFeatureVisible('pos') && !showPOSTab && hasPermission(['pos:view', 'pos:process_sales', 'pos:void_sales', 'pos:apply_discounts', 'pos:view_reports']),
         },
         {
           id: 'appointments',
@@ -199,7 +205,7 @@ export default function MoreScreen() {
           route: '/(tabs)/appointments',
           color: '#3B82F6',
           gradient: ['#3B82F6', '#2563EB'],
-          visible: business?.type === 'services' || business?.type === 'salon',
+          visible: (business?.type === 'services' || business?.type === 'salon') && !isEmployee,
         },
       ],
     },
@@ -214,7 +220,7 @@ export default function MoreScreen() {
           route: '/(tabs)/reports',
           color: '#8B5CF6',
           gradient: ['#8B5CF6', '#7C3AED'],
-          visible: isFeatureVisible('reports'),
+          visible: isFeatureVisible('reports') && hasPermission(['finances:view', 'finances:view_reports']),
         },
         {
           id: 'insights',
@@ -224,7 +230,7 @@ export default function MoreScreen() {
           route: '/(tabs)/insights',
           color: '#EC4899',
           gradient: ['#EC4899', '#DB2777'],
-          visible: isFeatureVisible('insights'),
+          visible: isFeatureVisible('insights') && !isEmployee,
         },
         {
           id: 'businesses',
@@ -234,7 +240,7 @@ export default function MoreScreen() {
           route: '/(tabs)/businesses',
           color: '#10B981',
           gradient: ['#10B981', '#059669'],
-          visible: isFeatureVisible('businesses'),
+          visible: isFeatureVisible('businesses') && !isEmployee,
         },
       ],
     },
@@ -319,7 +325,7 @@ export default function MoreScreen() {
           route: '/(tabs)/settings',
           color: '#64748B',
           gradient: ['#64748B', '#475569'],
-          visible: true,
+          visible: hasPermission(['settings:view', 'settings:edit']),
         },
         {
           id: 'integrations',
@@ -329,7 +335,7 @@ export default function MoreScreen() {
           route: '/(tabs)/integrations',
           color: '#8B5CF6',
           gradient: ['#8B5CF6', '#7C3AED'],
-          visible: isFeatureVisible('integrations'),
+          visible: isFeatureVisible('integrations') && !isEmployee,
         },
       ],
     },
@@ -351,7 +357,9 @@ export default function MoreScreen() {
             More
           </Text>
           <Text style={[styles.headerSubtitle, { color: theme.text.secondary }]}>
-            All your business tools in one place
+            {isEmployee
+              ? `Tools for ${business?.name || 'your assigned business'}`
+              : 'All your business tools in one place'}
           </Text>
         </View>
 

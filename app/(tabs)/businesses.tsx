@@ -54,7 +54,7 @@ const businessStages: { value: BusinessStage; label: string; desc: string }[] = 
 ];
 
 export default function BusinessesScreen() {
-  const { business: currentBusiness, getAllBusinesses, switchBusiness, deleteBusiness, saveBusiness, checkBusinessLimit } = useBusiness();
+  const { business: currentBusiness, getAllBusinesses, switchBusiness, deleteBusiness, saveBusiness, checkBusinessLimit, isEmployee } = useBusiness();
   const { theme } = useTheme();
   const { isSuperAdmin } = useAuth();
   const { t } = useTranslation();
@@ -83,6 +83,23 @@ export default function BusinessesScreen() {
     phone: '',
     dreamBigBook: 'none' as DreamBigBook,
   });
+
+  if (isEmployee) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background.primary }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.emptyState}>
+          <Building2 size={48} color={theme.text.tertiary} />
+          <Text style={[styles.emptyStateTitle, { color: theme.text.primary }]}>
+            Access restricted
+          </Text>
+          <Text style={[styles.emptyStateSubtitle, { color: theme.text.secondary }]}>
+            Only business owners can create or switch businesses. Contact your owner to update assignments.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // Load books and features from database
   useEffect(() => {

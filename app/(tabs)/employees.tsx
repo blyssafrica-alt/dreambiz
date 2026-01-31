@@ -34,12 +34,14 @@ import type { Employee } from '@/types/business';
 import { supabase } from '@/lib/supabase';
 
 export default function EmployeesScreen() {
-  const { business, employees, addEmployee, updateEmployee, deleteEmployee } = useBusiness();
+  const { business, employees, addEmployee, updateEmployee, deleteEmployee, isEmployee, employeePermissions } = useBusiness();
   const { theme } = useTheme();
   const { t } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
+  const canManageEmployees = !isEmployee || employeePermissions.includes('employees:manage');
+  const canViewEmployees = !isEmployee || employeePermissions.includes('employees:view') || canManageEmployees;
 
   // Ensure employees is always an array
   const safeEmployees = Array.isArray(employees) ? employees : [];
@@ -294,6 +296,19 @@ export default function EmployeesScreen() {
   const activeEmployees = safeEmployees.filter(e => e.isActive);
   const inactiveEmployees = safeEmployees.filter(e => !e.isActive);
 
+  if (!canViewEmployees) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background.primary, justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+        <Text style={[styles.title, { color: theme.text.primary, textAlign: 'center' }]}>
+          Access restricted
+        </Text>
+        <Text style={[styles.subtitle, { color: theme.text.secondary, textAlign: 'center' }]}>
+          Your role does not allow viewing employee records.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
@@ -304,20 +319,22 @@ export default function EmployeesScreen() {
           icon={Users}
           iconGradient={['#6366F1', '#4F46E5']}
           rightAction={
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TouchableOpacity
-                style={styles.headerAddButton}
-                onPress={() => router.push('/admin/employee-roles' as any)}
-              >
-                <Shield size={20} color="#FFF" strokeWidth={2.5} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.headerAddButton}
-                onPress={() => setShowModal(true)}
-              >
-                <Plus size={20} color="#FFF" strokeWidth={2.5} />
-              </TouchableOpacity>
-            </View>
+            canManageEmployees ? (
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity
+                  style={styles.headerAddButton}
+                  onPress={() => router.push('/admin/employee-roles' as any)}
+                >
+                  <Shield size={20} color="#FFF" strokeWidth={2.5} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.headerAddButton}
+                  onPress={() => setShowModal(true)}
+                >
+                  <Plus size={20} color="#FFF" strokeWidth={2.5} />
+                </TouchableOpacity>
+              </View>
+            ) : null
           }
         />
 
@@ -333,12 +350,14 @@ export default function EmployeesScreen() {
             <Text style={[styles.emptyText, { color: theme.text.tertiary }]}>
               No employees yet
             </Text>
-            <TouchableOpacity
-              style={[styles.emptyButton, { backgroundColor: theme.accent.primary }]}
-              onPress={() => setShowModal(true)}
-            >
-              <Text style={styles.emptyButtonText}>Add Your First Employee</Text>
-            </TouchableOpacity>
+            {canManageEmployees && (
+              <TouchableOpacity
+                style={[styles.emptyButton, { backgroundColor: theme.accent.primary }]}
+                onPress={() => setShowModal(true)}
+              >
+                <Text style={styles.emptyButtonText}>Add Your First Employee</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           <>
@@ -351,6 +370,7 @@ export default function EmployeesScreen() {
                     employee={employee}
                     theme={theme}
                     formatCurrency={formatCurrency}
+                    canManageEmployees={canManageEmployees}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                   />
@@ -366,6 +386,7 @@ export default function EmployeesScreen() {
                     employee={employee}
                     theme={theme}
                     formatCurrency={formatCurrency}
+                    canManageEmployees={canManageEmployees}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                   />
@@ -617,7 +638,7 @@ export default function EmployeesScreen() {
   );
 }
 
-function EmployeeCard({ employee, theme, formatCurrency, onEdit, onDelete }: any) {
+function EmployeeCard({ employee, theme, formatCurrency, onEdit, onDelete, canManageEmployees }: any) {
   return (
     <View
       style={[
@@ -637,20 +658,22 @@ function EmployeeCard({ employee, theme, formatCurrency, onEdit, onDelete }: any
             </Text>
           )}
         </View>
-        <View style={styles.employeeActions}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => onEdit(employee)}
-          >
-            <Edit2 size={18} color={theme.accent.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => onDelete(employee.id)}
-          >
-            <Trash2 size={18} color={theme.accent.danger} />
-          </TouchableOpacity>
-        </View>
+        {canManageEmployees && (
+          <View style={styles.employeeActions}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => onEdit(employee)}
+            >
+              <Edit2 size={18} color={theme.accent.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => onDelete(employee.id)}
+            >
+              <Trash2 size={18} color={theme.accent.danger} />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <View style={styles.employeeDetails}>

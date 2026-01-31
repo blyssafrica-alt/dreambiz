@@ -1,6 +1,7 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getEmployeePermissions } from '@/lib/employee-permissions';
 import { useAuth } from './AuthContext';
 import { getProvider } from '@/lib/providers';
 
@@ -23,6 +24,7 @@ import type {
   ProjectTask
 } from '@/types/business';
 import type { RecurringInvoice, Payment } from '@/types/payments';
+import type { PermissionCode } from '@/types/employee-permissions';
 import { fetchActiveAlertRules, evaluateAlertRules } from '@/lib/alert-evaluator';
 
 export const [BusinessContext, useBusiness] = createContextHook(() => {
@@ -48,6 +50,17 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     });
     const [isLoading, setIsLoading] = useState(true);
     const [hasOnboarded, setHasOnboarded] = useState(false);
+    const [currentEmployee, setCurrentEmployee] = useState<{
+      id: string;
+      name: string;
+      email?: string;
+      roleId?: string;
+      roleName?: string;
+      businessId?: string;
+      canLogin?: boolean;
+    } | null>(null);
+    const [employeePermissions, setEmployeePermissions] = useState<PermissionCode[]>([]);
+    const [isEmployee, setIsEmployee] = useState(false);
 
   // Get user ID - use authUser.id if available (even if profile not loaded yet)
   const userId = authUser?.id || user?.id;
@@ -60,9 +73,53 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
 
     try {
       setIsLoading(true);
+      const isEmployeeFlag = !!authUser?.metadata?.is_employee;
+      let resolvedIsEmployee = isEmployeeFlag;
+      let employeeRecord: any = null;
       
       // Get current business ID - use override if provided, otherwise use existing business state
-      const currentBusinessId = businessIdOverride || business?.id;
+      let currentBusinessId = businessIdOverride || business?.id;
+      let employeeIdForPermissions: string | null = null;
+      
+      try {
+        const { data } = await supabase
+          .from('employees')
+          .select('id, name, email, role_id, business_id, can_login, is_active, employee_roles(name)')
+          .eq('auth_user_id', userId)
+          .maybeSingle();
+        employeeRecord = data;
+      } catch (error) {
+        console.error('Failed to resolve employee context:', error);
+      }
+
+      if (employeeRecord?.is_active) {
+        resolvedIsEmployee = true;
+        currentBusinessId = employeeRecord.business_id || currentBusinessId;
+        employeeIdForPermissions = employeeRecord.id;
+        setCurrentEmployee({
+          id: employeeRecord.id,
+          name: employeeRecord.name,
+          email: employeeRecord.email || undefined,
+          roleId: employeeRecord.role_id || undefined,
+          roleName: (employeeRecord.employee_roles as any)?.name || undefined,
+          businessId: employeeRecord.business_id || undefined,
+          canLogin: employeeRecord.can_login ?? false,
+        });
+      } else if (resolvedIsEmployee) {
+        setCurrentEmployee(null);
+      } else {
+        setCurrentEmployee(null);
+      }
+
+      setIsEmployee(resolvedIsEmployee);
+      if (!resolvedIsEmployee) {
+        setEmployeePermissions([]);
+      }
+
+      if (employeeIdForPermissions) {
+        const permissions = await getEmployeePermissions(employeeIdForPermissions);
+        setEmployeePermissions(permissions);
+      }
       
       // Build queries - filter by business_id if business is selected
       // NOTE: Some tables don't have business_id (e.g., project_tasks, exchange_rates)
@@ -70,7 +127,9 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       const tablesWithoutBusinessId = ['project_tasks', 'exchange_rates'];
       const buildQuery = (table: string, orderBy: string, orderDir: 'asc' | 'desc' = 'desc', selectFields?: string) => {
         let query = supabase.from(table).select(selectFields ?? '*') as any;
-        query = query.eq('user_id', userId);
+        if (!resolvedIsEmployee || tablesWithoutBusinessId.includes(table)) {
+          query = query.eq('user_id', userId);
+        }
         // Only filter by business_id if table has that column
         if (currentBusinessId && !tablesWithoutBusinessId.includes(table)) {
           query = query.eq('business_id', currentBusinessId);
@@ -178,8 +237,12 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         return queryPromiseWithErrorHandling;
       };
 
+      const businessQuery = resolvedIsEmployee && currentBusinessId
+        ? supabase.from('business_profiles').select('*').eq('id', currentBusinessId).maybeSingle()
+        : supabase.from('business_profiles').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+
       const [businessRes, transactionsRes, documentsRes, productsRes, customersRes, suppliersRes, budgetsRes, cashflowRes, taxRatesRes, employeesRes, projectsRes, projectTasksRes, recurringInvoicesRes, paymentsRes, foldersRes, exchangeRateRes] = await Promise.all([
-        safeQuery(supabase.from('business_profiles').select('*').eq('user_id', userId).order('created_at', { ascending: false }), 'business_profiles'),
+        safeQuery(businessQuery, 'business_profiles'),
         safeQuery(buildQuery('transactions', 'date', 'desc'), 'transactions'),
         safeQuery(buildQuery('documents', 'date', 'desc'), 'documents'),
         safeQuery(buildQuery('products', 'created_at', 'desc'), 'products'),
@@ -201,27 +264,31 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         ),
       ]);
 
-      // Handle multiple businesses per user - use the most recent one if no business is currently selected
-      if (businessRes.data && businessRes.data.length > 0) {
+      const businessList = Array.isArray(businessRes.data)
+        ? businessRes.data
+        : (businessRes.data ? [businessRes.data] : []);
+
+      if (businessList.length > 0) {
+        const selectedBusiness = currentBusinessId
+          ? businessList.find(b => b.id === currentBusinessId) || businessList[0]
+          : businessList[0];
         // Only set business if we don't have one already (to preserve the selected business when switching)
-        if (!currentBusinessId) {
-          // Get the most recent business (already ordered by created_at DESC)
-          const mostRecentBusiness = businessRes.data[0];
+        if (!business || business.id !== selectedBusiness.id) {
           setBusiness({
-            id: mostRecentBusiness.id,
-            name: mostRecentBusiness.name,
-            type: mostRecentBusiness.type as any,
-            stage: mostRecentBusiness.stage as any,
-            location: mostRecentBusiness.location,
-            capital: Number(mostRecentBusiness.capital),
-            currency: mostRecentBusiness.currency as any,
-            owner: mostRecentBusiness.owner,
-            phone: mostRecentBusiness.phone || undefined,
-            email: mostRecentBusiness.email || undefined,
-            address: mostRecentBusiness.address || undefined,
-            dreamBigBook: mostRecentBusiness.dream_big_book as any,
-            logo: mostRecentBusiness.logo || undefined,
-            createdAt: mostRecentBusiness.created_at,
+            id: selectedBusiness.id,
+            name: selectedBusiness.name,
+            type: selectedBusiness.type as any,
+            stage: selectedBusiness.stage as any,
+            location: selectedBusiness.location,
+            capital: Number(selectedBusiness.capital),
+            currency: selectedBusiness.currency as any,
+            owner: selectedBusiness.owner,
+            phone: selectedBusiness.phone || undefined,
+            email: selectedBusiness.email || undefined,
+            address: selectedBusiness.address || undefined,
+            dreamBigBook: selectedBusiness.dream_big_book as any,
+            logo: selectedBusiness.logo || undefined,
+            createdAt: selectedBusiness.created_at,
           });
         }
         setHasOnboarded(true);
@@ -516,7 +583,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     } finally {
       setIsLoading(false);
     }
-  }, [userId, business?.id]);
+  }, [userId, business?.id, authUser?.id, authUser?.metadata?.is_employee]);
 
   // Clear all business data (called on logout)
   const clearData = useCallback(() => {
@@ -540,6 +607,9 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       lastUpdated: new Date().toISOString(),
     });
     setHasOnboarded(false);
+    setCurrentEmployee(null);
+    setEmployeePermissions([]);
+    setIsEmployee(false);
     setIsLoading(false);
   }, []);
 
@@ -3059,6 +3129,9 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     exchangeRate: exchangeRate || { usdToZwl: 25000, lastUpdated: new Date().toISOString() },
     isLoading,
     hasOnboarded,
+    isEmployee,
+    currentEmployee,
+    employeePermissions,
     saveBusiness,
     addTransaction,
     updateTransaction,

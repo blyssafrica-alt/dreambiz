@@ -42,7 +42,7 @@ const businessStages: { value: BusinessStage; label: string; desc: string }[] = 
 ];
 
 export default function OnboardingScreen() {
-  const { saveBusiness, hasOnboarded } = useBusiness();
+  const { saveBusiness, hasOnboarded, isEmployee } = useBusiness();
   const [step, setStep] = useState(1);
   const [databaseBooks, setDatabaseBooks] = useState<Book[]>([]);
   const [featureConfigs, setFeatureConfigs] = useState<{ featureId: string; name: string }[]>([]);
@@ -50,11 +50,28 @@ export default function OnboardingScreen() {
   // GUARD: If already onboarded, redirect immediately to dashboard
   // This prevents showing onboarding screen to users who have already completed this step
   useEffect(() => {
-    if (hasOnboarded) {
+    if (hasOnboarded || isEmployee) {
       router.replace('/(tabs)' as any);
       return;
     }
-  }, [hasOnboarded]);
+  }, [hasOnboarded, isEmployee]);
+
+  if (isEmployee) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Access restricted</Text>
+          <Text style={styles.subtitle}>
+            Employees are assigned to a business by the owner and do not complete business setup.
+          </Text>
+        </View>
+        <TouchableOpacity style={styles.nextButton} onPress={() => router.replace('/(tabs)' as any)}>
+          <Text style={styles.nextButtonText}>Go to Dashboard</Text>
+          <ChevronRight size={18} color="#FFF" />
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   // Load books and features from database
   useEffect(() => {
