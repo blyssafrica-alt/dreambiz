@@ -125,7 +125,7 @@ export function FeatureContextProvider({ children }: { children: React.ReactNode
     if (!feature) {
       return hasBookFeature;
     }
-    if (!feature.enabled) return false;
+    if (!feature.enabled && !hasBookFeature) return false;
 
     // Check premium requirement
     if (feature.isPremium) {

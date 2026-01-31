@@ -155,7 +155,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "Dashboard",
-          href: shouldShowAsTab('dashboard') ? undefined : null,
+          href: undefined,
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon
               Icon={LayoutDashboard}
@@ -167,12 +167,12 @@ export default function TabLayout() {
         }}
       />
       
-      {/* Finances tab - respect feature settings */}
+      {/* Finances tab - always visible (core feature) */}
       <Tabs.Screen
         name="finances"
         options={{
           title: "Finances",
-          href: shouldShowAsTab('finances') ? undefined : null,
+          href: undefined,
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon
               Icon={TrendingUp}
@@ -184,12 +184,12 @@ export default function TabLayout() {
         }}
       />
       
-      {/* Documents tab - respect feature settings */}
+      {/* Documents tab - always visible (core feature) */}
       <Tabs.Screen
         name="documents"
         options={{
           title: "Documents",
-          href: shouldShowAsTab('documents') ? undefined : null,
+          href: undefined,
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon
               Icon={FileCheck}
