@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from '
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
-import type { PermissionCode } from '@/types/employee-permissions';
+import { PERMISSION_CATEGORIES, type PermissionCode } from '@/types/employee-permissions';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { 
   Calculator, 
@@ -52,7 +52,7 @@ interface MenuItem {
 
 export default function MoreScreen() {
   const { theme } = useTheme();
-  const { business, isEmployee, employeePermissions } = useBusiness();
+  const { business, isEmployee, employeePermissions, currentEmployee } = useBusiness();
   const { isFeatureVisible, shouldShowAsTab } = useFeatures();
   const router = useRouter();
   const showPOSTab = shouldShowAsTab('pos');
@@ -60,6 +60,13 @@ export default function MoreScreen() {
     if (!isEmployee) return true;
     const requiredList = Array.isArray(required) ? required : [required];
     return requiredList.some(permission => employeePermissions.includes(permission));
+  };
+
+  const formatPermissionLabel = (code: PermissionCode) => {
+    const [category, action] = code.split(':');
+    const categoryLabel = (PERMISSION_CATEGORIES as any)[category] || category;
+    const actionLabel = action ? action.replace(/_/g, ' ') : 'access';
+    return `${categoryLabel} • ${actionLabel}`;
   };
 
   const menuSections: MenuSection[] = [
@@ -363,6 +370,70 @@ export default function MoreScreen() {
           </Text>
         </View>
 
+        {isEmployee && (
+          <View style={[styles.employeeCard, { backgroundColor: theme.background.card }]}>
+            <View style={styles.employeeRow}>
+              <Building2 size={18} color={theme.accent.primary} />
+              <Text style={[styles.employeeLabel, { color: theme.text.secondary }]}>
+                Assigned business
+              </Text>
+            </View>
+            <Text style={[styles.employeeValue, { color: theme.text.primary }]} numberOfLines={1}>
+              {business?.name || 'Assigned by owner'}
+            </Text>
+            <View style={[styles.employeeRow, { marginTop: 10 }]}>
+              <UserCircle size={18} color={theme.accent.primary} />
+              <Text style={[styles.employeeLabel, { color: theme.text.secondary }]}>
+                Role
+              </Text>
+            </View>
+            <Text style={[styles.employeeValue, { color: theme.text.primary }]} numberOfLines={1}>
+              {currentEmployee?.roleName || 'Employee'}
+            </Text>
+            <View style={[styles.employeeRow, { marginTop: 10 }]}>
+              <Shield size={18} color={theme.accent.primary} />
+              <Text style={[styles.employeeLabel, { color: theme.text.secondary }]}>
+                Permissions
+              </Text>
+            </View>
+            {employeePermissions.length > 0 ? (
+              <View style={styles.permissionChips}>
+                {employeePermissions.slice(0, 6).map(permission => (
+                  <View
+                    key={permission}
+                    style={[styles.permissionChip, { backgroundColor: theme.surface.info }]}
+                  >
+                    <Text style={[styles.permissionChipText, { color: theme.accent.info }]}>
+                      {formatPermissionLabel(permission)}
+                    </Text>
+                  </View>
+                ))}
+                {employeePermissions.length > 6 && (
+                  <View style={[styles.permissionChip, { backgroundColor: theme.background.secondary }]}>
+                    <Text style={[styles.permissionChipText, { color: theme.text.secondary }]}>
+                      +{employeePermissions.length - 6} more
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <Text style={[styles.employeeEmpty, { color: theme.text.tertiary }]}>
+                No permissions assigned yet.
+              </Text>
+            )}
+            <TouchableOpacity
+              style={[styles.employeeSettingsLink, { borderColor: theme.border.light }]}
+              onPress={() => router.push('/(tabs)/settings' as any)}
+            >
+              <Settings size={16} color={theme.text.secondary} />
+              <Text style={[styles.employeeSettingsText, { color: theme.text.secondary }]}>
+                Manage profile & settings
+              </Text>
+              <ChevronRight size={16} color={theme.text.tertiary} />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {menuSections.map((section, sectionIndex) => {
           const visibleItems = section.items.filter(item => item.visible);
           if (visibleItems.length === 0) return null;
@@ -415,6 +486,16 @@ export default function MoreScreen() {
             </View>
           );
         })}
+        {isEmployee && menuSections.every(section => section.items.filter(item => item.visible).length === 0) && (
+          <View style={[styles.emptyState, { backgroundColor: theme.background.card }]}>
+            <Text style={[styles.emptyTitle, { color: theme.text.primary }]}>
+              No tools assigned yet
+            </Text>
+            <Text style={[styles.emptySubtitle, { color: theme.text.secondary }]}>
+              Ask your business owner to assign roles and permissions for your tasks.
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -501,6 +582,72 @@ const styles = StyleSheet.create({
   menuDescription: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  employeeCard: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 24,
+  },
+  employeeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  employeeLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  employeeValue: {
+    marginTop: 6,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  permissionChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  permissionChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  permissionChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  employeeEmpty: {
+    marginTop: 8,
+    fontSize: 12,
+  },
+  employeeSettingsLink: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  employeeSettingsText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  emptyState: {
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    textAlign: 'center',
   },
 });
 

@@ -46,6 +46,17 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState(1);
   const [databaseBooks, setDatabaseBooks] = useState<Book[]>([]);
   const [featureConfigs, setFeatureConfigs] = useState<{ featureId: string; name: string }[]>([]);
+  const [formData, setFormData] = useState({
+    name: '',
+    owner: '',
+    type: 'retail' as BusinessType,
+    stage: 'running' as BusinessStage,
+    location: '',
+    capital: '',
+    currency: 'USD' as Currency,
+    phone: '',
+    dreamBigBook: 'none' as DreamBigBook,
+  });
 
   // GUARD: If already onboarded, redirect immediately to dashboard
   // This prevents showing onboarding screen to users who have already completed this step
@@ -55,23 +66,6 @@ export default function OnboardingScreen() {
       return;
     }
   }, [hasOnboarded, isEmployee]);
-
-  if (isEmployee) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Access restricted</Text>
-          <Text style={styles.subtitle}>
-            Employees are assigned to a business by the owner and do not complete business setup.
-          </Text>
-        </View>
-        <TouchableOpacity style={styles.nextButton} onPress={() => router.replace('/(tabs)' as any)}>
-          <Text style={styles.nextButtonText}>Go to Dashboard</Text>
-          <ChevronRight size={18} color="#FFF" />
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
 
   // Load books and features from database
   useEffect(() => {
@@ -107,17 +101,6 @@ export default function OnboardingScreen() {
     loadDatabaseBooks();
     loadFeatures();
   }, []);
-  const [formData, setFormData] = useState({
-    name: '',
-    owner: '',
-    type: 'retail' as BusinessType,
-    stage: 'running' as BusinessStage,
-    location: '',
-    capital: '',
-    currency: 'USD' as Currency,
-    phone: '',
-    dreamBigBook: 'none' as DreamBigBook,
-  });
 
   const handleComplete = async () => {
     if (!formData.name || !formData.owner || !formData.location || !formData.capital) {
@@ -523,6 +506,23 @@ export default function OnboardingScreen() {
       </View>
     </View>
   );
+
+  if (isEmployee) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Access restricted</Text>
+          <Text style={styles.subtitle}>
+            Employees are assigned to a business by the owner and do not complete business setup.
+          </Text>
+        </View>
+        <TouchableOpacity style={styles.nextButton} onPress={() => router.replace('/(tabs)' as any)}>
+          <Text style={styles.nextButtonText}>Go to Dashboard</Text>
+          <ChevronRight size={18} color="#FFF" />
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>

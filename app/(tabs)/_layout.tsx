@@ -99,10 +99,11 @@ function AnimatedTabIcon({
 export default function TabLayout() {
   const { theme, isLoading } = useTheme();
   const { shouldShowAsTab, isFeatureVisible, isLoading: featuresLoading } = useFeatures();
-  const { business, isEmployee, employeePermissions } = useBusiness();
+  const { business, isEmployee, employeePermissions, employeePermissionsLoading } = useBusiness();
   const insets = useSafeAreaInsets();
   const hasPermission = (required: string[]) => {
     if (!isEmployee) return true;
+    if (employeePermissionsLoading) return true;
     return required.some(permission => employeePermissions.includes(permission as any));
   };
   

@@ -61,6 +61,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       canLogin?: boolean;
     } | null>(null);
     const [employeePermissions, setEmployeePermissions] = useState<PermissionCode[]>([]);
+  const [employeePermissionsLoading, setEmployeePermissionsLoading] = useState(false);
     const [isEmployee, setIsEmployee] = useState(false);
 
   // Get user ID - use authUser.id if available (even if profile not loaded yet)
@@ -116,11 +117,17 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       setIsEmployee(resolvedIsEmployee);
       if (!resolvedIsEmployee) {
         setEmployeePermissions([]);
+        setEmployeePermissionsLoading(false);
       }
 
       if (employeeIdForPermissions) {
-        const permissions = await getEmployeePermissions(employeeIdForPermissions);
-        setEmployeePermissions(permissions);
+        setEmployeePermissionsLoading(true);
+        try {
+          const permissions = await getEmployeePermissions(employeeIdForPermissions);
+          setEmployeePermissions(permissions);
+        } finally {
+          setEmployeePermissionsLoading(false);
+        }
       }
       
       // Build queries - filter by business_id if business is selected
@@ -253,7 +260,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         safeQuery(buildQuery('budgets', 'created_at', 'desc'), 'budgets'),
         safeQuery(buildQuery('cashflow_projections', 'month', 'asc'), 'cashflow_projections'),
         safeQuery(buildQuery('tax_rates', 'created_at', 'desc'), 'tax_rates'),
-        safeQuery(buildQuery('employees', 'created_at', 'desc', '*, auth_user_id, role_id, can_login'), 'employees'),
+        safeQuery(buildQuery('employees', 'created_at', 'desc', '*, auth_user_id, role_id, can_login, employee_roles(name)'), 'employees'),
         safeQuery(buildQuery('projects', 'created_at', 'desc'), 'projects'),
         safeQuery(buildQuery('project_tasks', 'created_at', 'desc'), 'project_tasks'),
         safeQuery(buildQuery('recurring_invoices', 'created_at', 'desc'), 'recurring_invoices'),
@@ -475,7 +482,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           canLogin: e.can_login || false,
           email: e.email || undefined,
           phone: e.phone || undefined,
-          role: e.role || undefined,
+          role: e.role || e.employee_roles?.name || undefined,
           position: e.position || undefined,
           hireDate: e.hire_date || undefined,
           salary: e.salary ? Number(e.salary) : undefined,
@@ -3134,6 +3141,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     isEmployee,
     currentEmployee,
     employeePermissions,
+    employeePermissionsLoading,
     saveBusiness,
     addTransaction,
     updateTransaction,

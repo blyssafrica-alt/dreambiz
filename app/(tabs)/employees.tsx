@@ -32,6 +32,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { Employee } from '@/types/business';
 import { supabase } from '@/lib/supabase';
+import { PERMISSION_CATEGORIES, type PermissionCode } from '@/types/employee-permissions';
 
 export default function EmployeesScreen() {
   const { business, employees, addEmployee, updateEmployee, deleteEmployee, isEmployee, employeePermissions } = useBusiness();
@@ -67,11 +68,27 @@ export default function EmployeesScreen() {
     try {
       const { data, error } = await supabase
         .from('employee_roles')
-        .select('id, name')
+        .select(`
+          id,
+          name,
+          role_permissions (
+            employee_permissions (
+              code
+            )
+          )
+        `)
         .eq('business_id', business.id)
         .order('name');
       if (!error && data) {
-        setAvailableRoles(data);
+        const rolesWithPermissions = data.map((role: any) => ({
+          ...role,
+          permissions: Array.isArray(role.role_permissions)
+            ? role.role_permissions
+                .map((rp: any) => rp.employee_permissions?.code)
+                .filter(Boolean)
+            : [],
+        }));
+        setAvailableRoles(rolesWithPermissions);
       }
     } catch (error) {
       console.error('Failed to load roles:', error);
@@ -105,6 +122,19 @@ export default function EmployeesScreen() {
   const formatCurrency = (amount: number) => {
     const symbol = business?.currency === 'USD' ? '$' : 'ZWL';
     return `${symbol}${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+  };
+
+  const getRolePermissions = (roleIdValue?: string | null) => {
+    if (!roleIdValue) return [];
+    const roleEntry = availableRoles.find(r => r.id === roleIdValue);
+    return roleEntry?.permissions || [];
+  };
+
+  const formatPermissionLabel = (code: PermissionCode) => {
+    const [category, action] = code.split(':');
+    const categoryLabel = (PERMISSION_CATEGORIES as any)[category] || category;
+    const actionLabel = action ? action.replace(/_/g, ' ') : 'access';
+    return `${categoryLabel} • ${actionLabel}`;
   };
 
   const confirmCreateRole = (roleName: string) => new Promise<boolean>(resolve => {
@@ -436,6 +466,8 @@ export default function EmployeesScreen() {
                     theme={theme}
                     formatCurrency={formatCurrency}
                     canManageEmployees={canManageEmployees}
+                    rolePermissions={getRolePermissions(employee.roleId)}
+                    formatPermissionLabel={formatPermissionLabel}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                   />
@@ -452,6 +484,8 @@ export default function EmployeesScreen() {
                     theme={theme}
                     formatCurrency={formatCurrency}
                     canManageEmployees={canManageEmployees}
+                    rolePermissions={getRolePermissions(employee.roleId)}
+                    formatPermissionLabel={formatPermissionLabel}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                   />
@@ -747,7 +781,7 @@ export default function EmployeesScreen() {
   );
 }
 
-function EmployeeCard({ employee, theme, formatCurrency, onEdit, onDelete, canManageEmployees }: any) {
+function EmployeeCard({ employee, theme, formatCurrency, onEdit, onDelete, canManageEmployees, rolePermissions, formatPermissionLabel }: any) {
   return (
     <View
       style={[
@@ -793,6 +827,29 @@ function EmployeeCard({ employee, theme, formatCurrency, onEdit, onDelete, canMa
       </View>
 
       <View style={styles.employeeDetails}>
+        {Array.isArray(rolePermissions) && rolePermissions.length > 0 && (
+          <View style={styles.permissionSection}>
+            <Text style={[styles.permissionTitle, { color: theme.text.secondary }]}>
+              Permissions
+            </Text>
+            <View style={styles.permissionChips}>
+              {rolePermissions.slice(0, 5).map((permission: string) => (
+                <View key={permission} style={[styles.permissionChip, { backgroundColor: theme.surface.info }]}>
+                  <Text style={[styles.permissionChipText, { color: theme.accent.info }]}>
+                    {formatPermissionLabel ? formatPermissionLabel(permission) : permission.replace(':', ' • ')}
+                  </Text>
+                </View>
+              ))}
+              {rolePermissions.length > 5 && (
+                <View style={[styles.permissionChip, { backgroundColor: theme.background.secondary }]}>
+                  <Text style={[styles.permissionChipText, { color: theme.text.secondary }]}>
+                    +{rolePermissions.length - 5} more
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
         {employee.email && (
           <View style={styles.detailRow}>
             <Mail size={16} color={theme.text.tertiary} />
@@ -934,6 +991,30 @@ const styles = StyleSheet.create({
   },
   employeeRole: {
     fontSize: 14,
+  },
+  permissionSection: {
+    marginBottom: 8,
+  },
+  permissionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  permissionChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  permissionChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  permissionChipText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   employeeActions: {
     flexDirection: 'row',
