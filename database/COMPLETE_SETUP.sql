@@ -30,7 +30,7 @@ BEGIN
     '',
     false
   )
-  ON CONFLICT (id) DO NOTHING;
+  ON CONFLICT DO NOTHING;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -64,7 +64,7 @@ BEGIN
   WHERE NOT EXISTS (
     SELECT 1 FROM public.users u WHERE u.id = au.id OR u.email = au.email
   )
-  ON CONFLICT (id) DO NOTHING;
+  ON CONFLICT DO NOTHING;
   
   UPDATE public.users u
   SET 
@@ -115,7 +115,7 @@ BEGIN
         '',
         false
       )
-      ON CONFLICT (id) DO NOTHING;
+      ON CONFLICT DO NOTHING;
       
       SELECT EXISTS(SELECT 1 FROM public.users WHERE id = user_id_param) INTO profile_exists;
       was_created := profile_exists;

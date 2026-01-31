@@ -18,7 +18,7 @@ BEGIN
     '', -- Not needed for Supabase Auth
     false
   )
-  ON CONFLICT (id) DO NOTHING; -- Don't error if profile already exists
+  ON CONFLICT DO NOTHING; -- Avoid unique conflicts on id or email
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER; -- SECURITY DEFINER allows bypassing RLS
@@ -54,7 +54,8 @@ BEGIN
   WHERE NOT EXISTS (
     SELECT 1 FROM public.users u 
     WHERE u.id = au.id OR u.email = au.email
-  );
+  )
+  ON CONFLICT DO NOTHING;
   
   -- Update super admin status for existing users
   UPDATE public.users
@@ -110,7 +111,7 @@ BEGIN
         '',
         false
       )
-      ON CONFLICT (id) DO NOTHING;
+      ON CONFLICT DO NOTHING;
       
       -- Check if it was actually inserted (might have been created by trigger)
       SELECT EXISTS(SELECT 1 FROM public.users WHERE id = user_id_param) INTO profile_exists;
