@@ -18,8 +18,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Plus, Edit, Trash2, Save, X, Shield, Check } from 'lucide-react-native';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { PERMISSION_CATEGORIES } from '@/types/employee-permissions';
 

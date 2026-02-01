@@ -210,12 +210,18 @@ export default function EmployeeLoginScreen() {
 
       // Close the existing shift first
       const { data: { user } } = await supabase.auth.getUser();
+      const { data: businessOwner } = await supabase
+        .from('business_profiles')
+        .select('user_id')
+        .eq('id', business.id)
+        .maybeSingle();
+      const ownerUserId = businessOwner?.user_id || user?.id || null;
       const { error: closeError } = await supabase
         .from('pos_shifts')
         .update({
           status: 'closed',
           shift_end_time: new Date().toISOString(),
-          closed_by: user?.id || null,
+          closed_by: ownerUserId,
         })
         .eq('id', currentShift.id);
 

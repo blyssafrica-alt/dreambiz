@@ -115,6 +115,13 @@ export async function createShift(
   try {
     const today = new Date().toISOString().split('T')[0];
 
+    const { data: businessOwner } = await supabase
+      .from('business_profiles')
+      .select('user_id')
+      .eq('id', businessId)
+      .maybeSingle();
+    const ownerUserId = businessOwner?.user_id || userId;
+
     // Get last closed shift's closing cash as default opening cash
     const { data: lastShift } = await supabase
       .from('pos_shifts')
@@ -131,11 +138,11 @@ export async function createShift(
     const { data: shiftData, error } = await supabase
       .from('pos_shifts')
       .insert({
-        user_id: userId, // Auth user_id
+        user_id: ownerUserId, // Ensure FK to users table is valid
         business_id: businessId,
         shift_date: today,
         opening_cash: defaultOpeningCash,
-        opened_by: userId, // Auth user_id
+        opened_by: ownerUserId, // Ensure FK to users table is valid
         current_employee_id: employeeId, // Employee ID for tracking
         status: 'open',
         currency: currency,

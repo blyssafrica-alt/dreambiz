@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -53,7 +53,7 @@ interface MenuItem {
 
 export default function MoreScreen() {
   const { theme } = useTheme();
-  const { business, isEmployee, employeePermissions, currentEmployee } = useBusiness();
+  const { business, isEmployee, employeePermissions, currentEmployee, refreshEmployeePermissions } = useBusiness();
   const { isFeatureVisible, shouldShowAsTab } = useFeatures();
   const router = useRouter();
   const showPOSTab = shouldShowAsTab('pos');
@@ -69,6 +69,12 @@ export default function MoreScreen() {
     const actionLabel = action ? action.replace(/_/g, ' ') : 'access';
     return `${categoryLabel} • ${actionLabel}`;
   };
+
+  useEffect(() => {
+    if (isEmployee) {
+      refreshEmployeePermissions();
+    }
+  }, [isEmployee, refreshEmployeePermissions]);
 
   const menuSections: MenuSection[] = [
     {

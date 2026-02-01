@@ -64,7 +64,8 @@ export function initSentry() {
 
     Sentry.init({
       dsn: SENTRY_DSN,
-      debug: isDevelopment,
+      enabled: isProduction,
+      debug: false,
       environment: isDevelopment ? 'development' : 'production',
       release: release,
       tracesSampleRate: isProduction ? 0.1 : 1.0, // 10% of transactions in production
