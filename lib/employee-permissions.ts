@@ -13,6 +13,8 @@ export async function getEmployeePermissions(employeeId: string): Promise<Permis
     const { data, error } = await supabase
       .from('employees')
       .select(`
+        business_id,
+        role,
         role_id,
         employee_roles (
           id,
@@ -32,19 +34,49 @@ export async function getEmployeePermissions(employeeId: string): Promise<Permis
       return [];
     }
 
-    if (!data?.employee_roles) {
-      return [];
-    }
-
-    const role = data.employee_roles as any;
     const permissions: PermissionCode[] = [];
+    const role = data?.employee_roles as any;
 
-    if (role.role_permissions && Array.isArray(role.role_permissions)) {
+    if (role?.role_permissions && Array.isArray(role.role_permissions)) {
       role.role_permissions.forEach((rp: any) => {
         if (rp.employee_permissions?.code) {
           permissions.push(rp.employee_permissions.code as PermissionCode);
         }
       });
+      return permissions;
+    }
+
+    // Fallback: resolve role by name if role_id is missing
+    if (data?.role && data?.business_id) {
+      const { data: roleLookup } = await supabase
+        .from('employee_roles')
+        .select(`
+          id,
+          role_permissions (
+            employee_permissions (
+              code
+            )
+          )
+        `)
+        .eq('business_id', data.business_id)
+        .eq('name', data.role)
+        .maybeSingle();
+
+      if (roleLookup?.id) {
+        // Best-effort backfill of role_id
+        await supabase
+          .from('employees')
+          .update({ role_id: roleLookup.id })
+          .eq('id', employeeId);
+      }
+
+      if (roleLookup?.role_permissions && Array.isArray(roleLookup.role_permissions)) {
+        roleLookup.role_permissions.forEach((rp: any) => {
+          if (rp.employee_permissions?.code) {
+            permissions.push(rp.employee_permissions.code as PermissionCode);
+          }
+        });
+      }
     }
 
     return permissions;
@@ -66,6 +98,8 @@ export async function getCurrentUserEmployeePermissions(): Promise<PermissionCod
       .from('employees')
       .select(`
         id,
+        business_id,
+        role,
         role_id,
         employee_roles (
           id,
@@ -94,6 +128,39 @@ export async function getCurrentUserEmployeePermissions(): Promise<PermissionCod
           permissions.push(rp.employee_permissions.code as PermissionCode);
         }
       });
+      return permissions;
+    }
+
+    // Fallback: resolve role by name if role_id is missing
+    if ((employee as any).role && (employee as any).business_id) {
+      const { data: roleLookup } = await supabase
+        .from('employee_roles')
+        .select(`
+          id,
+          role_permissions (
+            employee_permissions (
+              code
+            )
+          )
+        `)
+        .eq('business_id', (employee as any).business_id)
+        .eq('name', (employee as any).role)
+        .maybeSingle();
+
+      if (roleLookup?.id) {
+        await supabase
+          .from('employees')
+          .update({ role_id: roleLookup.id })
+          .eq('id', (employee as any).id);
+      }
+
+      if (roleLookup?.role_permissions && Array.isArray(roleLookup.role_permissions)) {
+        roleLookup.role_permissions.forEach((rp: any) => {
+          if (rp.employee_permissions?.code) {
+            permissions.push(rp.employee_permissions.code as PermissionCode);
+          }
+        });
+      }
     }
 
     return permissions;

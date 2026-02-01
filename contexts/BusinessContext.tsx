@@ -86,7 +86,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       try {
         const { data } = await supabase
           .from('employees')
-          .select('id, name, email, phone, role_id, business_id, can_login, is_active, employee_roles(name)')
+          .select('id, name, email, phone, role, role_id, business_id, can_login, is_active, employee_roles(name)')
           .eq('auth_user_id', userId)
           .maybeSingle();
         employeeRecord = data;
@@ -95,6 +95,29 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       }
 
       if (employeeRecord?.is_active) {
+        let resolvedRoleId = employeeRecord.role_id as string | null;
+        const resolvedRoleName = (employeeRecord.employee_roles as any)?.name || employeeRecord.role || undefined;
+
+        if (!resolvedRoleId && resolvedRoleName && employeeRecord.business_id) {
+          try {
+            const { data: roleLookup } = await supabase
+              .from('employee_roles')
+              .select('id')
+              .eq('business_id', employeeRecord.business_id)
+              .eq('name', resolvedRoleName)
+              .maybeSingle();
+            if (roleLookup?.id) {
+              resolvedRoleId = roleLookup.id;
+              await supabase
+                .from('employees')
+                .update({ role_id: roleLookup.id })
+                .eq('id', employeeRecord.id);
+            }
+          } catch (error) {
+            console.warn('Failed to resolve role id for employee:', error);
+          }
+        }
+
         resolvedIsEmployee = true;
         currentBusinessId = employeeRecord.business_id || currentBusinessId;
         employeeIdForPermissions = employeeRecord.id;
@@ -103,8 +126,8 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           name: employeeRecord.name,
           phone: employeeRecord.phone || undefined,
           email: employeeRecord.email || undefined,
-          roleId: employeeRecord.role_id || undefined,
-          roleName: (employeeRecord.employee_roles as any)?.name || undefined,
+          roleId: resolvedRoleId || employeeRecord.role_id || undefined,
+          roleName: resolvedRoleName,
           businessId: employeeRecord.business_id || undefined,
           canLogin: employeeRecord.can_login ?? false,
         });
@@ -593,6 +616,17 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       setIsLoading(false);
     }
   }, [userId, business?.id, authUser?.id, authUser?.metadata?.is_employee]);
+
+  const refreshEmployeePermissions = useCallback(async () => {
+    if (!currentEmployee?.id) return;
+    setEmployeePermissionsLoading(true);
+    try {
+      const permissions = await getEmployeePermissions(currentEmployee.id);
+      setEmployeePermissions(permissions);
+    } finally {
+      setEmployeePermissionsLoading(false);
+    }
+  }, [currentEmployee?.id]);
 
   // Clear all business data (called on logout)
   const clearData = useCallback(() => {
@@ -2766,7 +2800,8 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
   // Refresh function to reload all data
   const refreshData = useCallback(async () => {
     await loadData();
-  }, [loadData]);
+    await refreshEmployeePermissions();
+  }, [loadData, refreshEmployeePermissions]);
 
   // Get all businesses for the user
   const getAllBusinesses = useCallback(async (): Promise<BusinessProfile[]> => {
@@ -3142,6 +3177,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     currentEmployee,
     employeePermissions,
     employeePermissionsLoading,
+    refreshEmployeePermissions,
     saveBusiness,
     addTransaction,
     updateTransaction,

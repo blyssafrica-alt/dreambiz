@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Plus, Edit, Trash2, Save, X, Shield, Check } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { useBusiness } from '@/contexts/BusinessContext';
 import { supabase } from '@/lib/supabase';
 import { PERMISSION_CATEGORIES } from '@/types/employee-permissions';
 
@@ -33,6 +34,7 @@ interface EmployeeRole {
 
 export default function EmployeeRolesScreen() {
   const { theme } = useTheme();
+  const { refreshEmployeePermissions } = useBusiness();
   const { business } = useBusiness();
   const [roles, setRoles] = useState<EmployeeRole[]>([]);
   const [permissions, setPermissions] = useState<any[]>([]);
@@ -232,6 +234,7 @@ export default function EmployeeRolesScreen() {
 
       handleCloseModal();
       loadData();
+      refreshEmployeePermissions();
       RNAlert.alert('Success', editingRole ? 'Role updated' : 'Role created');
     } catch (error: any) {
       console.error('Failed to save role:', error);
