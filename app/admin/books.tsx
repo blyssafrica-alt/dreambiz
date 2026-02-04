@@ -36,6 +36,9 @@ export default function BooksManagementScreen() {
   const [isProcessingPDF, setIsProcessingPDF] = useState(false);
   const [step, setStep] = useState(1);
   const totalSteps = 5;
+
+  const isLocalUri = (value?: string) =>
+    Boolean(value && (value.startsWith('file://') || value.startsWith('content://')));
   
   // Track retry count and processing state to prevent infinite loops
   const processingRetryCountRef = useRef(0);
@@ -913,6 +916,29 @@ export default function BooksManagementScreen() {
     }
 
     try {
+      let coverImageUrl = formData.coverImage;
+      if (isLocalUri(formData.coverImage)) {
+        try {
+          const coverBase64 = await readBase64FromUri(formData.coverImage);
+          const rawExtension = formData.coverImage.split('.').pop()?.split('?')[0] || 'jpg';
+          const safeExtension = rawExtension.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+          const filePath = `book_covers/book-cover-${formData.slug}-${Date.now()}.${safeExtension}`;
+          const uploadedCoverUrl = await uploadBase64ToStorage(supabase, {
+            bucket: 'book_covers',
+            filePath,
+            base64: coverBase64,
+            contentType: formData.coverImage.endsWith('.png') ? 'image/png' : 'image/jpeg',
+            upsert: false,
+          });
+          setFormData(prev => ({ ...prev, coverImage: uploadedCoverUrl }));
+          coverImageUrl = uploadedCoverUrl;
+        } catch (error: any) {
+          console.error('Error uploading cover image:', error);
+          Alert.alert('Upload Error', error?.message || 'Failed to upload cover image');
+          return;
+        }
+      }
+
       // Upload document if a new file was selected
       let documentFileUrl = formData.documentFileUrl;
       if (formData.documentFile && !formData.documentFileUrl) {
@@ -934,7 +960,7 @@ export default function BooksManagementScreen() {
         title: formData.title,
         subtitle: formData.subtitle || null,
         description: formData.description || null,
-        cover_image: formData.coverImage || null,
+        cover_image: coverImageUrl || null,
         document_file_url: documentFileUrl || null,
         price: formData.price,
         currency: formData.currency,

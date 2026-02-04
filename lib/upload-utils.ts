@@ -96,22 +96,59 @@ export const uploadBase64ToStorage = async (
     maxAttempts = 3,
   }: UploadBase64Options
 ): Promise<string> => {
+  const normalizedBase64 = base64.includes('base64,')
+    ? base64.split('base64,')[1]
+    : base64;
+  const sanitizedBase64 = normalizedBase64.replace(/\s/g, '');
+  const isDev = typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV === 'development';
+  if (isDev) {
+    console.log('[Upload] Starting upload', {
+      bucket,
+      filePath,
+      contentType,
+      bytes: Math.floor((sanitizedBase64.length * 3) / 4),
+    });
+  }
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const { error } = await client.storage.from(bucket).upload(filePath, decode(base64), {
-      contentType,
-      upsert,
-    });
+    try {
+      const uploadBody = new Blob([decode(sanitizedBase64)], { type: contentType });
+      const { error } = await client.storage.from(bucket).upload(filePath, uploadBody, {
+        contentType,
+        upsert,
+      });
 
-    if (!error) {
-      const { data } = client.storage.from(bucket).getPublicUrl(filePath);
-      if (!data?.publicUrl) {
-        throw new Error('Failed to resolve public URL for uploaded file.');
+      if (!error) {
+        const { data } = client.storage.from(bucket).getPublicUrl(filePath);
+        if (!data?.publicUrl) {
+          throw new Error('Failed to resolve public URL for uploaded file.');
+        }
+        if (isDev) {
+          console.log('[Upload] Success', { bucket, filePath });
+        }
+        return data.publicUrl;
       }
-      return data.publicUrl;
-    }
 
-    lastError = error;
+      lastError = error;
+      if (isDev) {
+        console.log('[Upload] Attempt failed', {
+          attempt,
+          bucket,
+          filePath,
+          message: (error as Error)?.message || String(error),
+        });
+      }
+    } catch (error) {
+      lastError = error;
+      if (isDev) {
+        console.log('[Upload] Attempt failed (exception)', {
+          attempt,
+          bucket,
+          filePath,
+          message: (error as Error)?.message || String(error),
+        });
+      }
+    }
     const delay = Math.min(1000 * Math.pow(2, attempt - 1), 4000);
     await new Promise(resolve => setTimeout(resolve, delay));
   }
