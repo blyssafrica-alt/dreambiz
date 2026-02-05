@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, Linking, Alert } from 
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAds } from '@/contexts/AdContext';
 import type { Advertisement } from '@/types/super-admin';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ExternalLink } from 'lucide-react-native';
 import { router } from 'expo-router';
 
@@ -68,6 +67,15 @@ export function AdCard({ ad, location, onPress }: AdCardProps) {
       onPress={handlePress}
       activeOpacity={0.8}
     >
+      <View style={styles.header}>
+        <View>
+          <Text style={[styles.sponsoredLabel, { color: theme.text.tertiary }]}>Sponsored</Text>
+          <Text style={[styles.brandText, { color: theme.text.primary }]}>
+            {ad.title}
+          </Text>
+        </View>
+      </View>
+
       {ad.imageUrl && (
         <Image
           source={{ uri: ad.imageUrl }}
@@ -90,13 +98,10 @@ export function AdCard({ ad, location, onPress }: AdCardProps) {
         )}
         
         <View style={styles.ctaContainer}>
-          <LinearGradient
-            colors={[theme.accent.primary, theme.accent.secondary || theme.accent.primary]}
-            style={styles.ctaButton}
-          >
+          <View style={[styles.ctaButton, { backgroundColor: theme.accent.primary }]}>
             <Text style={styles.ctaText}>{ad.ctaText}</Text>
             <ExternalLink size={16} color="#FFF" />
-          </LinearGradient>
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -105,14 +110,27 @@ export function AdCard({ ad, location, onPress }: AdCardProps) {
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: 'hidden',
     marginVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  sponsoredLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+    letterSpacing: 0.5,
+  },
+  brandText: {
+    fontSize: 16,
+    fontWeight: '700',
   },
   image: {
     width: '100%',
@@ -122,7 +140,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   headline: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     marginBottom: 8,
   },
@@ -132,14 +150,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   ctaContainer: {
-    alignItems: 'flex-start',
+    width: '100%',
   },
   ctaButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 6,
     gap: 8,
   },
   ctaText: {
