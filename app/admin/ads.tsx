@@ -7,11 +7,42 @@ import { useAds } from '@/contexts/AdContext';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Megaphone, TrendingUp, Eye, MousePointerClick, X, Save, Trash2, Edit, ImageIcon, Upload } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { Advertisement, AdType, AdStatus } from '@/types/super-admin';
+import type { Advertisement, AdType, AdStatus, AdFrequency } from '@/types/super-admin';
+import type { BusinessStage, BusinessType, DreamBigBook } from '@/types/business';
 import * as ImagePicker from 'expo-image-picker';
 import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 
 export default function AdsManagementScreen() {
+  const LOCATION_OPTIONS = [
+    { key: 'dashboard', label: 'Dashboard' },
+    { key: 'products', label: 'Products' },
+    { key: 'customers', label: 'Customers' },
+    { key: 'finances', label: 'Finances' },
+    { key: 'documents', label: 'Documents' },
+    { key: 'insights', label: 'Insights' },
+  ];
+  const FREQUENCY_OPTIONS: AdFrequency[] = ['once_per_session', 'once_per_day', 'always'];
+  const BUSINESS_TYPE_OPTIONS: BusinessType[] = [
+    'retail',
+    'services',
+    'manufacturing',
+    'agriculture',
+    'restaurant',
+    'salon',
+    'construction',
+    'transport',
+    'other',
+  ];
+  const BUSINESS_STAGE_OPTIONS: BusinessStage[] = ['idea', 'startup', 'running', 'growth', 'growing', 'mature'];
+  const BOOK_OPTIONS: DreamBigBook[] = [
+    'start-your-business',
+    'grow-your-business',
+    'manage-your-money',
+    'hire-and-lead',
+    'marketing-mastery',
+    'scale-up',
+    'none',
+  ];
   const { theme } = useTheme();
   const { user } = useAuth();
   const { refreshAds } = useAds();
@@ -34,6 +65,16 @@ export default function AdsManagementScreen() {
     imageUrl: '',
     videoUrl: '',
     thumbnailUrl: '',
+    placementLocations: ['dashboard'] as string[],
+    placementPriority: '1',
+    placementFrequency: 'once_per_session' as AdFrequency,
+    maxImpressionsPerUser: '',
+    targetingScope: 'global' as 'global' | 'targeted',
+    targetBooks: [] as DreamBigBook[],
+    targetBusinessTypes: [] as BusinessType[],
+    targetBusinessStages: [] as BusinessStage[],
+    targetFeatures: '',
+    excludeUsers: '',
   });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
@@ -104,6 +145,18 @@ export default function AdsManagementScreen() {
         imageUrl: ad.imageUrl || '',
         videoUrl: ad.videoUrl || '',
         thumbnailUrl: ad.thumbnailUrl || '',
+        placementLocations: ad.placement?.locations?.length ? ad.placement.locations : ['dashboard'],
+        placementPriority: String(ad.placement?.priority ?? 1),
+        placementFrequency: (ad.placement?.frequency as AdFrequency) || 'once_per_session',
+        maxImpressionsPerUser: ad.placement?.maxImpressionsPerUser
+          ? String(ad.placement.maxImpressionsPerUser)
+          : '',
+        targetingScope: ad.targeting?.scope || 'global',
+        targetBooks: Array.isArray(ad.targeting?.targetBooks) ? ad.targeting.targetBooks : [],
+        targetBusinessTypes: Array.isArray(ad.targeting?.targetBusinessTypes) ? ad.targeting.targetBusinessTypes : [],
+        targetBusinessStages: Array.isArray(ad.targeting?.targetBusinessStages) ? ad.targeting.targetBusinessStages : [],
+        targetFeatures: Array.isArray(ad.targeting?.targetFeatures) ? ad.targeting.targetFeatures.join(', ') : '',
+        excludeUsers: Array.isArray(ad.targeting?.excludeUsers) ? ad.targeting.excludeUsers.join(', ') : '',
       });
     } else {
       setEditingAd(null);
@@ -121,6 +174,16 @@ export default function AdsManagementScreen() {
         imageUrl: '',
         videoUrl: '',
         thumbnailUrl: '',
+        placementLocations: ['dashboard'],
+        placementPriority: '1',
+        placementFrequency: 'once_per_session',
+        maxImpressionsPerUser: '',
+        targetingScope: 'global',
+        targetBooks: [],
+        targetBusinessTypes: [],
+        targetBusinessStages: [],
+        targetFeatures: '',
+        excludeUsers: '',
       });
     }
     setShowModal(true);
@@ -208,6 +271,19 @@ export default function AdsManagementScreen() {
     }
 
     try {
+      const parsedPriority = parseInt(formData.placementPriority, 10);
+      const parsedMaxImpressions = parseInt(formData.maxImpressionsPerUser, 10);
+      const cleanedLocations = formData.placementLocations.length > 0
+        ? Array.from(new Set(formData.placementLocations))
+        : ['dashboard'];
+      const targetFeatures = formData.targetFeatures
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean);
+      const excludeUsers = formData.excludeUsers
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean);
       const adData: any = {
         title: formData.title,
         description: formData.description || null,
@@ -223,8 +299,22 @@ export default function AdsManagementScreen() {
         start_date: formData.startDate || null,
         end_date: formData.endDate || null,
         timezone: 'Africa/Harare',
-        targeting: { scope: 'global' },
-        placement: { locations: ['dashboard'], priority: 1, frequency: 'once_per_session' },
+        targeting: {
+          scope: formData.targetingScope,
+          ...(formData.targetBooks.length > 0 ? { targetBooks: formData.targetBooks } : {}),
+          ...(formData.targetBusinessTypes.length > 0 ? { targetBusinessTypes: formData.targetBusinessTypes } : {}),
+          ...(formData.targetBusinessStages.length > 0 ? { targetBusinessStages: formData.targetBusinessStages } : {}),
+          ...(targetFeatures.length > 0 ? { targetFeatures } : {}),
+          ...(excludeUsers.length > 0 ? { excludeUsers } : {}),
+        },
+        placement: {
+          locations: cleanedLocations,
+          priority: Number.isFinite(parsedPriority) && parsedPriority > 0 ? parsedPriority : 1,
+          frequency: formData.placementFrequency,
+          ...(Number.isFinite(parsedMaxImpressions) && parsedMaxImpressions > 0
+            ? { maxImpressionsPerUser: parsedMaxImpressions }
+            : {}),
+        },
         created_by: user?.id,
       };
 
@@ -543,6 +633,209 @@ export default function AdsManagementScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+
+              <Text style={[styles.sectionLabel, { color: theme.text.secondary }]}>Targeting</Text>
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Scope</Text>
+              <View style={styles.typeButtons}>
+                {(['global', 'targeted'] as Array<'global' | 'targeted'>).map(scope => (
+                  <TouchableOpacity
+                    key={scope}
+                    style={[styles.typeButton, { backgroundColor: formData.targetingScope === scope ? theme.accent.primary : theme.background.secondary }]}
+                    onPress={() => setFormData({ ...formData, targetingScope: scope })}
+                  >
+                    <Text style={[styles.typeButtonText, { color: formData.targetingScope === scope ? '#FFF' : theme.text.primary }]}>
+                      {scope}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {formData.targetingScope === 'targeted' && (
+                <>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Target Books</Text>
+                  <View style={styles.locationGrid}>
+                    {BOOK_OPTIONS.map(book => {
+                      const isSelected = formData.targetBooks.includes(book);
+                      return (
+                        <TouchableOpacity
+                          key={book}
+                          style={[
+                            styles.locationChip,
+                            {
+                              backgroundColor: isSelected ? theme.accent.primary + '18' : theme.background.secondary,
+                              borderColor: isSelected ? theme.accent.primary : theme.border.light,
+                            },
+                          ]}
+                          onPress={() => {
+                            const next = isSelected
+                              ? formData.targetBooks.filter(item => item !== book)
+                              : [...formData.targetBooks, book];
+                            setFormData({ ...formData, targetBooks: next });
+                          }}
+                        >
+                          <Text style={[styles.locationChipText, { color: isSelected ? theme.accent.primary : theme.text.primary }]}>
+                            {book.replace(/-/g, ' ')}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Target Business Types</Text>
+                  <View style={styles.locationGrid}>
+                    {BUSINESS_TYPE_OPTIONS.map(type => {
+                      const isSelected = formData.targetBusinessTypes.includes(type);
+                      return (
+                        <TouchableOpacity
+                          key={type}
+                          style={[
+                            styles.locationChip,
+                            {
+                              backgroundColor: isSelected ? theme.accent.primary + '18' : theme.background.secondary,
+                              borderColor: isSelected ? theme.accent.primary : theme.border.light,
+                            },
+                          ]}
+                          onPress={() => {
+                            const next = isSelected
+                              ? formData.targetBusinessTypes.filter(item => item !== type)
+                              : [...formData.targetBusinessTypes, type];
+                            setFormData({ ...formData, targetBusinessTypes: next });
+                          }}
+                        >
+                          <Text style={[styles.locationChipText, { color: isSelected ? theme.accent.primary : theme.text.primary }]}>
+                            {type}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Target Business Stages</Text>
+                  <View style={styles.locationGrid}>
+                    {BUSINESS_STAGE_OPTIONS.map(stage => {
+                      const isSelected = formData.targetBusinessStages.includes(stage);
+                      return (
+                        <TouchableOpacity
+                          key={stage}
+                          style={[
+                            styles.locationChip,
+                            {
+                              backgroundColor: isSelected ? theme.accent.primary + '18' : theme.background.secondary,
+                              borderColor: isSelected ? theme.accent.primary : theme.border.light,
+                            },
+                          ]}
+                          onPress={() => {
+                            const next = isSelected
+                              ? formData.targetBusinessStages.filter(item => item !== stage)
+                              : [...formData.targetBusinessStages, stage];
+                            setFormData({ ...formData, targetBusinessStages: next });
+                          }}
+                        >
+                          <Text style={[styles.locationChipText, { color: isSelected ? theme.accent.primary : theme.text.primary }]}>
+                            {stage}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Target Features (comma-separated ids)</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                    placeholder="e.g., products, documents"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={formData.targetFeatures}
+                    onChangeText={(text) => setFormData({ ...formData, targetFeatures: text })}
+                  />
+
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Exclude Users (comma-separated user IDs)</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                    placeholder="user-id-1, user-id-2"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={formData.excludeUsers}
+                    onChangeText={(text) => setFormData({ ...formData, excludeUsers: text })}
+                  />
+                </>
+              )}
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Placement Locations</Text>
+              <View style={styles.locationControls}>
+                <TouchableOpacity
+                  style={[styles.locationActionButton, { borderColor: theme.border.light }]}
+                  onPress={() => setFormData({ ...formData, placementLocations: LOCATION_OPTIONS.map(option => option.key) })}
+                >
+                  <Text style={[styles.locationActionText, { color: theme.text.primary }]}>Select All</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.locationActionButton, { borderColor: theme.border.light }]}
+                  onPress={() => setFormData({ ...formData, placementLocations: [] })}
+                >
+                  <Text style={[styles.locationActionText, { color: theme.text.primary }]}>Clear</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.locationGrid}>
+                {LOCATION_OPTIONS.map(option => {
+                  const isSelected = formData.placementLocations.includes(option.key);
+                  return (
+                    <TouchableOpacity
+                      key={option.key}
+                      style={[
+                        styles.locationChip,
+                        {
+                          backgroundColor: isSelected ? theme.accent.primary + '18' : theme.background.secondary,
+                          borderColor: isSelected ? theme.accent.primary : theme.border.light,
+                        },
+                      ]}
+                      onPress={() => {
+                        const next = isSelected
+                          ? formData.placementLocations.filter(loc => loc !== option.key)
+                          : [...formData.placementLocations, option.key];
+                        setFormData({ ...formData, placementLocations: next });
+                      }}
+                    >
+                      <Text style={[styles.locationChipText, { color: isSelected ? theme.accent.primary : theme.text.primary }]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Priority</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="1"
+                placeholderTextColor={theme.text.tertiary}
+                value={formData.placementPriority}
+                onChangeText={(text) => setFormData({ ...formData, placementPriority: text.replace(/[^0-9]/g, '') })}
+                keyboardType="number-pad"
+              />
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Frequency</Text>
+              <View style={styles.typeButtons}>
+                {FREQUENCY_OPTIONS.map((frequency) => (
+                  <TouchableOpacity
+                    key={frequency}
+                    style={[styles.typeButton, { backgroundColor: formData.placementFrequency === frequency ? theme.accent.primary : theme.background.secondary }]}
+                    onPress={() => setFormData({ ...formData, placementFrequency: frequency })}
+                  >
+                    <Text style={[styles.typeButtonText, { color: formData.placementFrequency === frequency ? '#FFF' : theme.text.primary }]}>
+                      {frequency.replace(/_/g, ' ')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Max Impressions per User (Optional)</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="e.g., 5"
+                placeholderTextColor={theme.text.tertiary}
+                value={formData.maxImpressionsPerUser}
+                onChangeText={(text) => setFormData({ ...formData, maxImpressionsPerUser: text.replace(/[^0-9]/g, '') })}
+                keyboardType="number-pad"
+              />
             </ScrollView>
 
             <View style={styles.modalFooter}>
@@ -598,6 +891,18 @@ const styles = StyleSheet.create({
   typeButtons: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
   typeButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
   typeButtonText: { fontSize: 14, fontWeight: '600', textTransform: 'capitalize' },
+  sectionLabel: { fontSize: 16, fontWeight: '700', marginTop: 16, marginBottom: 4 },
+  locationControls: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  locationActionButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  locationActionText: { fontSize: 12, fontWeight: '600' },
+  locationGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 8 },
+  locationChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 1 },
+  locationChipText: { fontSize: 12, fontWeight: '600' },
   modalFooter: { flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
   cancelButton: { flex: 1, padding: 14, borderRadius: 10, alignItems: 'center' },
   cancelButtonText: { fontSize: 16, fontWeight: '600' },
