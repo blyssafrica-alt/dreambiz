@@ -88,11 +88,15 @@ export default function BudgetsScreen() {
             : [],
         })) as BudgetTemplate[];
 
-        const filtered = business?.type
-          ? mapped.filter(t => t.businessTypes.length === 0 || t.businessTypes.includes(business.type))
+        const normalizedBusinessType = business?.type ? business.type.toLowerCase() : undefined;
+        const filtered = normalizedBusinessType
+          ? mapped.filter(t => {
+              const normalizedTypes = t.businessTypes.map(type => type.toLowerCase());
+              return normalizedTypes.length === 0 || normalizedTypes.includes(normalizedBusinessType);
+            })
           : mapped;
 
-        setBudgetTemplates(filtered);
+        setBudgetTemplates(filtered.length > 0 ? filtered : mapped);
       } else {
         setBudgetTemplates([]);
       }

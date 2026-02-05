@@ -4,7 +4,7 @@
  */
 
 import { Stack, useLocalSearchParams, router } from 'expo-router';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -42,6 +42,11 @@ export default function BookReaderScreen() {
   const [currentChapter, setCurrentChapter] = useState<BookChapter | null>(null);
   const [loadingChapter, setLoadingChapter] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const pdfViewerUrl = useMemo(() => {
+    if (!bookUrl) return null;
+    const encodedUrl = encodeURIComponent(bookUrl);
+    return `https://docs.google.com/gview?embedded=1&url=${encodedUrl}`;
+  }, [bookUrl]);
 
   const loadBook = useCallback(async () => {
     if (!id) {
@@ -216,6 +221,13 @@ export default function BookReaderScreen() {
   };
 
   const handleToggleSpeak = () => {
+    if (!chapter && book?.chapters?.length) {
+      router.push({
+        pathname: '/books/read/[id]',
+        params: { id: book.id, chapter: '1' },
+      } as any);
+      return;
+    }
     if (!chapterContent) {
       RNAlert.alert('Audio Unavailable', 'Audio is available when reading a chapter.');
       return;
@@ -373,7 +385,7 @@ export default function BookReaderScreen() {
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Reading Book</Text>
         <View style={styles.headerActions}>
-          {chapter && (
+          {(chapter || (book?.chapters?.length ?? 0) > 0) && (
             <TouchableOpacity
               onPress={handleToggleSpeak}
               style={styles.headerButton}
@@ -406,10 +418,21 @@ export default function BookReaderScreen() {
       </View>
 
       {/* WebView for PDF (only if no chapter specified) */}
-      {!chapter && bookUrl && (
+      {!chapter && (book?.chapters?.length ?? 0) > 0 && (
+        <View style={styles.audioCtaContainer}>
+          <TouchableOpacity
+            onPress={handleToggleSpeak}
+            style={[styles.audioCtaButton, { backgroundColor: theme.accent.primary }]}
+          >
+            <Volume2 size={18} color="#FFF" />
+            <Text style={styles.audioCtaText}>Read With Audio</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      {!chapter && pdfViewerUrl && (
         <WebView
           source={{ 
-            uri: bookUrl,
+            uri: pdfViewerUrl,
             headers: {
               'Accept': 'application/pdf',
             }
@@ -500,6 +523,24 @@ const styles = StyleSheet.create({
   },
   webview: {
     flex: 1,
+  },
+  audioCtaContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  audioCtaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  audioCtaText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   webviewLoading: {
     position: 'absolute',

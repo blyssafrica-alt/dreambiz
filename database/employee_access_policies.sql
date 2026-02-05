@@ -76,6 +76,34 @@ CREATE POLICY "Employees can update own profile" ON public.employees
   );
 
 -- ============================================
+-- EMPLOYEE ROLES & PERMISSIONS (read for assigned employees)
+-- ============================================
+ALTER TABLE public.employee_roles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Employees can view roles for assigned business" ON public.employee_roles;
+CREATE POLICY "Employees can view roles for assigned business" ON public.employee_roles
+  FOR SELECT USING (
+    public.is_active_employee(business_id)
+  );
+
+ALTER TABLE public.role_permissions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Employees can view role permissions for assigned business" ON public.role_permissions;
+CREATE POLICY "Employees can view role permissions for assigned business" ON public.role_permissions
+  FOR SELECT USING (
+    role_id IN (
+      SELECT r.id
+      FROM public.employee_roles r
+      WHERE public.is_active_employee(r.business_id)
+    )
+  );
+
+ALTER TABLE public.employee_permissions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Employees can view permissions lookup" ON public.employee_permissions;
+CREATE POLICY "Employees can view permissions lookup" ON public.employee_permissions
+  FOR SELECT USING (
+    auth.role() = 'authenticated'
+  );
+
+-- ============================================
 -- PRODUCTS
 -- ============================================
 DROP POLICY IF EXISTS "Employees can view products by permission" ON public.products;
