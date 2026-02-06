@@ -1116,28 +1116,44 @@ export default function AdsManagementScreen() {
                             activeOpacity={0.7}
                             style={styles.proofImageContainer}
                           >
-                        <Image
-                          source={{ 
-                            uri: (() => {
-                              const normalizedUrl = normalizePaymentProofUrl(ad.paymentProofUrl);
-                              if (!normalizedUrl) return '';
-                              
-                              const fallbackIndex = imageUrlFallbacks[ad.id] || 0;
-                              const urls = getPaymentProofUrlWithFallback(ad.paymentProofUrl);
-                              const urlToTry = urls[fallbackIndex] || normalizedUrl;
-                              
-                              console.log('[Payment Proof] Trying URL:', {
-                                adId: ad.id,
-                                fallbackIndex,
-                                url: urlToTry,
-                                allUrls: urls,
-                              });
-                              
-                              return urlToTry;
-                            })()
-                          }}
-                          style={styles.paymentProofImage}
-                          resizeMode="cover"
+                        {(() => {
+                          const normalizedUrl = normalizePaymentProofUrl(ad.paymentProofUrl);
+                          if (!normalizedUrl) return null;
+                          
+                          // Don't try to display local file URIs
+                          if (normalizedUrl.startsWith('file://')) {
+                            return (
+                              <View style={[styles.paymentProofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
+                                <Text style={{ color: theme.text.tertiary }}>Invalid URL</Text>
+                              </View>
+                            );
+                          }
+                          
+                          const fallbackIndex = imageUrlFallbacks[ad.id] || 0;
+                          const urls = getPaymentProofUrlWithFallback(ad.paymentProofUrl);
+                          const urlToTry = urls[fallbackIndex] || normalizedUrl;
+                          
+                          // Don't try to display local file URIs in fallback either
+                          if (urlToTry.startsWith('file://')) {
+                            return (
+                              <View style={[styles.paymentProofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
+                                <Text style={{ color: theme.text.tertiary }}>Invalid URL</Text>
+                              </View>
+                            );
+                          }
+                          
+                          console.log('[Payment Proof] Trying URL:', {
+                            adId: ad.id,
+                            fallbackIndex,
+                            url: urlToTry,
+                            allUrls: urls,
+                          });
+                          
+                          return (
+                            <Image
+                              source={{ uri: urlToTry }}
+                              style={styles.paymentProofImage}
+                              resizeMode="cover"
                           onLoadStart={() => {
                             const normalizedUrl = normalizePaymentProofUrl(ad.paymentProofUrl);
                             console.log('[Payment Proof] Starting to load image:', {
