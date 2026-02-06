@@ -278,7 +278,7 @@ export default function BookDetailScreen() {
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: [ImagePicker.MediaType.Images],
         allowsEditing: true,
         quality: 0.8,
         base64: true,
@@ -382,7 +382,7 @@ export default function BookDetailScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: [ImagePicker.MediaType.Images],
         allowsEditing: true,
         quality: 0.8,
         base64: true,
