@@ -363,13 +363,27 @@ export default function ProductsScreen() {
             upsert: false,
           });
           // Clean URL: ensure no spaces in bucket name or path
-          const cleanUrl = publicUrl.replace(/ad payment proofs/g, 'ad_payment_proofs').replace(/ /g, '%20');
+          // First check if URL already has spaces (shouldn't happen, but just in case)
+          let cleanUrl = publicUrl;
+          if (cleanUrl.includes('ad payment proofs')) {
+            console.warn('[Product Ad Proof Upload] WARNING: URL contains spaces! Fixing...', cleanUrl);
+            cleanUrl = cleanUrl.replace(/\/ad payment proofs\//g, '/ad_payment_proofs/');
+            cleanUrl = cleanUrl.replace(/ad payment proofs/g, 'ad_payment_proofs');
+          }
+          // Encode any remaining spaces
+          cleanUrl = cleanUrl.replace(/ /g, '%20');
+          
+          // Verify cleaned URL
+          if (cleanUrl.includes(' ')) {
+            console.error('[Product Ad Proof Upload] ERROR: Cleaned URL still contains spaces!', cleanUrl);
+          }
           
           console.log('[Product Ad Proof Upload] Upload successful:', {
             fileName,
             filePath,
             originalUrl: publicUrl,
             cleanedUrl: cleanUrl,
+            hasSpaces: cleanUrl.includes(' '),
             bucket: 'ad_payment_proofs',
           });
           
@@ -1250,19 +1264,30 @@ export default function ProductsScreen() {
                     source={{ uri: (() => {
                       // Ensure URL is properly encoded - fix bucket name and encode spaces
                       let cleanUrl = adPaymentProofUrl || '';
-                      // Fix bucket name if it has spaces
+                      // Fix bucket name - replace spaces with underscores in bucket name specifically
+                      cleanUrl = cleanUrl.replace(/\/ad payment proofs\//g, '/ad_payment_proofs/');
+                      // Also handle if bucket name appears anywhere else in the path
                       cleanUrl = cleanUrl.replace(/ad payment proofs/g, 'ad_payment_proofs');
-                      // Encode any remaining spaces
+                      // Encode any remaining spaces in the URL
                       cleanUrl = cleanUrl.replace(/ /g, '%20');
                       console.log('[Product Ad Proof] Original URL:', adPaymentProofUrl);
                       console.log('[Product Ad Proof] Cleaned URL:', cleanUrl);
+                      // Verify the cleaned URL doesn't have spaces
+                      if (cleanUrl.includes(' ')) {
+                        console.error('[Product Ad Proof] WARNING: Cleaned URL still contains spaces!', cleanUrl);
+                      }
                       return cleanUrl;
                     })() }} 
                     style={styles.proofImage}
                     onLoadStart={() => {
                       let cleanUrl = adPaymentProofUrl || '';
-                      cleanUrl = cleanUrl.replace(/ad payment proofs/g, 'ad_payment_proofs').replace(/ /g, '%20');
+                      cleanUrl = cleanUrl.replace(/\/ad payment proofs\//g, '/ad_payment_proofs/');
+                      cleanUrl = cleanUrl.replace(/ad payment proofs/g, 'ad_payment_proofs');
+                      cleanUrl = cleanUrl.replace(/ /g, '%20');
                       console.log('[Product Ad Proof] Starting to load:', cleanUrl);
+                      if (cleanUrl.includes(' ')) {
+                        console.error('[Product Ad Proof] WARNING: URL contains spaces after cleaning!', cleanUrl);
+                      }
                     }}
                     onLoad={() => console.log('[Product Ad Proof] Loaded successfully:', adPaymentProofUrl)}
                     onError={(e) => {
