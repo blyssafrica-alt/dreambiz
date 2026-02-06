@@ -428,7 +428,7 @@ export default function ProductsScreen() {
         payment_amount: parseFloat(adBudget),
         payment_currency: adCurrency,
         payment_reference: adPaymentReference || null,
-        payment_proof_url: adPaymentProofUrl,
+        payment_proof_url: normalizeStorageUrl(adPaymentProofUrl) || adPaymentProofUrl,
         ad_package_id: selectedAdPackageId,
         auto_renew: autoRenew,
         targeting: { scope: 'global' },
