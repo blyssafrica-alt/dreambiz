@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { supabase } from '@/lib/supabase';
-import { TrendingUp, Package, Megaphone, Users, Building2, DollarSign, ArrowRight } from 'lucide-react-native';
+import { TrendingUp, Package, Megaphone, Users, Building2, DollarSign, ArrowRight, Boxes, Bell } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function AdminDashboard() {
@@ -17,6 +17,7 @@ export default function AdminDashboard() {
     totalBusinesses: 0,
     totalProducts: 0,
     totalAds: 0,
+    pendingAutoRenewAds: 0,
     totalRevenue: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -39,11 +40,12 @@ export default function AdminDashboard() {
       // Load all stats in parallel
       // Note: For users count, we need to check if user is super admin
       // If not super admin, the RLS policy will only return their own profile
-      const [usersResult, businessesResult, productsResult, adsResult, purchasesResult, bookPurchasesResult] = await Promise.all([
+      const [usersResult, businessesResult, productsResult, adsResult, pendingAutoRenewResult, purchasesResult, bookPurchasesResult] = await Promise.all([
         supabase.from('users').select('id', { count: 'exact' }),
         supabase.from('business_profiles').select('id', { count: 'exact' }),
         supabase.from('platform_products').select('id', { count: 'exact' }),
         supabase.from('advertisements').select('id', { count: 'exact' }).eq('status', 'active'),
+        supabase.from('advertisements').select('id', { count: 'exact' }).eq('status', 'pending').eq('auto_renew', true),
         supabase.from('product_purchases').select('total_price, payment_status'),
         supabase.from('book_purchases').select('total_price, payment_status'),
       ]);
@@ -78,6 +80,7 @@ export default function AdminDashboard() {
       const totalBusinesses = businessesResult.error ? 0 : (businessesResult.count || 0);
       const totalProducts = productsResult.count || 0;
       const totalAds = adsResult.count || 0;
+      const pendingAutoRenewAds = pendingAutoRenewResult.count || 0;
 
       // Calculate revenue from completed product purchases
       const completedProductPurchases = purchasesResult.data?.filter(p => p.payment_status === 'completed') || [];
@@ -105,6 +108,7 @@ export default function AdminDashboard() {
         totalBusinesses,
         totalProducts,
         totalAds,
+        pendingAutoRenewAds,
         totalRevenue,
       });
     } catch (error) {
@@ -215,6 +219,14 @@ export default function AdminDashboard() {
           onPress={() => router.push('/admin/ads' as any)}
         />
         <StatCard
+          icon={Bell}
+          title="Auto-renew pending"
+          value={stats.pendingAutoRenewAds.toLocaleString()}
+          color="#F59E0B"
+          gradient={['#F59E0B15', '#F59E0B05']}
+          onPress={() => router.push('/admin/ads?filter=auto_renew_pending' as any)}
+        />
+        <StatCard
           icon={Building2}
           title={t('admin.totalBusinesses')}
           value={stats.totalBusinesses.toLocaleString()}
@@ -306,6 +318,24 @@ export default function AdminDashboard() {
             </View>
             <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
               <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/ad-packages' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Ad Packages</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Manage pricing tiers and durations
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <Boxes size={18} color={theme.accent.primary} />
             </View>
           </View>
         </TouchableOpacity>

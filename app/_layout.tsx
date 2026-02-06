@@ -18,6 +18,7 @@ import { ProductContextProvider } from "@/contexts/ProductContext";
 import { AdContextProvider } from "@/contexts/AdContext";
 import { PremiumContextProvider } from "@/contexts/PremiumContext";
 import { SettingsContext } from "@/contexts/SettingsContext";
+import NotificationBootstrap from "@/components/NotificationBootstrap";
 import { StatusBar } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import LoadingScreen from '@/components/LoadingScreen';
@@ -334,6 +335,7 @@ export default function RootLayout() {
                     <FeatureContextProvider>
                       <ProductContextProvider>
                         <AdContextProvider>
+                          <NotificationBootstrap />
                           <RootLayoutNav />
                         </AdContextProvider>
                       </ProductContextProvider>

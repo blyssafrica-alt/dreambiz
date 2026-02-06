@@ -38,6 +38,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { useAds } from '@/contexts/AdContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { Alert as AlertType } from '@/types/business';
@@ -47,10 +49,14 @@ import GlobalSearch from '@/components/GlobalSearch';
 import { AdCard } from '@/components/AdCard';
 import AnimatedLogo from '@/components/AnimatedLogo';
 import { useResponsive } from '@/hooks/useResponsive';
+import { supabase } from '@/lib/supabase';
+import { sendNotification } from '@/lib/notifications';
 
 export default function DashboardScreen() {
   const { business, getDashboardMetrics, transactions, documents, folders, isEmployee, currentEmployee } = useBusiness();
   const { theme } = useTheme();
+  const { user } = useAuth();
+  const { settings } = useSettings();
   const { getAdsForLocation } = useAds();
   const { t } = useTranslation();
   const responsive = useResponsive();
@@ -58,6 +64,8 @@ export default function DashboardScreen() {
   // State declarations
   const [metrics, setMetrics] = useState<any>(null);
   const [showAlertsModal, setShowAlertsModal] = useState(false);
+  const [showAdExpiryAlert, setShowAdExpiryAlert] = useState(false);
+  const [adExpiryCount, setAdExpiryCount] = useState(0);
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
   const [showSearch, setShowSearch] = useState(false);
   const [chartPeriod, setChartPeriod] = useState<'day' | 'week' | 'month' | 'year'>('month');
@@ -100,6 +108,102 @@ export default function DashboardScreen() {
     };
     loadMetrics();
   }, [getDashboardMetrics, transactions, documents]);
+
+  useEffect(() => {
+    const checkAdExpiries = async () => {
+      try {
+        const hasNotificationChannel = settings.notificationsEnabled || settings.emailEnabled;
+        let renewalResult: any = null;
+        if (user?.id) {
+          const { data: renewalData } = await supabase.functions.invoke('process-ad-renewals', {
+            body: { userId: user.id },
+          });
+          renewalResult = renewalData;
+        }
+
+        const { data, error } = await supabase
+          .from('advertisements')
+          .select('id, title, end_date, auto_renew, status, payment_status')
+          .eq('created_by', user?.id);
+        if (error || !data) return;
+        const now = new Date();
+        const expiringSoon = data.filter((ad: any) => {
+          if (!ad.end_date || ad.status !== 'active') return false;
+          const end = new Date(ad.end_date);
+          const diffDays = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          return diffDays >= 0 && diffDays <= 3;
+        });
+        setAdExpiryCount(expiringSoon.length);
+        setShowAdExpiryAlert(expiringSoon.length > 0);
+
+        if (hasNotificationChannel && user?.id) {
+          const { data: logData } = await supabase
+            .from('ad_notification_log')
+            .select('ad_id, type')
+            .eq('user_id', user.id);
+          const logSet = new Set((logData || []).map((row: any) => `${row.ad_id}:${row.type}`));
+
+          const renewals = new Set<string>(renewalResult?.renewed || []);
+          const pendingPayment = new Set<string>(renewalResult?.pendingPayment || []);
+
+          for (const ad of expiringSoon) {
+            const logKey = `${ad.id}:expiring_soon`;
+            if (logSet.has(logKey)) continue;
+            await sendNotification({
+              title: 'Ad expiring soon',
+              message: `Your ad "${ad.title}" expires soon. Renew to keep it running.`,
+              data: { adId: ad.id, actionRoute: '/my-ads' },
+              channels: { push: settings.notificationsEnabled, email: settings.emailEnabled },
+            });
+            await supabase.from('ad_notification_log').insert({
+              ad_id: ad.id,
+              user_id: user.id,
+              type: 'expiring_soon',
+            });
+          }
+
+          for (const ad of data) {
+            if (renewals.has(ad.id)) {
+              const logKey = `${ad.id}:auto_renewed`;
+              if (!logSet.has(logKey)) {
+                await sendNotification({
+                  title: 'Ad auto-renewed',
+                  message: `Your ad "${ad.title}" has been auto-renewed.`,
+                  data: { adId: ad.id, actionRoute: '/my-ads' },
+                  channels: { push: settings.notificationsEnabled, email: settings.emailEnabled },
+                });
+                await supabase.from('ad_notification_log').insert({
+                  ad_id: ad.id,
+                  user_id: user.id,
+                  type: 'auto_renewed',
+                });
+              }
+            } else if (pendingPayment.has(ad.id)) {
+              const logKey = `${ad.id}:auto_renew_pending`;
+              if (!logSet.has(logKey)) {
+                await sendNotification({
+                  title: 'Auto-renew pending payment',
+                  message: `Your ad "${ad.title}" needs payment to renew.`,
+                  data: { adId: ad.id, actionRoute: '/my-ads' },
+                  channels: { push: settings.notificationsEnabled, email: settings.emailEnabled },
+                });
+                await supabase.from('ad_notification_log').insert({
+                  ad_id: ad.id,
+                  user_id: user.id,
+                  type: 'auto_renew_pending',
+                });
+              }
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    if (user?.id) {
+      checkAdExpiries();
+    }
+  }, [user?.id, settings.notificationsEnabled, settings.emailEnabled]);
 
   // Calculate business health score (0-100)
   const healthScore = useMemo(() => {
@@ -988,7 +1092,7 @@ export default function DashboardScreen() {
             </View>
           )}
 
-              {metrics && activeAlerts.length > 0 && (
+          {(metrics && activeAlerts.length > 0) || showAdExpiryAlert ? (
             <View style={styles.alertsSection}>
               <View style={styles.alertsHeader}>
                 <View style={styles.alertsHeaderLeft}>
@@ -1014,9 +1118,22 @@ export default function DashboardScreen() {
                   </TouchableOpacity>
                 )}
               </View>
+              {showAdExpiryAlert && (
+                <TouchableOpacity
+                  style={[styles.alertCard, { backgroundColor: theme.surface.warning }]}
+                  onPress={() => router.push('/my-ads' as any)}
+                >
+                  <Text style={[styles.alertCardTitle, { color: theme.accent.warning }]}>
+                    Ad Expiry Warning
+                  </Text>
+                  <Text style={[styles.alertCardText, { color: theme.text.secondary }]}>
+                    {adExpiryCount} ad{adExpiryCount === 1 ? '' : 's'} expiring in 3 days or less.
+                  </Text>
+                </TouchableOpacity>
+              )}
               {topAlerts.slice(0, 2).map(alert => renderAlert(alert, true))}
             </View>
-          )}
+          ) : null}
 
           {/* Advertisements Section */}
           {dashboardAds.length > 0 && (
@@ -1694,6 +1811,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  alertCard: {
+    padding: 14,
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  alertCardTitle: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    marginBottom: 4,
+  },
+  alertCardText: {
+    fontSize: 13,
   },
   alertBadge: {
     flexDirection: 'row',

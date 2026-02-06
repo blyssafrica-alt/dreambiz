@@ -1,6 +1,6 @@
-import { Stack, router } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { DollarSign, Building2, Users as UsersIcon, MapPin, Phone, Mail, Save, FileText, Moon, Sun, LogOut, Download, Upload, Database, Image as ImageIcon, X, Settings as SettingsIcon, MessageSquare, Bell, Globe, CheckCircle, XCircle, Crown, BookOpen, ChevronRight, Zap, Shield } from 'lucide-react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   Platform,
   Modal,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -72,6 +73,7 @@ export default function SettingsScreen() {
     updateLanguage, 
     updateCurrencyPreference, 
     updateIntegrationPreference,
+    updateRemoveProofConfirmPreference,
     isLoading: settingsLoading 
   } = useSettings();
   const { currentPlan } = usePremium();
@@ -82,6 +84,10 @@ export default function SettingsScreen() {
     { value: 'growing', label: 'Growing', desc: 'Expanding operations' },
   ];
   const [showBookModal, setShowBookModal] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const [confirmProofSectionY, setConfirmProofSectionY] = useState(0);
+  const searchParams = useLocalSearchParams<{ section?: string }>();
+  const confirmProofHighlight = useRef(new Animated.Value(0)).current;
   const [databaseBooks, setDatabaseBooks] = useState<Book[]>([]);
   const [isLoadingBooks, setIsLoadingBooks] = useState(false);
   const [featureConfigs, setFeatureConfigs] = useState<{ featureId: string; name: string }[]>([]);
@@ -141,6 +147,17 @@ export default function SettingsScreen() {
       setEmployeeProfilePhone(currentEmployee?.phone || '');
     }
   }, [isEmployee, currentEmployee?.name, currentEmployee?.email, currentEmployee?.phone]);
+
+  useEffect(() => {
+    if (searchParams.section === 'confirm-proof' && confirmProofSectionY > 0) {
+      scrollRef.current?.scrollTo({ y: confirmProofSectionY - 20, animated: true });
+      confirmProofHighlight.setValue(0);
+      Animated.sequence([
+        Animated.timing(confirmProofHighlight, { toValue: 1, duration: 300, useNativeDriver: false }),
+        Animated.timing(confirmProofHighlight, { toValue: 0, duration: 800, useNativeDriver: false }),
+      ]).start();
+    }
+  }, [searchParams.section, confirmProofSectionY]);
 
   // Load books and features from database
   useEffect(() => {
@@ -204,6 +221,14 @@ export default function SettingsScreen() {
     } catch (error: any) {
       console.error('Error toggling Email:', error);
       RNAlert.alert('Error', error.message || 'Failed to update email settings');
+    }
+  };
+
+  const handleToggleRemoveProofConfirm = async (enabled: boolean) => {
+    try {
+      await updateRemoveProofConfirmPreference(enabled);
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to update confirmation setting.');
     }
   };
 
@@ -623,6 +648,7 @@ export default function SettingsScreen() {
       <ScrollView 
         style={[styles.container, { backgroundColor: theme.background.secondary }]} 
         contentContainerStyle={styles.content}
+        ref={scrollRef}
       >
         <View style={[styles.userCard, { 
           backgroundColor: theme.background.card,
@@ -843,7 +869,10 @@ export default function SettingsScreen() {
           </View>
 
           {/* Email Settings */}
-          <View style={[styles.settingRow, { marginTop: 16 }]}>
+          <View
+            style={[styles.settingRow, { marginTop: 16 }]}
+            onLayout={(event) => setConfirmProofSectionY(event.nativeEvent.layout.y)}
+          >
             <View style={styles.settingLeft}>
               <View style={styles.settingTitleRow}>
                 <Mail size={18} color={theme.accent.primary} />
@@ -931,6 +960,38 @@ export default function SettingsScreen() {
               disabled={settingsLoading}
             />
           </View>
+          <Animated.View
+            style={[
+              styles.settingRow,
+              { marginTop: 16 },
+              {
+                backgroundColor: confirmProofHighlight.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['transparent', 'rgba(245, 158, 11, 0.15)'],
+                }),
+              },
+            ]}
+            onLayout={(event) => setConfirmProofSectionY(event.nativeEvent.layout.y)}
+          >
+            <View style={styles.settingLeft}>
+              <View style={styles.settingTitleRow}>
+                <Bell size={18} color={theme.accent.primary} />
+                <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
+                  Confirm proof removal
+                </Text>
+              </View>
+              <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
+                Ask before removing payment proof images
+              </Text>
+            </View>
+            <Switch
+              value={settings.confirmRemoveProofEnabled}
+              onValueChange={handleToggleRemoveProofConfirm}
+              trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
+              thumbColor="#FFF"
+              disabled={settingsLoading}
+            />
+          </Animated.View>
 
           {/* Language Preference */}
           <View style={[styles.inputGroup, { marginTop: 16 }]}>

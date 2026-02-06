@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, Image } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAds } from '@/contexts/AdContext';
@@ -48,6 +48,7 @@ export default function AdsManagementScreen() {
   const { user } = useAuth();
   const { refreshAds } = useAds();
   const router = useRouter();
+  const searchParams = useLocalSearchParams<{ filter?: string }>();
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -87,6 +88,10 @@ export default function AdsManagementScreen() {
     excludeUsers: '',
   });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const activeFilter = searchParams.filter === 'auto_renew_pending' ? 'auto_renew_pending' : 'all';
+  const filteredAds = activeFilter === 'auto_renew_pending'
+    ? ads.filter((ad) => ad.autoRenew && ad.status === 'pending')
+    : ads;
 
   useEffect(() => {
     loadAds();
@@ -144,6 +149,7 @@ export default function AdsManagementScreen() {
           paymentProofUrl: row.payment_proof_url || undefined,
           adminNotes: row.admin_notes || undefined,
           adPackageId: row.ad_package_id || undefined,
+          autoRenew: row.auto_renew || false,
           startDate: row.start_date,
           endDate: row.end_date,
           timezone: row.timezone || 'Africa/Harare',
@@ -599,14 +605,28 @@ export default function AdsManagementScreen() {
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        {ads.length === 0 ? (
+        {activeFilter !== 'all' && (
+          <View style={[styles.filterBanner, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}>
+            <Text style={[styles.filterText, { color: theme.text.secondary }]}>
+              Filter: Auto-renew pending
+            </Text>
+            <TouchableOpacity onPress={() => router.replace('/admin/ads' as any)}>
+              <Text style={[styles.clearFilterText, { color: theme.accent.primary }]}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {filteredAds.length === 0 ? (
           <View style={styles.emptyState}>
             <Megaphone size={48} color={theme.text.tertiary} />
-            <Text style={[styles.emptyText, { color: theme.text.secondary }]}>No advertisements yet</Text>
-            <Text style={[styles.emptySubtext, { color: theme.text.tertiary }]}>Create your first ad to get started</Text>
+            <Text style={[styles.emptyText, { color: theme.text.secondary }]}>
+              {activeFilter === 'auto_renew_pending' ? 'No auto-renew pending ads' : 'No advertisements yet'}
+            </Text>
+            <Text style={[styles.emptySubtext, { color: theme.text.tertiary }]}>
+              {activeFilter === 'auto_renew_pending' ? 'All set for now' : 'Create your first ad to get started'}
+            </Text>
           </View>
         ) : (
-          ads.map((ad) => (
+          filteredAds.map((ad) => (
             <View key={ad.id} style={[styles.adCard, { backgroundColor: theme.background.card }]}>
               {ad.imageUrl && (
                 <Image source={{ uri: ad.imageUrl }} style={styles.adImage} />
@@ -621,6 +641,13 @@ export default function AdsManagementScreen() {
                         {ad.status}
                       </Text>
                     </View>
+                    {ad.autoRenew && (
+                      <View style={[styles.badge, { backgroundColor: '#F59E0B20' }]}>
+                        <Text style={[styles.badgeText, { color: '#F59E0B' }]}>
+                          auto-renew
+                        </Text>
+                      </View>
+                    )}
                     <Text style={[styles.adType, { color: theme.text.secondary }]}>{ad.type}</Text>
                   </View>
                 </View>
@@ -1234,6 +1261,18 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: '700' },
   content: { flex: 1 },
   contentContainer: { padding: 20 },
+  filterBanner: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  filterText: { fontSize: 13, fontWeight: '600' },
+  clearFilterText: { fontSize: 13, fontWeight: '700' },
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
   emptyText: { fontSize: 18, fontWeight: '600', marginTop: 16 },
   emptySubtext: { fontSize: 14, marginTop: 8 },

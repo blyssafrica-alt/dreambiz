@@ -1,15 +1,19 @@
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert as RNAlert, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert as RNAlert, Modal, TextInput, Switch } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { supabase } from '@/lib/supabase';
 import type { Advertisement } from '@/types/super-admin';
 import { ArrowLeft, RefreshCcw } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 
 export default function MyAdsScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
+  const { settings, updateRemoveProofConfirmPreference } = useSettings();
   const router = useRouter();
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -18,6 +22,11 @@ export default function MyAdsScreen() {
   const [editBody, setEditBody] = useState('');
   const [editCta, setEditCta] = useState('');
   const [editReference, setEditReference] = useState('');
+  const [editAutoRenew, setEditAutoRenew] = useState(false);
+  const [editMode, setEditMode] = useState<'resubmit' | 'renew'>('resubmit');
+  const [editPaymentProofUrl, setEditPaymentProofUrl] = useState<string | null>(null);
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const [editProofDirty, setEditProofDirty] = useState(false);
 
   const formatExpiry = (endDate?: string) => {
     if (!endDate) return null;
@@ -64,6 +73,7 @@ export default function MyAdsScreen() {
           paymentProofUrl: row.payment_proof_url || undefined,
           startDate: row.start_date,
           endDate: row.end_date,
+          autoRenew: row.auto_renew || false,
           timezone: row.timezone || 'Africa/Harare',
           status: row.status,
           impressionsCount: row.impressions_count || 0,
@@ -84,16 +94,24 @@ export default function MyAdsScreen() {
     }
   }, [user]);
 
-  const openEditModal = (ad: Advertisement) => {
+  const openEditModal = (ad: Advertisement, mode: 'resubmit' | 'renew' = 'resubmit') => {
     setEditingAd(ad);
+    setEditMode(mode);
     setEditHeadline(ad.headline || '');
     setEditBody(ad.bodyText || '');
     setEditCta(ad.ctaText || 'Learn More');
     setEditReference(ad.paymentReference || '');
+    setEditAutoRenew(mode === 'renew' ? true : Boolean(ad.autoRenew));
+    setEditPaymentProofUrl(ad.paymentProofUrl || null);
+    setEditProofDirty(false);
   };
 
   const handleResubmit = async () => {
     if (!editingAd || !user) return;
+    if (editMode === 'renew' && !editPaymentProofUrl) {
+      RNAlert.alert('Missing Proof', 'Please upload proof of payment to renew this ad.');
+      return;
+    }
     try {
       const { error } = await supabase
         .from('advertisements')
@@ -102,6 +120,10 @@ export default function MyAdsScreen() {
           body_text: editBody.trim() || null,
           cta_text: editCta.trim() || 'Learn More',
           payment_reference: editReference || null,
+          ...(editMode === 'renew' || editProofDirty
+            ? { payment_proof_url: editPaymentProofUrl }
+            : {}),
+          auto_renew: editAutoRenew,
           status: 'pending',
           payment_status: 'pending',
           admin_notes: null,
@@ -111,16 +133,97 @@ export default function MyAdsScreen() {
         .eq('created_by', user.id);
       if (error) throw error;
       setEditingAd(null);
+      setEditPaymentProofUrl(null);
+      setEditProofDirty(false);
       await loadAds();
-      RNAlert.alert('Submitted', 'Your ad has been resubmitted for review.');
+      const message =
+        editMode === 'renew'
+          ? 'Your renewal request has been submitted for approval.'
+          : 'Your ad has been resubmitted for review.';
+      RNAlert.alert('Submitted', message);
     } catch (error: any) {
       RNAlert.alert('Error', error.message || 'Failed to resubmit ad.');
+    }
+  };
+
+  const handlePickRenewProofImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        RNAlert.alert('Permission Required', 'Please grant camera roll access to upload proof of payment');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+        base64: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        setIsUploadingProof(true);
+        try {
+          const base64 = await getBase64FromAsset(asset);
+          const fileName = buildAssetFileName(asset, 'ad-renewal-proof');
+          const filePath = `ad_payment_proofs/${fileName}`;
+          const publicUrl = await uploadBase64ToStorage(supabase, {
+            bucket: 'ad_payment_proofs',
+            filePath,
+            base64,
+            contentType: asset.mimeType || 'image/jpeg',
+            upsert: false,
+          });
+          setEditPaymentProofUrl(publicUrl);
+          setEditProofDirty(true);
+        } catch (error: any) {
+          RNAlert.alert('Upload Error', error.message || 'Failed to upload proof');
+        } finally {
+          setIsUploadingProof(false);
+        }
+      }
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to pick image');
     }
   };
 
   useEffect(() => {
     loadAds();
   }, [loadAds]);
+
+  const handleRemoveProof = async () => {
+    if (!settings.confirmRemoveProofEnabled) {
+      setEditPaymentProofUrl(null);
+      setEditProofDirty(true);
+      return;
+    }
+    RNAlert.alert(
+      'Remove proof?',
+      'This will clear the current proof of payment.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: "Don't ask again",
+          onPress: async () => {
+            try {
+              await updateRemoveProofConfirmPreference(false);
+              setEditPaymentProofUrl(null);
+              setEditProofDirty(true);
+            } catch (error: any) {
+              RNAlert.alert('Error', error.message || 'Failed to update confirmation setting.');
+            }
+          },
+        },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            setEditPaymentProofUrl(null);
+            setEditProofDirty(true);
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
@@ -140,7 +243,11 @@ export default function MyAdsScreen() {
         ) : ads.length === 0 ? (
           <Text style={[styles.emptyText, { color: theme.text.secondary }]}>No ads yet.</Text>
         ) : (
-          ads.map(ad => (
+          ads.map(ad => {
+            const expiryLabel = ad.endDate ? formatExpiry(ad.endDate) : null;
+            const isExpiringSoon = Boolean(expiryLabel && (expiryLabel.includes('Expires in') || expiryLabel === 'Expires today'));
+            const isExpired = expiryLabel === 'Expired';
+            return (
             <View key={ad.id} style={[styles.adCard, { backgroundColor: theme.background.card }]}>
               {ad.imageUrl && <Image source={{ uri: ad.imageUrl }} style={styles.adImage} />}
               <Text style={[styles.adTitle, { color: theme.text.primary }]}>{ad.title}</Text>
@@ -155,6 +262,9 @@ export default function MyAdsScreen() {
                   Payment: {ad.paymentStatus || 'pending'}
                 </Text>
               </View>
+              <Text style={[styles.metaText, { color: theme.text.tertiary }]}>
+                Auto-renew: {ad.autoRenew ? 'On' : 'Off'}
+              </Text>
               <Text style={[styles.metaText, { color: theme.text.secondary }]}>
                 Budget: {ad.paymentCurrency || ad.spendCurrency || 'USD'} {ad.paymentAmount?.toFixed(2) ?? ad.spend?.toFixed(2) ?? '—'}
               </Text>
@@ -164,9 +274,9 @@ export default function MyAdsScreen() {
               {ad.status === 'active' && ad.endDate && (
                 <Text style={[
                   styles.metaText,
-                  { color: formatExpiry(ad.endDate)?.includes('Expires') ? theme.accent.warning : theme.text.tertiary },
+                  { color: expiryLabel?.includes('Expires') ? theme.accent.warning : theme.text.tertiary },
                 ]}>
-                  {formatExpiry(ad.endDate)}
+                  {expiryLabel}
                 </Text>
               )}
               {ad.adminNotes && (
@@ -180,8 +290,16 @@ export default function MyAdsScreen() {
                   <Text style={[styles.resubmitText, { color: theme.accent.primary }]}>Edit & Resubmit</Text>
                 </TouchableOpacity>
               )}
+              {ad.status === 'active' && (isExpiringSoon || isExpired) && (
+                <TouchableOpacity
+                  style={[styles.renewButton, { borderColor: theme.accent.warning }]}
+                  onPress={() => openEditModal(ad, 'renew')}
+                >
+                  <Text style={[styles.renewText, { color: theme.accent.warning }]}>Renew Now</Text>
+                </TouchableOpacity>
+              )}
             </View>
-          ))
+          )})
         )}
       </ScrollView>
 
@@ -189,7 +307,9 @@ export default function MyAdsScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Edit Ad</Text>
+              <Text style={[styles.modalTitle, { color: theme.text.primary }]}>
+                {editMode === 'renew' ? 'Renew Ad' : 'Edit Ad'}
+              </Text>
               <TouchableOpacity onPress={() => setEditingAd(null)}>
                 <Text style={[styles.modalClose, { color: theme.text.secondary }]}>Close</Text>
               </TouchableOpacity>
@@ -220,6 +340,98 @@ export default function MyAdsScreen() {
                 value={editReference}
                 onChangeText={setEditReference}
               />
+              {editMode !== 'renew' && (
+                <>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Proof of Payment (Optional)</Text>
+                  {editPaymentProofUrl ? (
+                    <>
+                      <Image source={{ uri: editPaymentProofUrl }} style={styles.proofImage} />
+                      <View style={styles.proofActionsRow}>
+                        <TouchableOpacity
+                          style={[styles.proofUploadButton, { borderColor: theme.border.light, flex: 1 }]}
+                          onPress={handlePickRenewProofImage}
+                          disabled={isUploadingProof}
+                        >
+                          <Text style={[styles.proofUploadText, { color: theme.text.primary }]}>
+                            {isUploadingProof ? 'Uploading...' : 'Update Proof'}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.proofUploadButton, { borderColor: theme.border.light, flex: 1 }]}
+                          onPress={handleRemoveProof}
+                        >
+                          <Text style={[styles.proofUploadText, { color: theme.text.secondary }]}>
+                            Remove Proof
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      <TouchableOpacity onPress={() => router.push({ pathname: '/settings', params: { section: 'confirm-proof' } } as any)}>
+                        <Text style={[styles.manageConfirmText, { color: theme.text.tertiary }]}>
+                          Manage confirmation settings
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.proofUploadButton, { borderColor: theme.border.light }]}
+                      onPress={handlePickRenewProofImage}
+                      disabled={isUploadingProof}
+                    >
+                      <Text style={[styles.proofUploadText, { color: theme.text.primary }]}>
+                        {isUploadingProof ? 'Uploading...' : 'Upload Proof'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+              {editMode === 'renew' && (
+                <>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Proof of Payment *</Text>
+                  {editPaymentProofUrl ? (
+                    <>
+                      <Image source={{ uri: editPaymentProofUrl }} style={styles.proofImage} />
+                      <View style={styles.proofActionsRow}>
+                        <TouchableOpacity
+                          style={[styles.proofUploadButton, { borderColor: theme.border.light, flex: 1 }]}
+                          onPress={handlePickRenewProofImage}
+                          disabled={isUploadingProof}
+                        >
+                          <Text style={[styles.proofUploadText, { color: theme.text.primary }]}>
+                            {isUploadingProof ? 'Uploading...' : 'Update Proof'}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.proofUploadButton, { borderColor: theme.border.light, flex: 1 }]}
+                          onPress={handleRemoveProof}
+                        >
+                          <Text style={[styles.proofUploadText, { color: theme.text.secondary }]}>
+                            Remove Proof
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      <TouchableOpacity onPress={() => router.push({ pathname: '/settings', params: { section: 'confirm-proof' } } as any)}>
+                        <Text style={[styles.manageConfirmText, { color: theme.text.tertiary }]}>
+                          Manage confirmation settings
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.proofUploadButton, { borderColor: theme.border.light }]}
+                      onPress={handlePickRenewProofImage}
+                      disabled={isUploadingProof}
+                    >
+                      <Text style={[styles.proofUploadText, { color: theme.text.primary }]}>
+                        {isUploadingProof ? 'Uploading...' : 'Upload Proof'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+              <View style={styles.switchRow}>
+                <Text style={[styles.label, { color: theme.text.secondary }]}>Auto-renew</Text>
+                <Switch value={editAutoRenew} onValueChange={setEditAutoRenew} />
+              </View>
             </View>
             <View style={styles.modalFooter}>
               <TouchableOpacity
@@ -232,7 +444,7 @@ export default function MyAdsScreen() {
                 style={[styles.saveButton, { backgroundColor: theme.accent.primary }]}
                 onPress={handleResubmit}
               >
-                <Text style={styles.saveText}>Resubmit</Text>
+                <Text style={styles.saveText}>{editMode === 'renew' ? 'Submit Renewal' : 'Resubmit'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -272,6 +484,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  renewButton: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  renewText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -295,6 +524,28 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, fontWeight: '600', marginTop: 6 },
   input: { padding: 12, borderRadius: 10, fontSize: 14 },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
+  proofUploadButton: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  proofUploadText: { fontSize: 14, fontWeight: '600' },
+  proofImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+  },
+  proofActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  manageConfirmText: {
+    fontSize: 12,
+    marginTop: 6,
+  },
   modalFooter: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingTop: 12 },
   cancelButton: { flex: 1, padding: 12, borderRadius: 10, alignItems: 'center' },
   cancelText: { fontSize: 14, fontWeight: '600' },

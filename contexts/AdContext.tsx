@@ -92,6 +92,7 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
           placement: row.placement || {},
           startDate: row.start_date,
           endDate: row.end_date,
+          autoRenew: row.auto_renew || false,
           timezone: row.timezone || 'Africa/Harare',
           status: row.status,
           impressionsCount: row.impressions_count || 0,

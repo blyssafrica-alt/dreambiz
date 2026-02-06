@@ -11,6 +11,7 @@ import {
   Alert,
   Modal,
   TextInput,
+  Switch,
 } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -60,7 +61,8 @@ export default function BookDetailScreen() {
   const [isUploadingAdProof, setIsUploadingAdProof] = useState(false);
   const [adPackages, setAdPackages] = useState<AdPackage[]>([]);
   const [selectedAdPackageId, setSelectedAdPackageId] = useState<string | null>(null);
-  const [adLocations, setAdLocations] = useState<string[]>(['dashboard']);
+  const [adLocations, setAdLocations] = useState<string[]>(['books', 'dashboard']);
+  const [autoRenew, setAutoRenew] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
@@ -254,7 +256,8 @@ export default function BookDetailScreen() {
     setAdPaymentReference('');
     setAdPaymentProofUrl(null);
     setSelectedAdPackageId(null);
-    setAdLocations(['dashboard']);
+    setAdLocations(['books', 'dashboard']);
+    setAutoRenew(false);
     setShowPromoteModal(true);
   };
 
@@ -333,6 +336,7 @@ export default function BookDetailScreen() {
         payment_reference: adPaymentReference || null,
         payment_proof_url: adPaymentProofUrl,
         ad_package_id: selectedAdPackageId,
+        auto_renew: autoRenew,
         targeting: { scope: 'global' },
         placement: { locations: adLocations, priority: 1, frequency: 'once_per_day' },
         created_by: user.id,
@@ -817,6 +821,10 @@ export default function BookDetailScreen() {
                   </Text>
                 </TouchableOpacity>
               )}
+              <View style={styles.switchRow}>
+                <Text style={[styles.label, { color: theme.text.secondary }]}>Auto-renew</Text>
+                <Switch value={autoRenew} onValueChange={setAutoRenew} />
+              </View>
               <Text style={[styles.helperText, { color: theme.text.tertiary }]}>
                 Submitted ads require admin approval before going live.
               </Text>
@@ -1561,6 +1569,12 @@ const styles = StyleSheet.create({
   proofUploadText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
   },
   proofImage: {
     width: '100%',

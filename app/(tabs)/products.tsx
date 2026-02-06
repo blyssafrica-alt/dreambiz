@@ -25,6 +25,7 @@ import {
   Animated,
   Image,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
@@ -78,6 +79,7 @@ export default function ProductsScreen() {
   const [adPackages, setAdPackages] = useState<AdPackage[]>([]);
   const [selectedAdPackageId, setSelectedAdPackageId] = useState<string | null>(null);
   const [adLocations, setAdLocations] = useState<string[]>(['products', 'dashboard']);
+  const [autoRenew, setAutoRenew] = useState(false);
 
   // Ensure products is always an array
   const safeProducts = useMemo(() => (Array.isArray(products) ? products : []), [products]);
@@ -321,6 +323,7 @@ export default function ProductsScreen() {
     setAdPaymentProofUrl(null);
     setSelectedAdPackageId(null);
     setAdLocations(['products', 'dashboard']);
+    setAutoRenew(false);
     setShowPromoteModal(true);
   };
 
@@ -399,6 +402,7 @@ export default function ProductsScreen() {
         payment_reference: adPaymentReference || null,
         payment_proof_url: adPaymentProofUrl,
         ad_package_id: selectedAdPackageId,
+        auto_renew: autoRenew,
         targeting: { scope: 'global' },
         placement: { locations: adLocations, priority: 1, frequency: 'once_per_day' },
         created_by: user.id,
@@ -1217,6 +1221,10 @@ export default function ProductsScreen() {
                   </Text>
                 </TouchableOpacity>
               )}
+              <View style={styles.switchRow}>
+                <Text style={[styles.label, { color: theme.text.secondary }]}>Auto-renew</Text>
+                <Switch value={autoRenew} onValueChange={setAutoRenew} />
+              </View>
               <Text style={[styles.helperText, { color: theme.text.tertiary }]}>
                 Submitted ads require admin approval before going live.
               </Text>
@@ -1670,6 +1678,12 @@ const styles = StyleSheet.create({
   proofUploadText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
   },
   proofImage: {
     width: '100%',

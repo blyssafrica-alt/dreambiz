@@ -183,6 +183,7 @@ export interface Advertisement {
   paymentProofUrl?: string;
   adminNotes?: string;
   adPackageId?: string;
+  autoRenew?: boolean;
   startDate?: string;
   endDate?: string;
   timezone: string;

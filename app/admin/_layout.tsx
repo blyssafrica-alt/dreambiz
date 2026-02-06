@@ -99,6 +99,13 @@ export default function AdminLayout() {
         }} 
       />
       <Stack.Screen 
+        name="ad-packages" 
+        options={{ 
+          title: 'Ad Packages',
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
         name="templates" 
         options={{ 
           title: 'Document Templates',

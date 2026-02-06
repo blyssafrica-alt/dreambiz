@@ -238,6 +238,7 @@ CREATE TABLE IF NOT EXISTS advertisements (
   payment_proof_url TEXT,
   admin_notes TEXT,
   ad_package_id UUID REFERENCES ad_packages(id) ON DELETE SET NULL,
+  auto_renew BOOLEAN DEFAULT false,
   
   -- Metadata
   created_by UUID REFERENCES users(id), -- Super admin

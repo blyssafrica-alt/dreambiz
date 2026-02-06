@@ -6,6 +6,7 @@ import { useAuth } from './AuthContext';
 import type { Currency } from '@/types/business';
 
 const LANGUAGE_STORAGE_KEY = '@dreambiz:language';
+const REMOVE_PROOF_CONFIRM_KEY = '@dreambiz:confirmRemoveProof';
 
 interface AppSettings {
   notificationsEnabled: boolean;
@@ -14,6 +15,7 @@ interface AppSettings {
   smsEnabled: boolean;
   emailEnabled: boolean;
   whatsappEnabled: boolean;
+  confirmRemoveProofEnabled: boolean;
 }
 
 export const [SettingsContext, useSettings] = createContextHook(() => {
@@ -25,33 +27,44 @@ export const [SettingsContext, useSettings] = createContextHook(() => {
     smsEnabled: false,
     emailEnabled: true,
     whatsappEnabled: false,
+    confirmRemoveProofEnabled: true,
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load language from AsyncStorage on mount (works for unauthenticated users)
+  // Load language and local preferences from AsyncStorage on mount (works for unauthenticated users)
   useEffect(() => {
-    const loadLanguage = async () => {
+    const loadLocalPreferences = async () => {
       try {
         const savedLanguage = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
         if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'sn' || savedLanguage === 'nd')) {
           setSettings(prev => ({ ...prev, language: savedLanguage }));
         }
+        const removeProofConfirm = await AsyncStorage.getItem(REMOVE_PROOF_CONFIRM_KEY);
+        if (removeProofConfirm === 'true' || removeProofConfirm === 'false') {
+          setSettings(prev => ({ ...prev, confirmRemoveProofEnabled: removeProofConfirm === 'true' }));
+        }
       } catch (error) {
-        console.error('Error loading language from storage:', error);
+        console.error('Error loading local preferences from storage:', error);
       }
     };
-    loadLanguage();
+    loadLocalPreferences();
   }, []);
 
   const loadSettings = useCallback(async () => {
-    // Load language from AsyncStorage first (works for unauthenticated users)
+    // Load language and local preferences from AsyncStorage first (works for unauthenticated users)
+    let removeProofConfirmEnabled = true;
     try {
       const savedLanguage = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
       if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'sn' || savedLanguage === 'nd')) {
         setSettings(prev => ({ ...prev, language: savedLanguage }));
       }
+      const removeProofConfirm = await AsyncStorage.getItem(REMOVE_PROOF_CONFIRM_KEY);
+      if (removeProofConfirm === 'true' || removeProofConfirm === 'false') {
+        removeProofConfirmEnabled = removeProofConfirm === 'true';
+        setSettings(prev => ({ ...prev, confirmRemoveProofEnabled: removeProofConfirmEnabled }));
+      }
     } catch (error) {
-      console.error('Error loading language from storage:', error);
+      console.error('Error loading local preferences from storage:', error);
     }
 
     if (!user) {
@@ -108,6 +121,7 @@ export const [SettingsContext, useSettings] = createContextHook(() => {
         smsEnabled: integrationPrefsMap.get('sms') ?? false,
         emailEnabled: integrationPrefsMap.get('email') ?? true,
         whatsappEnabled: integrationPrefsMap.get('whatsapp') ?? false,
+        confirmRemoveProofEnabled: removeProofConfirmEnabled,
       });
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -236,6 +250,16 @@ export const [SettingsContext, useSettings] = createContextHook(() => {
     }
   }, [user]);
 
+  const updateRemoveProofConfirmPreference = useCallback(async (enabled: boolean) => {
+    try {
+      await AsyncStorage.setItem(REMOVE_PROOF_CONFIRM_KEY, enabled ? 'true' : 'false');
+      setSettings(prev => ({ ...prev, confirmRemoveProofEnabled: enabled }));
+    } catch (error) {
+      console.error('Error updating remove proof confirmation preference:', error);
+      throw error;
+    }
+  }, []);
+
   return {
     settings,
     isLoading,
@@ -243,6 +267,7 @@ export const [SettingsContext, useSettings] = createContextHook(() => {
     updateLanguage,
     updateCurrencyPreference,
     updateIntegrationPreference,
+    updateRemoveProofConfirmPreference,
     refreshSettings: loadSettings,
     language: settings.language,
   };

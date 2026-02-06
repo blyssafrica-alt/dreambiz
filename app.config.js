@@ -57,6 +57,7 @@ export default {
       'expo-router',
       'expo-font',
       'expo-web-browser',
+      'expo-notifications',
       [
         'expo-image-picker',
         {
