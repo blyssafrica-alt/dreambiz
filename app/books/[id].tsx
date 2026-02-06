@@ -826,39 +826,34 @@ export default function BookDetailScreen() {
                 onChangeText={setAdPaymentReference}
               />
               <Text style={[styles.label, { color: theme.text.secondary }]}>Proof of Payment *</Text>
-              {adPaymentProofUrl ? (
+              {isUploadingAdProof ? (
+                <View style={[styles.proofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
+                  <ActivityIndicator size="large" color={theme.accent.primary} />
+                  <Text style={[styles.proofUploadText, { color: theme.text.primary, marginTop: 8 }]}>Uploading to Supabase...</Text>
+                </View>
+              ) : adPaymentProofUrl ? (
                 <View>
-                  {/* Only show image if it's a public URL, not a local file URI */}
-                  {!adPaymentProofUrl.startsWith('file://') ? (
-                    <Image 
-                      source={{ uri: adPaymentProofUrl }} 
-                      style={styles.proofImage}
-                      resizeMode="cover"
-                      onError={(e) => {
-                        console.error('[Ad Proof] Image load error:', {
-                          url: adPaymentProofUrl,
-                          error: e.nativeEvent?.error,
-                        });
-                        // Clear invalid URL
-                        setAdPaymentProofUrl(null);
-                      }}
-                    />
-                  ) : (
-                    <View style={[styles.proofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
-                      {isUploadingAdProof ? (
-                        <ActivityIndicator size="small" color={theme.accent.primary} />
-                      ) : (
-                        <Text style={{ color: theme.text.tertiary }}>Processing...</Text>
-                      )}
-                    </View>
-                  )}
+                  {/* Only display images from Supabase storage (public URLs) */}
+                  <Image 
+                    source={{ uri: adPaymentProofUrl }} 
+                    style={styles.proofImage}
+                    resizeMode="cover"
+                    onError={(e) => {
+                      console.error('[Ad Proof] Image load error:', {
+                        url: adPaymentProofUrl,
+                        error: e.nativeEvent?.error,
+                      });
+                      // Clear invalid URL
+                      setAdPaymentProofUrl(null);
+                    }}
+                  />
                   <TouchableOpacity
                     style={[styles.proofUploadButton, { marginTop: 8, borderColor: theme.border.light }]}
                     onPress={handlePickAdProofImage}
                     disabled={isUploadingAdProof}
                   >
                     <Text style={[styles.proofUploadText, { color: theme.text.primary }]}>
-                      {isUploadingAdProof ? 'Uploading...' : 'Change Image'}
+                      Change Image
                     </Text>
                   </TouchableOpacity>
                 </View>
