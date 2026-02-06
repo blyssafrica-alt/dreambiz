@@ -1243,9 +1243,18 @@ export default function ProductsScreen() {
               {adPaymentProofUrl ? (
                 <View>
                   <Image 
-                    source={{ uri: adPaymentProofUrl }} 
+                    source={{ uri: (() => {
+                      // Ensure URL is properly encoded and doesn't have spaces
+                      const cleanUrl = adPaymentProofUrl.replace(/ /g, '_');
+                      console.log('[Product Ad Proof] Original URL:', adPaymentProofUrl);
+                      console.log('[Product Ad Proof] Cleaned URL:', cleanUrl);
+                      return cleanUrl;
+                    })() }} 
                     style={styles.proofImage}
-                    onLoadStart={() => console.log('[Product Ad Proof] Starting to load:', adPaymentProofUrl)}
+                    onLoadStart={() => {
+                      const cleanUrl = adPaymentProofUrl.replace(/ /g, '_');
+                      console.log('[Product Ad Proof] Starting to load:', cleanUrl);
+                    }}
                     onLoad={() => console.log('[Product Ad Proof] Loaded successfully:', adPaymentProofUrl)}
                     onError={(e) => {
                       const errorMessage = e.nativeEvent?.error;
