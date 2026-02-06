@@ -60,7 +60,8 @@ export default function AddPaymentScreen() {
           const base64 = await getBase64FromAsset(asset);
           const fileName = buildAssetFileName(asset, 'payment-proof');
           const fileExt = fileName.split('.').pop()?.toLowerCase() || 'jpg';
-          const filePath = `payment_proofs/${fileName}`;
+          // filePath should NOT include the bucket name - it's already specified in the bucket parameter
+          const filePath = fileName;
 
           // Determine correct MIME type from file extension or asset.mimeType
           let contentType = 'image/jpeg'; // default

@@ -287,7 +287,8 @@ export default function BookDetailScreen() {
         try {
           const base64 = await getBase64FromAsset(asset);
           const fileName = buildAssetFileName(asset, 'ad-payment-proof');
-          const filePath = `ad_payment_proofs/${fileName}`;
+          // filePath should NOT include the bucket name - it's already specified in the bucket parameter
+          const filePath = fileName;
           const publicUrl = await uploadBase64ToStorage(supabase, {
             bucket: 'ad_payment_proofs',
             filePath,
@@ -373,7 +374,8 @@ export default function BookDetailScreen() {
           const base64 = await getBase64FromAsset(asset);
           const fileName = buildAssetFileName(asset, 'book-payment-proof');
           const fileExt = fileName.split('.').pop()?.toLowerCase() || 'jpg';
-          const filePath = `payment_proofs/${fileName}`;
+          // filePath should NOT include the bucket name - it's already specified in the bucket parameter
+          const filePath = fileName;
 
           // Determine correct MIME type from file extension or asset.mimeType
           let contentType = 'image/jpeg'; // default

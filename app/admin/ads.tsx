@@ -121,6 +121,13 @@ export default function AdsManagementScreen() {
     ? ads.filter((ad) => ad.autoRenew && ad.status === 'pending')
     : ads;
 
+  // Helper function to normalize payment proof URLs (fix duplicate bucket names)
+  const normalizePaymentProofUrl = (url: string | undefined | null): string | undefined => {
+    if (!url || !url.trim()) return undefined;
+    // Fix duplicate bucket names: /ad_payment_proofs/ad_payment_proofs/ -> /ad_payment_proofs/
+    return url.replace(/\/ad_payment_proofs\/ad_payment_proofs\//g, '/ad_payment_proofs/');
+  };
+
   useEffect(() => {
     loadAds();
     loadBillingDefaults();
@@ -292,7 +299,7 @@ export default function AdsManagementScreen() {
           paymentAmount: row.payment_amount !== null && row.payment_amount !== undefined ? parseFloat(row.payment_amount) : undefined,
           paymentCurrency: row.payment_currency || undefined,
           paymentReference: row.payment_reference || undefined,
-          paymentProofUrl: row.payment_proof_url || undefined,
+          paymentProofUrl: normalizePaymentProofUrl(row.payment_proof_url),
           adminNotes: row.admin_notes || undefined,
           adPackageId: row.ad_package_id || undefined,
           autoRenew: row.auto_renew || false,
@@ -1080,23 +1087,24 @@ export default function AdsManagementScreen() {
                       <View>
                         {!failedImageUrls.has(ad.paymentProofUrl) ? (
                           <TouchableOpacity
-                            onPress={() => setViewingProofImage(ad.paymentProofUrl || null)}
+                            onPress={() => setViewingProofImage(normalizePaymentProofUrl(ad.paymentProofUrl) || null)}
                             activeOpacity={0.7}
                             style={styles.proofImageContainer}
                           >
                         <Image
-                          source={{ uri: ad.paymentProofUrl }}
+                          source={{ uri: normalizePaymentProofUrl(ad.paymentProofUrl) || '' }}
                           style={styles.paymentProofImage}
                           resizeMode="cover"
                           onLoadStart={() => {
+                            const normalizedUrl = normalizePaymentProofUrl(ad.paymentProofUrl);
                             console.log('[Payment Proof] Starting to load image:', {
-                              url: ad.paymentProofUrl,
+                              url: normalizedUrl,
                               adId: ad.id,
-                              fileName: ad.paymentProofUrl?.split('/').pop(),
+                              fileName: normalizedUrl?.split('/').pop(),
                             });
                             // Verify URL is accessible
-                            if (ad.paymentProofUrl) {
-                              fetch(ad.paymentProofUrl, { method: 'HEAD', mode: 'no-cors' })
+                            if (normalizedUrl) {
+                              fetch(normalizedUrl, { method: 'HEAD', mode: 'no-cors' })
                                 .then(() => {
                                   console.log('[Payment Proof] URL is accessible (HEAD request succeeded)');
                                 })
@@ -1106,37 +1114,52 @@ export default function AdsManagementScreen() {
                             }
                           }}
                           onLoad={() => {
+                            const normalizedUrl = normalizePaymentProofUrl(ad.paymentProofUrl);
                             console.log('[Payment Proof] Image loaded successfully:', {
-                              url: ad.paymentProofUrl,
+                              url: normalizedUrl,
                               adId: ad.id,
                             });
                             setFailedImageUrls(prev => {
                               const next = new Set(prev);
-                              next.delete(ad.paymentProofUrl || '');
+                              next.delete(normalizedUrl || '');
                               return next;
                             });
                           }}
                           onError={(e) => {
+                            const normalizedUrl = normalizePaymentProofUrl(ad.paymentProofUrl);
+                            const errorMessage = e.nativeEvent?.error;
                             const errorInfo = {
-                              url: ad.paymentProofUrl,
-                              error: e.nativeEvent?.error || 'Unknown error',
+                              url: normalizedUrl,
+                              error: typeof errorMessage === 'string' ? errorMessage : (errorMessage ? JSON.stringify(errorMessage) : 'Unknown error'),
+                              errorCode: e.nativeEvent?.errorCode,
+                              errorMessage: e.nativeEvent?.errorMessage,
+                              nativeEvent: e.nativeEvent,
                               adId: ad.id,
                               timestamp: new Date().toISOString(),
                             };
-                            console.error('[Payment Proof] Image load error:', errorInfo);
+                            console.error('[Payment Proof] Image load error:', JSON.stringify(errorInfo, null, 2));
+                            console.error('[Payment Proof] Native event details:', e.nativeEvent);
                             // Try to fetch the URL to see what the actual error is
-                            fetch(ad.paymentProofUrl || '', { method: 'HEAD' })
-                              .then(response => {
-                                console.log('[Payment Proof] URL fetch response:', {
-                                  status: response.status,
-                                  statusText: response.statusText,
-                                  headers: Object.fromEntries(response.headers.entries()),
+                            if (normalizedUrl) {
+                              fetch(normalizedUrl, { method: 'HEAD' })
+                                .then(response => {
+                                  console.log('[Payment Proof] URL fetch response:', {
+                                    status: response.status,
+                                    statusText: response.statusText,
+                                    ok: response.ok,
+                                    type: response.type,
+                                  });
+                                })
+                                .catch(fetchError => {
+                                  console.error('[Payment Proof] URL fetch failed:', {
+                                    message: fetchError?.message || String(fetchError),
+                                    name: fetchError?.name,
+                                    stack: fetchError?.stack,
+                                  });
                                 });
-                              })
-                              .catch(fetchError => {
-                                console.error('[Payment Proof] URL fetch failed:', fetchError);
-                              });
-                            setFailedImageUrls(prev => new Set(prev).add(ad.paymentProofUrl || ''));
+                            }
+                            const normalizedUrl = normalizePaymentProofUrl(ad.paymentProofUrl);
+                            setFailedImageUrls(prev => new Set(prev).add(normalizedUrl || ''));
                           }}
                         />
                             <View style={styles.proofImageOverlay}>
@@ -1152,13 +1175,14 @@ export default function AdsManagementScreen() {
                               URL:
                             </Text>
                             <Text style={[styles.proofErrorUrl, { color: theme.text.tertiary }]} numberOfLines={3}>
-                              {ad.paymentProofUrl}
+                              {normalizePaymentProofUrl(ad.paymentProofUrl)}
                             </Text>
                             <TouchableOpacity
                               onPress={() => {
+                                const normalizedUrl = normalizePaymentProofUrl(ad.paymentProofUrl);
                                 setFailedImageUrls(prev => {
                                   const next = new Set(prev);
-                                  next.delete(ad.paymentProofUrl || '');
+                                  next.delete(normalizedUrl || '');
                                   return next;
                                 });
                               }}
