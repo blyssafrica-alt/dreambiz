@@ -349,6 +349,8 @@ export default function ProductsScreen() {
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        // Match book cover pattern: set local URI first for immediate preview
+        setAdPaymentProofUrl(asset.uri);
         setIsUploadingAdProof(true);
         try {
           const base64 = await getBase64FromAsset(asset);
@@ -364,7 +366,7 @@ export default function ProductsScreen() {
             upsert: false,
           });
           
-          // Store URL directly (same as book covers - no cleaning needed)
+          // Replace local URI with public URL (same as book covers)
           setAdPaymentProofUrl(publicUrl);
         } catch (error: any) {
           console.error('[Product Ad Proof Upload] Upload failed:', {
@@ -1223,6 +1225,19 @@ export default function ProductsScreen() {
                     source={{ uri: adPaymentProofUrl }} 
                     style={styles.proofImage}
                     resizeMode="cover"
+                    onError={(e) => {
+                      // If local URI fails, wait for upload to complete
+                      if (adPaymentProofUrl?.startsWith('file://') && isUploadingAdProof) {
+                        console.log('[Product Ad Proof] Local URI failed, waiting for upload to complete...');
+                        return;
+                      }
+                      console.error('[Product Ad Proof] Image load error:', {
+                        url: adPaymentProofUrl,
+                        isLocal: adPaymentProofUrl?.startsWith('file://'),
+                        isUploading: isUploadingAdProof,
+                        error: e.nativeEvent?.error,
+                      });
+                    }}
                   />
                   <TouchableOpacity
                     style={[styles.proofUploadButton, { marginTop: 8, borderColor: theme.border.light }]}

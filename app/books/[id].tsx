@@ -281,10 +281,12 @@ export default function BookDetailScreen() {
         quality: 0.8,
         base64: true,
       });
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        setIsUploadingAdProof(true);
-        try {
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      // Match book cover pattern: set local URI first for immediate preview
+      setAdPaymentProofUrl(asset.uri);
+      setIsUploadingAdProof(true);
+      try {
           const base64 = await getBase64FromAsset(asset);
           const fileName = buildAssetFileName(asset, 'ad-payment-proof');
           // Match book cover pattern: include bucket prefix in filePath
@@ -298,7 +300,7 @@ export default function BookDetailScreen() {
             upsert: false,
           });
           
-          // Store URL directly (same as book covers - no cleaning needed)
+          // Replace local URI with public URL (same as book covers)
           setAdPaymentProofUrl(publicUrl);
         } catch (error: any) {
           console.error('[Ad Proof Upload] Upload failed:', {
