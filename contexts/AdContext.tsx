@@ -508,22 +508,31 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
   }, [user, business, impressionHistory, sessionId]);
 
   const trackClick = useCallback(async (adId: string, location: string) => {
-    if (!user || !business) return;
+    if (!user || !business) {
+      console.warn('trackClick: Missing user or business', { userId: user?.id, businessId: business?.id });
+      return;
+    }
 
     try {
+      console.log('trackClick: Tracking click for ad', { adId, location, sessionId });
       // Find the most recent impression for this ad in this session
       const recentImpression = impressionHistory
         .filter(imp => imp.adId === adId && imp.sessionId === sessionId && imp.location === location)
         .sort((a, b) => new Date(b.viewedAt).getTime() - new Date(a.viewedAt).getTime())[0];
 
       if (recentImpression && !recentImpression.clicked) {
-        await supabase
+        const { error: updateError } = await supabase
           .from('ad_impressions')
           .update({
             clicked: true,
             clicked_at: new Date().toISOString(),
           })
           .eq('id', recentImpression.id);
+
+        if (updateError) {
+          console.error('Failed to update impression click status:', formatSupabaseError(updateError));
+          throw updateError;
+        }
 
         // Update local state
         setImpressionHistory(prev =>
@@ -553,6 +562,7 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
         if (error) throw error;
 
         if (data) {
+          console.log('trackClick: Successfully inserted click impression', { impressionId: data.id, adId });
           setImpressionHistory(prev => [...prev, {
             id: data.id,
             adId: data.ad_id,
@@ -566,6 +576,8 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
             converted: data.converted,
           }]);
         }
+      } else if (recentImpression && !recentImpression.clicked) {
+        console.log('trackClick: Successfully updated impression to clicked', { impressionId: recentImpression.id, adId });
       }
       setLastAdClick({ adId, location, at: Date.now() });
     } catch (error) {

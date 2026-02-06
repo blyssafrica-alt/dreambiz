@@ -186,14 +186,27 @@ export default function AdsManagementScreen() {
   };
 
   const loadBillingDefaults = async () => {
+    // Load default for the currently selected billing type
     const { data, error } = await supabase
       .from('ad_billing_settings')
       .select('*')
-      .limit(1)
+      .eq('billing_type', defaultBillingType)
       .single();
-    if (error) return;
+    if (error) {
+      // If no default exists for this type, try to load any default
+      const { data: fallbackData } = await supabase
+        .from('ad_billing_settings')
+        .select('*')
+        .limit(1)
+        .single();
+      if (fallbackData) {
+        setDefaultBillingType((fallbackData.billing_type as 'cpc' | 'cpe' | 'cpa') || 'cpc');
+        setDefaultBillingRate(fallbackData.billing_rate !== null && fallbackData.billing_rate !== undefined ? String(fallbackData.billing_rate) : '');
+        setDefaultBillingCurrency(fallbackData.currency || 'USD');
+      }
+      return;
+    }
     if (data) {
-      setDefaultBillingType((data.billing_type as 'cpc' | 'cpe' | 'cpa') || 'cpc');
       setDefaultBillingRate(data.billing_rate !== null && data.billing_rate !== undefined ? String(data.billing_rate) : '');
       setDefaultBillingCurrency(data.currency || 'USD');
     }
@@ -210,10 +223,10 @@ export default function AdsManagementScreen() {
           billing_rate: Number.isFinite(parsedRate) && parsedRate >= 0 ? parsedRate : 0,
           currency: defaultBillingCurrency || 'USD',
           updated_at: new Date().toISOString(),
-        })
+        }, { onConflict: 'billing_type' })
         .select();
       if (error) throw error;
-      Alert.alert('Saved', 'Billing defaults updated.');
+      Alert.alert('Saved', `Billing default for ${defaultBillingType.toUpperCase()} updated.`);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to save billing defaults.');
     } finally {
@@ -534,7 +547,7 @@ export default function AdsManagementScreen() {
         spend: Number.isFinite(parsedSpend) && parsedSpend >= 0 ? parsedSpend : null,
         spend_currency: formData.spendCurrency || 'USD',
         billing_type: formData.billingType || defaultBillingType,
-        billing_rate: Number.isFinite(parsedBillingRate) && parsedBillingRate >= 0 ? parsedBillingRate : null,
+        billing_rate: Number.isFinite(parsedBillingRate) && parsedBillingRate >= 0 ? parsedBillingRate : (Number.isFinite(parseFloat(defaultBillingRate)) && parseFloat(defaultBillingRate) >= 0 ? parseFloat(defaultBillingRate) : 0),
         campaign_id: formData.campaignId || null,
         ad_set_id: formData.adSetId || null,
         status: formData.status,
@@ -806,7 +819,11 @@ export default function AdsManagementScreen() {
               <TouchableOpacity
                 key={option.key}
                 style={[styles.typeButton, { backgroundColor: defaultBillingType === option.key ? theme.accent.primary : theme.background.secondary }]}
-                onPress={() => setDefaultBillingType(option.key)}
+                onPress={() => {
+                  setDefaultBillingType(option.key);
+                  // Reload defaults for the new billing type
+                  setTimeout(() => loadBillingDefaults(), 100);
+                }}
               >
                 <Text style={[styles.typeButtonText, { color: defaultBillingType === option.key ? '#FFF' : theme.text.primary }]}>
                   {option.label}

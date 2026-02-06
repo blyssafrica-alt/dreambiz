@@ -14,9 +14,15 @@ export default function AdminSettingsScreen() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [billingType, setBillingType] = useState<BillingType>('cpc');
-  const [billingRate, setBillingRate] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const [billingSettings, setBillingSettings] = useState<{
+    cpc: { rate: string; currency: string };
+    cpe: { rate: string; currency: string };
+    cpa: { rate: string; currency: string };
+  }>({
+    cpc: { rate: '', currency: 'USD' },
+    cpe: { rate: '', currency: 'USD' },
+    cpa: { rate: '', currency: 'USD' },
+  });
 
   useEffect(() => {
     loadDefaults();
@@ -28,12 +34,26 @@ export default function AdminSettingsScreen() {
       const { data, error } = await supabase
         .from('ad_billing_settings')
         .select('*')
-        .limit(1)
-        .single();
+        .order('billing_type');
+      
       if (!error && data) {
-        setBillingType((data.billing_type as BillingType) || 'cpc');
-        setBillingRate(data.billing_rate !== null && data.billing_rate !== undefined ? String(data.billing_rate) : '');
-        setCurrency(data.currency || 'USD');
+        const settings: typeof billingSettings = {
+          cpc: { rate: '', currency: 'USD' },
+          cpe: { rate: '', currency: 'USD' },
+          cpa: { rate: '', currency: 'USD' },
+        };
+        
+        data.forEach((item: any) => {
+          const type = item.billing_type as BillingType;
+          if (settings[type]) {
+            settings[type] = {
+              rate: item.billing_rate !== null && item.billing_rate !== undefined ? String(item.billing_rate) : '',
+              currency: item.currency || 'USD',
+            };
+          }
+        });
+        
+        setBillingSettings(settings);
       }
     } catch (error) {
       console.warn('Failed to load billing defaults:', error);
@@ -45,18 +65,25 @@ export default function AdminSettingsScreen() {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      const parsedRate = parseFloat(billingRate);
+      
+      // Upsert all three billing types
+      const settingsToSave = (['cpc', 'cpe', 'cpa'] as BillingType[]).map(type => {
+        const parsedRate = parseFloat(billingSettings[type].rate);
+        return {
+          billing_type: type,
+          billing_rate: Number.isFinite(parsedRate) && parsedRate >= 0 ? parsedRate : 0,
+          currency: billingSettings[type].currency || 'USD',
+          updated_at: new Date().toISOString(),
+        };
+      });
+      
       const { error } = await supabase
         .from('ad_billing_settings')
-        .upsert({
-          billing_type: billingType,
-          billing_rate: Number.isFinite(parsedRate) && parsedRate >= 0 ? parsedRate : 0,
-          currency: currency || 'USD',
-          updated_at: new Date().toISOString(),
-        })
+        .upsert(settingsToSave, { onConflict: 'billing_type' })
         .select();
+      
       if (error) throw error;
-      Alert.alert('Saved', 'Admin settings updated.');
+      Alert.alert('Saved', 'Billing defaults updated for all types.');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to save settings.');
     } finally {
@@ -98,42 +125,52 @@ export default function AdminSettingsScreen() {
             <Text style={[styles.cardTitle, { color: theme.text.primary }]}>Ad Billing Defaults</Text>
           </View>
           <Text style={[styles.cardSubtitle, { color: theme.text.secondary }]}>
-            Default billing model and rate for new ads.
+            Default billing rates for each billing model. These will be used when creating new ads.
           </Text>
 
-          <Text style={[styles.label, { color: theme.text.secondary }]}>Billing Model</Text>
-          <View style={styles.typeButtons}>
-            {(['cpc', 'cpe', 'cpa'] as BillingType[]).map(type => (
-              <TouchableOpacity
-                key={type}
-                style={[styles.typeButton, { backgroundColor: billingType === type ? theme.accent.primary : theme.background.secondary }]}
-                onPress={() => setBillingType(type)}
-              >
-                <Text style={[styles.typeButtonText, { color: billingType === type ? '#FFF' : theme.text.primary }]}>
-                  {type.toUpperCase()}
+          {(['cpc', 'cpe', 'cpa'] as BillingType[]).map(type => (
+            <View key={type} style={styles.billingTypeSection}>
+              <View style={styles.billingTypeHeader}>
+                <Text style={[styles.billingTypeLabel, { color: theme.text.primary }]}>
+                  {type.toUpperCase()} (Cost Per {type === 'cpc' ? 'Click' : type === 'cpe' ? 'Engagement' : 'Acquisition'})
                 </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={[styles.label, { color: theme.text.secondary }]}>Rate</Text>
-          <View style={styles.rowInputs}>
-            <TextInput
-              style={[styles.input, styles.rowInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-              placeholder="0.00"
-              placeholderTextColor={theme.text.tertiary}
-              value={billingRate}
-              onChangeText={(text) => setBillingRate(text.replace(/[^0-9.]/g, ''))}
-              keyboardType="decimal-pad"
-            />
-            <TextInput
-              style={[styles.input, styles.rowInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-              placeholder="USD"
-              placeholderTextColor={theme.text.tertiary}
-              value={currency}
-              onChangeText={(text) => setCurrency(text.toUpperCase().slice(0, 3))}
-            />
-          </View>
+              </View>
+              <View style={styles.rowInputs}>
+                <View style={styles.rateInputContainer}>
+                  <Text style={[styles.inputLabel, { color: theme.text.secondary }]}>Rate</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                    placeholder="0.00"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={billingSettings[type].rate}
+                    onChangeText={(text) => {
+                      setBillingSettings(prev => ({
+                        ...prev,
+                        [type]: { ...prev[type], rate: text.replace(/[^0-9.]/g, '') }
+                      }));
+                    }}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                <View style={styles.currencyInputContainer}>
+                  <Text style={[styles.inputLabel, { color: theme.text.secondary }]}>Currency</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                    placeholder="USD"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={billingSettings[type].currency}
+                    onChangeText={(text) => {
+                      setBillingSettings(prev => ({
+                        ...prev,
+                        [type]: { ...prev[type], currency: text.toUpperCase().slice(0, 3) }
+                      }));
+                    }}
+                    maxLength={3}
+                  />
+                </View>
+              </View>
+            </View>
+          ))}
 
           <TouchableOpacity
             style={[styles.saveButton, { backgroundColor: theme.accent.primary }]}
@@ -174,11 +211,13 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 16, fontWeight: '700' },
   cardSubtitle: { fontSize: 13, marginBottom: 12 },
   label: { fontSize: 13, fontWeight: '600', marginTop: 12, marginBottom: 6 },
-  typeButtons: { flexDirection: 'row', gap: 8, marginBottom: 6 },
-  typeButton: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8 },
-  typeButtonText: { fontSize: 13, fontWeight: '600' },
-  rowInputs: { flexDirection: 'row', gap: 8 },
-  rowInput: { flex: 1 },
+  billingTypeSection: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
+  billingTypeHeader: { marginBottom: 8 },
+  billingTypeLabel: { fontSize: 14, fontWeight: '700' },
+  rowInputs: { flexDirection: 'row', gap: 12 },
+  rateInputContainer: { flex: 2 },
+  currencyInputContainer: { flex: 1 },
+  inputLabel: { fontSize: 12, fontWeight: '600', marginBottom: 6 },
   input: { padding: 12, borderRadius: 10, fontSize: 14 },
   saveButton: { marginTop: 16, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   saveButtonText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
