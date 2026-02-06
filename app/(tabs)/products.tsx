@@ -1218,33 +1218,27 @@ export default function ProductsScreen() {
                 onChangeText={setAdPaymentReference}
               />
               <Text style={[styles.label, { color: theme.text.secondary }]}>Proof of Payment *</Text>
-              {adPaymentProofUrl ? (
+              {adPaymentProofUrl && !isUploadingAdProof ? (
                 <View>
-                  {/* Only show image if it's a public URL, not a local file URI */}
-                  {!adPaymentProofUrl.startsWith('file://') ? (
-                    <Image 
-                      source={{ uri: adPaymentProofUrl }} 
-                      style={styles.proofImage}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={[styles.proofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
-                      {isUploadingAdProof ? (
-                        <ActivityIndicator size="small" color={theme.accent.primary} />
-                      ) : (
-                        <Text style={{ color: theme.text.tertiary }}>Processing...</Text>
-                      )}
-                    </View>
-                  )}
+                  <Image 
+                    source={{ uri: adPaymentProofUrl }} 
+                    style={styles.proofImage}
+                    resizeMode="cover"
+                  />
                   <TouchableOpacity
                     style={[styles.proofUploadButton, { marginTop: 8, borderColor: theme.border.light }]}
                     onPress={handlePickAdProofImage}
                     disabled={isUploadingAdProof}
                   >
                     <Text style={[styles.proofUploadText, { color: theme.text.primary }]}>
-                      {isUploadingAdProof ? 'Uploading...' : 'Change Image'}
+                      Change Image
                     </Text>
                   </TouchableOpacity>
+                </View>
+              ) : isUploadingAdProof ? (
+                <View style={[styles.proofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
+                  <ActivityIndicator size="small" color={theme.accent.primary} />
+                  <Text style={[styles.proofUploadText, { marginTop: 8, color: theme.text.tertiary }]}>Uploading...</Text>
                 </View>
               ) : (
                 <TouchableOpacity
@@ -1253,7 +1247,7 @@ export default function ProductsScreen() {
                   disabled={isUploadingAdProof}
                 >
                   <Text style={[styles.proofUploadText, { color: theme.text.primary }]}>
-                    {isUploadingAdProof ? 'Uploading...' : 'Upload Proof'}
+                    Upload Proof
                   </Text>
                 </TouchableOpacity>
               )}
