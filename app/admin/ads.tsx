@@ -116,6 +116,7 @@ export default function AdsManagementScreen() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [viewingProofImage, setViewingProofImage] = useState<string | null>(null);
   const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(new Set());
+  const [imageUrlFallbacks, setImageUrlFallbacks] = useState<Record<string, number>>({});
   const activeFilter = searchParams.filter === 'auto_renew_pending' ? 'auto_renew_pending' : 'all';
   const filteredAds = activeFilter === 'auto_renew_pending'
     ? ads.filter((ad) => ad.autoRenew && ad.status === 'pending')
@@ -126,6 +127,24 @@ export default function AdsManagementScreen() {
     if (!url || !url.trim()) return undefined;
     // Fix duplicate bucket names: /ad_payment_proofs/ad_payment_proofs/ -> /ad_payment_proofs/
     return url.replace(/\/ad_payment_proofs\/ad_payment_proofs\//g, '/ad_payment_proofs/');
+  };
+
+  // Helper function to get fallback URL (try old duplicate path if correct path fails)
+  const getPaymentProofUrlWithFallback = (url: string | undefined | null): string[] => {
+    if (!url || !url.trim()) return [];
+    const normalized = normalizePaymentProofUrl(url);
+    if (!normalized) return [];
+    
+    // If URL is already normalized (no duplicate), try it first
+    // If it has duplicate, try both the normalized and original
+    if (url.includes('/ad_payment_proofs/ad_payment_proofs/')) {
+      // Original has duplicate - try normalized first, then original as fallback
+      return [normalized, url];
+    } else {
+      // Already normalized - try it, and also try the duplicate version as fallback
+      const duplicateVersion = normalized.replace('/ad_payment_proofs/', '/ad_payment_proofs/ad_payment_proofs/');
+      return [normalized, duplicateVersion];
+    }
   };
 
   useEffect(() => {
@@ -1092,7 +1111,25 @@ export default function AdsManagementScreen() {
                             style={styles.proofImageContainer}
                           >
                         <Image
-                          source={{ uri: normalizePaymentProofUrl(ad.paymentProofUrl) || '' }}
+                          source={{ 
+                            uri: (() => {
+                              const normalizedUrl = normalizePaymentProofUrl(ad.paymentProofUrl);
+                              if (!normalizedUrl) return '';
+                              
+                              const fallbackIndex = imageUrlFallbacks[ad.id] || 0;
+                              const urls = getPaymentProofUrlWithFallback(ad.paymentProofUrl);
+                              const urlToTry = urls[fallbackIndex] || normalizedUrl;
+                              
+                              console.log('[Payment Proof] Trying URL:', {
+                                adId: ad.id,
+                                fallbackIndex,
+                                url: urlToTry,
+                                allUrls: urls,
+                              });
+                              
+                              return urlToTry;
+                            })()
+                          }}
                           style={styles.paymentProofImage}
                           resizeMode="cover"
                           onLoadStart={() => {
@@ -1102,16 +1139,6 @@ export default function AdsManagementScreen() {
                               adId: ad.id,
                               fileName: normalizedUrl?.split('/').pop(),
                             });
-                            // Verify URL is accessible
-                            if (normalizedUrl) {
-                              fetch(normalizedUrl, { method: 'HEAD', mode: 'no-cors' })
-                                .then(() => {
-                                  console.log('[Payment Proof] URL is accessible (HEAD request succeeded)');
-                                })
-                                .catch((err) => {
-                                  console.warn('[Payment Proof] URL HEAD request failed (may be CORS):', err);
-                                });
-                            }
                           }}
                           onLoad={() => {
                             const normalizedUrl = normalizePaymentProofUrl(ad.paymentProofUrl);
@@ -1127,9 +1154,14 @@ export default function AdsManagementScreen() {
                           }}
                           onError={(e) => {
                             const normalizedUrl = normalizePaymentProofUrl(ad.paymentProofUrl);
+                            const fallbackIndex = imageUrlFallbacks[ad.id] || 0;
+                            const urls = getPaymentProofUrlWithFallback(ad.paymentProofUrl);
+                            
                             const errorMessage = e.nativeEvent?.error;
                             const errorInfo = {
-                              url: normalizedUrl,
+                              url: urls[fallbackIndex] || normalizedUrl,
+                              fallbackIndex,
+                              totalFallbacks: urls.length,
                               error: typeof errorMessage === 'string' ? errorMessage : (errorMessage ? JSON.stringify(errorMessage) : 'Unknown error'),
                               errorCode: e.nativeEvent?.errorCode,
                               errorMessage: e.nativeEvent?.errorMessage,
@@ -1138,27 +1170,23 @@ export default function AdsManagementScreen() {
                               timestamp: new Date().toISOString(),
                             };
                             console.error('[Payment Proof] Image load error:', JSON.stringify(errorInfo, null, 2));
-                            console.error('[Payment Proof] Native event details:', e.nativeEvent);
-                            // Try to fetch the URL to see what the actual error is
-                            if (normalizedUrl) {
-                              fetch(normalizedUrl, { method: 'HEAD' })
-                                .then(response => {
-                                  console.log('[Payment Proof] URL fetch response:', {
-                                    status: response.status,
-                                    statusText: response.statusText,
-                                    ok: response.ok,
-                                    type: response.type,
-                                  });
-                                })
-                                .catch(fetchError => {
-                                  console.error('[Payment Proof] URL fetch failed:', {
-                                    message: fetchError?.message || String(fetchError),
-                                    name: fetchError?.name,
-                                    stack: fetchError?.stack,
-                                  });
-                                });
+                            
+                            // Try next fallback URL if available
+                            if (fallbackIndex < urls.length - 1) {
+                              console.log('[Payment Proof] Trying fallback URL:', {
+                                adId: ad.id,
+                                nextIndex: fallbackIndex + 1,
+                                nextUrl: urls[fallbackIndex + 1],
+                              });
+                              setImageUrlFallbacks(prev => ({
+                                ...prev,
+                                [ad.id]: fallbackIndex + 1,
+                              }));
+                            } else {
+                              // All fallbacks exhausted, mark as failed
+                              console.error('[Payment Proof] All fallback URLs failed for ad:', ad.id);
+                              setFailedImageUrls(prev => new Set(prev).add(normalizedUrl || ''));
                             }
-                            setFailedImageUrls(prev => new Set(prev).add(normalizedUrl || ''));
                           }}
                         />
                             <View style={styles.proofImageOverlay}>
