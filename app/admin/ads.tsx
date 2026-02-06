@@ -115,6 +115,7 @@ export default function AdsManagementScreen() {
   });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [viewingProofImage, setViewingProofImage] = useState<string | null>(null);
+  const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(new Set());
   const activeFilter = searchParams.filter === 'auto_renew_pending' ? 'auto_renew_pending' : 'all';
   const filteredAds = activeFilter === 'auto_renew_pending'
     ? ads.filter((ad) => ad.autoRenew && ad.status === 'pending')
@@ -261,7 +262,7 @@ export default function AdsManagementScreen() {
           return acc;
         }, {});
 
-        setAds(data.map((row: any) => ({
+        const mappedAds = data.map((row: any) => ({
           id: row.id,
           title: row.title,
           description: row.description,
@@ -307,7 +308,34 @@ export default function AdsManagementScreen() {
           createdBy: row.created_by,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
-        })));
+        }));
+        
+        // Debug: Log ads with payment proofs
+        const adsWithProofs = mappedAds.filter((ad: any) => ad.paymentProofUrl && ad.paymentProofUrl.trim() !== '');
+        if (adsWithProofs.length > 0) {
+          console.log('[Admin Ads] Ads with payment proofs:', adsWithProofs.map((ad: any) => ({
+            id: ad.id,
+            title: ad.title,
+            paymentProofUrl: ad.paymentProofUrl,
+            status: ad.status,
+            paymentStatus: ad.paymentStatus,
+          })));
+        } else {
+          console.log('[Admin Ads] No ads with payment proofs found. Total ads:', mappedAds.length);
+          // Log ads with pending status to see if they should have proofs
+          const pendingAds = mappedAds.filter((ad: any) => ad.status === 'pending');
+          if (pendingAds.length > 0) {
+            console.log('[Admin Ads] Pending ads without proofs:', pendingAds.map((ad: any) => ({
+              id: ad.id,
+              title: ad.title,
+              paymentStatus: ad.paymentStatus,
+              paymentAmount: ad.paymentAmount,
+              hasProofUrl: !!ad.paymentProofUrl,
+            })));
+          }
+        }
+        
+        setAds(mappedAds);
       }
     } catch (error) {
       console.error('Failed to load ads:', error);
@@ -1025,30 +1053,130 @@ export default function AdsManagementScreen() {
                       Reference: {ad.paymentReference}
                     </Text>
                   )}
-                  {ad.paymentProofUrl ? (
-                    <View style={styles.proofSection}>
+                  <View style={styles.proofSection}>
+                    <View style={styles.proofHeader}>
                       <Text style={[styles.proofLabel, { color: theme.text.secondary }]}>Proof of Payment</Text>
-                      <TouchableOpacity
-                        onPress={() => setViewingProofImage(ad.paymentProofUrl || null)}
-                        activeOpacity={0.7}
-                      >
+                      {ad.paymentProofUrl && ad.paymentProofUrl.trim() !== '' && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            console.log('[Payment Proof] Full URL:', ad.paymentProofUrl);
+                            Alert.alert('Payment Proof URL', ad.paymentProofUrl, [
+                              { text: 'Copy', onPress: () => {
+                                // Copy to clipboard if available
+                                if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                                  navigator.clipboard.writeText(ad.paymentProofUrl);
+                                }
+                              }},
+                              { text: 'OK' }
+                            ]);
+                          }}
+                          style={styles.debugButton}
+                        >
+                          <Text style={[styles.debugButtonText, { color: theme.text.tertiary }]}>🔍</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    {ad.paymentProofUrl && ad.paymentProofUrl.trim() !== '' ? (
+                      <View>
+                        {!failedImageUrls.has(ad.paymentProofUrl) ? (
+                          <TouchableOpacity
+                            onPress={() => setViewingProofImage(ad.paymentProofUrl || null)}
+                            activeOpacity={0.7}
+                            style={styles.proofImageContainer}
+                          >
                         <Image
                           source={{ uri: ad.paymentProofUrl }}
                           style={styles.paymentProofImage}
                           resizeMode="cover"
+                          onLoadStart={() => {
+                            console.log('[Payment Proof] Starting to load image:', {
+                              url: ad.paymentProofUrl,
+                              adId: ad.id,
+                              fileName: ad.paymentProofUrl?.split('/').pop(),
+                            });
+                            // Verify URL is accessible
+                            if (ad.paymentProofUrl) {
+                              fetch(ad.paymentProofUrl, { method: 'HEAD', mode: 'no-cors' })
+                                .then(() => {
+                                  console.log('[Payment Proof] URL is accessible (HEAD request succeeded)');
+                                })
+                                .catch((err) => {
+                                  console.warn('[Payment Proof] URL HEAD request failed (may be CORS):', err);
+                                });
+                            }
+                          }}
+                          onLoad={() => {
+                            console.log('[Payment Proof] Image loaded successfully:', {
+                              url: ad.paymentProofUrl,
+                              adId: ad.id,
+                            });
+                            setFailedImageUrls(prev => {
+                              const next = new Set(prev);
+                              next.delete(ad.paymentProofUrl || '');
+                              return next;
+                            });
+                          }}
                           onError={(e) => {
-                            console.error('Error loading payment proof image:', e.nativeEvent.error);
+                            const errorInfo = {
+                              url: ad.paymentProofUrl,
+                              error: e.nativeEvent?.error || 'Unknown error',
+                              adId: ad.id,
+                              timestamp: new Date().toISOString(),
+                            };
+                            console.error('[Payment Proof] Image load error:', errorInfo);
+                            // Try to fetch the URL to see what the actual error is
+                            fetch(ad.paymentProofUrl || '', { method: 'HEAD' })
+                              .then(response => {
+                                console.log('[Payment Proof] URL fetch response:', {
+                                  status: response.status,
+                                  statusText: response.statusText,
+                                  headers: Object.fromEntries(response.headers.entries()),
+                                });
+                              })
+                              .catch(fetchError => {
+                                console.error('[Payment Proof] URL fetch failed:', fetchError);
+                              });
+                            setFailedImageUrls(prev => new Set(prev).add(ad.paymentProofUrl || ''));
                           }}
                         />
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <View style={styles.noProofSection}>
-                      <Text style={[styles.noProofText, { color: theme.text.tertiary }]}>
-                        No payment proof uploaded
-                      </Text>
-                    </View>
-                  )}
+                            <View style={styles.proofImageOverlay}>
+                              <Text style={styles.proofImageOverlayText}>Tap to view full size</Text>
+                            </View>
+                          </TouchableOpacity>
+                        ) : (
+                          <View style={styles.proofErrorContainer}>
+                            <Text style={[styles.proofErrorText, { color: theme.text.secondary }]}>
+                              Image failed to load
+                            </Text>
+                            <Text style={[styles.proofErrorLabel, { color: theme.text.tertiary }]}>
+                              URL:
+                            </Text>
+                            <Text style={[styles.proofErrorUrl, { color: theme.text.tertiary }]} numberOfLines={3}>
+                              {ad.paymentProofUrl}
+                            </Text>
+                            <TouchableOpacity
+                              onPress={() => {
+                                setFailedImageUrls(prev => {
+                                  const next = new Set(prev);
+                                  next.delete(ad.paymentProofUrl || '');
+                                  return next;
+                                });
+                              }}
+                              style={[styles.retryButton, { backgroundColor: theme.background.secondary }]}
+                            >
+                              <Text style={[styles.retryButtonText, { color: theme.accent.primary }]}>Retry</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    ) : (
+                      <View style={styles.noProofSection}>
+                        <Text style={[styles.noProofText, { color: theme.text.tertiary }]}>
+                          No payment proof uploaded
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                   <TextInput
                     style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
                     placeholder="Admin notes (optional)"
@@ -1837,20 +1965,54 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 8,
   },
+  proofHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   proofLabel: {
     fontSize: 12,
     fontWeight: '600',
-    marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    flex: 1,
+  },
+  debugButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  debugButtonText: {
+    fontSize: 14,
+  },
+  proofImageContainer: {
+    position: 'relative',
+    width: '100%',
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   paymentProofImage: {
     width: '100%',
     height: 200,
-    borderRadius: 8,
     backgroundColor: '#F3F4F6',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+  },
+  proofImageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  proofImageOverlayText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '600',
   },
   noProofSection: {
     marginTop: 12,
@@ -1901,6 +2063,45 @@ const styles = StyleSheet.create({
   fullSizeProofImage: {
     width: '100%',
     height: '100%',
+  },
+  proofErrorContainer: {
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  proofErrorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  proofErrorLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  proofErrorUrl: {
+    fontSize: 10,
+    marginBottom: 12,
+    fontFamily: 'monospace',
+    backgroundColor: '#FFF',
+    padding: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  retryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginTop: 4,
+  },
+  retryButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
   modalContent: {
