@@ -39,6 +39,20 @@ interface PaymentMethod {
   display_order: number;
 }
 
+// Helper function to clean payment proof URLs - fixes bucket name spaces and encoding
+const cleanPaymentProofUrl = (url: string | null | undefined): string => {
+  if (!url || !url.trim()) return '';
+  let cleaned = url.trim();
+  // Fix bucket name with spaces: ad payment proofs -> ad_payment_proofs
+  cleaned = cleaned.replace(/\/ad payment proofs\//g, '/ad_payment_proofs/');
+  cleaned = cleaned.replace(/ad payment proofs/g, 'ad_payment_proofs');
+  // Encode any remaining spaces
+  cleaned = cleaned.replace(/ /g, '%20');
+  // Ensure no double encoding
+  cleaned = cleaned.replace(/%20%20/g, '%20');
+  return cleaned;
+};
+
 export default function BookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { theme } = useTheme();
@@ -297,35 +311,46 @@ export default function BookDetailScreen() {
             upsert: false,
           });
           // Clean URL: ensure no spaces in bucket name or path
-          const cleanUrl = publicUrl.replace(/ad payment proofs/g, 'ad_payment_proofs').replace(/ /g, '%20');
+          const cleanUrl = cleanPaymentProofUrl(publicUrl);
+          
+          // Double-check: if URL still has spaces, log error
+          if (cleanUrl.includes(' ')) {
+            console.error('[Ad Proof Upload] CRITICAL: URL still contains spaces after cleaning!', {
+              original: publicUrl,
+              cleaned: cleanUrl,
+            });
+          }
           
           console.log('[Ad Proof Upload] Upload successful:', {
             fileName,
             filePath,
             originalUrl: publicUrl,
             cleanedUrl: cleanUrl,
+            hasSpaces: cleanUrl.includes(' '),
             bucket: 'ad_payment_proofs',
           });
           
           // Verify the file is accessible after upload
           try {
-            const verifyResponse = await fetch(cleanUrl, { method: 'HEAD' });
+            const verifyResponse = await fetch(cleanUrl, { method: 'HEAD', mode: 'no-cors' });
             console.log('[Ad Proof Upload] Verification response:', {
               status: verifyResponse.status,
               ok: verifyResponse.ok,
+              type: verifyResponse.type,
               url: cleanUrl,
             });
-            if (!verifyResponse.ok) {
+            if (!verifyResponse.ok && verifyResponse.type !== 'opaque') {
               console.warn('[Ad Proof Upload] File uploaded but not accessible:', {
                 status: verifyResponse.status,
                 url: cleanUrl,
-                message: 'Bucket may not be public or RLS policies may be blocking access',
+                message: 'Bucket may not be public or RLS policies may be blocking access. Run database/fix_ad_payment_proofs_public_access.sql',
               });
             }
           } catch (verifyError) {
-            console.warn('[Ad Proof Upload] Could not verify file accessibility:', verifyError);
+            console.warn('[Ad Proof Upload] Could not verify file accessibility (may be CORS):', verifyError);
           }
           
+          // Store cleaned URL in state
           setAdPaymentProofUrl(cleanUrl);
         } catch (error: any) {
           console.error('[Ad Proof Upload] Upload failed:', {
@@ -848,50 +873,36 @@ export default function BookDetailScreen() {
               {adPaymentProofUrl ? (
                 <View>
                   <Image 
-                    source={{ uri: (() => {
-                      // Ensure URL is properly encoded - fix bucket name and encode spaces
-                      let cleanUrl = adPaymentProofUrl || '';
-                      // Fix bucket name - replace spaces with underscores in bucket name specifically
-                      cleanUrl = cleanUrl.replace(/\/ad payment proofs\//g, '/ad_payment_proofs/');
-                      // Also handle if bucket name appears anywhere else in the path
-                      cleanUrl = cleanUrl.replace(/ad payment proofs/g, 'ad_payment_proofs');
-                      // Encode any remaining spaces in the URL
-                      cleanUrl = cleanUrl.replace(/ /g, '%20');
-                      console.log('[Ad Proof] Original URL:', adPaymentProofUrl);
-                      console.log('[Ad Proof] Cleaned URL:', cleanUrl);
-                      // Verify the cleaned URL doesn't have spaces
-                      if (cleanUrl.includes(' ')) {
-                        console.error('[Ad Proof] WARNING: Cleaned URL still contains spaces!', cleanUrl);
-                      }
-                      return cleanUrl;
-                    })() }} 
+                    source={{ uri: cleanPaymentProofUrl(adPaymentProofUrl) }} 
                     style={styles.proofImage}
+                    resizeMode="cover"
                     onLoadStart={() => {
-                      let cleanUrl = adPaymentProofUrl || '';
-                      cleanUrl = cleanUrl.replace(/\/ad payment proofs\//g, '/ad_payment_proofs/');
-                      cleanUrl = cleanUrl.replace(/ad payment proofs/g, 'ad_payment_proofs');
-                      cleanUrl = cleanUrl.replace(/ /g, '%20');
+                      const cleanUrl = cleanPaymentProofUrl(adPaymentProofUrl);
                       console.log('[Ad Proof] Starting to load:', cleanUrl);
                       if (cleanUrl.includes(' ')) {
-                        console.error('[Ad Proof] WARNING: URL contains spaces after cleaning!', cleanUrl);
+                        console.error('[Ad Proof] CRITICAL: URL contains spaces!', cleanUrl);
                       }
                     }}
-                    onLoad={() => console.log('[Ad Proof] Loaded successfully:', adPaymentProofUrl)}
+                    onLoad={() => {
+                      const cleanUrl = cleanPaymentProofUrl(adPaymentProofUrl);
+                      console.log('[Ad Proof] Loaded successfully:', cleanUrl);
+                    }}
                     onError={(e) => {
+                      const cleanUrl = cleanPaymentProofUrl(adPaymentProofUrl);
                       const errorMessage = e.nativeEvent?.error;
                       const errorInfo = {
-                        url: adPaymentProofUrl,
+                        url: cleanUrl,
+                        originalUrl: adPaymentProofUrl,
                         error: typeof errorMessage === 'string' ? errorMessage : (errorMessage ? JSON.stringify(errorMessage) : 'Unknown error'),
                         errorCode: e.nativeEvent?.errorCode,
                         errorMessage: e.nativeEvent?.errorMessage,
-                        nativeEvent: e.nativeEvent,
+                        hasSpaces: cleanUrl.includes(' '),
                       };
                       console.error('[Ad Proof] Load error:', JSON.stringify(errorInfo, null, 2));
-                      console.error('[Ad Proof] Native event details:', e.nativeEvent);
                       
                       // Try to verify the URL is accessible
-                      if (adPaymentProofUrl) {
-                        fetch(adPaymentProofUrl, { method: 'HEAD' })
+                      if (cleanUrl) {
+                        fetch(cleanUrl, { method: 'HEAD', mode: 'no-cors' })
                           .then(response => {
                             console.log('[Ad Proof] URL fetch response:', {
                               status: response.status,
@@ -899,10 +910,10 @@ export default function BookDetailScreen() {
                               ok: response.ok,
                               type: response.type,
                             });
-                            if (!response.ok) {
+                            if (!response.ok && response.type !== 'opaque') {
                               Alert.alert(
                                 'Image Error', 
-                                `Failed to load payment proof image (HTTP ${response.status}). The bucket may not be public or the file may not exist. Please check bucket settings or try uploading again.`
+                                `Failed to load payment proof image (HTTP ${response.status}).\n\nPlease run the SQL script: database/fix_ad_payment_proofs_public_access.sql\n\nThis will make the bucket public and fix RLS policies.`
                               );
                             }
                           })
@@ -911,10 +922,13 @@ export default function BookDetailScreen() {
                               message: fetchError?.message || String(fetchError),
                               name: fetchError?.name,
                             });
-                            Alert.alert('Image Error', 'Failed to load payment proof image. Please check that the bucket is public and try uploading again.');
+                            Alert.alert(
+                              'Image Error', 
+                              'Failed to load payment proof image.\n\nPlease:\n1. Run database/fix_ad_payment_proofs_public_access.sql\n2. Check bucket is public in Dashboard\n3. Try uploading again'
+                            );
                           });
                       } else {
-                        Alert.alert('Image Error', 'Failed to load payment proof image. Please try uploading again.');
+                        Alert.alert('Image Error', 'Invalid payment proof URL. Please try uploading again.');
                       }
                     }}
                   />

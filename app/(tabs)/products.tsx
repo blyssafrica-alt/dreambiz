@@ -363,19 +363,14 @@ export default function ProductsScreen() {
             upsert: false,
           });
           // Clean URL: ensure no spaces in bucket name or path
-          // First check if URL already has spaces (shouldn't happen, but just in case)
-          let cleanUrl = publicUrl;
-          if (cleanUrl.includes('ad payment proofs')) {
-            console.warn('[Product Ad Proof Upload] WARNING: URL contains spaces! Fixing...', cleanUrl);
-            cleanUrl = cleanUrl.replace(/\/ad payment proofs\//g, '/ad_payment_proofs/');
-            cleanUrl = cleanUrl.replace(/ad payment proofs/g, 'ad_payment_proofs');
-          }
-          // Encode any remaining spaces
-          cleanUrl = cleanUrl.replace(/ /g, '%20');
+          const cleanUrl = cleanPaymentProofUrl(publicUrl);
           
-          // Verify cleaned URL
+          // Double-check: if URL still has spaces, log error
           if (cleanUrl.includes(' ')) {
-            console.error('[Product Ad Proof Upload] ERROR: Cleaned URL still contains spaces!', cleanUrl);
+            console.error('[Product Ad Proof Upload] CRITICAL: URL still contains spaces after cleaning!', {
+              original: publicUrl,
+              cleaned: cleanUrl,
+            });
           }
           
           console.log('[Product Ad Proof Upload] Upload successful:', {
@@ -389,23 +384,25 @@ export default function ProductsScreen() {
           
           // Verify the file is accessible after upload
           try {
-            const verifyResponse = await fetch(cleanUrl, { method: 'HEAD' });
+            const verifyResponse = await fetch(cleanUrl, { method: 'HEAD', mode: 'no-cors' });
             console.log('[Product Ad Proof Upload] Verification response:', {
               status: verifyResponse.status,
               ok: verifyResponse.ok,
+              type: verifyResponse.type,
               url: cleanUrl,
             });
-            if (!verifyResponse.ok) {
+            if (!verifyResponse.ok && verifyResponse.type !== 'opaque') {
               console.warn('[Product Ad Proof Upload] File uploaded but not accessible:', {
                 status: verifyResponse.status,
                 url: cleanUrl,
-                message: 'Bucket may not be public or RLS policies may be blocking access',
+                message: 'Bucket may not be public or RLS policies may be blocking access. Run database/fix_ad_payment_proofs_public_access.sql',
               });
             }
           } catch (verifyError) {
-            console.warn('[Product Ad Proof Upload] Could not verify file accessibility:', verifyError);
+            console.warn('[Product Ad Proof Upload] Could not verify file accessibility (may be CORS):', verifyError);
           }
           
+          // Store cleaned URL in state
           setAdPaymentProofUrl(cleanUrl);
         } catch (error: any) {
           console.error('[Product Ad Proof Upload] Upload failed:', {
@@ -1261,50 +1258,36 @@ export default function ProductsScreen() {
               {adPaymentProofUrl ? (
                 <View>
                   <Image 
-                    source={{ uri: (() => {
-                      // Ensure URL is properly encoded - fix bucket name and encode spaces
-                      let cleanUrl = adPaymentProofUrl || '';
-                      // Fix bucket name - replace spaces with underscores in bucket name specifically
-                      cleanUrl = cleanUrl.replace(/\/ad payment proofs\//g, '/ad_payment_proofs/');
-                      // Also handle if bucket name appears anywhere else in the path
-                      cleanUrl = cleanUrl.replace(/ad payment proofs/g, 'ad_payment_proofs');
-                      // Encode any remaining spaces in the URL
-                      cleanUrl = cleanUrl.replace(/ /g, '%20');
-                      console.log('[Product Ad Proof] Original URL:', adPaymentProofUrl);
-                      console.log('[Product Ad Proof] Cleaned URL:', cleanUrl);
-                      // Verify the cleaned URL doesn't have spaces
-                      if (cleanUrl.includes(' ')) {
-                        console.error('[Product Ad Proof] WARNING: Cleaned URL still contains spaces!', cleanUrl);
-                      }
-                      return cleanUrl;
-                    })() }} 
+                    source={{ uri: cleanPaymentProofUrl(adPaymentProofUrl) }} 
                     style={styles.proofImage}
+                    resizeMode="cover"
                     onLoadStart={() => {
-                      let cleanUrl = adPaymentProofUrl || '';
-                      cleanUrl = cleanUrl.replace(/\/ad payment proofs\//g, '/ad_payment_proofs/');
-                      cleanUrl = cleanUrl.replace(/ad payment proofs/g, 'ad_payment_proofs');
-                      cleanUrl = cleanUrl.replace(/ /g, '%20');
+                      const cleanUrl = cleanPaymentProofUrl(adPaymentProofUrl);
                       console.log('[Product Ad Proof] Starting to load:', cleanUrl);
                       if (cleanUrl.includes(' ')) {
-                        console.error('[Product Ad Proof] WARNING: URL contains spaces after cleaning!', cleanUrl);
+                        console.error('[Product Ad Proof] CRITICAL: URL contains spaces!', cleanUrl);
                       }
                     }}
-                    onLoad={() => console.log('[Product Ad Proof] Loaded successfully:', adPaymentProofUrl)}
+                    onLoad={() => {
+                      const cleanUrl = cleanPaymentProofUrl(adPaymentProofUrl);
+                      console.log('[Product Ad Proof] Loaded successfully:', cleanUrl);
+                    }}
                     onError={(e) => {
+                      const cleanUrl = cleanPaymentProofUrl(adPaymentProofUrl);
                       const errorMessage = e.nativeEvent?.error;
                       const errorInfo = {
-                        url: adPaymentProofUrl,
+                        url: cleanUrl,
+                        originalUrl: adPaymentProofUrl,
                         error: typeof errorMessage === 'string' ? errorMessage : (errorMessage ? JSON.stringify(errorMessage) : 'Unknown error'),
                         errorCode: e.nativeEvent?.errorCode,
                         errorMessage: e.nativeEvent?.errorMessage,
-                        nativeEvent: e.nativeEvent,
+                        hasSpaces: cleanUrl.includes(' '),
                       };
                       console.error('[Product Ad Proof] Load error:', JSON.stringify(errorInfo, null, 2));
-                      console.error('[Product Ad Proof] Native event details:', e.nativeEvent);
                       
                       // Try to verify the URL is accessible
-                      if (adPaymentProofUrl) {
-                        fetch(adPaymentProofUrl, { method: 'HEAD' })
+                      if (cleanUrl) {
+                        fetch(cleanUrl, { method: 'HEAD', mode: 'no-cors' })
                           .then(response => {
                             console.log('[Product Ad Proof] URL fetch response:', {
                               status: response.status,
@@ -1312,10 +1295,10 @@ export default function ProductsScreen() {
                               ok: response.ok,
                               type: response.type,
                             });
-                            if (!response.ok) {
+                            if (!response.ok && response.type !== 'opaque') {
                               RNAlert.alert(
                                 'Image Error', 
-                                `Failed to load payment proof image (HTTP ${response.status}). The bucket may not be public or the file may not exist. Please check bucket settings or try uploading again.`
+                                `Failed to load payment proof image (HTTP ${response.status}).\n\nPlease run the SQL script: database/fix_ad_payment_proofs_public_access.sql\n\nThis will make the bucket public and fix RLS policies.`
                               );
                             }
                           })
@@ -1324,10 +1307,13 @@ export default function ProductsScreen() {
                               message: fetchError?.message || String(fetchError),
                               name: fetchError?.name,
                             });
-                            RNAlert.alert('Image Error', 'Failed to load payment proof image. Please check that the bucket is public and try uploading again.');
+                            RNAlert.alert(
+                              'Image Error', 
+                              'Failed to load payment proof image.\n\nPlease:\n1. Run database/fix_ad_payment_proofs_public_access.sql\n2. Check bucket is public in Dashboard\n3. Try uploading again'
+                            );
                           });
                       } else {
-                        RNAlert.alert('Image Error', 'Failed to load payment proof image. Please try uploading again.');
+                        RNAlert.alert('Image Error', 'Invalid payment proof URL. Please try uploading again.');
                       }
                     }}
                   />
