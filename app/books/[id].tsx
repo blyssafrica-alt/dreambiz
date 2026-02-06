@@ -296,8 +296,19 @@ export default function BookDetailScreen() {
             contentType: asset.mimeType || 'image/jpeg',
             upsert: false,
           });
+          console.log('[Ad Proof Upload] Upload successful:', {
+            fileName,
+            filePath,
+            publicUrl,
+            bucket: 'ad_payment_proofs',
+          });
           setAdPaymentProofUrl(publicUrl);
         } catch (error: any) {
+          console.error('[Ad Proof Upload] Upload failed:', {
+            error: error.message || String(error),
+            fileName,
+            filePath,
+          });
           Alert.alert('Upload Error', error.message || 'Failed to upload proof');
         } finally {
           setIsUploadingAdProof(false);
@@ -811,7 +822,30 @@ export default function BookDetailScreen() {
               />
               <Text style={[styles.label, { color: theme.text.secondary }]}>Proof of Payment *</Text>
               {adPaymentProofUrl ? (
-                <Image source={{ uri: adPaymentProofUrl }} style={styles.proofImage} />
+                <View>
+                  <Image 
+                    source={{ uri: adPaymentProofUrl }} 
+                    style={styles.proofImage}
+                    onLoadStart={() => console.log('[Ad Proof] Starting to load:', adPaymentProofUrl)}
+                    onLoad={() => console.log('[Ad Proof] Loaded successfully:', adPaymentProofUrl)}
+                    onError={(e) => {
+                      console.error('[Ad Proof] Load error:', {
+                        url: adPaymentProofUrl,
+                        error: e.nativeEvent?.error || 'Unknown error',
+                      });
+                      Alert.alert('Image Error', 'Failed to load payment proof image. Please try uploading again.');
+                    }}
+                  />
+                  <TouchableOpacity
+                    style={[styles.proofUploadButton, { marginTop: 8, borderColor: theme.border.light }]}
+                    onPress={handlePickAdProofImage}
+                    disabled={isUploadingAdProof}
+                  >
+                    <Text style={[styles.proofUploadText, { color: theme.text.primary }]}>
+                      {isUploadingAdProof ? 'Uploading...' : 'Change Image'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               ) : (
                 <TouchableOpacity
                   style={[styles.proofUploadButton, { borderColor: theme.border.light }]}

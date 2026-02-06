@@ -353,7 +353,8 @@ export default function ProductsScreen() {
         try {
           const base64 = await getBase64FromAsset(asset);
           const fileName = buildAssetFileName(asset, 'ad-payment-proof');
-          const filePath = `ad_payment_proofs/${fileName}`;
+          // filePath should NOT include the bucket name - it's already specified in the bucket parameter
+          const filePath = fileName;
           const publicUrl = await uploadBase64ToStorage(supabase, {
             bucket: 'ad_payment_proofs',
             filePath,
@@ -361,8 +362,19 @@ export default function ProductsScreen() {
             contentType: asset.mimeType || 'image/jpeg',
             upsert: false,
           });
+          console.log('[Product Ad Proof Upload] Upload successful:', {
+            fileName,
+            filePath,
+            publicUrl,
+            bucket: 'ad_payment_proofs',
+          });
           setAdPaymentProofUrl(publicUrl);
         } catch (error: any) {
+          console.error('[Product Ad Proof Upload] Upload failed:', {
+            error: error.message || String(error),
+            fileName,
+            filePath,
+          });
           RNAlert.alert('Upload Error', error.message || 'Failed to upload proof');
         } finally {
           setIsUploadingAdProof(false);
@@ -1209,7 +1221,30 @@ export default function ProductsScreen() {
               />
               <Text style={[styles.label, { color: theme.text.secondary }]}>Proof of Payment *</Text>
               {adPaymentProofUrl ? (
-                <Image source={{ uri: adPaymentProofUrl }} style={styles.proofImage} />
+                <View>
+                  <Image 
+                    source={{ uri: adPaymentProofUrl }} 
+                    style={styles.proofImage}
+                    onLoadStart={() => console.log('[Product Ad Proof] Starting to load:', adPaymentProofUrl)}
+                    onLoad={() => console.log('[Product Ad Proof] Loaded successfully:', adPaymentProofUrl)}
+                    onError={(e) => {
+                      console.error('[Product Ad Proof] Load error:', {
+                        url: adPaymentProofUrl,
+                        error: e.nativeEvent?.error || 'Unknown error',
+                      });
+                      RNAlert.alert('Image Error', 'Failed to load payment proof image. Please try uploading again.');
+                    }}
+                  />
+                  <TouchableOpacity
+                    style={[styles.proofUploadButton, { marginTop: 8, borderColor: theme.border.light }]}
+                    onPress={handlePickAdProofImage}
+                    disabled={isUploadingAdProof}
+                  >
+                    <Text style={[styles.proofUploadText, { color: theme.text.primary }]}>
+                      {isUploadingAdProof ? 'Uploading...' : 'Change Image'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               ) : (
                 <TouchableOpacity
                   style={[styles.proofUploadButton, { borderColor: theme.border.light }]}
