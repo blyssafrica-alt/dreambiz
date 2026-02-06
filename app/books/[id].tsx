@@ -822,11 +822,22 @@ export default function BookDetailScreen() {
               <Text style={[styles.label, { color: theme.text.secondary }]}>Proof of Payment *</Text>
               {adPaymentProofUrl ? (
                 <View>
-                  <Image 
-                    source={{ uri: adPaymentProofUrl }} 
-                    style={styles.proofImage}
-                    resizeMode="cover"
-                  />
+                  {/* Only show image if it's a public URL, not a local file URI */}
+                  {!adPaymentProofUrl.startsWith('file://') ? (
+                    <Image 
+                      source={{ uri: adPaymentProofUrl }} 
+                      style={styles.proofImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={[styles.proofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
+                      {isUploadingAdProof ? (
+                        <ActivityIndicator size="small" color={theme.accent.primary} />
+                      ) : (
+                        <Text style={{ color: theme.text.tertiary }}>Processing...</Text>
+                      )}
+                    </View>
+                  )}
                   <TouchableOpacity
                     style={[styles.proofUploadButton, { marginTop: 8, borderColor: theme.border.light }]}
                     onPress={handlePickAdProofImage}
