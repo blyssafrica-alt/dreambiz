@@ -1228,30 +1228,51 @@ export default function ProductsScreen() {
               <Text style={[styles.label, { color: theme.text.secondary }]}>Proof of Payment *</Text>
               {adPaymentProofUrl ? (
                 <View>
-                  {/* Only show image if it's a public URL, not a local file URI */}
-                  {!adPaymentProofUrl.startsWith('file://') ? (
-                    <Image 
-                      source={{ uri: adPaymentProofUrl }} 
-                      style={styles.proofImage}
-                      resizeMode="cover"
-                      onError={(e) => {
-                        console.error('[Product Ad Proof] Image load error:', {
-                          url: adPaymentProofUrl,
-                          error: e.nativeEvent?.error,
-                        });
-                        // Clear invalid URL
-                        setAdPaymentProofUrl(null);
-                      }}
-                    />
-                  ) : (
-                    <View style={[styles.proofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
-                      {isUploadingAdProof ? (
-                        <ActivityIndicator size="small" color={theme.accent.primary} />
-                      ) : (
-                        <Text style={{ color: theme.text.tertiary }}>Processing...</Text>
-                      )}
-                    </View>
-                  )}
+                  {/* Compute safe URL - never pass file:// to Image component */}
+                  {(() => {
+                    const isLocalFile = adPaymentProofUrl.startsWith('file://');
+                    const safeUrl = isLocalFile ? null : adPaymentProofUrl;
+                    
+                    // Show loading indicator for local files or during upload
+                    if (isLocalFile || (isUploadingAdProof && !safeUrl)) {
+                      return (
+                        <View style={[styles.proofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
+                          <ActivityIndicator size="large" color={theme.accent.primary} />
+                          <Text style={[styles.proofUploadText, { color: theme.text.primary, marginTop: 8 }]}>
+                            {isUploadingAdProof ? 'Uploading...' : 'Processing...'}
+                          </Text>
+                        </View>
+                      );
+                    }
+                    
+                    // Only render Image if we have a valid public URL
+                    if (safeUrl && !safeUrl.startsWith('file://')) {
+                      return (
+                        <Image 
+                          key={safeUrl} // Force re-render when URL changes
+                          source={{ uri: safeUrl }} 
+                          style={styles.proofImage}
+                          resizeMode="cover"
+                          onError={(e) => {
+                            const errorDetails = {
+                              url: safeUrl,
+                              error: e.nativeEvent?.error || 'Unknown error',
+                              errorCode: e.nativeEvent?.errorCode,
+                              errorMessage: e.nativeEvent?.errorMessage,
+                            };
+                            console.error('[Product Ad Proof] Image load error:', JSON.stringify(errorDetails, null, 2));
+                            // Clear invalid URL
+                            setAdPaymentProofUrl(null);
+                          }}
+                          onLoad={() => {
+                            console.log('[Product Ad Proof] Image loaded successfully:', safeUrl);
+                          }}
+                        />
+                      );
+                    }
+                    
+                    return null;
+                  })()}
                   <TouchableOpacity
                     style={[styles.proofUploadButton, { marginTop: 8, borderColor: theme.border.light }]}
                     onPress={handlePickAdProofImage}
