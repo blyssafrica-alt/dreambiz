@@ -173,8 +173,11 @@ export interface Advertisement {
   ctaTargetId?: string; // Product ID, Book ID, Feature ID, etc.
   targeting: AdTargeting;
   placement: AdPlacement;
-  spend?: number;
-  spendCurrency?: string;
+  spend?: number; // Budget limit
+  spendCurrency?: string; // Budget currency
+  spendActual?: number;
+  billingType?: 'cpc' | 'cpe' | 'cpa';
+  billingRate?: number;
   revenue?: number;
   paymentStatus?: 'pending' | 'approved' | 'rejected';
   paymentAmount?: number;

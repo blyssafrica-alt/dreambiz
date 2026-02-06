@@ -23,6 +23,11 @@ export default function AdsManagementScreen() {
     { key: 'insights', label: 'Insights' },
   ];
   const FREQUENCY_OPTIONS: AdFrequency[] = ['once_per_session', 'once_per_day', 'always'];
+  const BILLING_OPTIONS = [
+    { key: 'cpc', label: 'CPC' },
+    { key: 'cpe', label: 'CPE' },
+    { key: 'cpa', label: 'CPA' },
+  ] as const;
   const BUSINESS_TYPE_OPTIONS: BusinessType[] = [
     'retail',
     'services',
@@ -54,6 +59,10 @@ export default function AdsManagementScreen() {
   const [showModal, setShowModal] = useState(false);
   const [editingAd, setEditingAd] = useState<Advertisement | null>(null);
   const [approvalNotes, setApprovalNotes] = useState<Record<string, string>>({});
+  const [defaultBillingType, setDefaultBillingType] = useState<'cpc' | 'cpe' | 'cpa'>('cpc');
+  const [defaultBillingRate, setDefaultBillingRate] = useState('');
+  const [defaultBillingCurrency, setDefaultBillingCurrency] = useState('USD');
+  const [isSavingDefaults, setIsSavingDefaults] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -69,6 +78,8 @@ export default function AdsManagementScreen() {
     ctaWhatsAppMessage: '',
     spend: '',
     spendCurrency: 'USD',
+    billingType: 'cpc' as 'cpc' | 'cpe' | 'cpa',
+    billingRate: '',
     status: 'draft' as AdStatus,
     startDate: '',
     endDate: '',
@@ -95,7 +106,44 @@ export default function AdsManagementScreen() {
 
   useEffect(() => {
     loadAds();
+    loadBillingDefaults();
   }, []);
+
+  const loadBillingDefaults = async () => {
+    const { data, error } = await supabase
+      .from('ad_billing_settings')
+      .select('*')
+      .limit(1)
+      .single();
+    if (error) return;
+    if (data) {
+      setDefaultBillingType((data.billing_type as 'cpc' | 'cpe' | 'cpa') || 'cpc');
+      setDefaultBillingRate(data.billing_rate !== null && data.billing_rate !== undefined ? String(data.billing_rate) : '');
+      setDefaultBillingCurrency(data.currency || 'USD');
+    }
+  };
+
+  const handleSaveDefaults = async () => {
+    try {
+      setIsSavingDefaults(true);
+      const parsedRate = parseFloat(defaultBillingRate);
+      const { error } = await supabase
+        .from('ad_billing_settings')
+        .upsert({
+          billing_type: defaultBillingType,
+          billing_rate: Number.isFinite(parsedRate) && parsedRate >= 0 ? parsedRate : 0,
+          currency: defaultBillingCurrency || 'USD',
+          updated_at: new Date().toISOString(),
+        })
+        .select();
+      if (error) throw error;
+      Alert.alert('Saved', 'Billing defaults updated.');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to save billing defaults.');
+    } finally {
+      setIsSavingDefaults(false);
+    }
+  };
 
   const loadAds = async () => {
     try {
@@ -139,8 +187,15 @@ export default function AdsManagementScreen() {
           ctaTargetId: row.cta_target_id,
           targeting: row.targeting || {},
           placement: row.placement || {},
-          spend: row.spend !== null && row.spend !== undefined ? parseFloat(row.spend) : undefined,
-          spendCurrency: row.spend_currency || 'USD',
+          spend: row.spend !== null && row.spend !== undefined
+            ? parseFloat(row.spend)
+            : row.payment_amount !== null && row.payment_amount !== undefined
+              ? parseFloat(row.payment_amount)
+              : undefined,
+          spendCurrency: row.spend_currency || row.payment_currency || 'USD',
+          spendActual: row.spend_actual !== null && row.spend_actual !== undefined ? parseFloat(row.spend_actual) : undefined,
+          billingType: row.billing_type || 'cpc',
+          billingRate: row.billing_rate !== null && row.billing_rate !== undefined ? parseFloat(row.billing_rate) : undefined,
           revenue: revenueMap[row.id] || 0,
           paymentStatus: row.payment_status || undefined,
           paymentAmount: row.payment_amount !== null && row.payment_amount !== undefined ? parseFloat(row.payment_amount) : undefined,
@@ -188,6 +243,8 @@ export default function AdsManagementScreen() {
         ctaWhatsAppMessage: '',
         spend: ad.spend !== undefined ? String(ad.spend) : '',
         spendCurrency: ad.spendCurrency || 'USD',
+        billingType: ad.billingType || 'cpc',
+        billingRate: ad.billingRate !== undefined ? String(ad.billingRate) : '',
         status: ad.status,
         startDate: ad.startDate || '',
         endDate: ad.endDate || '',
@@ -225,6 +282,8 @@ export default function AdsManagementScreen() {
         ctaWhatsAppMessage: '',
         spend: '',
         spendCurrency: 'USD',
+        billingType: defaultBillingType,
+        billingRate: defaultBillingRate,
         status: 'draft',
         startDate: '',
         endDate: '',
@@ -346,6 +405,7 @@ export default function AdsManagementScreen() {
       const parsedMaxImpressions = parseInt(formData.maxImpressionsPerUser, 10);
       const parsedDelaySeconds = parseInt(formData.modalDelaySeconds, 10);
       const parsedSpend = parseFloat(formData.spend);
+      const parsedBillingRate = parseFloat(formData.billingRate || defaultBillingRate);
       const cleanedLocations = formData.placementLocations.length > 0
         ? Array.from(new Set(formData.placementLocations))
         : ['dashboard'];
@@ -375,6 +435,8 @@ export default function AdsManagementScreen() {
         cta_target_id: formData.ctaTargetId || null,
         spend: Number.isFinite(parsedSpend) && parsedSpend >= 0 ? parsedSpend : null,
         spend_currency: formData.spendCurrency || 'USD',
+        billing_type: formData.billingType || defaultBillingType,
+        billing_rate: Number.isFinite(parsedBillingRate) && parsedBillingRate >= 0 ? parsedBillingRate : null,
         status: formData.status,
         start_date: formData.startDate || null,
         end_date: formData.endDate || null,
@@ -514,6 +576,14 @@ export default function AdsManagementScreen() {
           endDate = end.toISOString();
         }
       }
+      const spendValue =
+        typeof ad.spend === 'number'
+          ? ad.spend
+          : typeof ad.paymentAmount === 'number'
+            ? ad.paymentAmount
+            : null;
+      const spendCurrency = ad.spendCurrency || ad.paymentCurrency || 'USD';
+
       const { error } = await supabase
         .from('advertisements')
         .update({
@@ -521,6 +591,7 @@ export default function AdsManagementScreen() {
           payment_status: 'approved',
           start_date: new Date().toISOString(),
           end_date: endDate,
+          ...(spendValue !== null ? { spend: spendValue, spend_currency: spendCurrency } : {}),
           updated_at: new Date().toISOString(),
         })
         .eq('id', ad.id);
@@ -564,24 +635,28 @@ export default function AdsManagementScreen() {
   };
 
   const getCPC = (ad: Advertisement) => {
-    if (!ad.spend || ad.clicksCount === 0) return '—';
-    return (ad.spend / ad.clicksCount).toFixed(2);
+    const spendValue = ad.spendActual ?? ad.spend;
+    if (!spendValue || ad.clicksCount === 0) return '—';
+    return (spendValue / ad.clicksCount).toFixed(2);
   };
 
   const getCPE = (ad: Advertisement) => {
     const engagements = ad.clicksCount + ad.conversionsCount;
-    if (!ad.spend || engagements === 0) return '—';
-    return (ad.spend / engagements).toFixed(2);
+    const spendValue = ad.spendActual ?? ad.spend;
+    if (!spendValue || engagements === 0) return '—';
+    return (spendValue / engagements).toFixed(2);
   };
 
   const getCPA = (ad: Advertisement) => {
-    if (!ad.spend || ad.conversionsCount === 0) return '—';
-    return (ad.spend / ad.conversionsCount).toFixed(2);
+    const spendValue = ad.spendActual ?? ad.spend;
+    if (!spendValue || ad.conversionsCount === 0) return '—';
+    return (spendValue / ad.conversionsCount).toFixed(2);
   };
 
   const getROAS = (ad: Advertisement) => {
-    if (!ad.spend || !ad.revenue) return '—';
-    return (ad.revenue / ad.spend).toFixed(2);
+    const spendValue = ad.spendActual ?? ad.spend;
+    if (!spendValue || !ad.revenue) return '—';
+    return (ad.revenue / spendValue).toFixed(2);
   };
 
   if (isLoading) {
@@ -605,6 +680,50 @@ export default function AdsManagementScreen() {
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+        <View style={[styles.defaultsCard, { backgroundColor: theme.background.card, borderColor: theme.border.light }]}>
+          <Text style={[styles.defaultsTitle, { color: theme.text.primary }]}>Billing Defaults</Text>
+          <Text style={[styles.defaultsSubtitle, { color: theme.text.secondary }]}>
+            Used when creating new ads without custom billing.
+          </Text>
+          <View style={styles.typeButtons}>
+            {BILLING_OPTIONS.map(option => (
+              <TouchableOpacity
+                key={option.key}
+                style={[styles.typeButton, { backgroundColor: defaultBillingType === option.key ? theme.accent.primary : theme.background.secondary }]}
+                onPress={() => setDefaultBillingType(option.key)}
+              >
+                <Text style={[styles.typeButtonText, { color: defaultBillingType === option.key ? '#FFF' : theme.text.primary }]}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.rowInputs}>
+            <TextInput
+              style={[styles.input, styles.rowInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+              placeholder="Rate"
+              placeholderTextColor={theme.text.tertiary}
+              value={defaultBillingRate}
+              onChangeText={(text) => setDefaultBillingRate(text.replace(/[^0-9.]/g, ''))}
+              keyboardType="decimal-pad"
+            />
+            <TextInput
+              style={[styles.input, styles.rowInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+              placeholder="USD"
+              placeholderTextColor={theme.text.tertiary}
+              value={defaultBillingCurrency}
+              onChangeText={(text) => setDefaultBillingCurrency(text.toUpperCase().slice(0, 3))}
+            />
+          </View>
+          <TouchableOpacity
+            style={[styles.saveDefaultsButton, { backgroundColor: theme.accent.primary }]}
+            onPress={handleSaveDefaults}
+            disabled={isSavingDefaults}
+          >
+            <Text style={styles.saveDefaultsText}>{isSavingDefaults ? 'Saving...' : 'Save Defaults'}</Text>
+          </TouchableOpacity>
+        </View>
+
         {activeFilter !== 'all' && (
           <View style={[styles.filterBanner, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}>
             <Text style={[styles.filterText, { color: theme.text.secondary }]}>
@@ -686,7 +805,10 @@ export default function AdsManagementScreen() {
               </View>
               <View style={styles.adStatsSecondary}>
                 <Text style={[styles.statLabel, { color: theme.text.secondary }]}>
-                  Spend: {ad.spendCurrency || 'USD'} {ad.spend?.toFixed(2) ?? '—'}
+                  Budget: {ad.spendCurrency || 'USD'} {ad.spend?.toFixed(2) ?? '—'}
+                </Text>
+                <Text style={[styles.statLabel, { color: theme.text.secondary }]}>
+                  Spent: {ad.spendCurrency || 'USD'} {ad.spendActual?.toFixed(2) ?? '—'}
                 </Text>
                 <Text style={[styles.statLabel, { color: theme.text.secondary }]}>
                   CPC: {ad.spendCurrency || 'USD'} {getCPC(ad)}
@@ -696,6 +818,9 @@ export default function AdsManagementScreen() {
                 </Text>
                 <Text style={[styles.statLabel, { color: theme.text.secondary }]}>
                   CPA: {ad.spendCurrency || 'USD'} {getCPA(ad)}
+                </Text>
+                <Text style={[styles.statLabel, { color: theme.text.secondary }]}>
+                  Billing: {(ad.billingType || 'cpc').toUpperCase()} @ {ad.spendCurrency || 'USD'} {ad.billingRate?.toFixed(4) ?? '—'}
                 </Text>
                 <Text style={[styles.statLabel, { color: theme.text.secondary }]}>
                   ROAS: {getROAS(ad)}
@@ -900,7 +1025,7 @@ export default function AdsManagementScreen() {
                 onChangeText={(text) => setFormData({ ...formData, ctaText: text })}
               />
 
-              <Text style={[styles.label, { color: theme.text.secondary }]}>Spend (Optional)</Text>
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Budget (Optional)</Text>
               <View style={styles.rowInputs}>
                 <TextInput
                   style={[styles.input, styles.rowInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
@@ -918,6 +1043,30 @@ export default function AdsManagementScreen() {
                   onChangeText={(text) => setFormData({ ...formData, spendCurrency: text.toUpperCase().slice(0, 3) })}
                 />
               </View>
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Billing Model</Text>
+              <View style={styles.typeButtons}>
+                {BILLING_OPTIONS.map(option => (
+                  <TouchableOpacity
+                    key={option.key}
+                    style={[styles.typeButton, { backgroundColor: formData.billingType === option.key ? theme.accent.primary : theme.background.secondary }]}
+                    onPress={() => setFormData({ ...formData, billingType: option.key })}
+                  >
+                    <Text style={[styles.typeButtonText, { color: formData.billingType === option.key ? '#FFF' : theme.text.primary }]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Rate (per billing event)</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="0.00"
+                placeholderTextColor={theme.text.tertiary}
+                value={formData.billingRate}
+                onChangeText={(text) => setFormData({ ...formData, billingRate: text.replace(/[^0-9.]/g, '') })}
+                keyboardType="decimal-pad"
+              />
 
               <Text style={[styles.label, { color: theme.text.secondary }]}>CTA Action</Text>
               <View style={styles.typeButtons}>
@@ -1261,6 +1410,21 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: '700' },
   content: { flex: 1 },
   contentContainer: { padding: 20 },
+  defaultsCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  defaultsTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
+  defaultsSubtitle: { fontSize: 13, marginBottom: 12 },
+  saveDefaultsButton: {
+    marginTop: 10,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  saveDefaultsText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
   filterBanner: {
     borderWidth: 1,
     borderRadius: 10,

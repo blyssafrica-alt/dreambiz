@@ -98,6 +98,11 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
           impressionsCount: row.impressions_count || 0,
           clicksCount: row.clicks_count || 0,
           conversionsCount: row.conversions_count || 0,
+          spend: row.spend !== null && row.spend !== undefined ? parseFloat(row.spend) : undefined,
+          spendActual: row.spend_actual !== null && row.spend_actual !== undefined ? parseFloat(row.spend_actual) : undefined,
+          spendCurrency: row.spend_currency || 'USD',
+          billingType: row.billing_type || 'cpc',
+          billingRate: row.billing_rate !== null && row.billing_rate !== undefined ? parseFloat(row.billing_rate) : undefined,
           createdBy: row.created_by,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
@@ -147,6 +152,11 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
     const now = new Date();
     if (ad.startDate && new Date(ad.startDate) > now) return false;
     if (ad.endDate && new Date(ad.endDate) < now) return false;
+
+    // Stop serving if budget is exhausted
+    if (ad.spend !== undefined && ad.spendActual !== undefined && ad.spendActual >= ad.spend) {
+      return false;
+    }
 
     const targeting = ad.targeting;
     const placement = ad.placement;

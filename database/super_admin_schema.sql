@@ -226,9 +226,12 @@ CREATE TABLE IF NOT EXISTS advertisements (
   clicks_count INTEGER DEFAULT 0,
   conversions_count INTEGER DEFAULT 0,
 
-  -- Spend (for CPC/CPE calculations)
-  spend DECIMAL(15, 2),
+  -- Budget + billing
+  spend DECIMAL(15, 2), -- Budget limit
   spend_currency TEXT DEFAULT 'USD',
+  spend_actual DECIMAL(15, 2) DEFAULT 0,
+  billing_type TEXT DEFAULT 'cpc' CHECK (billing_type IN ('cpc', 'cpe', 'cpa')),
+  billing_rate DECIMAL(15, 4) DEFAULT 0,
 
   -- Payment tracking for self-serve ads
   payment_status TEXT DEFAULT 'pending' CHECK (payment_status IN ('pending', 'approved', 'rejected')),
@@ -475,6 +478,28 @@ CREATE POLICY "Super admins can manage ad packages"
   FOR ALL
   USING (is_super_admin());
 
+-- Ad Billing Defaults
+CREATE TABLE IF NOT EXISTS ad_billing_settings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  billing_type TEXT NOT NULL DEFAULT 'cpc' CHECK (billing_type IN ('cpc', 'cpe', 'cpa')),
+  billing_rate DECIMAL(15, 4) NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'USD',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE ad_billing_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Super admins can manage ad billing settings" ON ad_billing_settings;
+CREATE POLICY "Super admins can manage ad billing settings"
+  ON ad_billing_settings
+  FOR ALL
+  USING (is_super_admin());
+
+DROP TRIGGER IF EXISTS update_ad_billing_settings_updated_at ON ad_billing_settings;
+CREATE TRIGGER update_ad_billing_settings_updated_at BEFORE UPDATE ON ad_billing_settings
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- Feature Config
 ALTER TABLE feature_config ENABLE ROW LEVEL SECURITY;
 
@@ -619,38 +644,36 @@ CREATE OR REPLACE FUNCTION update_ad_analytics()
 RETURNS TRIGGER AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
-    -- Increment impressions
     UPDATE advertisements 
-    SET impressions_count = impressions_count + 1
+    SET
+      impressions_count = impressions_count + 1,
+      clicks_count = clicks_count + CASE WHEN NEW.clicked = true THEN 1 ELSE 0 END,
+      conversions_count = conversions_count + CASE WHEN NEW.converted = true THEN 1 ELSE 0 END,
+      revenue = COALESCE(revenue, 0) + CASE WHEN NEW.converted = true THEN COALESCE(NEW.conversion_value, 0) ELSE 0 END,
+      spend_actual = COALESCE(spend_actual, 0) + CASE
+        WHEN billing_type = 'cpc' AND NEW.clicked = true THEN COALESCE(billing_rate, 0)
+        WHEN billing_type = 'cpa' AND NEW.converted = true THEN COALESCE(billing_rate, 0)
+        WHEN billing_type = 'cpe' AND (NEW.clicked = true OR NEW.converted = true) THEN COALESCE(billing_rate, 0)
+        ELSE 0
+      END
     WHERE id = NEW.ad_id;
-    
-    -- If clicked, increment clicks
-    IF NEW.clicked = true THEN
-      UPDATE advertisements 
-      SET clicks_count = clicks_count + 1
-      WHERE id = NEW.ad_id;
-    END IF;
-    
-    -- If converted, increment conversions
-    IF NEW.converted = true THEN
-      UPDATE advertisements 
-      SET conversions_count = conversions_count + 1
-      WHERE id = NEW.ad_id;
-    END IF;
   ELSIF TG_OP = 'UPDATE' THEN
-    -- Increment clicks when clicked changes to true
-    IF NEW.clicked = true AND (OLD.clicked IS DISTINCT FROM NEW.clicked) THEN
-      UPDATE advertisements
-      SET clicks_count = clicks_count + 1
-      WHERE id = NEW.ad_id;
-    END IF;
-
-    -- Increment conversions when converted changes to true
-    IF NEW.converted = true AND (OLD.converted IS DISTINCT FROM NEW.converted) THEN
-      UPDATE advertisements 
-      SET conversions_count = conversions_count + 1
-      WHERE id = NEW.ad_id;
-    END IF;
+    UPDATE advertisements
+    SET
+      clicks_count = clicks_count + CASE WHEN NEW.clicked = true AND (OLD.clicked IS DISTINCT FROM NEW.clicked) THEN 1 ELSE 0 END,
+      conversions_count = conversions_count + CASE WHEN NEW.converted = true AND (OLD.converted IS DISTINCT FROM NEW.converted) THEN 1 ELSE 0 END,
+      revenue = COALESCE(revenue, 0) + CASE
+        WHEN NEW.converted = true AND (OLD.converted IS DISTINCT FROM NEW.converted) THEN COALESCE(NEW.conversion_value, 0)
+        ELSE 0
+      END,
+      spend_actual = COALESCE(spend_actual, 0) + CASE
+        WHEN billing_type = 'cpc' AND NEW.clicked = true AND (OLD.clicked IS DISTINCT FROM NEW.clicked) THEN COALESCE(billing_rate, 0)
+        WHEN billing_type = 'cpa' AND NEW.converted = true AND (OLD.converted IS DISTINCT FROM NEW.converted) THEN COALESCE(billing_rate, 0)
+        WHEN billing_type = 'cpe' AND NEW.clicked = true AND (OLD.clicked IS DISTINCT FROM NEW.clicked) THEN COALESCE(billing_rate, 0)
+        WHEN billing_type = 'cpe' AND NEW.converted = true AND (OLD.converted IS DISTINCT FROM NEW.converted) AND COALESCE(OLD.clicked, false) = false THEN COALESCE(billing_rate, 0)
+        ELSE 0
+      END
+    WHERE id = NEW.ad_id;
   END IF;
   
   RETURN NEW;
