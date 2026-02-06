@@ -30,7 +30,8 @@ import {
   FileText,
   BookOpen,
   Camera,
-  Store
+  Store,
+  Megaphone
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -89,6 +90,16 @@ export default function MoreScreen() {
     {
       title: 'Business Tools',
       items: [
+        {
+          id: 'my-ads',
+          title: 'My Ads',
+          description: 'View and track your ad submissions',
+          icon: Megaphone,
+          route: '/my-ads',
+          color: '#0EA5E9',
+          gradient: ['#0EA5E9', '#0284C7'],
+          visible: true,
+        },
         {
           id: 'calculator',
           title: 'Viability Calculator',

@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAds } from '@/contexts/AdContext';
+import { AdCard } from '@/components/AdCard';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Megaphone, TrendingUp, Eye, MousePointerClick, X, Save, Trash2, Edit, ImageIcon, Upload } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -51,6 +52,7 @@ export default function AdsManagementScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingAd, setEditingAd] = useState<Advertisement | null>(null);
+  const [approvalNotes, setApprovalNotes] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -59,6 +61,13 @@ export default function AdsManagementScreen() {
     bodyText: '',
     ctaText: 'Learn More',
     ctaUrl: '',
+    ctaAction: 'external_url' as 'external_url' | 'open_product' | 'open_book' | 'open_feature',
+    ctaTargetId: '',
+    ctaExternalType: 'website' as 'website' | 'whatsapp',
+    ctaWhatsAppNumber: '',
+    ctaWhatsAppMessage: '',
+    spend: '',
+    spendCurrency: 'USD',
     status: 'draft' as AdStatus,
     startDate: '',
     endDate: '',
@@ -69,6 +78,7 @@ export default function AdsManagementScreen() {
     placementPriority: '1',
     placementFrequency: 'once_per_session' as AdFrequency,
     maxImpressionsPerUser: '',
+    modalDelaySeconds: '',
     targetingScope: 'global' as 'global' | 'targeted',
     targetBooks: [] as DreamBigBook[],
     targetBusinessTypes: [] as BusinessType[],
@@ -93,6 +103,21 @@ export default function AdsManagementScreen() {
       if (error) throw error;
 
       if (data) {
+        const { data: revenueData, error: revenueError } = await supabase
+          .from('ad_impressions')
+          .select('ad_id, conversion_value')
+          .eq('converted', true);
+
+        if (revenueError) {
+          console.warn('Failed to load ad revenue:', revenueError);
+        }
+
+        const revenueMap = (revenueData || []).reduce<Record<string, number>>((acc, row: any) => {
+          const value = row.conversion_value ? parseFloat(row.conversion_value) : 0;
+          acc[row.ad_id] = (acc[row.ad_id] || 0) + value;
+          return acc;
+        }, {});
+
         setAds(data.map((row: any) => ({
           id: row.id,
           title: row.title,
@@ -109,6 +134,16 @@ export default function AdsManagementScreen() {
           ctaTargetId: row.cta_target_id,
           targeting: row.targeting || {},
           placement: row.placement || {},
+          spend: row.spend !== null && row.spend !== undefined ? parseFloat(row.spend) : undefined,
+          spendCurrency: row.spend_currency || 'USD',
+          revenue: revenueMap[row.id] || 0,
+          paymentStatus: row.payment_status || undefined,
+          paymentAmount: row.payment_amount !== null && row.payment_amount !== undefined ? parseFloat(row.payment_amount) : undefined,
+          paymentCurrency: row.payment_currency || undefined,
+          paymentReference: row.payment_reference || undefined,
+          paymentProofUrl: row.payment_proof_url || undefined,
+          adminNotes: row.admin_notes || undefined,
+          adPackageId: row.ad_package_id || undefined,
           startDate: row.start_date,
           endDate: row.end_date,
           timezone: row.timezone || 'Africa/Harare',
@@ -131,6 +166,7 @@ export default function AdsManagementScreen() {
   const handleOpenModal = (ad?: Advertisement) => {
     if (ad) {
       setEditingAd(ad);
+      const isWhatsAppUrl = (ad.ctaUrl || '').includes('wa.me') || (ad.ctaUrl || '').includes('api.whatsapp.com');
       setFormData({
         title: ad.title,
         description: ad.description || '',
@@ -139,6 +175,13 @@ export default function AdsManagementScreen() {
         bodyText: ad.bodyText || '',
         ctaText: ad.ctaText,
         ctaUrl: ad.ctaUrl || '',
+        ctaAction: (ad.ctaAction as any) || 'external_url',
+        ctaTargetId: ad.ctaTargetId || '',
+        ctaExternalType: isWhatsAppUrl ? 'whatsapp' : 'website',
+        ctaWhatsAppNumber: '',
+        ctaWhatsAppMessage: '',
+        spend: ad.spend !== undefined ? String(ad.spend) : '',
+        spendCurrency: ad.spendCurrency || 'USD',
         status: ad.status,
         startDate: ad.startDate || '',
         endDate: ad.endDate || '',
@@ -151,6 +194,7 @@ export default function AdsManagementScreen() {
         maxImpressionsPerUser: ad.placement?.maxImpressionsPerUser
           ? String(ad.placement.maxImpressionsPerUser)
           : '',
+        modalDelaySeconds: ad.placement?.delaySeconds ? String(ad.placement.delaySeconds) : '',
         targetingScope: ad.targeting?.scope || 'global',
         targetBooks: Array.isArray(ad.targeting?.targetBooks) ? ad.targeting.targetBooks : [],
         targetBusinessTypes: Array.isArray(ad.targeting?.targetBusinessTypes) ? ad.targeting.targetBusinessTypes : [],
@@ -168,6 +212,13 @@ export default function AdsManagementScreen() {
         bodyText: '',
         ctaText: 'Learn More',
         ctaUrl: '',
+        ctaAction: 'external_url',
+        ctaTargetId: '',
+        ctaExternalType: 'website',
+        ctaWhatsAppNumber: '',
+        ctaWhatsAppMessage: '',
+        spend: '',
+        spendCurrency: 'USD',
         status: 'draft',
         startDate: '',
         endDate: '',
@@ -178,6 +229,7 @@ export default function AdsManagementScreen() {
         placementPriority: '1',
         placementFrequency: 'once_per_session',
         maxImpressionsPerUser: '',
+        modalDelaySeconds: '',
         targetingScope: 'global',
         targetBooks: [],
         targetBusinessTypes: [],
@@ -271,8 +323,23 @@ export default function AdsManagementScreen() {
     }
 
     try {
+      const buildWhatsAppUrl = () => {
+        const sanitizedNumber = formData.ctaWhatsAppNumber.replace(/[^\d]/g, '');
+        if (!sanitizedNumber) return '';
+        const message = formData.ctaWhatsAppMessage.trim();
+        const query = message ? `?text=${encodeURIComponent(message)}` : '';
+        return `https://wa.me/${sanitizedNumber}${query}`;
+      };
+      const normalizedWebsiteUrl = () => {
+        const raw = formData.ctaUrl.trim();
+        if (!raw) return '';
+        if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+        return `https://${raw}`;
+      };
       const parsedPriority = parseInt(formData.placementPriority, 10);
       const parsedMaxImpressions = parseInt(formData.maxImpressionsPerUser, 10);
+      const parsedDelaySeconds = parseInt(formData.modalDelaySeconds, 10);
+      const parsedSpend = parseFloat(formData.spend);
       const cleanedLocations = formData.placementLocations.length > 0
         ? Array.from(new Set(formData.placementLocations))
         : ['dashboard'];
@@ -294,7 +361,14 @@ export default function AdsManagementScreen() {
         headline: formData.headline || null,
         body_text: formData.bodyText || null,
         cta_text: formData.ctaText,
-        cta_url: formData.ctaUrl || null,
+        cta_url:
+          formData.ctaAction === 'external_url'
+            ? (formData.ctaExternalType === 'whatsapp' ? buildWhatsAppUrl() : normalizedWebsiteUrl()) || null
+            : formData.ctaUrl || null,
+        cta_action: formData.ctaAction,
+        cta_target_id: formData.ctaTargetId || null,
+        spend: Number.isFinite(parsedSpend) && parsedSpend >= 0 ? parsedSpend : null,
+        spend_currency: formData.spendCurrency || 'USD',
         status: formData.status,
         start_date: formData.startDate || null,
         end_date: formData.endDate || null,
@@ -313,6 +387,9 @@ export default function AdsManagementScreen() {
           frequency: formData.placementFrequency,
           ...(Number.isFinite(parsedMaxImpressions) && parsedMaxImpressions > 0
             ? { maxImpressionsPerUser: parsedMaxImpressions }
+            : {}),
+          ...(Number.isFinite(parsedDelaySeconds) && parsedDelaySeconds > 0
+            ? { delaySeconds: parsedDelaySeconds }
             : {}),
         },
         created_by: user?.id,
@@ -338,6 +415,60 @@ export default function AdsManagementScreen() {
     }
   };
 
+  const buildPreviewUrl = () => {
+    if (formData.ctaAction !== 'external_url') {
+      return formData.ctaUrl || '';
+    }
+    if (formData.ctaExternalType === 'whatsapp') {
+      const sanitizedNumber = formData.ctaWhatsAppNumber.replace(/[^\d]/g, '');
+      if (!sanitizedNumber) return '';
+      const message = formData.ctaWhatsAppMessage.trim();
+      const query = message ? `?text=${encodeURIComponent(message)}` : '';
+      return `https://wa.me/${sanitizedNumber}${query}`;
+    }
+    const raw = formData.ctaUrl.trim();
+    if (!raw) return '';
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    return `https://${raw}`;
+  };
+
+  const previewAd: Advertisement = {
+    id: editingAd?.id || 'preview',
+    title: formData.title || 'Sponsored Business',
+    description: formData.description || '',
+    type: formData.type,
+    imageUrl: formData.imageUrl || undefined,
+    videoUrl: formData.videoUrl || undefined,
+    thumbnailUrl: formData.thumbnailUrl || undefined,
+    headline: formData.headline || '',
+    bodyText: formData.bodyText || '',
+    ctaText: formData.ctaText || 'Learn More',
+    ctaUrl: buildPreviewUrl() || undefined,
+    ctaAction: formData.ctaAction,
+    ctaTargetId: formData.ctaTargetId || undefined,
+    spend: formData.spend ? parseFloat(formData.spend) : undefined,
+    spendCurrency: formData.spendCurrency || 'USD',
+    targeting: { scope: formData.targetingScope },
+    placement: {
+      locations: formData.placementLocations,
+      priority: parseInt(formData.placementPriority, 10) || 1,
+      frequency: formData.placementFrequency,
+      ...(formData.modalDelaySeconds
+        ? { delaySeconds: parseInt(formData.modalDelaySeconds, 10) || 0 }
+        : {}),
+    },
+    startDate: formData.startDate || undefined,
+    endDate: formData.endDate || undefined,
+    timezone: 'Africa/Harare',
+    status: formData.status,
+    impressionsCount: 0,
+    clicksCount: 0,
+    conversionsCount: 0,
+    createdBy: user?.id,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
   const handleDelete = async (adId: string) => {
     Alert.alert('Delete Advertisement', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
@@ -361,6 +492,61 @@ export default function AdsManagementScreen() {
     ]);
   };
 
+  const handleApproveAd = async (ad: Advertisement) => {
+    try {
+      let endDate: string | null = null;
+      if (ad.adPackageId) {
+        const { data: pkg } = await supabase
+          .from('ad_packages')
+          .select('duration_days')
+          .eq('id', ad.adPackageId)
+          .single();
+        if (pkg?.duration_days) {
+          const start = new Date();
+          const end = new Date(start);
+          end.setDate(start.getDate() + pkg.duration_days);
+          endDate = end.toISOString();
+        }
+      }
+      const { error } = await supabase
+        .from('advertisements')
+        .update({
+          status: 'active',
+          payment_status: 'approved',
+          start_date: new Date().toISOString(),
+          end_date: endDate,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', ad.id);
+      if (error) throw error;
+      Alert.alert('Approved', 'Advertisement approved and activated.');
+      loadAds();
+      await refreshAds();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to approve advertisement.');
+    }
+  };
+
+  const handleRejectAd = async (ad: Advertisement) => {
+    try {
+      const { error } = await supabase
+        .from('advertisements')
+        .update({
+          status: 'archived',
+          payment_status: 'rejected',
+          admin_notes: approvalNotes[ad.id] || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', ad.id);
+      if (error) throw error;
+      Alert.alert('Rejected', 'Advertisement rejected.');
+      loadAds();
+      await refreshAds();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to reject advertisement.');
+    }
+  };
+
   const getCTR = (ad: Advertisement) => {
     if (ad.impressionsCount === 0) return '0.00';
     return ((ad.clicksCount / ad.impressionsCount) * 100).toFixed(2);
@@ -369,6 +555,27 @@ export default function AdsManagementScreen() {
   const getConversionRate = (ad: Advertisement) => {
     if (ad.clicksCount === 0) return '0.00';
     return ((ad.conversionsCount / ad.clicksCount) * 100).toFixed(2);
+  };
+
+  const getCPC = (ad: Advertisement) => {
+    if (!ad.spend || ad.clicksCount === 0) return '—';
+    return (ad.spend / ad.clicksCount).toFixed(2);
+  };
+
+  const getCPE = (ad: Advertisement) => {
+    const engagements = ad.clicksCount + ad.conversionsCount;
+    if (!ad.spend || engagements === 0) return '—';
+    return (ad.spend / engagements).toFixed(2);
+  };
+
+  const getCPA = (ad: Advertisement) => {
+    if (!ad.spend || ad.conversionsCount === 0) return '—';
+    return (ad.spend / ad.conversionsCount).toFixed(2);
+  };
+
+  const getROAS = (ad: Advertisement) => {
+    if (!ad.spend || !ad.revenue) return '—';
+    return (ad.revenue / ad.spend).toFixed(2);
   };
 
   if (isLoading) {
@@ -450,6 +657,61 @@ export default function AdsManagementScreen() {
                   <Text style={[styles.statLabel, { color: theme.text.secondary }]}>Conversions ({getConversionRate(ad)}%)</Text>
                 </View>
               </View>
+              <View style={styles.adStatsSecondary}>
+                <Text style={[styles.statLabel, { color: theme.text.secondary }]}>
+                  Spend: {ad.spendCurrency || 'USD'} {ad.spend?.toFixed(2) ?? '—'}
+                </Text>
+                <Text style={[styles.statLabel, { color: theme.text.secondary }]}>
+                  CPC: {ad.spendCurrency || 'USD'} {getCPC(ad)}
+                </Text>
+                <Text style={[styles.statLabel, { color: theme.text.secondary }]}>
+                  CPE: {ad.spendCurrency || 'USD'} {getCPE(ad)}
+                </Text>
+                <Text style={[styles.statLabel, { color: theme.text.secondary }]}>
+                  CPA: {ad.spendCurrency || 'USD'} {getCPA(ad)}
+                </Text>
+                <Text style={[styles.statLabel, { color: theme.text.secondary }]}>
+                  ROAS: {getROAS(ad)}
+                </Text>
+              </View>
+
+              {ad.status === 'pending' && (
+                <View style={styles.approvalSection}>
+                  <Text style={[styles.approvalTitle, { color: theme.text.primary }]}>Pending Approval</Text>
+                  <Text style={[styles.approvalMeta, { color: theme.text.secondary }]}>
+                    Payment: {ad.paymentStatus || 'pending'} · {ad.paymentCurrency || 'USD'} {ad.paymentAmount?.toFixed(2) ?? '—'}
+                  </Text>
+                  {ad.paymentReference && (
+                    <Text style={[styles.approvalMeta, { color: theme.text.tertiary }]}>
+                      Reference: {ad.paymentReference}
+                    </Text>
+                  )}
+                  {ad.paymentProofUrl && (
+                    <Image source={{ uri: ad.paymentProofUrl }} style={styles.paymentProofImage} />
+                  )}
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                    placeholder="Admin notes (optional)"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={approvalNotes[ad.id] || ''}
+                    onChangeText={(text) => setApprovalNotes(prev => ({ ...prev, [ad.id]: text }))}
+                  />
+                  <View style={styles.approvalActions}>
+                    <TouchableOpacity
+                      style={[styles.approvalButton, { backgroundColor: theme.surface.info }]}
+                      onPress={() => handleApproveAd(ad)}
+                    >
+                      <Text style={[styles.approvalButtonText, { color: theme.accent.info }]}>Approve</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.approvalButton, { backgroundColor: theme.surface.danger }]}
+                      onPress={() => handleRejectAd(ad)}
+                    >
+                      <Text style={[styles.approvalButtonText, { color: theme.accent.danger }]}>Reject</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
             </View>
           ))
         )}
@@ -611,19 +873,112 @@ export default function AdsManagementScreen() {
                 onChangeText={(text) => setFormData({ ...formData, ctaText: text })}
               />
 
-              <Text style={[styles.label, { color: theme.text.secondary }]}>CTA URL</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                placeholder="https://..."
-                placeholderTextColor={theme.text.tertiary}
-                value={formData.ctaUrl}
-                onChangeText={(text) => setFormData({ ...formData, ctaUrl: text })}
-                keyboardType="url"
-              />
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Spend (Optional)</Text>
+              <View style={styles.rowInputs}>
+                <TextInput
+                  style={[styles.input, styles.rowInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                  placeholder="0.00"
+                  placeholderTextColor={theme.text.tertiary}
+                  value={formData.spend}
+                  onChangeText={(text) => setFormData({ ...formData, spend: text.replace(/[^0-9.]/g, '') })}
+                  keyboardType="decimal-pad"
+                />
+                <TextInput
+                  style={[styles.input, styles.rowInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                  placeholder="USD"
+                  placeholderTextColor={theme.text.tertiary}
+                  value={formData.spendCurrency}
+                  onChangeText={(text) => setFormData({ ...formData, spendCurrency: text.toUpperCase().slice(0, 3) })}
+                />
+              </View>
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>CTA Action</Text>
+              <View style={styles.typeButtons}>
+                {([
+                  { key: 'external_url', label: 'Website / WhatsApp' },
+                  { key: 'open_product', label: 'Open Product' },
+                  { key: 'open_book', label: 'Open Book' },
+                  { key: 'open_feature', label: 'Open Feature' },
+                ] as Array<{ key: 'external_url' | 'open_product' | 'open_book' | 'open_feature'; label: string }>).map(action => (
+                  <TouchableOpacity
+                    key={action.key}
+                    style={[styles.typeButton, { backgroundColor: formData.ctaAction === action.key ? theme.accent.primary : theme.background.secondary }]}
+                    onPress={() => setFormData({ ...formData, ctaAction: action.key })}
+                  >
+                    <Text style={[styles.typeButtonText, { color: formData.ctaAction === action.key ? '#FFF' : theme.text.primary }]}>
+                      {action.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {formData.ctaAction === 'external_url' ? (
+                <>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>External Type</Text>
+                  <View style={styles.typeButtons}>
+                    {(['website', 'whatsapp'] as Array<'website' | 'whatsapp'>).map(type => (
+                      <TouchableOpacity
+                        key={type}
+                        style={[styles.typeButton, { backgroundColor: formData.ctaExternalType === type ? theme.accent.primary : theme.background.secondary }]}
+                        onPress={() => setFormData({ ...formData, ctaExternalType: type })}
+                      >
+                        <Text style={[styles.typeButtonText, { color: formData.ctaExternalType === type ? '#FFF' : theme.text.primary }]}>
+                          {type === 'website' ? 'Website' : 'WhatsApp'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {formData.ctaExternalType === 'website' ? (
+                    <>
+                      <Text style={[styles.label, { color: theme.text.secondary }]}>CTA URL</Text>
+                      <TextInput
+                        style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                        placeholder="https://..."
+                        placeholderTextColor={theme.text.tertiary}
+                        value={formData.ctaUrl}
+                        onChangeText={(text) => setFormData({ ...formData, ctaUrl: text })}
+                        keyboardType="url"
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <Text style={[styles.label, { color: theme.text.secondary }]}>WhatsApp Number</Text>
+                      <TextInput
+                        style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                        placeholder="263771234567"
+                        placeholderTextColor={theme.text.tertiary}
+                        value={formData.ctaWhatsAppNumber}
+                        onChangeText={(text) => setFormData({ ...formData, ctaWhatsAppNumber: text })}
+                        keyboardType="phone-pad"
+                      />
+                      <Text style={[styles.label, { color: theme.text.secondary }]}>WhatsApp Message (Optional)</Text>
+                      <TextInput
+                        style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                        placeholder="Hello, I'm interested in..."
+                        placeholderTextColor={theme.text.tertiary}
+                        value={formData.ctaWhatsAppMessage}
+                        onChangeText={(text) => setFormData({ ...formData, ctaWhatsAppMessage: text })}
+                      />
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Target ID</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                    placeholder="Paste the target ID"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={formData.ctaTargetId}
+                    onChangeText={(text) => setFormData({ ...formData, ctaTargetId: text })}
+                  />
+                </>
+              )}
 
               <Text style={[styles.label, { color: theme.text.secondary }]}>Status</Text>
               <View style={styles.typeButtons}>
-                {(['draft', 'active', 'paused', 'archived'] as AdStatus[]).map((status) => (
+                {(['draft', 'pending', 'active', 'paused', 'archived'] as AdStatus[]).map((status) => (
                   <TouchableOpacity
                     key={status}
                     style={[styles.typeButton, { backgroundColor: formData.status === status ? theme.accent.primary : theme.background.secondary }]}
@@ -836,6 +1191,25 @@ export default function AdsManagementScreen() {
                 onChangeText={(text) => setFormData({ ...formData, maxImpressionsPerUser: text.replace(/[^0-9]/g, '') })}
                 keyboardType="number-pad"
               />
+
+              {formData.type === 'modal' && (
+                <>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Modal Delay (seconds)</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                    placeholder="e.g., 3"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={formData.modalDelaySeconds}
+                    onChangeText={(text) => setFormData({ ...formData, modalDelaySeconds: text.replace(/[^0-9]/g, '') })}
+                    keyboardType="number-pad"
+                  />
+                </>
+              )}
+
+              <Text style={[styles.sectionLabel, { color: theme.text.secondary }]}>Preview</Text>
+              <View style={styles.previewCard}>
+                <AdCard ad={previewAd} location="admin-preview" preview />
+              </View>
             </ScrollView>
 
             <View style={styles.modalFooter}>
@@ -878,6 +1252,44 @@ const styles = StyleSheet.create({
   stat: { alignItems: 'center' },
   statValue: { fontSize: 18, fontWeight: '700', marginTop: 4 },
   statLabel: { fontSize: 12, marginTop: 2 },
+  adStatsSecondary: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
+  approvalSection: {
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  approvalTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  approvalMeta: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  approvalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  approvalButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  approvalButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  paymentProofImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 8,
+    marginTop: 8,
+  },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
   modalContent: {
     minHeight: '70%', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' },
@@ -891,6 +1303,8 @@ const styles = StyleSheet.create({
   typeButtons: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
   typeButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
   typeButtonText: { fontSize: 14, fontWeight: '600', textTransform: 'capitalize' },
+  rowInputs: { flexDirection: 'row', gap: 12 },
+  rowInput: { flex: 1 },
   sectionLabel: { fontSize: 16, fontWeight: '700', marginTop: 16, marginBottom: 4 },
   locationControls: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   locationActionButton: {
@@ -903,6 +1317,9 @@ const styles = StyleSheet.create({
   locationGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 8 },
   locationChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 1 },
   locationChipText: { fontSize: 12, fontWeight: '600' },
+  previewCard: {
+    marginTop: 12,
+  },
   modalFooter: { flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
   cancelButton: { flex: 1, padding: 14, borderRadius: 10, alignItems: 'center' },
   cancelButtonText: { fontSize: 16, fontWeight: '600' },

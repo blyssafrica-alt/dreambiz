@@ -13,6 +13,7 @@ interface AdContextValue {
   trackImpression: (adId: string, location: string) => Promise<void>;
   trackClick: (adId: string, location: string) => Promise<void>;
   trackConversion: (adId: string, location: string, value?: number) => Promise<void>;
+  consumeLastAdClick: (maxAgeMinutes?: number) => { adId: string; location: string } | null;
   refreshAds: () => Promise<void>;
 }
 
@@ -46,6 +47,7 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
   const [impressionHistory, setImpressionHistory] = useState<AdImpression[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sessionId, setSessionId] = useState<string>('');
+  const [lastAdClick, setLastAdClick] = useState<{ adId: string; location: string; at: number } | null>(null);
 
   useEffect(() => {
     getSessionId().then(setSessionId);
@@ -231,6 +233,12 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
     if (!user || !business) return;
 
     try {
+      const hasImpression = impressionHistory.some(
+        imp => imp.adId === adId && imp.location === location && imp.sessionId === sessionId
+      );
+      if (hasImpression) {
+        return;
+      }
       const { data, error } = await supabase
         .from('ad_impressions')
         .insert({
@@ -265,10 +273,10 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Failed to track impression:', error);
     }
-  }, [user, business, sessionId]);
+  }, [user, business, impressionHistory, sessionId]);
 
   const trackClick = useCallback(async (adId: string, location: string) => {
-    if (!user) return;
+    if (!user || !business) return;
 
     try {
       // Find the most recent impression for this ad in this session
@@ -293,14 +301,48 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
               : imp
           )
         );
+      } else if (!recentImpression) {
+        const { data, error } = await supabase
+          .from('ad_impressions')
+          .insert({
+            ad_id: adId,
+            user_id: user.id,
+            business_id: business.id,
+            location,
+            session_id: sessionId,
+            viewed_at: new Date().toISOString(),
+            clicked: true,
+            clicked_at: new Date().toISOString(),
+            converted: false,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          setImpressionHistory(prev => [...prev, {
+            id: data.id,
+            adId: data.ad_id,
+            userId: data.user_id,
+            businessId: data.business_id,
+            location: data.location,
+            sessionId: data.session_id,
+            viewedAt: data.viewed_at,
+            clicked: data.clicked,
+            clickedAt: data.clicked_at,
+            converted: data.converted,
+          }]);
+        }
       }
+      setLastAdClick({ adId, location, at: Date.now() });
     } catch (error) {
       console.error('Failed to track click:', error);
     }
-  }, [user, impressionHistory, sessionId]);
+  }, [user, business, impressionHistory, sessionId]);
 
   const trackConversion = useCallback(async (adId: string, location: string, value?: number) => {
-    if (!user) return;
+    if (!user || !business) return;
 
     try {
       // Find the most recent impression for this ad
@@ -326,11 +368,60 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
               : imp
           )
         );
+      } else if (!recentImpression) {
+        const { data, error } = await supabase
+          .from('ad_impressions')
+          .insert({
+            ad_id: adId,
+            user_id: user.id,
+            business_id: business.id,
+            location,
+            session_id: sessionId,
+            viewed_at: new Date().toISOString(),
+            clicked: true,
+            clicked_at: new Date().toISOString(),
+            converted: true,
+            converted_at: new Date().toISOString(),
+            conversion_value: value,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          setImpressionHistory(prev => [...prev, {
+            id: data.id,
+            adId: data.ad_id,
+            userId: data.user_id,
+            businessId: data.business_id,
+            location: data.location,
+            sessionId: data.session_id,
+            viewedAt: data.viewed_at,
+            clicked: data.clicked,
+            clickedAt: data.clicked_at,
+            converted: data.converted,
+            convertedAt: data.converted_at,
+            conversionValue: data.conversion_value ? parseFloat(data.conversion_value) : undefined,
+          }]);
+        }
       }
     } catch (error) {
       console.error('Failed to track conversion:', error);
     }
-  }, [user, impressionHistory, sessionId]);
+  }, [user, business, impressionHistory, sessionId]);
+
+  const consumeLastAdClick = useCallback((maxAgeMinutes: number = 60) => {
+    if (!lastAdClick) return null;
+    const maxAgeMs = maxAgeMinutes * 60 * 1000;
+    if (Date.now() - lastAdClick.at > maxAgeMs) {
+      setLastAdClick(null);
+      return null;
+    }
+    const payload = { adId: lastAdClick.adId, location: lastAdClick.location };
+    setLastAdClick(null);
+    return payload;
+  }, [lastAdClick]);
 
   const refreshAds = useCallback(async () => {
     await loadAds();
@@ -345,6 +436,7 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
         trackImpression,
         trackClick,
         trackConversion,
+        consumeLastAdClick,
         refreshAds,
       }}
     >

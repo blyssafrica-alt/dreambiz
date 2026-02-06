@@ -8,7 +8,8 @@ import {
   Search,
   Filter,
   X,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Megaphone
 } from 'lucide-react-native';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
@@ -32,8 +33,10 @@ import { supabase } from '@/lib/supabase';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAds } from '@/contexts/AdContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { AdCard } from '@/components/AdCard';
 import type { Product } from '@/types/business';
+import type { AdPackage } from '@/types/super-admin';
 import { useEmployeePermissions } from '@/hooks/useEmployeePermissions';
 import { useTranslation } from '@/hooks/useTranslation';
 
@@ -53,6 +56,7 @@ const PRODUCT_CATEGORIES = [
 export default function ProductsScreen() {
   const { business, products, addProduct, updateProduct, deleteProduct } = useBusiness();
   const { theme } = useTheme();
+  const { user } = useAuth();
   const { hasPermission, isOwner } = useEmployeePermissions();
   const { t } = useTranslation();
   const { getAdsForLocation } = useAds();
@@ -60,6 +64,20 @@ export default function ProductsScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
+  const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [promotingProduct, setPromotingProduct] = useState<Product | null>(null);
+  const [adHeadline, setAdHeadline] = useState('');
+  const [adBodyText, setAdBodyText] = useState('');
+  const [adCtaText, setAdCtaText] = useState('Buy Now');
+  const [isSubmittingAd, setIsSubmittingAd] = useState(false);
+  const [adBudget, setAdBudget] = useState('');
+  const [adCurrency, setAdCurrency] = useState('USD');
+  const [adPaymentReference, setAdPaymentReference] = useState('');
+  const [adPaymentProofUrl, setAdPaymentProofUrl] = useState<string | null>(null);
+  const [isUploadingAdProof, setIsUploadingAdProof] = useState(false);
+  const [adPackages, setAdPackages] = useState<AdPackage[]>([]);
+  const [selectedAdPackageId, setSelectedAdPackageId] = useState<string | null>(null);
+  const [adLocations, setAdLocations] = useState<string[]>(['products', 'dashboard']);
 
   // Ensure products is always an array
   const safeProducts = useMemo(() => (Array.isArray(products) ? products : []), [products]);
@@ -79,6 +97,32 @@ export default function ProductsScreen() {
       }),
     ]).start();
   }, [fadeAnim, slideAnim]);
+
+  useEffect(() => {
+    const loadPackages = async () => {
+      const { data, error } = await supabase
+        .from('ad_packages')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+      if (!error && data) {
+        setAdPackages(data.map((row: any) => ({
+          id: row.id,
+          name: row.name,
+          description: row.description,
+          price: parseFloat(row.price),
+          currency: row.currency,
+          pricePerLocation: row.price_per_location ? parseFloat(row.price_per_location) : 1,
+          durationDays: row.duration_days,
+          isActive: row.is_active,
+          displayOrder: row.display_order,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        })));
+      }
+    };
+    loadPackages();
+  }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -264,6 +308,110 @@ export default function ProductsScreen() {
     setFeaturedImage(product.featuredImage || null);
     setAdditionalImages(product.images || []);
     setShowModal(true);
+  };
+
+  const handleOpenPromoteModal = (product: Product) => {
+    setPromotingProduct(product);
+    setAdHeadline(product.name);
+    setAdBodyText(product.description || '');
+    setAdCtaText('Buy Now');
+    setAdBudget('');
+    setAdCurrency(business?.currency || 'USD');
+    setAdPaymentReference('');
+    setAdPaymentProofUrl(null);
+    setSelectedAdPackageId(null);
+    setAdLocations(['products', 'dashboard']);
+    setShowPromoteModal(true);
+  };
+
+  const applyPackagePricing = (pkg: AdPackage, locations: string[]) => {
+    const count = Math.max(1, locations.length);
+    const total = pkg.price * (pkg.pricePerLocation || 1) * count;
+    setAdBudget(total.toFixed(2));
+    setAdCurrency(pkg.currency);
+  };
+
+  const handlePickAdProofImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        RNAlert.alert('Permission Required', 'Please grant camera roll access to upload proof of payment');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+        base64: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        setIsUploadingAdProof(true);
+        try {
+          const base64 = await getBase64FromAsset(asset);
+          const fileName = buildAssetFileName(asset, 'ad-payment-proof');
+          const filePath = `ad_payment_proofs/${fileName}`;
+          const publicUrl = await uploadBase64ToStorage(supabase, {
+            bucket: 'ad_payment_proofs',
+            filePath,
+            base64,
+            contentType: asset.mimeType || 'image/jpeg',
+            upsert: false,
+          });
+          setAdPaymentProofUrl(publicUrl);
+        } catch (error: any) {
+          RNAlert.alert('Upload Error', error.message || 'Failed to upload proof');
+        } finally {
+          setIsUploadingAdProof(false);
+        }
+      }
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to pick image');
+    }
+  };
+
+  const handleSubmitAdRequest = async () => {
+    if (!user || !promotingProduct) return;
+    if (!adHeadline.trim()) {
+      RNAlert.alert('Missing Fields', 'Please add a headline for your ad.');
+      return;
+    }
+    if (!adBudget || !adPaymentProofUrl) {
+      RNAlert.alert('Missing Fields', 'Please enter a budget and upload proof of payment.');
+      return;
+    }
+    try {
+      setIsSubmittingAd(true);
+      const { error } = await supabase.from('advertisements').insert({
+        title: promotingProduct.name,
+        description: adBodyText.trim() || null,
+        type: 'card',
+        image_url: promotingProduct.featuredImage || null,
+        headline: adHeadline.trim(),
+        body_text: adBodyText.trim() || null,
+        cta_text: adCtaText.trim() || 'Buy Now',
+        cta_action: 'open_product',
+        cta_target_id: promotingProduct.id,
+        status: 'pending',
+        payment_status: 'pending',
+        payment_amount: parseFloat(adBudget),
+        payment_currency: adCurrency,
+        payment_reference: adPaymentReference || null,
+        payment_proof_url: adPaymentProofUrl,
+        ad_package_id: selectedAdPackageId,
+        targeting: { scope: 'global' },
+        placement: { locations: adLocations, priority: 1, frequency: 'once_per_day' },
+        created_by: user.id,
+      });
+      if (error) throw error;
+      RNAlert.alert('Submitted', 'Your ad request has been sent for admin approval.');
+      setShowPromoteModal(false);
+      setPromotingProduct(null);
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to submit ad request.');
+    } finally {
+      setIsSubmittingAd(false);
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -511,6 +659,14 @@ export default function ProductsScreen() {
                           onPress={() => handleEdit(product)}
                         >
                           <Edit2 size={18} color={theme.accent.primary} />
+                        </TouchableOpacity>
+                      )}
+                      {(isOwner || hasPermission('products:edit')) && (
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={() => handleOpenPromoteModal(product)}
+                        >
+                          <Megaphone size={18} color={theme.accent.info} />
                         </TouchableOpacity>
                       )}
                       {(isOwner || hasPermission('products:delete')) && (
@@ -912,6 +1068,172 @@ export default function ProductsScreen() {
                 onPress={handleSave}
               >
                 <Text style={styles.saveButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showPromoteModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowPromoteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.background.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Promote Product</Text>
+              <TouchableOpacity onPress={() => setShowPromoteModal(false)}>
+                <X size={24} color={theme.text.secondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Headline *</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="Ad headline"
+                placeholderTextColor={theme.text.tertiary}
+                value={adHeadline}
+                onChangeText={setAdHeadline}
+              />
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Body Text</Text>
+              <TextInput
+                style={[styles.input, styles.textArea, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="Describe your product..."
+                placeholderTextColor={theme.text.tertiary}
+                value={adBodyText}
+                onChangeText={setAdBodyText}
+                multiline
+                numberOfLines={4}
+              />
+              <Text style={[styles.label, { color: theme.text.secondary }]}>CTA Text</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="Buy Now"
+                placeholderTextColor={theme.text.tertiary}
+                value={adCtaText}
+                onChangeText={setAdCtaText}
+              />
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Ad Package</Text>
+              <View style={styles.packageGrid}>
+                {adPackages.map(pkg => {
+                  const isSelected = selectedAdPackageId === pkg.id;
+                  return (
+                    <TouchableOpacity
+                      key={pkg.id}
+                      style={[
+                        styles.packageCard,
+                        {
+                          backgroundColor: isSelected ? theme.accent.primary + '12' : theme.background.secondary,
+                          borderColor: isSelected ? theme.accent.primary : theme.border.light,
+                        },
+                      ]}
+                      onPress={() => {
+                        setSelectedAdPackageId(pkg.id);
+                        applyPackagePricing(pkg, adLocations);
+                      }}
+                    >
+                      <Text style={[styles.packageName, { color: theme.text.primary }]}>{pkg.name}</Text>
+                      <Text style={[styles.packageMeta, { color: theme.text.secondary }]}>
+                        {pkg.currency} {pkg.price.toFixed(2)} · {pkg.durationDays} days
+                      </Text>
+                      {pkg.description && (
+                        <Text style={[styles.packageMeta, { color: theme.text.tertiary }]}>{pkg.description}</Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Ad Locations</Text>
+              <View style={styles.packageGrid}>
+                {['dashboard', 'products', 'customers', 'finances', 'documents', 'insights'].map(loc => {
+                  const isSelected = adLocations.includes(loc);
+                  return (
+                    <TouchableOpacity
+                      key={loc}
+                      style={[
+                        styles.packageCard,
+                        {
+                          backgroundColor: isSelected ? theme.accent.primary + '12' : theme.background.secondary,
+                          borderColor: isSelected ? theme.accent.primary : theme.border.light,
+                        },
+                      ]}
+                      onPress={() => {
+                        const next = isSelected
+                          ? adLocations.filter(item => item !== loc)
+                          : [...adLocations, loc];
+                        setAdLocations(next);
+                        const pkg = adPackages.find(p => p.id === selectedAdPackageId);
+                        if (pkg) {
+                          applyPackagePricing(pkg, next);
+                        }
+                      }}
+                    >
+                      <Text style={[styles.packageName, { color: theme.text.primary }]}>{loc}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Ad Budget</Text>
+              <View style={styles.rowInputs}>
+                <TextInput
+                  style={[styles.input, styles.rowInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                  placeholder="0.00"
+                  placeholderTextColor={theme.text.tertiary}
+                  value={adBudget}
+                  onChangeText={setAdBudget}
+                  keyboardType="decimal-pad"
+                  editable={!selectedAdPackageId}
+                />
+                <TextInput
+                  style={[styles.input, styles.rowInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                  placeholder="USD"
+                  placeholderTextColor={theme.text.tertiary}
+                  value={adCurrency}
+                  onChangeText={(text) => setAdCurrency(text.toUpperCase().slice(0, 3))}
+                  editable={!selectedAdPackageId}
+                />
+              </View>
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Payment Reference (Optional)</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="Reference"
+                placeholderTextColor={theme.text.tertiary}
+                value={adPaymentReference}
+                onChangeText={setAdPaymentReference}
+              />
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Proof of Payment *</Text>
+              {adPaymentProofUrl ? (
+                <Image source={{ uri: adPaymentProofUrl }} style={styles.proofImage} />
+              ) : (
+                <TouchableOpacity
+                  style={[styles.proofUploadButton, { borderColor: theme.border.light }]}
+                  onPress={handlePickAdProofImage}
+                  disabled={isUploadingAdProof}
+                >
+                  <Text style={[styles.proofUploadText, { color: theme.text.primary }]}>
+                    {isUploadingAdProof ? 'Uploading...' : 'Upload Proof'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <Text style={[styles.helperText, { color: theme.text.tertiary }]}>
+                Submitted ads require admin approval before going live.
+              </Text>
+            </ScrollView>
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.cancelButton, { backgroundColor: theme.background.secondary }]}
+                onPress={() => setShowPromoteModal(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: theme.text.secondary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveButton, { backgroundColor: theme.accent.primary }]}
+                onPress={handleSubmitAdRequest}
+                disabled={isSubmittingAd}
+              >
+                <Text style={styles.saveButtonText}>{isSubmittingAd ? 'Submitting...' : 'Submit Ad'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1327,6 +1649,50 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  helperText: {
+    fontSize: 12,
+    marginTop: 8,
+  },
+  rowInputs: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  rowInput: {
+    flex: 1,
+  },
+  proofUploadButton: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  proofUploadText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  proofImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+  },
+  packageGrid: {
+    gap: 10,
+    marginBottom: 12,
+  },
+  packageCard: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+  },
+  packageName: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  packageMeta: {
+    fontSize: 12,
   },
   saveButtonText: {
     color: '#fff',

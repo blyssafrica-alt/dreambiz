@@ -133,7 +133,7 @@ export interface ProductPurchase {
 // ADVERTISEMENTS
 // ============================================
 export type AdType = 'banner' | 'card' | 'modal' | 'inline' | 'video';
-export type AdStatus = 'draft' | 'active' | 'paused' | 'archived';
+export type AdStatus = 'draft' | 'pending' | 'active' | 'paused' | 'archived';
 export type AdFrequency = 'once_per_session' | 'once_per_day' | 'always';
 export type AdScope = 'global' | 'targeted';
 export type CtaAction = 'open_product' | 'open_book' | 'open_feature' | 'external_url';
@@ -154,6 +154,7 @@ export interface AdPlacement {
   priority: number; // Higher = shown first
   frequency: AdFrequency;
   maxImpressionsPerUser?: number;
+  delaySeconds?: number;
 }
 
 export interface Advertisement {
@@ -172,6 +173,16 @@ export interface Advertisement {
   ctaTargetId?: string; // Product ID, Book ID, Feature ID, etc.
   targeting: AdTargeting;
   placement: AdPlacement;
+  spend?: number;
+  spendCurrency?: string;
+  revenue?: number;
+  paymentStatus?: 'pending' | 'approved' | 'rejected';
+  paymentAmount?: number;
+  paymentCurrency?: string;
+  paymentReference?: string;
+  paymentProofUrl?: string;
+  adminNotes?: string;
+  adPackageId?: string;
   startDate?: string;
   endDate?: string;
   timezone: string;
@@ -180,6 +191,20 @@ export interface Advertisement {
   clicksCount: number;
   conversionsCount: number;
   createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdPackage {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  currency: string;
+  pricePerLocation: number;
+  durationDays: number;
+  isActive: boolean;
+  displayOrder: number;
   createdAt: string;
   updatedAt: string;
 }

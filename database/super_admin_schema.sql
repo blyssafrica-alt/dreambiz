@@ -146,6 +146,25 @@ CREATE TABLE IF NOT EXISTS product_purchases (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- ============================================
+-- AD PACKAGES
+-- ============================================
+CREATE TABLE IF NOT EXISTS ad_packages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  description TEXT,
+  price DECIMAL(15, 2) NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'USD',
+  price_per_location DECIMAL(6, 2) NOT NULL DEFAULT 1,
+  duration_days INTEGER NOT NULL DEFAULT 7,
+  is_active BOOLEAN DEFAULT true,
+  display_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ad_packages_active ON ad_packages(is_active) WHERE is_active = true;
+
 CREATE INDEX IF NOT EXISTS idx_product_purchases_user ON product_purchases(user_id);
 CREATE INDEX IF NOT EXISTS idx_product_purchases_product ON product_purchases(product_id);
 CREATE INDEX IF NOT EXISTS idx_product_purchases_status ON product_purchases(payment_status);
@@ -200,12 +219,25 @@ CREATE TABLE IF NOT EXISTS advertisements (
   timezone TEXT DEFAULT 'Africa/Harare',
   
   -- Status
-  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'paused', 'archived')),
+  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'pending', 'active', 'paused', 'archived')),
   
   -- Analytics
   impressions_count INTEGER DEFAULT 0,
   clicks_count INTEGER DEFAULT 0,
   conversions_count INTEGER DEFAULT 0,
+
+  -- Spend (for CPC/CPE calculations)
+  spend DECIMAL(15, 2),
+  spend_currency TEXT DEFAULT 'USD',
+
+  -- Payment tracking for self-serve ads
+  payment_status TEXT DEFAULT 'pending' CHECK (payment_status IN ('pending', 'approved', 'rejected')),
+  payment_amount DECIMAL(15, 2),
+  payment_currency TEXT DEFAULT 'USD',
+  payment_reference TEXT,
+  payment_proof_url TEXT,
+  admin_notes TEXT,
+  ad_package_id UUID REFERENCES ad_packages(id) ON DELETE SET NULL,
   
   -- Metadata
   created_by UUID REFERENCES users(id), -- Super admin
@@ -332,81 +364,135 @@ CREATE INDEX IF NOT EXISTS idx_alert_rules_priority ON alert_rules(priority DESC
 -- Product Categories
 ALTER TABLE product_categories ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view product categories" ON product_categories;
 CREATE POLICY "Anyone can view product categories" ON product_categories
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Super admins can manage categories" ON product_categories;
 CREATE POLICY "Super admins can manage categories" ON product_categories
   FOR ALL USING (is_super_admin());
 
 -- Platform Products
 ALTER TABLE platform_products ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Super admins can manage all products" ON platform_products;
 CREATE POLICY "Super admins can manage all products" ON platform_products
   FOR ALL USING (is_super_admin());
 
+DROP POLICY IF EXISTS "Users can view published products" ON platform_products;
 CREATE POLICY "Users can view published products" ON platform_products
   FOR SELECT USING (status = 'published');
 
 -- Product Reviews
 ALTER TABLE product_reviews ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view reviews" ON product_reviews;
 CREATE POLICY "Anyone can view reviews" ON product_reviews
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Users can create their own reviews" ON product_reviews;
 CREATE POLICY "Users can create their own reviews" ON product_reviews
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can update their own reviews" ON product_reviews;
 CREATE POLICY "Users can update their own reviews" ON product_reviews
   FOR UPDATE USING (auth.uid()::text = user_id::text);
 
 -- Product Purchases
 ALTER TABLE product_purchases ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own purchases" ON product_purchases;
 CREATE POLICY "Users can view their own purchases" ON product_purchases
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can create their own purchases" ON product_purchases;
 CREATE POLICY "Users can create their own purchases" ON product_purchases
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Super admins can view all purchases" ON product_purchases;
 CREATE POLICY "Super admins can view all purchases" ON product_purchases
   FOR SELECT USING (is_super_admin());
 
 -- Advertisements
 ALTER TABLE advertisements ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Super admins can manage all ads" ON advertisements;
 CREATE POLICY "Super admins can manage all ads" ON advertisements
   FOR ALL USING (is_super_admin());
 
+DROP POLICY IF EXISTS "Users can view active ads" ON advertisements;
 CREATE POLICY "Users can view active ads" ON advertisements
   FOR SELECT USING (status = 'active');
+
+DROP POLICY IF EXISTS "Users can submit ads" ON advertisements;
+CREATE POLICY "Users can submit ads" ON advertisements
+  FOR INSERT
+  WITH CHECK (auth.uid()::text = created_by::text AND status = 'pending');
+
+DROP POLICY IF EXISTS "Users can view their own ads" ON advertisements;
+CREATE POLICY "Users can view their own ads" ON advertisements
+  FOR SELECT
+  USING (auth.uid()::text = created_by::text);
+
+DROP POLICY IF EXISTS "Users can update their own pending ads" ON advertisements;
+CREATE POLICY "Users can update their own pending ads" ON advertisements
+  FOR UPDATE
+  USING (auth.uid()::text = created_by::text AND status IN ('pending', 'rejected'))
+  WITH CHECK (auth.uid()::text = created_by::text AND status IN ('pending', 'rejected'));
 
 -- Ad Impressions
 ALTER TABLE ad_impressions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can track their own impressions" ON ad_impressions;
 CREATE POLICY "Users can track their own impressions" ON ad_impressions
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can view their own impressions" ON ad_impressions;
 CREATE POLICY "Users can view their own impressions" ON ad_impressions
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Super admins can insert impressions" ON ad_impressions;
+CREATE POLICY "Super admins can insert impressions" ON ad_impressions
+  FOR INSERT WITH CHECK (is_super_admin());
+
+DROP POLICY IF EXISTS "Super admins can view all impressions" ON ad_impressions;
 CREATE POLICY "Super admins can view all impressions" ON ad_impressions
   FOR SELECT USING (is_super_admin());
+
+-- Ad Packages
+ALTER TABLE ad_packages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can view active ad packages" ON ad_packages;
+CREATE POLICY "Anyone can view active ad packages"
+  ON ad_packages
+  FOR SELECT
+  USING (is_active = true);
+
+DROP POLICY IF EXISTS "Super admins can manage ad packages" ON ad_packages;
+CREATE POLICY "Super admins can manage ad packages"
+  ON ad_packages
+  FOR ALL
+  USING (is_super_admin());
 
 -- Feature Config
 ALTER TABLE feature_config ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Super admins can manage feature config" ON feature_config;
 CREATE POLICY "Super admins can manage feature config" ON feature_config
   FOR ALL USING (is_super_admin());
 
+DROP POLICY IF EXISTS "Users can view enabled features" ON feature_config;
 CREATE POLICY "Users can view enabled features" ON feature_config
   FOR SELECT USING (enabled = true);
 
 -- Document Templates
 ALTER TABLE document_templates ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Super admins can manage templates" ON document_templates;
 CREATE POLICY "Super admins can manage templates" ON document_templates
   FOR ALL USING (is_super_admin());
 
+DROP POLICY IF EXISTS "Users can view active templates for their business type" ON document_templates;
 CREATE POLICY "Users can view active templates for their business type" ON document_templates
   FOR SELECT USING (
     is_active = true AND
@@ -418,9 +504,11 @@ CREATE POLICY "Users can view active templates for their business type" ON docum
 -- Alert Rules
 ALTER TABLE alert_rules ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Super admins can manage alert rules" ON alert_rules;
 CREATE POLICY "Super admins can manage alert rules" ON alert_rules
   FOR ALL USING (is_super_admin());
 
+DROP POLICY IF EXISTS "Users can view active alert rules" ON alert_rules;
 CREATE POLICY "Users can view active alert rules" ON alert_rules
   FOR SELECT USING (is_active = true);
 
@@ -495,21 +583,31 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_product_categories_updated_at ON product_categories;
 CREATE TRIGGER update_product_categories_updated_at BEFORE UPDATE ON product_categories
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_platform_products_updated_at ON platform_products;
 CREATE TRIGGER update_platform_products_updated_at BEFORE UPDATE ON platform_products
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_advertisements_updated_at ON advertisements;
 CREATE TRIGGER update_advertisements_updated_at BEFORE UPDATE ON advertisements
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_feature_config_updated_at ON feature_config;
 CREATE TRIGGER update_feature_config_updated_at BEFORE UPDATE ON feature_config
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_ad_packages_updated_at ON ad_packages;
+CREATE TRIGGER update_ad_packages_updated_at BEFORE UPDATE ON ad_packages
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_document_templates_updated_at ON document_templates;
 CREATE TRIGGER update_document_templates_updated_at BEFORE UPDATE ON document_templates
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_alert_rules_updated_at ON alert_rules;
 CREATE TRIGGER update_alert_rules_updated_at BEFORE UPDATE ON alert_rules
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -538,12 +636,27 @@ BEGIN
       SET conversions_count = conversions_count + 1
       WHERE id = NEW.ad_id;
     END IF;
+  ELSIF TG_OP = 'UPDATE' THEN
+    -- Increment clicks when clicked changes to true
+    IF NEW.clicked = true AND (OLD.clicked IS DISTINCT FROM NEW.clicked) THEN
+      UPDATE advertisements
+      SET clicks_count = clicks_count + 1
+      WHERE id = NEW.ad_id;
+    END IF;
+
+    -- Increment conversions when converted changes to true
+    IF NEW.converted = true AND (OLD.converted IS DISTINCT FROM NEW.converted) THEN
+      UPDATE advertisements 
+      SET conversions_count = conversions_count + 1
+      WHERE id = NEW.ad_id;
+    END IF;
   END IF;
   
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_ad_analytics_trigger ON ad_impressions;
 CREATE TRIGGER update_ad_analytics_trigger AFTER INSERT OR UPDATE ON ad_impressions
   FOR EACH ROW EXECUTE FUNCTION update_ad_analytics();
 

@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAds } from '@/contexts/AdContext';
 import { ArrowLeft, Check, X, Eye, Clock, CheckCircle, XCircle, FileText, BookOpen, CreditCard } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -49,6 +50,7 @@ interface BookPurchase {
   user_id: string;
   user_email?: string;
   business_id: string;
+  ad_id?: string | null;
   unit_price: number;
   total_price: number;
   currency: string;
@@ -66,6 +68,7 @@ interface BookPurchase {
 export default function PaymentVerificationScreen() {
   const { theme } = useTheme();
   const { user, isSuperAdmin } = useAuth();
+  const { refreshAds } = useAds();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [subscriptionPayments, setSubscriptionPayments] = useState<SubscriptionPayment[]>([]);
   const [bookPurchases, setBookPurchases] = useState<BookPurchase[]>([]);
@@ -439,6 +442,23 @@ export default function PaymentVerificationScreen() {
       if (updateError) throw updateError;
 
       // The trigger will update book sales stats automatically when payment_status = 'completed'
+
+      if (status === 'completed' && purchase.ad_id) {
+        await supabase.from('ad_impressions').insert({
+          ad_id: purchase.ad_id,
+          user_id: purchase.user_id,
+          business_id: purchase.business_id,
+          location: 'book_purchase_approval',
+          session_id: null,
+          viewed_at: new Date().toISOString(),
+          clicked: true,
+          clicked_at: new Date().toISOString(),
+          converted: true,
+          converted_at: new Date().toISOString(),
+          conversion_value: purchase.total_price,
+        });
+        await refreshAds();
+      }
 
       setShowModal(false);
       setSelectedBookPurchase(null);

@@ -5,6 +5,7 @@ import type { DreamBigBook, BusinessType, BusinessStage } from '@/types/business
 import { useAuth } from './AuthContext';
 import { useBusiness } from './BusinessContext';
 import { useFeatures } from './FeatureContext';
+import { useAds } from './AdContext';
 
 interface ProductContextValue {
   products: PlatformProduct[];
@@ -23,6 +24,7 @@ export function ProductContextProvider({ children }: { children: React.ReactNode
   const { user, isSuperAdmin } = useAuth();
   const { business } = useBusiness();
   const { enabledFeatureIds } = useFeatures();
+  const { consumeLastAdClick, trackConversion } = useAds();
   const [products, setProducts] = useState<PlatformProduct[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -200,6 +202,7 @@ export function ProductContextProvider({ children }: { children: React.ReactNode
     const totalPrice = unitPrice * quantity;
 
     try {
+      const attribution = consumeLastAdClick();
       const { data, error } = await supabase
         .from('product_purchases')
         .insert({
@@ -211,6 +214,7 @@ export function ProductContextProvider({ children }: { children: React.ReactNode
           total_price: totalPrice,
           currency: product.currency,
           payment_status: 'pending', // In future, integrate with payment gateway
+          ...(attribution ? { ad_id: attribution.adId } : {}),
         })
         .select()
         .single();
@@ -223,6 +227,10 @@ export function ProductContextProvider({ children }: { children: React.ReactNode
           .from('platform_products')
           .update({ stock_quantity: product.stockQuantity - quantity })
           .eq('id', productId);
+      }
+
+      if (attribution) {
+        await trackConversion(attribution.adId, attribution.location, totalPrice);
       }
 
       return {
@@ -245,7 +253,7 @@ export function ProductContextProvider({ children }: { children: React.ReactNode
       console.error('Failed to purchase product:', error);
       throw error;
     }
-  }, [user, business, getProductById]);
+  }, [user, business, consumeLastAdClick, trackConversion, getProductById]);
 
   const refreshProducts = useCallback(async () => {
     await loadProducts();
