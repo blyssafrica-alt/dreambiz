@@ -4,7 +4,7 @@
  */
 
 import { Stack, useLocalSearchParams, router } from 'expo-router';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -41,12 +41,86 @@ export default function BookReaderScreen() {
   const [chapterContent, setChapterContent] = useState<string | null>(null);
   const [currentChapter, setCurrentChapter] = useState<BookChapter | null>(null);
   const [loadingChapter, setLoadingChapter] = useState(false);
+  const [processingPdf, setProcessingPdf] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const isProcessingRef = useRef(false);
   const pdfViewerUrl = useMemo(() => {
     if (!bookUrl) return null;
     const encodedUrl = encodeURIComponent(bookUrl);
     return `https://docs.google.com/gview?embedded=1&url=${encodedUrl}`;
   }, [bookUrl]);
+
+  const mapBookData = useCallback((bookData: any): Book => ({
+    id: bookData.id,
+    slug: bookData.slug,
+    title: bookData.title,
+    subtitle: bookData.subtitle,
+    description: bookData.description,
+    coverImage: bookData.cover_image,
+    documentFileUrl: bookData.document_file_url,
+    price: parseFloat(bookData.price || '0'),
+    currency: bookData.currency || 'USD',
+    salePrice: bookData.sale_price ? parseFloat(bookData.sale_price) : undefined,
+    saleStartDate: bookData.sale_start_date,
+    saleEndDate: bookData.sale_end_date,
+    totalChapters: bookData.total_chapters || 0,
+    chapters: Array.isArray(bookData.chapters) ? bookData.chapters : (typeof bookData.chapters === 'string' ? JSON.parse(bookData.chapters) : []),
+    author: bookData.author,
+    isbn: bookData.isbn,
+    publicationDate: bookData.publication_date,
+    pageCount: bookData.page_count,
+    status: bookData.status,
+    isFeatured: bookData.is_featured || false,
+    displayOrder: bookData.display_order || 0,
+    totalSales: bookData.total_sales || 0,
+    totalRevenue: parseFloat(bookData.total_revenue || '0'),
+    createdBy: bookData.created_by,
+    createdAt: bookData.created_at,
+    updatedAt: bookData.updated_at,
+    extractedChaptersData: bookData.extracted_chapters_data || undefined,
+  }), []);
+
+  const resolveBookUrl = useCallback(async (documentFileUrl: string): Promise<string> => {
+    let fileUrl = documentFileUrl;
+    if (fileUrl.includes('supabase.co/storage')) {
+      try {
+        const urlParts = fileUrl.split('/storage/v1/object/public/');
+        if (urlParts.length === 2) {
+          const [bucket, ...pathParts] = urlParts[1].split('/');
+          const filePath = pathParts.join('/');
+
+          const { data: signedData, error: signedError } = await supabase
+            .storage
+            .from(bucket)
+            .createSignedUrl(filePath, 3600);
+
+          if (!signedError && signedData) {
+            fileUrl = signedData.signedUrl;
+          }
+        }
+      } catch (urlError) {
+        console.warn('Could not create signed URL, using original:', urlError);
+      }
+    }
+    return fileUrl;
+  }, []);
+
+  const refreshBookData = useCallback(async () => {
+    if (!book?.id) return;
+    const { data: refreshedBook, error: refreshedError } = await supabase
+      .from('books')
+      .select('*')
+      .eq('id', book.id)
+      .single();
+    if (!refreshedError && refreshedBook) {
+      const mappedBook = mapBookData(refreshedBook);
+      setBook(mappedBook);
+      if (!chapter && mappedBook.documentFileUrl) {
+        const fileUrl = await resolveBookUrl(mappedBook.documentFileUrl);
+        setBookUrl(fileUrl);
+      }
+    }
+  }, [book?.id, chapter, mapBookData, resolveBookUrl]);
 
   const loadBook = useCallback(async () => {
     if (!id) {
@@ -97,65 +171,14 @@ export default function BookReaderScreen() {
       }
 
       // Map database book to Book type
-      const loadedBook: Book = {
-        id: bookData.id,
-        slug: bookData.slug,
-        title: bookData.title,
-        subtitle: bookData.subtitle,
-        description: bookData.description,
-        coverImage: bookData.cover_image,
-        documentFileUrl: bookData.document_file_url,
-        price: parseFloat(bookData.price || '0'),
-        currency: bookData.currency || 'USD',
-        salePrice: bookData.sale_price ? parseFloat(bookData.sale_price) : undefined,
-        saleStartDate: bookData.sale_start_date,
-        saleEndDate: bookData.sale_end_date,
-        totalChapters: bookData.total_chapters || 0,
-        chapters: Array.isArray(bookData.chapters) ? bookData.chapters : (typeof bookData.chapters === 'string' ? JSON.parse(bookData.chapters) : []),
-        author: bookData.author,
-        isbn: bookData.isbn,
-        publicationDate: bookData.publication_date,
-        pageCount: bookData.page_count,
-        status: bookData.status,
-        isFeatured: bookData.is_featured || false,
-        displayOrder: bookData.display_order || 0,
-        totalSales: bookData.total_sales || 0,
-        totalRevenue: parseFloat(bookData.total_revenue || '0'),
-        createdBy: bookData.created_by,
-        createdAt: bookData.created_at,
-        updatedAt: bookData.updated_at,
-        extractedChaptersData: bookData.extracted_chapters_data || undefined,
-      };
+      const loadedBook = mapBookData(bookData);
 
       setBook(loadedBook);
 
       // If chapter is specified, we'll load it in the separate effect
       // Otherwise, set up PDF URL
       if (!chapter && loadedBook.documentFileUrl) {
-        // Get signed URL from Supabase Storage if it's a storage URL
-        let fileUrl = loadedBook.documentFileUrl;
-        
-        if (fileUrl.includes('supabase.co/storage')) {
-          try {
-            const urlParts = fileUrl.split('/storage/v1/object/public/');
-            if (urlParts.length === 2) {
-              const [bucket, ...pathParts] = urlParts[1].split('/');
-              const filePath = pathParts.join('/');
-              
-              const { data: signedData, error: signedError } = await supabase
-                .storage
-                .from(bucket)
-                .createSignedUrl(filePath, 3600);
-
-              if (!signedError && signedData) {
-                fileUrl = signedData.signedUrl;
-              }
-            }
-          } catch (urlError) {
-            console.warn('Could not create signed URL, using original:', urlError);
-          }
-        }
-
+        const fileUrl = await resolveBookUrl(loadedBook.documentFileUrl);
         setBookUrl(fileUrl);
       }
     } catch (err: any) {
@@ -164,14 +187,72 @@ export default function BookReaderScreen() {
     } finally {
       setLoading(false);
     }
-  }, [chapter, id, user]);
+  }, [chapter, id, mapBookData, resolveBookUrl, user]);
+
+  const processPdfForChapters = useCallback(async (): Promise<boolean> => {
+    if (!book?.documentFileUrl || isProcessingRef.current) return false;
+    isProcessingRef.current = true;
+    setProcessingPdf(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('process-pdf', {
+        body: { pdfUrl: book.documentFileUrl, bookId: book.id },
+      });
+
+      if (error || !data?.success || !data?.jobId) {
+        console.warn('PDF processing could not start:', error || data?.error);
+        return false;
+      }
+
+      const jobId = data.jobId;
+      const maxAttempts = 20;
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const { data: statusData } = await supabase.functions.invoke('process-pdf', {
+          body: { jobId },
+        });
+
+        const job = statusData?.job;
+        if (job?.status === 'completed') {
+          await refreshBookData();
+          return true;
+        }
+        if (job?.status === 'failed') {
+          console.warn('PDF processing failed:', job?.error);
+          return false;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      return false;
+    } finally {
+      isProcessingRef.current = false;
+      setProcessingPdf(false);
+    }
+  }, [book?.documentFileUrl, book?.id, refreshBookData]);
 
   const loadChapterContent = useCallback(async (chapterNumber: number) => {
     if (!book) return;
     setLoadingChapter(true);
     try {
       const contentData = await getFullChapterContent(book.slug, chapterNumber);
-      setChapterContent(contentData?.content || '');
+      const initialContent = contentData?.content || '';
+      if (initialContent.trim().length > 0) {
+        setChapterContent(initialContent);
+        setCurrentChapter(contentData?.chapter || null);
+        return;
+      }
+
+      if (book.documentFileUrl) {
+        const processed = await processPdfForChapters();
+        if (processed) {
+          const refreshedContent = await getFullChapterContent(book.slug, chapterNumber);
+          setChapterContent(refreshedContent?.content || '');
+          setCurrentChapter(refreshedContent?.chapter || null);
+          return;
+        }
+      }
+
+      setChapterContent(initialContent);
       setCurrentChapter(contentData?.chapter || null);
     } catch (error: any) {
       console.error('Failed to load chapter content:', error);
@@ -179,7 +260,7 @@ export default function BookReaderScreen() {
     } finally {
       setLoadingChapter(false);
     }
-  }, [book]);
+  }, [book, processPdfForChapters]);
 
   useEffect(() => {
     loadBook();
@@ -343,7 +424,7 @@ export default function BookReaderScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.accent.primary} />
           <Text style={[styles.loadingText, { color: theme.text.secondary }]}>
-            {chapter ? 'Loading chapter...' : 'Loading book...'}
+            {processingPdf ? 'Processing PDF for chapter content...' : chapter ? 'Loading chapter...' : 'Loading book...'}
           </Text>
         </View>
       </SafeAreaView>

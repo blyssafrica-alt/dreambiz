@@ -297,6 +297,7 @@ function RootLayoutNav() {
         <Stack.Screen name="subscription" options={{ title: 'Subscription', headerShown: false }} />
         <Stack.Screen name="books" options={{ headerShown: false }} />
         <Stack.Screen name="my-library" options={{ title: 'My Library', headerShown: false }} />
+        <Stack.Screen name="my-ads" options={{ title: 'My Ads', headerShown: false }} />
         <Stack.Screen name="receipt-scan" options={{ title: 'Scan Receipt', headerShown: false }} />
         <Stack.Screen name="payments" options={{ headerShown: false }} />
         <Stack.Screen name="admin" options={{ headerShown: false }} />

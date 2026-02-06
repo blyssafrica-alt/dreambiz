@@ -958,15 +958,15 @@ export default function AdsManagementScreen() {
 
                   {formData.ctaExternalType === 'website' ? (
                     <>
-                      <Text style={[styles.label, { color: theme.text.secondary }]}>CTA URL</Text>
-                      <TextInput
-                        style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
-                        placeholder="https://..."
-                        placeholderTextColor={theme.text.tertiary}
-                        value={formData.ctaUrl}
-                        onChangeText={(text) => setFormData({ ...formData, ctaUrl: text })}
-                        keyboardType="url"
-                      />
+              <Text style={[styles.label, { color: theme.text.secondary }]}>CTA URL</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                placeholder="https://..."
+                placeholderTextColor={theme.text.tertiary}
+                value={formData.ctaUrl}
+                onChangeText={(text) => setFormData({ ...formData, ctaUrl: text })}
+                keyboardType="url"
+              />
                     </>
                   ) : (
                     <>
