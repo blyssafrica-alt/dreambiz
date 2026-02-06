@@ -5,6 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { PERMISSION_CATEGORIES, type PermissionCode } from '@/types/employee-permissions';
 import { useFeatures } from '@/contexts/FeatureContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   Calculator, 
   Package, 
@@ -63,6 +64,7 @@ export default function MoreScreen() {
     currentEmployee,
     refreshEmployeePermissions,
   } = useBusiness();
+  const { isSuperAdmin, isAdmin, isModerator } = useAuth();
   const { isFeatureVisible, shouldShowAsTab } = useFeatures();
   const router = useRouter();
   const showPOSTab = shouldShowAsTab('pos');
@@ -142,6 +144,21 @@ export default function MoreScreen() {
           gradient: ['#8B5CF6', '#7C3AED'],
           visible: isFeatureVisible('suppliers'),
           disabled: isEmployee,
+        },
+      ],
+    },
+    {
+      title: 'Admin',
+      items: [
+        {
+          id: 'admin-dashboard',
+          title: 'Admin Dashboard',
+          description: 'Approve ads and manage platform',
+          icon: Shield,
+          route: '/admin/dashboard',
+          color: '#0F172A',
+          gradient: ['#0F172A', '#334155'],
+          visible: isSuperAdmin || isAdmin || isModerator,
         },
       ],
     },
