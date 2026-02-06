@@ -12,6 +12,7 @@ import type { Advertisement, AdType, AdStatus, AdFrequency, AdCampaign, AdSet } 
 import type { BusinessStage, BusinessType, DreamBigBook } from '@/types/business';
 import * as ImagePicker from 'expo-image-picker';
 import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
+import { normalizeStorageUrl, getSafeImageUrl } from '@/lib/url-utils';
 
 export default function AdsManagementScreen() {
   const LOCATION_OPTIONS = [
@@ -122,17 +123,10 @@ export default function AdsManagementScreen() {
     ? ads.filter((ad) => ad.autoRenew && ad.status === 'pending')
     : ads;
 
-  // Helper function to normalize payment proof URLs (fix duplicate bucket names and spaces)
+  // Use centralized URL normalization utility
   const normalizePaymentProofUrl = (url: string | undefined | null): string | undefined => {
-    if (!url || !url.trim()) return undefined;
-    let normalized = url;
-    // Fix duplicate bucket names: /ad_payment_proofs/ad_payment_proofs/ -> /ad_payment_proofs/
-    normalized = normalized.replace(/\/ad_payment_proofs\/ad_payment_proofs\//g, '/ad_payment_proofs/');
-    // Fix bucket name with spaces: ad payment proofs -> ad_payment_proofs
-    normalized = normalized.replace(/ad payment proofs/g, 'ad_payment_proofs');
-    // Encode any remaining spaces
-    normalized = normalized.replace(/ /g, '%20');
-    return normalized;
+    const normalized = normalizeStorageUrl(url);
+    return normalized || undefined;
   };
 
   // Helper function to get fallback URL (try old duplicate path if correct path fails)

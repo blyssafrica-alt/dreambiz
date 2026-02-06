@@ -24,6 +24,7 @@ import type { Book } from '@/types/books';
 import { supabase } from '@/lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
+import { normalizeStorageUrl, getSafeImageUrl } from '@/lib/url-utils';
 import { useAds } from '@/contexts/AdContext';
 import type { AdPackage } from '@/types/super-admin';
 
@@ -302,11 +303,16 @@ export default function BookDetailScreen() {
             upsert: false,
           });
           
-          // Only set public URL (never file:// URIs)
-          if (publicUrl && !publicUrl.startsWith('file://')) {
-            setAdPaymentProofUrl(publicUrl);
+          // Normalize and set public URL (never file:// URIs)
+          const normalizedUrl = normalizeStorageUrl(publicUrl);
+          if (normalizedUrl && !normalizedUrl.startsWith('file://')) {
+            setAdPaymentProofUrl(normalizedUrl);
             setAdPaymentProofPreview(null); // Clear preview once we have public URL
-            console.log('[Ad Proof Upload] Success:', { publicUrl, fileName });
+            console.log('[Ad Proof Upload] Success:', { 
+              originalUrl: publicUrl, 
+              normalizedUrl, 
+              fileName 
+            });
           } else {
             throw new Error('Upload succeeded but no valid public URL returned');
           }
@@ -841,29 +847,36 @@ export default function BookDetailScreen() {
                         {isUploadingAdProof ? 'Uploading...' : 'Processing...'}
                       </Text>
                     </View>
-                  ) : adPaymentProofUrl && !adPaymentProofUrl.startsWith('file://') ? (
-                    // Only render Image with public URL (never file://)
-                    <Image 
-                      key={adPaymentProofUrl} // Force re-render when URL changes
-                      source={{ uri: adPaymentProofUrl }} 
-                      style={styles.proofImage}
-                      resizeMode="cover"
-                      onError={(e) => {
-                        const errorDetails = {
-                          url: adPaymentProofUrl,
-                          error: e.nativeEvent?.error || 'Unknown error',
-                          errorCode: e.nativeEvent?.errorCode,
-                          errorMessage: e.nativeEvent?.errorMessage,
-                        };
-                        console.error('[Ad Proof] Image load error:', JSON.stringify(errorDetails, null, 2));
-                        // Clear invalid URL
-                        setAdPaymentProofUrl(null);
-                      }}
-                      onLoad={() => {
-                        console.log('[Ad Proof] Image loaded successfully:', adPaymentProofUrl);
-                      }}
-                    />
-                  ) : null}
+                  ) : (() => {
+                    // Get safe, normalized URL for Image component
+                    const safeUrl = getSafeImageUrl(adPaymentProofUrl);
+                    if (safeUrl) {
+                      return (
+                        <Image 
+                          key={safeUrl} // Force re-render when URL changes
+                          source={{ uri: safeUrl }} 
+                          style={styles.proofImage}
+                          resizeMode="cover"
+                          onError={(e) => {
+                            const errorDetails = {
+                              originalUrl: adPaymentProofUrl,
+                              safeUrl,
+                              error: e.nativeEvent?.error || 'Unknown error',
+                              errorCode: e.nativeEvent?.errorCode,
+                              errorMessage: e.nativeEvent?.errorMessage,
+                            };
+                            console.error('[Ad Proof] Image load error:', JSON.stringify(errorDetails, null, 2));
+                            // Clear invalid URL
+                            setAdPaymentProofUrl(null);
+                          }}
+                          onLoad={() => {
+                            console.log('[Ad Proof] Image loaded successfully:', safeUrl);
+                          }}
+                        />
+                      );
+                    }
+                    return null;
+                  })()}
                   <TouchableOpacity
                     style={[styles.proofUploadButton, { marginTop: 8, borderColor: theme.border.light }]}
                     onPress={handlePickAdProofImage}
