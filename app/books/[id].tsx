@@ -283,7 +283,8 @@ export default function BookDetailScreen() {
       });
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      // Don't set local URI - only use Supabase storage URLs
+      // Match book cover pattern: set local URI first for immediate preview
+      setAdPaymentProofUrl(asset.uri);
       setIsUploadingAdProof(true);
       try {
           const base64 = await getBase64FromAsset(asset);
@@ -299,7 +300,7 @@ export default function BookDetailScreen() {
             upsert: false,
           });
           
-          // Only set the public URL from Supabase storage
+          // Replace local URI with public URL (same as book covers)
           if (publicUrl) {
             setAdPaymentProofUrl(publicUrl);
             console.log('[Ad Proof Upload] Success:', { publicUrl, fileName });
@@ -312,7 +313,7 @@ export default function BookDetailScreen() {
             fileName,
             filePath,
           });
-          // Don't set any URL on error - keep it null
+          // Clear the local URI on error so it doesn't try to display it
           setAdPaymentProofUrl(null);
           Alert.alert('Upload Error', error.message || 'Failed to upload proof');
         } finally {
@@ -826,34 +827,39 @@ export default function BookDetailScreen() {
                 onChangeText={setAdPaymentReference}
               />
               <Text style={[styles.label, { color: theme.text.secondary }]}>Proof of Payment *</Text>
-              {isUploadingAdProof ? (
-                <View style={[styles.proofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
-                  <ActivityIndicator size="large" color={theme.accent.primary} />
-                  <Text style={[styles.proofUploadText, { color: theme.text.primary, marginTop: 8 }]}>Uploading to Supabase...</Text>
-                </View>
-              ) : adPaymentProofUrl ? (
+              {adPaymentProofUrl ? (
                 <View>
-                  {/* Only display images from Supabase storage (public URLs) */}
-                  <Image 
-                    source={{ uri: adPaymentProofUrl }} 
-                    style={styles.proofImage}
-                    resizeMode="cover"
-                    onError={(e) => {
-                      console.error('[Ad Proof] Image load error:', {
-                        url: adPaymentProofUrl,
-                        error: e.nativeEvent?.error,
-                      });
-                      // Clear invalid URL
-                      setAdPaymentProofUrl(null);
-                    }}
-                  />
+                  {/* Only show image if it's a public URL, not a local file URI */}
+                  {!adPaymentProofUrl.startsWith('file://') ? (
+                    <Image 
+                      source={{ uri: adPaymentProofUrl }} 
+                      style={styles.proofImage}
+                      resizeMode="cover"
+                      onError={(e) => {
+                        console.error('[Ad Proof] Image load error:', {
+                          url: adPaymentProofUrl,
+                          error: e.nativeEvent?.error,
+                        });
+                        // Clear invalid URL
+                        setAdPaymentProofUrl(null);
+                      }}
+                    />
+                  ) : (
+                    <View style={[styles.proofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
+                      {isUploadingAdProof ? (
+                        <ActivityIndicator size="small" color={theme.accent.primary} />
+                      ) : (
+                        <Text style={{ color: theme.text.tertiary }}>Processing...</Text>
+                      )}
+                    </View>
+                  )}
                   <TouchableOpacity
                     style={[styles.proofUploadButton, { marginTop: 8, borderColor: theme.border.light }]}
                     onPress={handlePickAdProofImage}
                     disabled={isUploadingAdProof}
                   >
                     <Text style={[styles.proofUploadText, { color: theme.text.primary }]}>
-                      Change Image
+                      {isUploadingAdProof ? 'Uploading...' : 'Change Image'}
                     </Text>
                   </TouchableOpacity>
                 </View>
