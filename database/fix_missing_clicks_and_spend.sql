@@ -1,6 +1,7 @@
--- Fix ad tracking trigger to handle NULL billing rates and ensure it works correctly
+-- Quick fix: Recalculate clicks, conversions, and spend from impressions
+-- This will fix any discrepancies between actual impressions and stored counts
 
--- First, ensure the trigger function exists and handles NULL billing rates
+-- 1. First, ensure the trigger function has SECURITY DEFINER
 CREATE OR REPLACE FUNCTION update_ad_analytics()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -140,20 +141,18 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- Ensure trigger exists
+-- 2. Recreate the trigger
 DROP TRIGGER IF EXISTS update_ad_analytics_trigger ON ad_impressions;
 CREATE TRIGGER update_ad_analytics_trigger 
   AFTER INSERT OR UPDATE ON ad_impressions
   FOR EACH ROW 
   EXECUTE FUNCTION update_ad_analytics();
 
--- Fix existing ads that might have NULL billing rates
--- First ensure billing type is set
+-- 3. Fix existing ads that might have NULL billing rates
 UPDATE advertisements
 SET billing_type = COALESCE(billing_type, 'cpc')
 WHERE billing_type IS NULL;
 
--- Then set billing rate based on the ad's billing type
 UPDATE advertisements a
 SET billing_rate = COALESCE(
   NULLIF(a.billing_rate, 0),
@@ -162,22 +161,33 @@ SET billing_rate = COALESCE(
 )
 WHERE a.billing_rate IS NULL OR a.billing_rate = 0;
 
--- Recalculate counts and spend for existing impressions (one-time fix)
+-- 4. Recalculate counts and spend from existing impressions
 WITH impression_stats AS (
   SELECT 
     ad_id,
     COUNT(*) as total_impressions,
     COUNT(*) FILTER (WHERE clicked = true) as total_clicks,
     COUNT(*) FILTER (WHERE converted = true) as total_conversions,
-    SUM(CASE 
-      WHEN clicked = true AND EXISTS (SELECT 1 FROM advertisements a WHERE a.id = ad_impressions.ad_id AND a.billing_type = 'cpc') THEN 
-        COALESCE((SELECT billing_rate FROM advertisements WHERE id = ad_impressions.ad_id), 0)
-      WHEN converted = true AND EXISTS (SELECT 1 FROM advertisements a WHERE a.id = ad_impressions.ad_id AND a.billing_type = 'cpa') THEN 
-        COALESCE((SELECT billing_rate FROM advertisements WHERE id = ad_impressions.ad_id), 0)
-      WHEN (clicked = true OR converted = true) AND EXISTS (SELECT 1 FROM advertisements a WHERE a.id = ad_impressions.ad_id AND a.billing_type = 'cpe') THEN 
-        COALESCE((SELECT billing_rate FROM advertisements WHERE id = ad_impressions.ad_id), 0)
-      ELSE 0
-    END) as calculated_spend
+    SUM(
+      CASE 
+        WHEN clicked = true AND EXISTS (
+          SELECT 1 FROM advertisements a 
+          WHERE a.id = ad_impressions.ad_id 
+          AND a.billing_type = 'cpc'
+        ) THEN COALESCE((SELECT billing_rate FROM advertisements WHERE id = ad_impressions.ad_id), 0)
+        WHEN converted = true AND EXISTS (
+          SELECT 1 FROM advertisements a 
+          WHERE a.id = ad_impressions.ad_id 
+          AND a.billing_type = 'cpa'
+        ) THEN COALESCE((SELECT billing_rate FROM advertisements WHERE id = ad_impressions.ad_id), 0)
+        WHEN (clicked = true OR converted = true) AND EXISTS (
+          SELECT 1 FROM advertisements a 
+          WHERE a.id = ad_impressions.ad_id 
+          AND a.billing_type = 'cpe'
+        ) THEN COALESCE((SELECT billing_rate FROM advertisements WHERE id = ad_impressions.ad_id), 0)
+        ELSE 0
+      END
+    ) as calculated_spend
   FROM ad_impressions
   GROUP BY ad_id
 )

@@ -114,6 +114,7 @@ export default function AdsManagementScreen() {
     requireAdConsent: true,
   });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [viewingProofImage, setViewingProofImage] = useState<string | null>(null);
   const activeFilter = searchParams.filter === 'auto_renew_pending' ? 'auto_renew_pending' : 'all';
   const filteredAds = activeFilter === 'auto_renew_pending'
     ? ads.filter((ad) => ad.autoRenew && ad.status === 'pending')
@@ -1024,8 +1025,29 @@ export default function AdsManagementScreen() {
                       Reference: {ad.paymentReference}
                     </Text>
                   )}
-                  {ad.paymentProofUrl && (
-                    <Image source={{ uri: ad.paymentProofUrl }} style={styles.paymentProofImage} />
+                  {ad.paymentProofUrl ? (
+                    <View style={styles.proofSection}>
+                      <Text style={[styles.proofLabel, { color: theme.text.secondary }]}>Proof of Payment</Text>
+                      <TouchableOpacity
+                        onPress={() => setViewingProofImage(ad.paymentProofUrl || null)}
+                        activeOpacity={0.7}
+                      >
+                        <Image
+                          source={{ uri: ad.paymentProofUrl }}
+                          style={styles.paymentProofImage}
+                          resizeMode="cover"
+                          onError={(e) => {
+                            console.error('Error loading payment proof image:', e.nativeEvent.error);
+                          }}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={styles.noProofSection}>
+                      <Text style={[styles.noProofText, { color: theme.text.tertiary }]}>
+                        No payment proof uploaded
+                      </Text>
+                    </View>
                   )}
                   <TextInput
                     style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
@@ -1055,6 +1077,33 @@ export default function AdsManagementScreen() {
           })
         )}
       </ScrollView>
+
+      {/* Full-Size Proof Image Modal */}
+      <Modal visible={!!viewingProofImage} transparent animationType="fade" onRequestClose={() => setViewingProofImage(null)}>
+        <View style={styles.imageModalOverlay}>
+          <TouchableOpacity
+            style={styles.imageModalCloseArea}
+            activeOpacity={1}
+            onPress={() => setViewingProofImage(null)}
+          >
+            <View style={styles.imageModalContent}>
+              <TouchableOpacity
+                style={styles.imageModalCloseButton}
+                onPress={() => setViewingProofImage(null)}
+              >
+                <X size={24} color="#FFF" />
+              </TouchableOpacity>
+              {viewingProofImage && (
+                <Image
+                  source={{ uri: viewingProofImage }}
+                  style={styles.fullSizeProofImage}
+                  resizeMode="contain"
+                />
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
+      </Modal>
 
       {/* Ad Form Modal */}
       <Modal visible={showModal} transparent animationType="slide">
@@ -1784,11 +1833,74 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  proofSection: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  proofLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   paymentProofImage: {
     width: '100%',
-    height: 180,
+    height: 200,
     borderRadius: 8,
-    marginTop: 8,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  noProofSection: {
+    marginTop: 12,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+  },
+  noProofText: {
+    fontSize: 13,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  imageModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageModalCloseArea: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageModalContent: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  imageModalCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullSizeProofImage: {
+    width: '100%',
+    height: '100%',
   },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
   modalContent: {

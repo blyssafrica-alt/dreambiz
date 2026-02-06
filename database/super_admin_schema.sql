@@ -471,6 +471,11 @@ DROP POLICY IF EXISTS "Users can view their own impressions" ON ad_impressions;
 CREATE POLICY "Users can view their own impressions" ON ad_impressions
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can update their own impressions" ON ad_impressions;
+CREATE POLICY "Users can update their own impressions" ON ad_impressions
+  FOR UPDATE USING (auth.uid()::text = user_id::text)
+  WITH CHECK (auth.uid()::text = user_id::text);
+
 DROP POLICY IF EXISTS "Super admins can insert impressions" ON ad_impressions;
 CREATE POLICY "Super admins can insert impressions" ON ad_impressions
   FOR INSERT WITH CHECK (is_super_admin());
@@ -478,6 +483,10 @@ CREATE POLICY "Super admins can insert impressions" ON ad_impressions
 DROP POLICY IF EXISTS "Super admins can view all impressions" ON ad_impressions;
 CREATE POLICY "Super admins can view all impressions" ON ad_impressions
   FOR SELECT USING (is_super_admin());
+
+DROP POLICY IF EXISTS "Super admins can update all impressions" ON ad_impressions;
+CREATE POLICY "Super admins can update all impressions" ON ad_impressions
+  FOR UPDATE USING (is_super_admin());
 
 -- Ad Packages
 ALTER TABLE ad_packages ENABLE ROW LEVEL SECURITY;
@@ -892,7 +901,7 @@ EXCEPTION
     RAISE WARNING 'Error in update_ad_analytics trigger: %', SQLERRM;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 DROP TRIGGER IF EXISTS update_ad_analytics_trigger ON ad_impressions;
 CREATE TRIGGER update_ad_analytics_trigger AFTER INSERT OR UPDATE ON ad_impressions
