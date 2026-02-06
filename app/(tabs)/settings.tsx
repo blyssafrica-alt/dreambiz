@@ -92,6 +92,7 @@ export default function SettingsScreen() {
   const [showBookModal, setShowBookModal] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const [confirmProofSectionY, setConfirmProofSectionY] = useState(0);
+  const [adPreferencesSectionY, setAdPreferencesSectionY] = useState(0);
   const searchParams = useLocalSearchParams<{ section?: string }>();
   const confirmProofHighlight = useRef(new Animated.Value(0)).current;
   const [databaseBooks, setDatabaseBooks] = useState<Book[]>([]);
@@ -121,6 +122,11 @@ export default function SettingsScreen() {
   const [interestsInput, setInterestsInput] = useState('');
   const [isLoadingAdPreferences, setIsLoadingAdPreferences] = useState(false);
   const [isSavingAdPreferences, setIsSavingAdPreferences] = useState(false);
+  const [userProfileGender, setUserProfileGender] = useState('');
+  const [userProfileBirthDate, setUserProfileBirthDate] = useState('');
+  const [isLoadingUserProfile, setIsLoadingUserProfile] = useState(false);
+  const [isSavingUserProfile, setIsSavingUserProfile] = useState(false);
+  const [showAdPreferencesPrompt, setShowAdPreferencesPrompt] = useState(false);
   const selectedStage = businessStages.find(stageOption => stageOption.value === stage);
   const hasSettingsAccess =
     !isEmployee ||
@@ -164,8 +170,84 @@ export default function SettingsScreen() {
   useEffect(() => {
     if (user?.id) {
       loadAdPreferences();
+      loadUserProfile();
+      checkAdPreferencesPrompt();
     }
   }, [user?.id]);
+
+  const loadUserProfile = async () => {
+    if (!user?.id) return;
+    try {
+      setIsLoadingUserProfile(true);
+      const { data, error } = await supabase
+        .from('users')
+        .select('gender, birth_date')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+
+      setUserProfileGender(data?.gender || '');
+      setUserProfileBirthDate(data?.birth_date || '');
+    } catch (error) {
+      console.error('Failed to load user profile:', error);
+    } finally {
+      setIsLoadingUserProfile(false);
+    }
+  };
+
+  const checkAdPreferencesPrompt = async () => {
+    if (!user?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('ad_tracking_consent, personalized_ads_consent, gender, birth_date, interests')
+        .eq('id', user.id)
+        .single();
+
+      if (error) return;
+
+      const hasConsent = data?.ad_tracking_consent || data?.personalized_ads_consent;
+      const hasDemographics = data?.gender || data?.birth_date || (Array.isArray(data?.interests) && data.interests.length > 0);
+      
+      // Show prompt if user hasn't opted in or hasn't filled demographics
+      setShowAdPreferencesPrompt(!hasConsent || !hasDemographics);
+    } catch (error) {
+      console.error('Failed to check ad preferences:', error);
+    }
+  };
+
+  const handleSaveUserProfile = async () => {
+    if (!user?.id) return;
+    if (userProfileBirthDate && !/^\d{4}-\d{2}-\d{2}$/.test(userProfileBirthDate)) {
+      RNAlert.alert('Invalid date', 'Use YYYY-MM-DD format for birth date.');
+      return;
+    }
+
+    try {
+      setIsSavingUserProfile(true);
+      const { error } = await supabase
+        .from('users')
+        .update({
+          gender: userProfileGender || null,
+          birth_date: userProfileBirthDate || null,
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // Also update local state for Ad Preferences if they match
+      if (userProfileGender !== gender) setGender(userProfileGender);
+      if (userProfileBirthDate !== birthDate) setBirthDate(userProfileBirthDate);
+
+      await checkAdPreferencesPrompt();
+      RNAlert.alert('Success', 'Profile updated successfully');
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to update profile');
+    } finally {
+      setIsSavingUserProfile(false);
+    }
+  };
 
   useEffect(() => {
     if (searchParams.section === 'confirm-proof' && confirmProofSectionY > 0) {
@@ -303,6 +385,12 @@ export default function SettingsScreen() {
         .eq('id', user.id);
 
       if (error) throw error;
+      
+      // Sync with user profile if they match
+      if (gender !== userProfileGender) setUserProfileGender(gender);
+      if (birthDate !== userProfileBirthDate) setUserProfileBirthDate(birthDate);
+      
+      await checkAdPreferencesPrompt();
       RNAlert.alert('Saved', 'Ad preferences updated.');
     } catch (error: any) {
       RNAlert.alert('Error', error?.message || 'Failed to save ad preferences.');
@@ -747,6 +835,126 @@ export default function SettingsScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Ad Preferences Prompt */}
+        {showAdPreferencesPrompt && (
+          <View style={[styles.promptCard, { 
+            backgroundColor: theme.accent.primary + '15',
+            borderColor: theme.accent.primary + '40',
+          }]}>
+            <View style={styles.promptContent}>
+              <UsersIcon size={20} color={theme.accent.primary} />
+              <View style={styles.promptText}>
+                <Text style={[styles.promptTitle, { color: theme.text.primary }]}>
+                  Complete your ad preferences
+                </Text>
+                <Text style={[styles.promptDesc, { color: theme.text.secondary }]}>
+                  Help us show you relevant ads and unlock audience analytics by sharing your demographics.
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={[styles.promptButton, { backgroundColor: theme.accent.primary }]}
+              onPress={() => {
+                if (adPreferencesSectionY > 0) {
+                  scrollRef.current?.scrollTo({ y: adPreferencesSectionY - 20, animated: true });
+                } else {
+                  scrollRef.current?.scrollToEnd({ animated: true });
+                }
+                setTimeout(() => setShowAdPreferencesPrompt(false), 500);
+              }}
+            >
+              <Text style={styles.promptButtonText}>Go to Ad Preferences</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* User Profile Section */}
+        {!isEmployee && (
+          <View style={[styles.section, { 
+            backgroundColor: theme.background.card,
+            borderColor: theme.border.light,
+          }]}>
+            <View style={styles.sectionHeader}>
+              <UsersIcon size={20} color={theme.accent.primary} />
+              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
+                My Profile
+              </Text>
+            </View>
+            <Text style={[styles.sectionSubtitle, { color: theme.text.secondary }]}>
+              Your profile information helps personalize your experience and ad targeting.
+            </Text>
+
+            {isLoadingUserProfile ? (
+              <View style={{ paddingVertical: 12 }}>
+                <ActivityIndicator size="small" color={theme.accent.primary} />
+              </View>
+            ) : (
+              <>
+                <View style={[styles.inputGroup, { marginTop: 12 }]}>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Gender</Text>
+                  <View style={styles.currencyRow}>
+                    {genderOptions.map(option => (
+                      <TouchableOpacity
+                        key={option.value}
+                        style={[
+                          styles.currencyButton,
+                          {
+                            borderColor: theme.border.light,
+                            backgroundColor: userProfileGender === option.value ? theme.accent.primary : theme.background.secondary,
+                          },
+                        ]}
+                        onPress={() => setUserProfileGender(option.value)}
+                      >
+                        <Text
+                          style={[
+                            styles.currencyButtonText,
+                            { color: userProfileGender === option.value ? '#FFF' : theme.text.secondary },
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Birth date</Text>
+                  <Text style={[styles.hint, { color: theme.text.tertiary }]}>
+                    Used to calculate your age for ad targeting (format: YYYY-MM-DD)
+                  </Text>
+                  <TextInput
+                    style={[styles.input, { 
+                      backgroundColor: theme.background.secondary, 
+                      color: theme.text.primary, 
+                      borderColor: theme.border.light 
+                    }]}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={userProfileBirthDate}
+                    onChangeText={setUserProfileBirthDate}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.saveButton, { 
+                    backgroundColor: theme.accent.primary, 
+                    opacity: isSavingUserProfile ? 0.7 : 1 
+                  }]}
+                  onPress={handleSaveUserProfile}
+                  disabled={isSavingUserProfile}
+                >
+                  <Save size={18} color="#FFF" />
+                  <Text style={styles.saveButtonText}>
+                    {isSavingUserProfile ? 'Saving...' : 'Save Profile'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
+
         {isEmployee && (
           <View style={[styles.employeeInfoCard, { 
             backgroundColor: theme.background.card,
@@ -1195,10 +1403,13 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        <View style={[styles.section, { 
-          backgroundColor: theme.background.card,
-          borderColor: theme.border.light,
-        }]}>
+        <View 
+          style={[styles.section, { 
+            backgroundColor: theme.background.card,
+            borderColor: theme.border.light,
+          }]}
+          onLayout={(event) => setAdPreferencesSectionY(event.nativeEvent.layout.y)}
+        >
           <View style={styles.sectionHeader}>
             <UsersIcon size={20} color={theme.accent.primary} />
             <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
@@ -2240,6 +2451,41 @@ const styles = StyleSheet.create({
   },
   userEmail: {
     fontSize: 14,
+  },
+  promptCard: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+  },
+  promptContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    gap: 12,
+  },
+  promptText: {
+    flex: 1,
+  },
+  promptTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    marginBottom: 4,
+  },
+  promptDesc: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  promptButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  promptButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600' as const,
   },
   employeeInfoCard: {
     padding: 16,

@@ -79,9 +79,9 @@ export default function AdAnalyticsScreen() {
       const adIds = Array.from(new Set(impressionRows.map(row => row.ad_id).filter(Boolean)));
       const userIds = Array.from(new Set(impressionRows.map(row => row.user_id).filter(Boolean)));
 
-      const [adsResponse, usersResponse] = await Promise.all([
+      const [adsResponse, usersResponse, allOptedInUsersResponse] = await Promise.all([
         adIds.length
-          ? supabase.from('advertisements').select('id, title, spend_actual, targeting').in('id', adIds)
+          ? supabase.from('advertisements').select('id, title, spend_actual, clicks_count, conversions_count, billing_type, billing_rate, targeting').in('id', adIds)
           : Promise.resolve({ data: [], error: null }),
         userIds.length
           ? supabase
@@ -89,17 +89,25 @@ export default function AdAnalyticsScreen() {
               .select('id, gender, birth_date, interests, ad_tracking_consent, personalized_ads_consent')
               .in('id', userIds)
           : Promise.resolve({ data: [], error: null }),
+        // Get ALL opted-in users for demographics, not just those with impressions
+        supabase
+          .from('users')
+          .select('id, gender, birth_date, interests, ad_tracking_consent, personalized_ads_consent')
+          .or('ad_tracking_consent.eq.true,personalized_ads_consent.eq.true'),
       ]);
 
       if (adsResponse.error) throw adsResponse.error;
       if (usersResponse.error) throw usersResponse.error;
+      if (allOptedInUsersResponse.error) throw allOptedInUsersResponse.error;
 
       const ads = adsResponse.data || [];
       const users = usersResponse.data || [];
+      const allOptedInUsers = allOptedInUsersResponse.data || [];
 
+      // Use aggregated counts from ads table for more accurate metrics
       const totalImpressions = impressionRows.length;
-      const totalClicks = impressionRows.filter(row => row.clicked).length;
-      const totalConversions = impressionRows.filter(row => row.converted).length;
+      const totalClicks = ads.reduce((sum, ad) => sum + (Number(ad.clicks_count) || 0), 0);
+      const totalConversions = ads.reduce((sum, ad) => sum + (Number(ad.conversions_count) || 0), 0);
       const ctr = totalImpressions ? totalClicks / totalImpressions : 0;
       const cvr = totalClicks ? totalConversions / totalClicks : 0;
 
@@ -134,34 +142,42 @@ export default function AdAnalyticsScreen() {
         return parts.join(' • ');
       };
 
+      // Calculate spend: use spend_actual if available, otherwise calculate from billing rates
       ads.forEach(ad => {
-        spendByAd.set(ad.id, Number(ad.spend_actual) || 0);
+        let spend = Number(ad.spend_actual) || 0;
+        if (spend === 0 && ad.billing_type && ad.billing_rate) {
+          const rate = Number(ad.billing_rate) || 0;
+          const clicks = Number(ad.clicks_count) || 0;
+          const conversions = Number(ad.conversions_count) || 0;
+          if (ad.billing_type === 'cpc') {
+            spend = clicks * rate;
+          } else if (ad.billing_type === 'cpa') {
+            spend = conversions * rate;
+          } else if (ad.billing_type === 'cpe') {
+            spend = (clicks + conversions) * rate;
+          }
+        }
+        spendByAd.set(ad.id, spend);
       });
       const totalSpend = adIds.reduce((sum, adId) => sum + (spendByAd.get(adId) || 0), 0);
 
+      // Build ad breakdown using aggregated counts from ads table
       const adStatsMap = new Map<string, AdBreakdownItem>();
-      impressionRows.forEach(row => {
-        if (!row.ad_id) return;
-        if (!adStatsMap.has(row.ad_id)) {
-          const adInfo = ads.find(ad => ad.id === row.ad_id);
-          adStatsMap.set(row.ad_id, {
-            id: row.ad_id,
-            title: adInfo?.title || 'Untitled ad',
-            impressions: 0,
-            clicks: 0,
-            conversions: 0,
-            spend: spendByAd.get(row.ad_id) || 0,
-            targetingSummary: buildTargetingSummary(adInfo?.targeting),
-          });
-        }
-        const entry = adStatsMap.get(row.ad_id);
-        if (!entry) return;
-        entry.impressions += 1;
-        if (row.clicked) entry.clicks += 1;
-        if (row.converted) entry.conversions += 1;
+      ads.forEach(ad => {
+        const impressions = impressionRows.filter(row => row.ad_id === ad.id).length;
+        adStatsMap.set(ad.id, {
+          id: ad.id,
+          title: ad.title || 'Untitled ad',
+          impressions,
+          clicks: Number(ad.clicks_count) || 0,
+          conversions: Number(ad.conversions_count) || 0,
+          spend: spendByAd.get(ad.id) || 0,
+          targetingSummary: buildTargetingSummary(ad.targeting),
+        });
       });
 
-      const optedInUsers = users.filter(
+      // Use all opted-in users for demographics, not just those with impressions
+      const optedInUsers = allOptedInUsers.filter(
         (user: any) => user.ad_tracking_consent || user.personalized_ads_consent
       );
 
@@ -170,6 +186,11 @@ export default function AdAnalyticsScreen() {
       const interestCounts = new Map<string, number>();
 
       optedInUsers.forEach((user: any) => {
+        // Only count users who have filled in their demographics
+        if (!user.gender && !user.birth_date && (!user.interests || user.interests.length === 0)) {
+          return; // Skip users with no demographic data
+        }
+
         const gender = user.gender || 'Unknown';
         genderCounts.set(gender, (genderCounts.get(gender) || 0) + 1);
 
@@ -206,7 +227,7 @@ export default function AdAnalyticsScreen() {
         totalSpend,
         ctr,
         cvr,
-        totalUsers: users.length,
+        totalUsers: allOptedInUsers.length, // All opted-in users, not just those with impressions
         optedInUsers: optedInUsers.length,
         genderBreakdown,
         ageBreakdown,

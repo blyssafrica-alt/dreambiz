@@ -234,6 +234,7 @@ CREATE TABLE IF NOT EXISTS advertisements (
   impressions_count INTEGER DEFAULT 0,
   clicks_count INTEGER DEFAULT 0,
   conversions_count INTEGER DEFAULT 0,
+  revenue DECIMAL(15, 2) DEFAULT 0,
 
   -- Budget + billing
   spend DECIMAL(15, 2), -- Budget limit
@@ -264,6 +265,8 @@ CREATE INDEX IF NOT EXISTS idx_advertisements_status ON advertisements(status);
 CREATE INDEX IF NOT EXISTS idx_advertisements_dates ON advertisements(start_date, end_date);
 CREATE INDEX IF NOT EXISTS idx_advertisements_campaign_id ON advertisements(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_advertisements_ad_set_id ON advertisements(ad_set_id);
+
+ALTER TABLE advertisements ADD COLUMN IF NOT EXISTS revenue DECIMAL(15, 2) DEFAULT 0;
 
 -- ============================================
 -- AD IMPRESSIONS TRACKING
