@@ -283,8 +283,7 @@ export default function BookDetailScreen() {
       });
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      // Match book cover pattern: set local URI first for immediate preview
-      setAdPaymentProofUrl(asset.uri);
+      // Don't set local URI - only use Supabase storage URLs
       setIsUploadingAdProof(true);
       try {
           const base64 = await getBase64FromAsset(asset);
@@ -300,7 +299,7 @@ export default function BookDetailScreen() {
             upsert: false,
           });
           
-          // Replace local URI with public URL (same as book covers)
+          // Only set the public URL from Supabase storage
           if (publicUrl) {
             setAdPaymentProofUrl(publicUrl);
             console.log('[Ad Proof Upload] Success:', { publicUrl, fileName });
@@ -313,7 +312,7 @@ export default function BookDetailScreen() {
             fileName,
             filePath,
           });
-          // Clear the local URI on error so it doesn't try to display it
+          // Don't set any URL on error - keep it null
           setAdPaymentProofUrl(null);
           Alert.alert('Upload Error', error.message || 'Failed to upload proof');
         } finally {
