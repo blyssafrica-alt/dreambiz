@@ -37,8 +37,7 @@
       },
       "cache": {
         "disabled": false
-      },
-      "resourceClass": "medium"
+      }
     }
   },
   "submit": {
