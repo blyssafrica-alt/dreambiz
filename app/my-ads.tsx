@@ -16,6 +16,7 @@ export default function MyAdsScreen() {
   const { settings, updateRemoveProofConfirmPreference } = useSettings();
   const router = useRouter();
   const [ads, setAds] = useState<Advertisement[]>([]);
+  const [adSetsById, setAdSetsById] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [editingAd, setEditingAd] = useState<Advertisement | null>(null);
   const [editHeadline, setEditHeadline] = useState('');
@@ -66,6 +67,7 @@ export default function MyAdsScreen() {
           placement: row.placement || {},
           spend: row.spend ? parseFloat(row.spend) : undefined,
           spendCurrency: row.spend_currency || 'USD',
+          adSetId: row.ad_set_id || undefined,
           paymentStatus: row.payment_status || undefined,
           paymentAmount: row.payment_amount ? parseFloat(row.payment_amount) : undefined,
           paymentCurrency: row.payment_currency || 'USD',
@@ -93,6 +95,37 @@ export default function MyAdsScreen() {
       setIsLoading(false);
     }
   }, [user]);
+
+  const loadAdSets = useCallback(async () => {
+    const today = new Date().toISOString().split('T')[0];
+    const [{ data }, { data: dailySpendData }] = await Promise.all([
+      supabase.from('ad_sets').select('*'),
+      supabase.from('ad_set_daily_spend').select('ad_set_id, spend_amount').eq('spend_date', today),
+    ]);
+
+    const dailySpendMap: Record<string, number> = {};
+    (dailySpendData || []).forEach((row: any) => {
+      if (row.ad_set_id) {
+        dailySpendMap[row.ad_set_id] = row.spend_amount !== null && row.spend_amount !== undefined ? parseFloat(row.spend_amount) : 0;
+      }
+    });
+
+    const adSetMap: Record<string, any> = {};
+    (data || []).forEach((row: any) => {
+      adSetMap[row.id] = {
+        id: row.id,
+        name: row.name,
+        pacingEnabled: row.pacing_enabled || false,
+        dailyBudget: row.daily_budget !== null && row.daily_budget !== undefined ? parseFloat(row.daily_budget) : undefined,
+        spendActualToday: dailySpendMap[row.id] ?? 0,
+        optimizationGoal: row.optimization_goal || 'impressions',
+        learningEventThreshold: row.learning_event_threshold ?? 50,
+        currency: row.currency || 'USD',
+      };
+    });
+
+    setAdSetsById(adSetMap);
+  }, []);
 
   const openEditModal = (ad: Advertisement, mode: 'resubmit' | 'renew' = 'resubmit') => {
     setEditingAd(ad);
@@ -188,7 +221,8 @@ export default function MyAdsScreen() {
 
   useEffect(() => {
     loadAds();
-  }, [loadAds]);
+    loadAdSets();
+  }, [loadAds, loadAdSets]);
 
   const handleRemoveProof = async () => {
     if (!settings.confirmRemoveProofEnabled) {
@@ -247,6 +281,17 @@ export default function MyAdsScreen() {
             const expiryLabel = ad.endDate ? formatExpiry(ad.endDate) : null;
             const isExpiringSoon = Boolean(expiryLabel && (expiryLabel.includes('Expires in') || expiryLabel === 'Expires today'));
             const isExpired = expiryLabel === 'Expired';
+            const adSet = ad.adSetId ? adSetsById[ad.adSetId] : undefined;
+            const optimizationGoal = adSet?.optimizationGoal || 'impressions';
+            const learningThreshold = adSet?.learningEventThreshold ?? 50;
+            const learningEventsRaw = optimizationGoal === 'conversions' ? ad.conversionsCount : ad.clicksCount;
+            const learningEvents = typeof learningEventsRaw === 'number' ? learningEventsRaw : 0;
+            const isLearning = optimizationGoal !== 'impressions' && learningEvents < learningThreshold;
+            const learningProgress = learningThreshold > 0 ? Math.min(learningEvents / learningThreshold, 1) : 1;
+            const hasPacing = adSet?.pacingEnabled && adSet?.dailyBudget !== undefined && adSet?.dailyBudget !== null;
+            const pacingProgress = hasPacing && adSet?.dailyBudget
+              ? Math.min((adSet.spendActualToday || 0) / adSet.dailyBudget, 1)
+              : 0;
             return (
             <View key={ad.id} style={[styles.adCard, { backgroundColor: theme.background.card }]}>
               {ad.imageUrl && <Image source={{ uri: ad.imageUrl }} style={styles.adImage} />}
@@ -270,6 +315,31 @@ export default function MyAdsScreen() {
               </Text>
               {ad.paymentReference && (
                 <Text style={[styles.metaText, { color: theme.text.tertiary }]}>Ref: {ad.paymentReference}</Text>
+              )}
+              {adSet && (
+                <Text style={[styles.metaText, { color: theme.text.tertiary }]}>
+                  Ad Set: {adSet.name} · Goal: {(optimizationGoal || 'impressions').toUpperCase()}
+                </Text>
+              )}
+              {isLearning && (
+                <View style={styles.learningRow}>
+                  <View style={[styles.learningBar, { backgroundColor: theme.border.light }]}>
+                    <View style={[styles.learningFill, { backgroundColor: theme.accent.primary, width: `${learningProgress * 100}%` }]} />
+                  </View>
+                  <Text style={[styles.learningText, { color: theme.text.tertiary }]}>
+                    Learning: {learningEvents}/{learningThreshold} events
+                  </Text>
+                </View>
+              )}
+              {hasPacing && (
+                <View style={styles.learningRow}>
+                  <View style={[styles.learningBar, { backgroundColor: theme.border.light }]}>
+                    <View style={[styles.learningFill, { backgroundColor: theme.accent.primary, width: `${pacingProgress * 100}%` }]} />
+                  </View>
+                  <Text style={[styles.learningText, { color: theme.text.tertiary }]}>
+                    Today: {adSet?.currency || 'USD'} {adSet?.spendActualToday?.toFixed(2) ?? '0.00'} / {adSet?.dailyBudget?.toFixed(2) ?? '—'}
+                  </Text>
+                </View>
               )}
               {ad.status === 'active' && ad.endDate && (
                 <Text style={[
@@ -315,6 +385,48 @@ export default function MyAdsScreen() {
               </TouchableOpacity>
             </View>
             <View style={styles.modalBody}>
+              {editingAd && (() => {
+                const adSet = editingAd.adSetId ? adSetsById[editingAd.adSetId] : undefined;
+                if (!adSet) return null;
+                const optimizationGoal = adSet.optimizationGoal || 'impressions';
+                const learningThreshold = adSet.learningEventThreshold ?? 50;
+                const learningEventsRaw = optimizationGoal === 'conversions' ? editingAd.conversionsCount : editingAd.clicksCount;
+                const learningEvents = typeof learningEventsRaw === 'number' ? learningEventsRaw : 0;
+                const isLearning = optimizationGoal !== 'impressions' && learningEvents < learningThreshold;
+                const learningProgress = learningThreshold > 0 ? Math.min(learningEvents / learningThreshold, 1) : 1;
+                const hasPacing = adSet.pacingEnabled && adSet.dailyBudget !== undefined && adSet.dailyBudget !== null;
+                const pacingProgress = hasPacing && adSet.dailyBudget
+                  ? Math.min((adSet.spendActualToday || 0) / adSet.dailyBudget, 1)
+                  : 0;
+
+                return (
+                  <View style={styles.modalInsights}>
+                    <Text style={[styles.metaText, { color: theme.text.tertiary }]}>
+                      Ad Set: {adSet.name} · Goal: {(optimizationGoal || 'impressions').toUpperCase()}
+                    </Text>
+                    {isLearning && (
+                      <View style={styles.learningRow}>
+                        <View style={[styles.learningBar, { backgroundColor: theme.border.light }]}>
+                          <View style={[styles.learningFill, { backgroundColor: theme.accent.primary, width: `${learningProgress * 100}%` }]} />
+                        </View>
+                        <Text style={[styles.learningText, { color: theme.text.tertiary }]}>
+                          Learning: {learningEvents}/{learningThreshold} events
+                        </Text>
+                      </View>
+                    )}
+                    {hasPacing && (
+                      <View style={styles.learningRow}>
+                        <View style={[styles.learningBar, { backgroundColor: theme.border.light }]}>
+                          <View style={[styles.learningFill, { backgroundColor: theme.accent.primary, width: `${pacingProgress * 100}%` }]} />
+                        </View>
+                        <Text style={[styles.learningText, { color: theme.text.tertiary }]}>
+                          Today: {adSet?.currency || 'USD'} {adSet?.spendActualToday?.toFixed(2) ?? '0.00'} / {adSet?.dailyBudget?.toFixed(2) ?? '—'}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })()}
               <Text style={[styles.label, { color: theme.text.secondary }]}>Headline</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
@@ -473,6 +585,10 @@ const styles = StyleSheet.create({
   adHeadline: { fontSize: 14, marginBottom: 8 },
   metaRow: { flexDirection: 'row', justifyContent: 'space-between' },
   metaText: { fontSize: 12, marginTop: 4 },
+  learningRow: { width: '100%', gap: 6, marginTop: 8 },
+  learningBar: { height: 6, borderRadius: 999, overflow: 'hidden' },
+  learningFill: { height: 6, borderRadius: 999 },
+  learningText: { fontSize: 11 },
   resubmitButton: {
     marginTop: 10,
     borderWidth: 1,
@@ -521,6 +637,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 16, fontWeight: '700' },
   modalClose: { fontSize: 14, fontWeight: '600' },
   modalBody: { padding: 16, gap: 8 },
+  modalInsights: { marginBottom: 12, gap: 6 },
   label: { fontSize: 12, fontWeight: '600', marginTop: 6 },
   input: { padding: 12, borderRadius: 10, fontSize: 14 },
   textArea: { minHeight: 80, textAlignVertical: 'top' },

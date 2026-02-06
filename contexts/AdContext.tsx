@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { Advertisement, AdImpression } from '@/types/super-admin';
+import type { Advertisement, AdImpression, AdCampaign, AdSet } from '@/types/super-admin';
 import type { DreamBigBook, BusinessType, BusinessStage } from '@/types/business';
 import { useAuth } from './AuthContext';
 import { useBusiness } from './BusinessContext';
@@ -15,6 +15,7 @@ interface AdContextValue {
   trackConversion: (adId: string, location: string, value?: number) => Promise<void>;
   consumeLastAdClick: (maxAgeMinutes?: number) => { adId: string; location: string } | null;
   refreshAds: () => Promise<void>;
+  adSetsById: Record<string, AdSet>;
 }
 
 const AdContext = createContext<AdContextValue | undefined>(undefined);
@@ -44,6 +45,8 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
   const { business } = useBusiness();
   const { enabledFeatureIds } = useFeatures();
   const [ads, setAds] = useState<Advertisement[]>([]);
+  const [campaigns, setCampaigns] = useState<Record<string, AdCampaign>>({});
+  const [adSets, setAdSets] = useState<Record<string, AdSet>>({});
   const [impressionHistory, setImpressionHistory] = useState<AdImpression[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sessionId, setSessionId] = useState<string>('');
@@ -51,6 +54,70 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     getSessionId().then(setSessionId);
+  }, []);
+
+  const loadCampaignsAndSets = useCallback(async () => {
+    const today = new Date().toISOString().split('T')[0];
+    const [{ data: campaignsData }, { data: adSetsData }, { data: dailySpendData }] = await Promise.all([
+      supabase.from('ad_campaigns').select('*').eq('status', 'active'),
+      supabase.from('ad_sets').select('*').eq('status', 'active'),
+      supabase.from('ad_set_daily_spend').select('ad_set_id, spend_amount').eq('spend_date', today),
+    ]);
+
+    const campaignMap: Record<string, AdCampaign> = {};
+    (campaignsData || []).forEach((row: any) => {
+      campaignMap[row.id] = {
+        id: row.id,
+        name: row.name,
+        objective: row.objective || undefined,
+        status: row.status,
+        startDate: row.start_date || undefined,
+        endDate: row.end_date || undefined,
+        budget: row.budget !== null && row.budget !== undefined ? parseFloat(row.budget) : undefined,
+        spendActual: row.spend_actual !== null && row.spend_actual !== undefined ? parseFloat(row.spend_actual) : undefined,
+        currency: row.currency || 'USD',
+        createdBy: row.created_by,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+    });
+
+    const dailySpendMap: Record<string, number> = {};
+    (dailySpendData || []).forEach((row: any) => {
+      if (row.ad_set_id) {
+        dailySpendMap[row.ad_set_id] = row.spend_amount !== null && row.spend_amount !== undefined ? parseFloat(row.spend_amount) : 0;
+      }
+    });
+
+    const adSetMap: Record<string, AdSet> = {};
+    (adSetsData || []).forEach((row: any) => {
+      adSetMap[row.id] = {
+        id: row.id,
+        campaignId: row.campaign_id || undefined,
+        name: row.name,
+        status: row.status,
+        startDate: row.start_date || undefined,
+        endDate: row.end_date || undefined,
+        budget: row.budget !== null && row.budget !== undefined ? parseFloat(row.budget) : undefined,
+        spendActual: row.spend_actual !== null && row.spend_actual !== undefined ? parseFloat(row.spend_actual) : undefined,
+        spendActualToday: dailySpendMap[row.id] ?? 0,
+        currency: row.currency || 'USD',
+        billingType: row.billing_type || 'cpc',
+        billingRate: row.billing_rate !== null && row.billing_rate !== undefined ? parseFloat(row.billing_rate) : undefined,
+        pacingEnabled: row.pacing_enabled || false,
+        dailyBudget: row.daily_budget !== null && row.daily_budget !== undefined ? parseFloat(row.daily_budget) : undefined,
+        attributionClickDays: row.attribution_click_days ?? undefined,
+        attributionViewDays: row.attribution_view_days ?? undefined,
+        optimizationGoal: row.optimization_goal || 'impressions',
+        learningEventThreshold: row.learning_event_threshold ?? undefined,
+        createdBy: row.created_by,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+    });
+
+    setCampaigns(campaignMap);
+    setAdSets(adSetMap);
   }, []);
 
   const loadAds = useCallback(async () => {
@@ -103,6 +170,8 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
           spendCurrency: row.spend_currency || 'USD',
           billingType: row.billing_type || 'cpc',
           billingRate: row.billing_rate !== null && row.billing_rate !== undefined ? parseFloat(row.billing_rate) : undefined,
+          campaignId: row.campaign_id || undefined,
+          adSetId: row.ad_set_id || undefined,
           createdBy: row.created_by,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
@@ -110,6 +179,7 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
 
         setAds(advertisements);
       }
+      await loadCampaignsAndSets();
 
       // Load impression history for this user
       if (user) {
@@ -141,7 +211,7 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, loadCampaignsAndSets]);
 
   useEffect(() => {
     loadAds();
@@ -152,6 +222,31 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
     const now = new Date();
     if (ad.startDate && new Date(ad.startDate) > now) return false;
     if (ad.endDate && new Date(ad.endDate) < now) return false;
+
+    if (ad.campaignId && campaigns[ad.campaignId]) {
+      const campaign = campaigns[ad.campaignId];
+      if (campaign.status !== 'active') return false;
+      if (campaign.startDate && new Date(campaign.startDate) > now) return false;
+      if (campaign.endDate && new Date(campaign.endDate) < now) return false;
+      if (campaign.budget !== undefined && campaign.spendActual !== undefined && campaign.spendActual >= campaign.budget) {
+        return false;
+      }
+    }
+
+    if (ad.adSetId && adSets[ad.adSetId]) {
+      const adSet = adSets[ad.adSetId];
+      if (adSet.status !== 'active') return false;
+      if (adSet.startDate && new Date(adSet.startDate) > now) return false;
+      if (adSet.endDate && new Date(adSet.endDate) < now) return false;
+      if (adSet.budget !== undefined && adSet.spendActual !== undefined && adSet.spendActual >= adSet.budget) {
+        return false;
+      }
+      if (adSet.pacingEnabled && adSet.dailyBudget !== undefined && adSet.spendActualToday !== undefined) {
+        if (adSet.spendActualToday >= adSet.dailyBudget) {
+          return false;
+        }
+      }
+    }
 
     // Stop serving if budget is exhausted
     if (ad.spend !== undefined && ad.spendActual !== undefined && ad.spendActual >= ad.spend) {
@@ -228,7 +323,7 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
     }
 
     return true;
-  }, [user, business, enabledFeatureIds, impressionHistory, sessionId]);
+  }, [user, business, enabledFeatureIds, impressionHistory, sessionId, campaigns, adSets]);
 
   const getAdsForLocation = useCallback((location: string): Advertisement[] => {
     return ads
@@ -237,8 +332,39 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
         if (!ad.placement.locations?.includes(location)) return false;
         return shouldShowAd(ad);
       })
-      .sort((a, b) => (b.placement.priority || 0) - (a.placement.priority || 0));
-  }, [ads, shouldShowAd]);
+      .sort((a, b) => {
+        const priorityDiff = (b.placement.priority || 0) - (a.placement.priority || 0);
+        if (priorityDiff !== 0) return priorityDiff;
+
+        const goalA = a.adSetId ? adSets[a.adSetId]?.optimizationGoal : undefined;
+        const goalB = b.adSetId ? adSets[b.adSetId]?.optimizationGoal : undefined;
+        const goal = goalA || goalB || 'impressions';
+
+        const adSetA = a.adSetId ? adSets[a.adSetId] : undefined;
+        const adSetB = b.adSetId ? adSets[b.adSetId] : undefined;
+        const thresholdA = adSetA?.learningEventThreshold ?? 50;
+        const thresholdB = adSetB?.learningEventThreshold ?? 50;
+
+        const eventsA = goal === 'conversions' ? a.conversionsCount : a.clicksCount;
+        const eventsB = goal === 'conversions' ? b.conversionsCount : b.clicksCount;
+
+        const inLearningA = (goal !== 'impressions') && eventsA < thresholdA;
+        const inLearningB = (goal !== 'impressions') && eventsB < thresholdB;
+
+        if (inLearningA && !inLearningB) return 1;
+        if (!inLearningA && inLearningB) return -1;
+
+        const ctrA = a.impressionsCount ? a.clicksCount / a.impressionsCount : 0;
+        const ctrB = b.impressionsCount ? b.clicksCount / b.impressionsCount : 0;
+        const cvrA = a.clicksCount ? a.conversionsCount / a.clicksCount : 0;
+        const cvrB = b.clicksCount ? b.conversionsCount / b.clicksCount : 0;
+
+        if (goal === 'clicks') return ctrB - ctrA;
+        if (goal === 'conversions') return cvrB - cvrA;
+
+        return (b.impressionsCount || 0) - (a.impressionsCount || 0);
+      });
+  }, [ads, shouldShowAd, adSets]);
 
   const trackImpression = useCallback(async (adId: string, location: string) => {
     if (!user || !business) return;
@@ -422,17 +548,56 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, business, impressionHistory, sessionId]);
 
-  const consumeLastAdClick = useCallback((maxAgeMinutes: number = 60) => {
-    if (!lastAdClick) return null;
-    const maxAgeMs = maxAgeMinutes * 60 * 1000;
-    if (Date.now() - lastAdClick.at > maxAgeMs) {
-      setLastAdClick(null);
-      return null;
+  const consumeLastAdClick = useCallback((maxAgeMinutes?: number) => {
+    const getClickWindowMinutes = (adId: string) => {
+      const ad = ads.find(item => item.id === adId);
+      if (ad?.adSetId && adSets[ad.adSetId]) {
+        const adSet = adSets[ad.adSetId];
+        const days = adSet.attributionClickDays ?? 7;
+        return days * 24 * 60;
+      }
+      return 7 * 24 * 60;
+    };
+
+    const getViewWindowMinutes = (adId: string) => {
+      const ad = ads.find(item => item.id === adId);
+      if (ad?.adSetId && adSets[ad.adSetId]) {
+        const adSet = adSets[ad.adSetId];
+        const days = adSet.attributionViewDays ?? 1;
+        return days * 24 * 60;
+      }
+      return 24 * 60;
+    };
+
+    if (lastAdClick) {
+      const clickWindow = maxAgeMinutes ?? getClickWindowMinutes(lastAdClick.adId);
+      const maxAgeMs = clickWindow * 60 * 1000;
+      if (Date.now() - lastAdClick.at > maxAgeMs) {
+        setLastAdClick(null);
+      } else {
+        const payload = { adId: lastAdClick.adId, location: lastAdClick.location };
+        setLastAdClick(null);
+        return payload;
+      }
     }
-    const payload = { adId: lastAdClick.adId, location: lastAdClick.location };
-    setLastAdClick(null);
-    return payload;
-  }, [lastAdClick]);
+
+    // Fallback to last view attribution window if no valid click attribution
+    if (impressionHistory.length > 0 && user?.id) {
+      const latestImpression = impressionHistory
+        .filter(imp => imp.userId === user.id)
+        .sort((a, b) => new Date(b.viewedAt).getTime() - new Date(a.viewedAt).getTime())[0];
+
+      if (latestImpression) {
+        const viewWindow = getViewWindowMinutes(latestImpression.adId);
+        const maxAgeMs = viewWindow * 60 * 1000;
+        if (Date.now() - new Date(latestImpression.viewedAt).getTime() <= maxAgeMs) {
+          return { adId: latestImpression.adId, location: latestImpression.location };
+        }
+      }
+    }
+
+    return null;
+  }, [lastAdClick, ads, adSets, impressionHistory, user?.id]);
 
   const refreshAds = useCallback(async () => {
     await loadAds();
@@ -449,6 +614,7 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
         trackConversion,
         consumeLastAdClick,
         refreshAds,
+        adSetsById: adSets,
       }}
     >
       {children}

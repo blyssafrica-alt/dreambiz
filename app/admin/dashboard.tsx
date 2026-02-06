@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { supabase } from '@/lib/supabase';
-import { TrendingUp, Package, Megaphone, Users, Building2, DollarSign, ArrowRight, Boxes, Bell } from 'lucide-react-native';
+import { TrendingUp, Package, Megaphone, Users, Building2, DollarSign, ArrowRight, Boxes, Bell, Settings as SettingsIcon, Layers } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function AdminDashboard() {
@@ -336,6 +336,60 @@ export default function AdminDashboard() {
             </View>
             <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
               <Boxes size={18} color={theme.accent.primary} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/ad-campaigns' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Ad Campaigns</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Campaign goals and budgets
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <Layers size={18} color={theme.accent.primary} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/ad-sets' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Ad Sets</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Delivery rules and rates
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <Layers size={18} color={theme.accent.primary} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/settings' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Admin Settings</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Default billing model and rates
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <SettingsIcon size={18} color={theme.accent.primary} />
             </View>
           </View>
         </TouchableOpacity>

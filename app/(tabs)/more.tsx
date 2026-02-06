@@ -32,7 +32,8 @@ import {
   BookOpen,
   Camera,
   Store,
-  Megaphone
+  Megaphone,
+  Layers
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -158,6 +159,36 @@ export default function MoreScreen() {
           route: '/admin/dashboard',
           color: '#0F172A',
           gradient: ['#0F172A', '#334155'],
+          visible: isSuperAdmin || isAdmin || isModerator,
+        },
+        {
+          id: 'admin-settings',
+          title: 'Admin Settings',
+          description: 'Default billing rates and rules',
+          icon: Settings,
+          route: '/admin/settings',
+          color: '#1F2937',
+          gradient: ['#1F2937', '#111827'],
+          visible: isSuperAdmin || isAdmin || isModerator,
+        },
+        {
+          id: 'admin-campaigns',
+          title: 'Ad Campaigns',
+          description: 'Campaign goals and budgets',
+          icon: Layers,
+          route: '/admin/ad-campaigns',
+          color: '#0F172A',
+          gradient: ['#0F172A', '#1E293B'],
+          visible: isSuperAdmin || isAdmin || isModerator,
+        },
+        {
+          id: 'admin-ad-sets',
+          title: 'Ad Sets',
+          description: 'Delivery rules and rates',
+          icon: Layers,
+          route: '/admin/ad-sets',
+          color: '#111827',
+          gradient: ['#111827', '#0F172A'],
           visible: isSuperAdmin || isAdmin || isModerator,
         },
       ],

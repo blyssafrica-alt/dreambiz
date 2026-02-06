@@ -171,6 +171,8 @@ export interface Advertisement {
   ctaUrl?: string;
   ctaAction?: CtaAction;
   ctaTargetId?: string; // Product ID, Book ID, Feature ID, etc.
+  campaignId?: string;
+  adSetId?: string;
   targeting: AdTargeting;
   placement: AdPlacement;
   spend?: number; // Budget limit
@@ -194,6 +196,47 @@ export interface Advertisement {
   impressionsCount: number;
   clicksCount: number;
   conversionsCount: number;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdCampaign {
+  id: string;
+  name: string;
+  objective?: string;
+  status: AdStatus;
+  startDate?: string;
+  endDate?: string;
+  budget?: number;
+  spendActual?: number;
+  currency?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  adSetCount?: number;
+  adCount?: number;
+}
+
+export interface AdSet {
+  id: string;
+  campaignId?: string;
+  name: string;
+  status: AdStatus;
+  startDate?: string;
+  endDate?: string;
+  budget?: number;
+  spendActual?: number;
+  spendActualToday?: number;
+  currency?: string;
+  billingType?: 'cpc' | 'cpe' | 'cpa';
+  billingRate?: number;
+  pacingEnabled?: boolean;
+  dailyBudget?: number;
+  attributionClickDays?: number;
+  attributionViewDays?: number;
+  optimizationGoal?: 'impressions' | 'clicks' | 'conversions';
+  learningEventThreshold?: number;
   createdBy?: string;
   createdAt: string;
   updatedAt: string;

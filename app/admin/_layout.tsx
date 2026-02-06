@@ -92,6 +92,13 @@ export default function AdminLayout() {
         }} 
       />
       <Stack.Screen 
+        name="settings" 
+        options={{ 
+          title: 'Admin Settings',
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
         name="ads" 
         options={{ 
           title: 'Advertisement Management',
@@ -102,6 +109,20 @@ export default function AdminLayout() {
         name="ad-packages" 
         options={{ 
           title: 'Ad Packages',
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
+        name="ad-campaigns" 
+        options={{ 
+          title: 'Ad Campaigns',
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
+        name="ad-sets" 
+        options={{ 
+          title: 'Ad Sets',
           headerShown: false,
         }} 
       />

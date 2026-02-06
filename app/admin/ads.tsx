@@ -8,7 +8,7 @@ import { AdCard } from '@/components/AdCard';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Plus, Megaphone, TrendingUp, Eye, MousePointerClick, X, Save, Trash2, Edit, ImageIcon, Upload } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { Advertisement, AdType, AdStatus, AdFrequency } from '@/types/super-admin';
+import type { Advertisement, AdType, AdStatus, AdFrequency, AdCampaign, AdSet } from '@/types/super-admin';
 import type { BusinessStage, BusinessType, DreamBigBook } from '@/types/business';
 import * as ImagePicker from 'expo-image-picker';
 import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
@@ -59,6 +59,8 @@ export default function AdsManagementScreen() {
   const [showModal, setShowModal] = useState(false);
   const [editingAd, setEditingAd] = useState<Advertisement | null>(null);
   const [approvalNotes, setApprovalNotes] = useState<Record<string, string>>({});
+  const [campaigns, setCampaigns] = useState<AdCampaign[]>([]);
+  const [adSets, setAdSets] = useState<AdSet[]>([]);
   const [defaultBillingType, setDefaultBillingType] = useState<'cpc' | 'cpe' | 'cpa'>('cpc');
   const [defaultBillingRate, setDefaultBillingRate] = useState('');
   const [defaultBillingCurrency, setDefaultBillingCurrency] = useState('USD');
@@ -80,6 +82,8 @@ export default function AdsManagementScreen() {
     spendCurrency: 'USD',
     billingType: 'cpc' as 'cpc' | 'cpe' | 'cpa',
     billingRate: '',
+    campaignId: '',
+    adSetId: '',
     status: 'draft' as AdStatus,
     startDate: '',
     endDate: '',
@@ -107,7 +111,68 @@ export default function AdsManagementScreen() {
   useEffect(() => {
     loadAds();
     loadBillingDefaults();
+    loadCampaigns();
+    loadAdSets();
   }, []);
+
+  const loadCampaigns = async () => {
+    const { data, error } = await supabase.from('ad_campaigns').select('*').order('created_at', { ascending: false });
+    if (!error && data) {
+      setCampaigns(data.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        objective: row.objective || undefined,
+        status: row.status,
+        startDate: row.start_date || undefined,
+        endDate: row.end_date || undefined,
+        budget: row.budget !== null && row.budget !== undefined ? parseFloat(row.budget) : undefined,
+        spendActual: row.spend_actual !== null && row.spend_actual !== undefined ? parseFloat(row.spend_actual) : undefined,
+        currency: row.currency || 'USD',
+        createdBy: row.created_by,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      })));
+    }
+  };
+
+  const loadAdSets = async () => {
+    const today = new Date().toISOString().split('T')[0];
+    const [{ data, error }, { data: dailySpendData }] = await Promise.all([
+      supabase.from('ad_sets').select('*').order('created_at', { ascending: false }),
+      supabase.from('ad_set_daily_spend').select('ad_set_id, spend_amount').eq('spend_date', today),
+    ]);
+
+    if (!error && data) {
+      const dailySpendMap: Record<string, number> = {};
+      (dailySpendData || []).forEach((row: any) => {
+        if (row.ad_set_id) {
+          dailySpendMap[row.ad_set_id] = row.spend_amount !== null && row.spend_amount !== undefined ? parseFloat(row.spend_amount) : 0;
+        }
+      });
+
+      setAdSets(data.map((row: any) => ({
+        id: row.id,
+        campaignId: row.campaign_id || undefined,
+        name: row.name,
+        status: row.status,
+        startDate: row.start_date || undefined,
+        endDate: row.end_date || undefined,
+        budget: row.budget !== null && row.budget !== undefined ? parseFloat(row.budget) : undefined,
+        spendActual: row.spend_actual !== null && row.spend_actual !== undefined ? parseFloat(row.spend_actual) : undefined,
+        spendActualToday: dailySpendMap[row.id] ?? 0,
+        currency: row.currency || 'USD',
+        billingType: row.billing_type || 'cpc',
+        billingRate: row.billing_rate !== null && row.billing_rate !== undefined ? parseFloat(row.billing_rate) : undefined,
+        pacingEnabled: row.pacing_enabled || false,
+        dailyBudget: row.daily_budget !== null && row.daily_budget !== undefined ? parseFloat(row.daily_budget) : undefined,
+        optimizationGoal: row.optimization_goal || 'impressions',
+        learningEventThreshold: row.learning_event_threshold ?? undefined,
+        createdBy: row.created_by,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      })));
+    }
+  };
 
   const loadBillingDefaults = async () => {
     const { data, error } = await supabase
@@ -205,6 +270,8 @@ export default function AdsManagementScreen() {
           adminNotes: row.admin_notes || undefined,
           adPackageId: row.ad_package_id || undefined,
           autoRenew: row.auto_renew || false,
+          campaignId: row.campaign_id || undefined,
+          adSetId: row.ad_set_id || undefined,
           startDate: row.start_date,
           endDate: row.end_date,
           timezone: row.timezone || 'Africa/Harare',
@@ -245,6 +312,8 @@ export default function AdsManagementScreen() {
         spendCurrency: ad.spendCurrency || 'USD',
         billingType: ad.billingType || 'cpc',
         billingRate: ad.billingRate !== undefined ? String(ad.billingRate) : '',
+        campaignId: ad.campaignId || '',
+        adSetId: ad.adSetId || '',
         status: ad.status,
         startDate: ad.startDate || '',
         endDate: ad.endDate || '',
@@ -284,6 +353,8 @@ export default function AdsManagementScreen() {
         spendCurrency: 'USD',
         billingType: defaultBillingType,
         billingRate: defaultBillingRate,
+        campaignId: '',
+        adSetId: '',
         status: 'draft',
         startDate: '',
         endDate: '',
@@ -437,6 +508,8 @@ export default function AdsManagementScreen() {
         spend_currency: formData.spendCurrency || 'USD',
         billing_type: formData.billingType || defaultBillingType,
         billing_rate: Number.isFinite(parsedBillingRate) && parsedBillingRate >= 0 ? parsedBillingRate : null,
+        campaign_id: formData.campaignId || null,
+        ad_set_id: formData.adSetId || null,
         status: formData.status,
         start_date: formData.startDate || null,
         end_date: formData.endDate || null,
@@ -516,6 +589,8 @@ export default function AdsManagementScreen() {
     ctaTargetId: formData.ctaTargetId || undefined,
     spend: formData.spend ? parseFloat(formData.spend) : undefined,
     spendCurrency: formData.spendCurrency || 'USD',
+    campaignId: formData.campaignId || undefined,
+    adSetId: formData.adSetId || undefined,
     targeting: { scope: formData.targetingScope },
     placement: {
       locations: formData.placementLocations,
@@ -745,7 +820,21 @@ export default function AdsManagementScreen() {
             </Text>
           </View>
         ) : (
-          filteredAds.map((ad) => (
+          filteredAds.map((ad) => {
+            const adSet = adSets.find(set => set.id === ad.adSetId);
+            const campaign = campaigns.find(item => item.id === ad.campaignId);
+            const optimizationGoal = adSet?.optimizationGoal || 'impressions';
+            const learningThreshold = adSet?.learningEventThreshold ?? 50;
+            const learningEventsRaw = optimizationGoal === 'conversions' ? ad.conversionsCount : ad.clicksCount;
+            const learningEvents = typeof learningEventsRaw === 'number' ? learningEventsRaw : 0;
+            const isLearning = optimizationGoal !== 'impressions' && learningEvents < learningThreshold;
+            const learningProgress = learningThreshold > 0 ? Math.min(learningEvents / learningThreshold, 1) : 1;
+            const hasPacing = adSet?.pacingEnabled && adSet?.dailyBudget !== undefined && adSet?.dailyBudget !== null;
+            const pacingProgress = hasPacing && adSet?.dailyBudget
+              ? Math.min((adSet.spendActualToday || 0) / adSet.dailyBudget, 1)
+              : 0;
+
+            return (
             <View key={ad.id} style={[styles.adCard, { backgroundColor: theme.background.card }]}>
               {ad.imageUrl && (
                 <Image source={{ uri: ad.imageUrl }} style={styles.adImage} />
@@ -765,6 +854,11 @@ export default function AdsManagementScreen() {
                         <Text style={[styles.badgeText, { color: '#F59E0B' }]}>
                           auto-renew
                         </Text>
+                      </View>
+                    )}
+                    {isLearning && (
+                      <View style={[styles.learningBadge, { backgroundColor: theme.background.secondary }]}>
+                        <Text style={[styles.learningBadgeText, { color: theme.text.secondary }]}>learning</Text>
                       </View>
                     )}
                     <Text style={[styles.adType, { color: theme.text.secondary }]}>{ad.type}</Text>
@@ -804,6 +898,40 @@ export default function AdsManagementScreen() {
                 </View>
               </View>
               <View style={styles.adStatsSecondary}>
+                {(campaign || adSet) && (
+                  <View style={styles.adGroupMeta}>
+                    {campaign && (
+                      <Text style={[styles.statLabel, { color: theme.text.secondary }]}>
+                        Campaign: {campaign.name}
+                      </Text>
+                    )}
+                    {adSet && (
+                      <Text style={[styles.statLabel, { color: theme.text.secondary }]}>
+                        Ad Set: {adSet.name} · Goal: {(optimizationGoal || 'impressions').toUpperCase()}
+                      </Text>
+                    )}
+                  </View>
+                )}
+                {isLearning && (
+                  <View style={styles.learningRow}>
+                    <View style={[styles.learningBar, { backgroundColor: theme.border.light }]}>
+                      <View style={[styles.learningFill, { backgroundColor: theme.accent.primary, width: `${learningProgress * 100}%` }]} />
+                    </View>
+                    <Text style={[styles.learningText, { color: theme.text.tertiary }]}>
+                      Learning: {learningEvents}/{learningThreshold} events
+                    </Text>
+                  </View>
+                )}
+                {hasPacing && (
+                  <View style={styles.learningRow}>
+                    <View style={[styles.learningBar, { backgroundColor: theme.border.light }]}>
+                      <View style={[styles.learningFill, { backgroundColor: theme.accent.primary, width: `${pacingProgress * 100}%` }]} />
+                    </View>
+                    <Text style={[styles.learningText, { color: theme.text.tertiary }]}>
+                      Today: {adSet?.currency || 'USD'} {adSet?.spendActualToday?.toFixed(2) ?? '0.00'} / {adSet?.dailyBudget?.toFixed(2) ?? '—'}
+                    </Text>
+                  </View>
+                )}
                 <Text style={[styles.statLabel, { color: theme.text.secondary }]}>
                   Budget: {ad.spendCurrency || 'USD'} {ad.spend?.toFixed(2) ?? '—'}
                 </Text>
@@ -865,7 +993,8 @@ export default function AdsManagementScreen() {
                 </View>
               )}
             </View>
-          ))
+            );
+          })
         )}
       </ScrollView>
 
@@ -1024,6 +1153,38 @@ export default function AdsManagementScreen() {
                 value={formData.ctaText}
                 onChangeText={(text) => setFormData({ ...formData, ctaText: text })}
               />
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Campaign</Text>
+              <View style={styles.typeButtons}>
+                {campaigns.map(campaign => (
+                  <TouchableOpacity
+                    key={campaign.id}
+                    style={[styles.typeButton, { backgroundColor: formData.campaignId === campaign.id ? theme.accent.primary : theme.background.secondary }]}
+                    onPress={() => setFormData({ ...formData, campaignId: campaign.id, adSetId: '' })}
+                  >
+                    <Text style={[styles.typeButtonText, { color: formData.campaignId === campaign.id ? '#FFF' : theme.text.primary }]}>
+                      {campaign.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Ad Set</Text>
+              <View style={styles.typeButtons}>
+                {adSets
+                  .filter(set => !formData.campaignId || set.campaignId === formData.campaignId)
+                  .map(set => (
+                    <TouchableOpacity
+                      key={set.id}
+                      style={[styles.typeButton, { backgroundColor: formData.adSetId === set.id ? theme.accent.primary : theme.background.secondary }]}
+                      onPress={() => setFormData({ ...formData, adSetId: set.id })}
+                    >
+                      <Text style={[styles.typeButtonText, { color: formData.adSetId === set.id ? '#FFF' : theme.text.primary }]}>
+                        {set.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+              </View>
 
               <Text style={[styles.label, { color: theme.text.secondary }]}>Budget (Optional)</Text>
               <View style={styles.rowInputs}>
@@ -1448,6 +1609,8 @@ const styles = StyleSheet.create({
   adMeta: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 },
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   badgeText: { fontSize: 12, fontWeight: '600', textTransform: 'capitalize' },
+  learningBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
+  learningBadgeText: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase' },
   adType: { fontSize: 12, textTransform: 'capitalize' },
   adActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
   actionButton: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
@@ -1456,6 +1619,11 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 18, fontWeight: '700', marginTop: 4 },
   statLabel: { fontSize: 12, marginTop: 2 },
   adStatsSecondary: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
+  adGroupMeta: { width: '100%', gap: 4 },
+  learningRow: { width: '100%', gap: 6 },
+  learningBar: { height: 6, borderRadius: 999, overflow: 'hidden' },
+  learningFill: { height: 6, borderRadius: 999 },
+  learningText: { fontSize: 11 },
   approvalSection: {
     marginTop: 14,
     padding: 12,

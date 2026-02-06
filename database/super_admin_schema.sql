@@ -242,6 +242,8 @@ CREATE TABLE IF NOT EXISTS advertisements (
   admin_notes TEXT,
   ad_package_id UUID REFERENCES ad_packages(id) ON DELETE SET NULL,
   auto_renew BOOLEAN DEFAULT false,
+  campaign_id UUID REFERENCES ad_campaigns(id) ON DELETE SET NULL,
+  ad_set_id UUID REFERENCES ad_sets(id) ON DELETE SET NULL,
   
   -- Metadata
   created_by UUID REFERENCES users(id), -- Super admin
@@ -251,6 +253,8 @@ CREATE TABLE IF NOT EXISTS advertisements (
 
 CREATE INDEX IF NOT EXISTS idx_advertisements_status ON advertisements(status);
 CREATE INDEX IF NOT EXISTS idx_advertisements_dates ON advertisements(start_date, end_date);
+CREATE INDEX IF NOT EXISTS idx_advertisements_campaign_id ON advertisements(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_advertisements_ad_set_id ON advertisements(ad_set_id);
 
 -- ============================================
 -- AD IMPRESSIONS TRACKING
@@ -478,6 +482,105 @@ CREATE POLICY "Super admins can manage ad packages"
   FOR ALL
   USING (is_super_admin());
 
+-- Ad Campaigns
+CREATE TABLE IF NOT EXISTS ad_campaigns (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  objective TEXT,
+  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'pending', 'active', 'paused', 'archived', 'rejected')),
+  start_date TIMESTAMPTZ,
+  end_date TIMESTAMPTZ,
+  budget DECIMAL(15, 2),
+  spend_actual DECIMAL(15, 2) DEFAULT 0,
+  currency TEXT DEFAULT 'USD',
+  created_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE ad_campaigns ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Super admins can manage ad campaigns" ON ad_campaigns;
+CREATE POLICY "Super admins can manage ad campaigns"
+  ON ad_campaigns
+  FOR ALL
+  USING (is_super_admin());
+
+DROP POLICY IF EXISTS "Users can manage their own ad campaigns" ON ad_campaigns;
+CREATE POLICY "Users can manage their own ad campaigns"
+  ON ad_campaigns
+  FOR ALL
+  USING (auth.uid()::text = created_by::text)
+  WITH CHECK (auth.uid()::text = created_by::text);
+
+DROP TRIGGER IF EXISTS update_ad_campaigns_updated_at ON ad_campaigns;
+CREATE TRIGGER update_ad_campaigns_updated_at BEFORE UPDATE ON ad_campaigns
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Ad Sets
+CREATE TABLE IF NOT EXISTS ad_sets (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  campaign_id UUID REFERENCES ad_campaigns(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'pending', 'active', 'paused', 'archived', 'rejected')),
+  start_date TIMESTAMPTZ,
+  end_date TIMESTAMPTZ,
+  budget DECIMAL(15, 2),
+  spend_actual DECIMAL(15, 2) DEFAULT 0,
+  currency TEXT DEFAULT 'USD',
+  pacing_enabled BOOLEAN DEFAULT false,
+  daily_budget DECIMAL(15, 2),
+  attribution_click_days INTEGER DEFAULT 7,
+  attribution_view_days INTEGER DEFAULT 1,
+  optimization_goal TEXT DEFAULT 'impressions' CHECK (optimization_goal IN ('impressions', 'clicks', 'conversions')),
+  learning_event_threshold INTEGER DEFAULT 50,
+  billing_type TEXT DEFAULT 'cpc' CHECK (billing_type IN ('cpc', 'cpe', 'cpa')),
+  billing_rate DECIMAL(15, 4) DEFAULT 0,
+  created_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE ad_sets ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Super admins can manage ad sets" ON ad_sets;
+CREATE POLICY "Super admins can manage ad sets"
+  ON ad_sets
+  FOR ALL
+  USING (is_super_admin());
+
+DROP POLICY IF EXISTS "Users can manage their own ad sets" ON ad_sets;
+CREATE POLICY "Users can manage their own ad sets"
+  ON ad_sets
+  FOR ALL
+  USING (auth.uid()::text = created_by::text)
+  WITH CHECK (auth.uid()::text = created_by::text);
+
+DROP TRIGGER IF EXISTS update_ad_sets_updated_at ON ad_sets;
+CREATE TRIGGER update_ad_sets_updated_at BEFORE UPDATE ON ad_sets
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Ad Set Daily Spend
+CREATE TABLE IF NOT EXISTS ad_set_daily_spend (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  ad_set_id UUID REFERENCES ad_sets(id) ON DELETE CASCADE,
+  spend_date DATE NOT NULL,
+  spend_amount DECIMAL(15, 4) DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (ad_set_id, spend_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ad_set_daily_spend_date ON ad_set_daily_spend(spend_date);
+
+ALTER TABLE ad_set_daily_spend ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Super admins can manage ad set daily spend" ON ad_set_daily_spend;
+CREATE POLICY "Super admins can manage ad set daily spend"
+  ON ad_set_daily_spend
+  FOR ALL
+  USING (is_super_admin());
+
 -- Ad Billing Defaults
 CREATE TABLE IF NOT EXISTS ad_billing_settings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -642,22 +745,59 @@ CREATE TRIGGER update_alert_rules_updated_at BEFORE UPDATE ON alert_rules
 -- ============================================
 CREATE OR REPLACE FUNCTION update_ad_analytics()
 RETURNS TRIGGER AS $$
+DECLARE
+  ad_billing_type TEXT;
+  ad_billing_rate DECIMAL(15, 4);
+  cost_to_add DECIMAL(15, 4) DEFAULT 0;
 BEGIN
+  SELECT billing_type, billing_rate INTO ad_billing_type, ad_billing_rate
+  FROM advertisements
+  WHERE id = NEW.ad_id;
+
   IF TG_OP = 'INSERT' THEN
+    cost_to_add = CASE
+      WHEN ad_billing_type = 'cpc' AND NEW.clicked = true THEN COALESCE(ad_billing_rate, 0)
+      WHEN ad_billing_type = 'cpa' AND NEW.converted = true THEN COALESCE(ad_billing_rate, 0)
+      WHEN ad_billing_type = 'cpe' AND (NEW.clicked = true OR NEW.converted = true) THEN COALESCE(ad_billing_rate, 0)
+      ELSE 0
+    END;
+
     UPDATE advertisements 
     SET
       impressions_count = impressions_count + 1,
       clicks_count = clicks_count + CASE WHEN NEW.clicked = true THEN 1 ELSE 0 END,
       conversions_count = conversions_count + CASE WHEN NEW.converted = true THEN 1 ELSE 0 END,
       revenue = COALESCE(revenue, 0) + CASE WHEN NEW.converted = true THEN COALESCE(NEW.conversion_value, 0) ELSE 0 END,
-      spend_actual = COALESCE(spend_actual, 0) + CASE
-        WHEN billing_type = 'cpc' AND NEW.clicked = true THEN COALESCE(billing_rate, 0)
-        WHEN billing_type = 'cpa' AND NEW.converted = true THEN COALESCE(billing_rate, 0)
-        WHEN billing_type = 'cpe' AND (NEW.clicked = true OR NEW.converted = true) THEN COALESCE(billing_rate, 0)
-        ELSE 0
-      END
+      spend_actual = COALESCE(spend_actual, 0) + cost_to_add
     WHERE id = NEW.ad_id;
+
+    UPDATE ad_sets
+    SET
+      spend_actual = COALESCE(spend_actual, 0) + cost_to_add
+    WHERE id = (SELECT ad_set_id FROM advertisements WHERE id = NEW.ad_id);
+
+    INSERT INTO ad_set_daily_spend (ad_set_id, spend_date, spend_amount)
+    SELECT ad_set_id, (NEW.viewed_at::date), cost_to_add
+    FROM advertisements
+    WHERE id = NEW.ad_id AND ad_set_id IS NOT NULL AND cost_to_add > 0
+    ON CONFLICT (ad_set_id, spend_date)
+    DO UPDATE SET
+      spend_amount = ad_set_daily_spend.spend_amount + EXCLUDED.spend_amount,
+      updated_at = NOW();
+
+    UPDATE ad_campaigns
+    SET
+      spend_actual = COALESCE(spend_actual, 0) + cost_to_add
+    WHERE id = (SELECT campaign_id FROM advertisements WHERE id = NEW.ad_id);
   ELSIF TG_OP = 'UPDATE' THEN
+    cost_to_add = CASE
+      WHEN ad_billing_type = 'cpc' AND NEW.clicked = true AND (OLD.clicked IS DISTINCT FROM NEW.clicked) THEN COALESCE(ad_billing_rate, 0)
+      WHEN ad_billing_type = 'cpa' AND NEW.converted = true AND (OLD.converted IS DISTINCT FROM NEW.converted) THEN COALESCE(ad_billing_rate, 0)
+      WHEN ad_billing_type = 'cpe' AND NEW.clicked = true AND (OLD.clicked IS DISTINCT FROM NEW.clicked) THEN COALESCE(ad_billing_rate, 0)
+      WHEN ad_billing_type = 'cpe' AND NEW.converted = true AND (OLD.converted IS DISTINCT FROM NEW.converted) AND COALESCE(OLD.clicked, false) = false THEN COALESCE(ad_billing_rate, 0)
+      ELSE 0
+    END;
+
     UPDATE advertisements
     SET
       clicks_count = clicks_count + CASE WHEN NEW.clicked = true AND (OLD.clicked IS DISTINCT FROM NEW.clicked) THEN 1 ELSE 0 END,
@@ -666,14 +806,27 @@ BEGIN
         WHEN NEW.converted = true AND (OLD.converted IS DISTINCT FROM NEW.converted) THEN COALESCE(NEW.conversion_value, 0)
         ELSE 0
       END,
-      spend_actual = COALESCE(spend_actual, 0) + CASE
-        WHEN billing_type = 'cpc' AND NEW.clicked = true AND (OLD.clicked IS DISTINCT FROM NEW.clicked) THEN COALESCE(billing_rate, 0)
-        WHEN billing_type = 'cpa' AND NEW.converted = true AND (OLD.converted IS DISTINCT FROM NEW.converted) THEN COALESCE(billing_rate, 0)
-        WHEN billing_type = 'cpe' AND NEW.clicked = true AND (OLD.clicked IS DISTINCT FROM NEW.clicked) THEN COALESCE(billing_rate, 0)
-        WHEN billing_type = 'cpe' AND NEW.converted = true AND (OLD.converted IS DISTINCT FROM NEW.converted) AND COALESCE(OLD.clicked, false) = false THEN COALESCE(billing_rate, 0)
-        ELSE 0
-      END
+      spend_actual = COALESCE(spend_actual, 0) + cost_to_add
     WHERE id = NEW.ad_id;
+
+    UPDATE ad_sets
+    SET
+      spend_actual = COALESCE(spend_actual, 0) + cost_to_add
+    WHERE id = (SELECT ad_set_id FROM advertisements WHERE id = NEW.ad_id);
+
+    INSERT INTO ad_set_daily_spend (ad_set_id, spend_date, spend_amount)
+    SELECT ad_set_id, (NEW.viewed_at::date), cost_to_add
+    FROM advertisements
+    WHERE id = NEW.ad_id AND ad_set_id IS NOT NULL AND cost_to_add > 0
+    ON CONFLICT (ad_set_id, spend_date)
+    DO UPDATE SET
+      spend_amount = ad_set_daily_spend.spend_amount + EXCLUDED.spend_amount,
+      updated_at = NOW();
+
+    UPDATE ad_campaigns
+    SET
+      spend_actual = COALESCE(spend_actual, 0) + cost_to_add
+    WHERE id = (SELECT campaign_id FROM advertisements WHERE id = NEW.ad_id);
   END IF;
   
   RETURN NEW;

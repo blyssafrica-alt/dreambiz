@@ -1,0 +1,6 @@
+ALTER TABLE ad_sets
+  ADD COLUMN IF NOT EXISTS pacing_enabled BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS daily_budget DECIMAL(15, 2),
+  ADD COLUMN IF NOT EXISTS attribution_click_days INTEGER DEFAULT 7,
+  ADD COLUMN IF NOT EXISTS attribution_view_days INTEGER DEFAULT 1;
+

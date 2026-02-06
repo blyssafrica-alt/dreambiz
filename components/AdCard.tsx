@@ -15,7 +15,7 @@ interface AdCardProps {
 
 export function AdCard({ ad, location, onPress, preview = false }: AdCardProps) {
   const { theme } = useTheme();
-  const { trackImpression, trackClick } = useAds();
+  const { trackImpression, trackClick, adSetsById } = useAds();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [hasTrackedImpression, setHasTrackedImpression] = useState(false);
@@ -23,6 +23,17 @@ export function AdCard({ ad, location, onPress, preview = false }: AdCardProps) 
   const hasBodyText = Boolean(ad.bodyText?.trim());
   const showToggle = hasBodyText && (ad.bodyText || '').length > 120;
   const ctaLabel = ad.ctaText || (ad.ctaAction === 'external_url' ? 'Learn More' : 'View');
+  const adSet = ad.adSetId ? adSetsById[ad.adSetId] : undefined;
+  const optimizationGoal = adSet?.optimizationGoal || 'impressions';
+  const learningThreshold = adSet?.learningEventThreshold ?? 50;
+  const learningEventsRaw = optimizationGoal === 'conversions' ? ad.conversionsCount : ad.clicksCount;
+  const learningEvents = typeof learningEventsRaw === 'number' ? learningEventsRaw : 0;
+  const isLearning = optimizationGoal !== 'impressions' && learningEvents < learningThreshold;
+  const learningProgress = learningThreshold > 0 ? Math.min(learningEvents / learningThreshold, 1) : 1;
+  const hasPacing = adSet?.pacingEnabled && adSet?.dailyBudget !== undefined && adSet?.dailyBudget !== null;
+  const pacingProgress = hasPacing && adSet?.dailyBudget
+    ? Math.min((adSet.spendActualToday || 0) / adSet.dailyBudget, 1)
+    : 0;
   const cardStyle = useMemo(() => {
     switch (ad.type) {
       case 'banner':
@@ -109,6 +120,18 @@ export function AdCard({ ad, location, onPress, preview = false }: AdCardProps) 
             {ad.title}
           </Text>
         </View>
+        <View style={styles.badgeRow}>
+          {adSet && (
+            <View style={[styles.goalPill, { backgroundColor: theme.background.secondary }]}>
+              <Text style={[styles.goalText, { color: theme.text.secondary }]}>{optimizationGoal.toUpperCase()}</Text>
+            </View>
+          )}
+          {isLearning && (
+            <View style={[styles.learningPill, { backgroundColor: theme.background.secondary }]}>
+              <Text style={[styles.learningText, { color: theme.text.secondary }]}>Learning</Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {ad.imageUrl && (
@@ -124,6 +147,28 @@ export function AdCard({ ad, location, onPress, preview = false }: AdCardProps) 
           <Text style={[styles.headline, { color: theme.text.primary }]}>
             {ad.headline}
           </Text>
+        )}
+
+        {isLearning && (
+          <View style={styles.learningContainer}>
+            <View style={[styles.learningTrack, { backgroundColor: theme.border.light }]}>
+              <View style={[styles.learningFill, { backgroundColor: theme.accent.primary, width: `${learningProgress * 100}%` }]} />
+            </View>
+            <Text style={[styles.learningProgressText, { color: theme.text.tertiary }]}>
+              {learningEvents}/{learningThreshold} events
+            </Text>
+          </View>
+        )}
+
+        {hasPacing && (
+          <View style={styles.learningContainer}>
+            <View style={[styles.learningTrack, { backgroundColor: theme.border.light }]}>
+              <View style={[styles.learningFill, { backgroundColor: theme.accent.primary, width: `${pacingProgress * 100}%` }]} />
+            </View>
+            <Text style={[styles.learningProgressText, { color: theme.text.tertiary }]}>
+              Today: {adSet?.currency || 'USD'} {adSet?.spendActualToday?.toFixed(2) ?? '0.00'} / {adSet?.dailyBudget?.toFixed(2) ?? '—'}
+            </Text>
+          </View>
         )}
         
         {hasBodyText && (
@@ -227,6 +272,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  goalPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  goalText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  learningPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  learningText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   sponsoredLabel: {
     fontSize: 12,
@@ -254,6 +325,22 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+    gap: 10,
+  },
+  learningContainer: {
+    gap: 6,
+  },
+  learningTrack: {
+    height: 6,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  learningFill: {
+    height: 6,
+    borderRadius: 999,
+  },
+  learningProgressText: {
+    fontSize: 11,
   },
   headline: {
     fontSize: 18,
