@@ -199,13 +199,56 @@ export const uploadBase64ToStorage = async (
       }
       
       // Clean the URL to fix any bucket name corruption (spaces, etc.)
-      // Replace spaces in bucket name with underscores and ensure proper URL encoding
+      // The bucket name in the URL might have spaces that need to be replaced with underscores
       let cleanedUrl = data.publicUrl;
-      // Fix bucket name corruption: "ad payment proofs" -> "ad_payment_proofs"
-      cleanedUrl = cleanedUrl.replace(/\/storage\/v1\/object\/public\/([^\/]+)\//, (match, bucketName) => {
-        const normalizedBucket = bucketName.replace(/\s+/g, '_');
-        return `/storage/v1/object/public/${normalizedBucket}/`;
-      });
+      
+      // Use URL parsing to safely extract and fix the bucket name
+      try {
+        const urlObj = new URL(cleanedUrl);
+        const pathMatch = urlObj.pathname.match(/^\/storage\/v1\/object\/public\/([^\/]+)(\/.*)?$/);
+        
+        if (pathMatch) {
+          // Extract bucket name (may be URL-encoded)
+          const bucketNameInUrl = decodeURIComponent(pathMatch[1]);
+          
+          // Normalize the bucket name: replace spaces with underscores
+          const normalizedBucket = bucketNameInUrl.replace(/\s+/g, '_');
+          
+          // Only fix if bucket name has spaces (to avoid unnecessary changes)
+          if (bucketNameInUrl !== normalizedBucket) {
+            // Reconstruct path with normalized bucket name
+            const restOfPath = pathMatch[2] || '';
+            urlObj.pathname = `/storage/v1/object/public/${encodeURIComponent(normalizedBucket)}${restOfPath}`;
+            cleanedUrl = urlObj.toString();
+          }
+        }
+      } catch (urlError) {
+        // If URL parsing fails, fall back to simple string replacement
+        // This should rarely happen, but provides a safety net
+        if (isDev) {
+          console.warn('[Upload] URL parsing failed, using fallback:', urlError);
+        }
+        // Simple fallback: replace spaces in bucket name pattern
+        cleanedUrl = cleanedUrl.replace(
+          /(\/storage\/v1\/object\/public\/)([^\/\?]+)(\/)/,
+          (match, prefix, bucketName, suffix) => {
+            try {
+              const decoded = decodeURIComponent(bucketName);
+              const normalized = decoded.replace(/\s+/g, '_');
+              if (decoded !== normalized) {
+                return prefix + encodeURIComponent(normalized) + suffix;
+              }
+            } catch (e) {
+              // If decoding fails, just replace spaces directly
+              const normalized = bucketName.replace(/\s+/g, '_');
+              if (bucketName !== normalized) {
+                return prefix + normalized + suffix;
+              }
+            }
+            return match;
+          }
+        );
+      }
       
       if (isDev) {
         console.log('[Upload] Success', { bucket, filePath, originalUrl: data.publicUrl, cleanedUrl });
