@@ -57,7 +57,8 @@ export default function BookDetailScreen() {
   const [adBudget, setAdBudget] = useState('');
   const [adCurrency, setAdCurrency] = useState('USD');
   const [adPaymentReference, setAdPaymentReference] = useState('');
-  const [adPaymentProofUrl, setAdPaymentProofUrl] = useState<string | null>(null);
+  const [adPaymentProofUrl, setAdPaymentProofUrl] = useState<string | null>(null); // Only public URLs, never file://
+  const [adPaymentProofPreview, setAdPaymentProofPreview] = useState<string | null>(null); // Local file URI for preview only
   const [isUploadingAdProof, setIsUploadingAdProof] = useState(false);
   const [adPackages, setAdPackages] = useState<AdPackage[]>([]);
   const [selectedAdPackageId, setSelectedAdPackageId] = useState<string | null>(null);
@@ -255,6 +256,7 @@ export default function BookDetailScreen() {
     setAdCurrency(book.currency || 'USD');
     setAdPaymentReference('');
     setAdPaymentProofUrl(null);
+    setAdPaymentProofPreview(null);
     setSelectedAdPackageId(null);
     setAdLocations(['books', 'dashboard']);
     setAutoRenew(false);
@@ -283,8 +285,8 @@ export default function BookDetailScreen() {
       });
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      // Match book cover pattern: set local URI first for immediate preview
-      setAdPaymentProofUrl(asset.uri);
+      // Set local URI for preview only (never in adPaymentProofUrl state)
+      setAdPaymentProofPreview(asset.uri);
       setIsUploadingAdProof(true);
       try {
           const base64 = await getBase64FromAsset(asset);
@@ -300,12 +302,13 @@ export default function BookDetailScreen() {
             upsert: false,
           });
           
-          // Replace local URI with public URL (same as book covers)
-          if (publicUrl) {
+          // Only set public URL (never file:// URIs)
+          if (publicUrl && !publicUrl.startsWith('file://')) {
             setAdPaymentProofUrl(publicUrl);
+            setAdPaymentProofPreview(null); // Clear preview once we have public URL
             console.log('[Ad Proof Upload] Success:', { publicUrl, fileName });
           } else {
-            throw new Error('Upload succeeded but no public URL returned');
+            throw new Error('Upload succeeded but no valid public URL returned');
           }
         } catch (error: any) {
           console.error('[Ad Proof Upload] Upload failed:', {
@@ -313,8 +316,9 @@ export default function BookDetailScreen() {
             fileName,
             filePath,
           });
-          // Clear the local URI on error so it doesn't try to display it
+          // Clear both preview and URL on error
           setAdPaymentProofUrl(null);
+          setAdPaymentProofPreview(null);
           Alert.alert('Upload Error', error.message || 'Failed to upload proof');
         } finally {
           setIsUploadingAdProof(false);
@@ -827,53 +831,39 @@ export default function BookDetailScreen() {
                 onChangeText={setAdPaymentReference}
               />
               <Text style={[styles.label, { color: theme.text.secondary }]}>Proof of Payment *</Text>
-              {adPaymentProofUrl ? (
+              {(adPaymentProofUrl || adPaymentProofPreview) ? (
                 <View>
-                  {/* Compute safe URL - never pass file:// to Image component */}
-                  {(() => {
-                    const isLocalFile = adPaymentProofUrl.startsWith('file://');
-                    const safeUrl = isLocalFile ? null : adPaymentProofUrl;
-                    
-                    // Show loading indicator for local files or during upload
-                    if (isLocalFile || (isUploadingAdProof && !safeUrl)) {
-                      return (
-                        <View style={[styles.proofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
-                          <ActivityIndicator size="large" color={theme.accent.primary} />
-                          <Text style={[styles.proofUploadText, { color: theme.text.primary, marginTop: 8 }]}>
-                            {isUploadingAdProof ? 'Uploading...' : 'Processing...'}
-                          </Text>
-                        </View>
-                      );
-                    }
-                    
-                    // Only render Image if we have a valid public URL
-                    if (safeUrl && !safeUrl.startsWith('file://')) {
-                      return (
-                        <Image 
-                          key={safeUrl} // Force re-render when URL changes
-                          source={{ uri: safeUrl }} 
-                          style={styles.proofImage}
-                          resizeMode="cover"
-                          onError={(e) => {
-                            const errorDetails = {
-                              url: safeUrl,
-                              error: e.nativeEvent?.error || 'Unknown error',
-                              errorCode: e.nativeEvent?.errorCode,
-                              errorMessage: e.nativeEvent?.errorMessage,
-                            };
-                            console.error('[Ad Proof] Image load error:', JSON.stringify(errorDetails, null, 2));
-                            // Clear invalid URL
-                            setAdPaymentProofUrl(null);
-                          }}
-                          onLoad={() => {
-                            console.log('[Ad Proof] Image loaded successfully:', safeUrl);
-                          }}
-                        />
-                      );
-                    }
-                    
-                    return null;
-                  })()}
+                  {/* Show loading indicator if we only have preview (local file) or during upload */}
+                  {adPaymentProofPreview && !adPaymentProofUrl ? (
+                    <View style={[styles.proofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
+                      <ActivityIndicator size="large" color={theme.accent.primary} />
+                      <Text style={[styles.proofUploadText, { color: theme.text.primary, marginTop: 8 }]}>
+                        {isUploadingAdProof ? 'Uploading...' : 'Processing...'}
+                      </Text>
+                    </View>
+                  ) : adPaymentProofUrl && !adPaymentProofUrl.startsWith('file://') ? (
+                    // Only render Image with public URL (never file://)
+                    <Image 
+                      key={adPaymentProofUrl} // Force re-render when URL changes
+                      source={{ uri: adPaymentProofUrl }} 
+                      style={styles.proofImage}
+                      resizeMode="cover"
+                      onError={(e) => {
+                        const errorDetails = {
+                          url: adPaymentProofUrl,
+                          error: e.nativeEvent?.error || 'Unknown error',
+                          errorCode: e.nativeEvent?.errorCode,
+                          errorMessage: e.nativeEvent?.errorMessage,
+                        };
+                        console.error('[Ad Proof] Image load error:', JSON.stringify(errorDetails, null, 2));
+                        // Clear invalid URL
+                        setAdPaymentProofUrl(null);
+                      }}
+                      onLoad={() => {
+                        console.log('[Ad Proof] Image loaded successfully:', adPaymentProofUrl);
+                      }}
+                    />
+                  ) : null}
                   <TouchableOpacity
                     style={[styles.proofUploadButton, { marginTop: 8, borderColor: theme.border.light }]}
                     onPress={handlePickAdProofImage}

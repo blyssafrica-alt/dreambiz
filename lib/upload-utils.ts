@@ -197,10 +197,20 @@ export const uploadBase64ToStorage = async (
       if (!data?.publicUrl) {
         throw new Error('Failed to resolve public URL for uploaded file.');
       }
+      
+      // Clean the URL to fix any bucket name corruption (spaces, etc.)
+      // Replace spaces in bucket name with underscores and ensure proper URL encoding
+      let cleanedUrl = data.publicUrl;
+      // Fix bucket name corruption: "ad payment proofs" -> "ad_payment_proofs"
+      cleanedUrl = cleanedUrl.replace(/\/storage\/v1\/object\/public\/([^\/]+)\//, (match, bucketName) => {
+        const normalizedBucket = bucketName.replace(/\s+/g, '_');
+        return `/storage/v1/object/public/${normalizedBucket}/`;
+      });
+      
       if (isDev) {
-        console.log('[Upload] Success', { bucket, filePath });
+        console.log('[Upload] Success', { bucket, filePath, originalUrl: data.publicUrl, cleanedUrl });
       }
-      return data.publicUrl;
+      return cleanedUrl;
     } catch (error) {
       lastError = error;
       if (isDev) {
