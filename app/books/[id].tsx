@@ -302,6 +302,26 @@ export default function BookDetailScreen() {
             publicUrl,
             bucket: 'ad_payment_proofs',
           });
+          
+          // Verify the file is accessible after upload
+          try {
+            const verifyResponse = await fetch(publicUrl, { method: 'HEAD' });
+            console.log('[Ad Proof Upload] Verification response:', {
+              status: verifyResponse.status,
+              ok: verifyResponse.ok,
+              url: publicUrl,
+            });
+            if (!verifyResponse.ok) {
+              console.warn('[Ad Proof Upload] File uploaded but not accessible:', {
+                status: verifyResponse.status,
+                url: publicUrl,
+                message: 'Bucket may not be public or RLS policies may be blocking access',
+              });
+            }
+          } catch (verifyError) {
+            console.warn('[Ad Proof Upload] Could not verify file accessibility:', verifyError);
+          }
+          
           setAdPaymentProofUrl(publicUrl);
         } catch (error: any) {
           console.error('[Ad Proof Upload] Upload failed:', {
@@ -829,11 +849,44 @@ export default function BookDetailScreen() {
                     onLoadStart={() => console.log('[Ad Proof] Starting to load:', adPaymentProofUrl)}
                     onLoad={() => console.log('[Ad Proof] Loaded successfully:', adPaymentProofUrl)}
                     onError={(e) => {
-                      console.error('[Ad Proof] Load error:', {
+                      const errorMessage = e.nativeEvent?.error;
+                      const errorInfo = {
                         url: adPaymentProofUrl,
-                        error: e.nativeEvent?.error || 'Unknown error',
-                      });
-                      Alert.alert('Image Error', 'Failed to load payment proof image. Please try uploading again.');
+                        error: typeof errorMessage === 'string' ? errorMessage : (errorMessage ? JSON.stringify(errorMessage) : 'Unknown error'),
+                        errorCode: e.nativeEvent?.errorCode,
+                        errorMessage: e.nativeEvent?.errorMessage,
+                        nativeEvent: e.nativeEvent,
+                      };
+                      console.error('[Ad Proof] Load error:', JSON.stringify(errorInfo, null, 2));
+                      console.error('[Ad Proof] Native event details:', e.nativeEvent);
+                      
+                      // Try to verify the URL is accessible
+                      if (adPaymentProofUrl) {
+                        fetch(adPaymentProofUrl, { method: 'HEAD' })
+                          .then(response => {
+                            console.log('[Ad Proof] URL fetch response:', {
+                              status: response.status,
+                              statusText: response.statusText,
+                              ok: response.ok,
+                              type: response.type,
+                            });
+                            if (!response.ok) {
+                              Alert.alert(
+                                'Image Error', 
+                                `Failed to load payment proof image (HTTP ${response.status}). The bucket may not be public or the file may not exist. Please check bucket settings or try uploading again.`
+                              );
+                            }
+                          })
+                          .catch(fetchError => {
+                            console.error('[Ad Proof] URL fetch failed:', {
+                              message: fetchError?.message || String(fetchError),
+                              name: fetchError?.name,
+                            });
+                            Alert.alert('Image Error', 'Failed to load payment proof image. Please check that the bucket is public and try uploading again.');
+                          });
+                      } else {
+                        Alert.alert('Image Error', 'Failed to load payment proof image. Please try uploading again.');
+                      }
                     }}
                   />
                   <TouchableOpacity
