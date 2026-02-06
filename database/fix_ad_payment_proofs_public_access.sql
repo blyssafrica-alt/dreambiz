@@ -74,12 +74,15 @@ ORDER BY policyname;
 -- Step 9: Test public access to a specific file
 -- Replace the filename with your actual file
 SELECT 
-  name,
-  bucket_id,
-  public as bucket_is_public
-FROM storage.objects
-WHERE bucket_id = 'ad_payment_proofs'
-  AND name = 'ad-payment-proof-1770391637368.png';
+  o.name,
+  o.bucket_id,
+  b.public as bucket_is_public,
+  o.created_at,
+  o.metadata->>'size' as size_bytes
+FROM storage.objects o
+JOIN storage.buckets b ON b.name = o.bucket_id
+WHERE o.bucket_id = 'ad_payment_proofs'
+  AND o.name = 'ad-payment-proof-1770391637368.png';
 
 -- ============================================
 -- IMPORTANT: Also check in Dashboard
