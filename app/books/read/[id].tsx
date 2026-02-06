@@ -20,7 +20,7 @@ import * as Speech from 'expo-speech';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { getFullChapterContent } from '@/lib/book-service';
+import { extractChapterContentFromFullText, getFullChapterContent } from '@/lib/book-service';
 import type { Book, BookChapter } from '@/types/books';
 import ChapterContentView from '@/components/ChapterContentView';
 import * as FileSystem from 'expo-file-system';
@@ -105,8 +105,8 @@ export default function BookReaderScreen() {
     return fileUrl;
   }, []);
 
-  const refreshBookData = useCallback(async () => {
-    if (!book?.id) return;
+  const refreshBookData = useCallback(async (): Promise<Book | null> => {
+    if (!book?.id) return null;
     const { data: refreshedBook, error: refreshedError } = await supabase
       .from('books')
       .select('*')
@@ -119,7 +119,9 @@ export default function BookReaderScreen() {
         const fileUrl = await resolveBookUrl(mappedBook.documentFileUrl);
         setBookUrl(fileUrl);
       }
+      return mappedBook;
     }
+    return null;
   }, [book?.id, chapter, mapBookData, resolveBookUrl]);
 
   const loadBook = useCallback(async () => {
@@ -234,6 +236,25 @@ export default function BookReaderScreen() {
     if (!book) return;
     setLoadingChapter(true);
     try {
+      const localChapter = book.chapters?.find(ch => ch.number === chapterNumber) || null;
+      const localContent = (() => {
+        if (!localChapter) return '';
+        if (localChapter.pageStart && localChapter.pageEnd && book.extractedChaptersData?.fullText) {
+          return extractChapterContentFromFullText(
+            book.extractedChaptersData.fullText,
+            localChapter.pageStart,
+            localChapter.pageEnd
+          );
+        }
+        return localChapter.content || '';
+      })();
+
+      if (localContent.trim().length > 0) {
+        setChapterContent(localContent);
+        setCurrentChapter(localChapter);
+        return;
+      }
+
       const contentData = await getFullChapterContent(book.slug, chapterNumber);
       const initialContent = contentData?.content || '';
       if (initialContent.trim().length > 0) {
@@ -245,9 +266,22 @@ export default function BookReaderScreen() {
       if (book.documentFileUrl) {
         const processed = await processPdfForChapters();
         if (processed) {
-          const refreshedContent = await getFullChapterContent(book.slug, chapterNumber);
-          setChapterContent(refreshedContent?.content || '');
-          setCurrentChapter(refreshedContent?.chapter || null);
+          const refreshed = await refreshBookData();
+          const updatedBook = refreshed || book;
+          const updatedChapter = updatedBook?.chapters?.find(ch => ch.number === chapterNumber) || null;
+          const updatedContent = (() => {
+            if (!updatedChapter) return '';
+            if (updatedChapter.pageStart && updatedChapter.pageEnd && updatedBook.extractedChaptersData?.fullText) {
+              return extractChapterContentFromFullText(
+                updatedBook.extractedChaptersData.fullText,
+                updatedChapter.pageStart,
+                updatedChapter.pageEnd
+              );
+            }
+            return updatedChapter.content || '';
+          })();
+          setChapterContent(updatedContent || '');
+          setCurrentChapter(updatedChapter);
           return;
         }
       }
