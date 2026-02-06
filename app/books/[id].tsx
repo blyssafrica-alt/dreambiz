@@ -283,8 +283,7 @@ export default function BookDetailScreen() {
       });
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      // Match book cover pattern: set local URI first for immediate preview
-      setAdPaymentProofUrl(asset.uri);
+      // Don't set local URI - just show loading, then set public URL when done
       setIsUploadingAdProof(true);
       try {
           const base64 = await getBase64FromAsset(asset);
@@ -300,7 +299,7 @@ export default function BookDetailScreen() {
             upsert: false,
           });
           
-          // Replace local URI with public URL (same as book covers)
+          // Set public URL only after upload completes
           setAdPaymentProofUrl(publicUrl);
         } catch (error: any) {
           console.error('[Ad Proof Upload] Upload failed:', {
@@ -820,33 +819,27 @@ export default function BookDetailScreen() {
                 onChangeText={setAdPaymentReference}
               />
               <Text style={[styles.label, { color: theme.text.secondary }]}>Proof of Payment *</Text>
-              {adPaymentProofUrl ? (
+              {adPaymentProofUrl && !isUploadingAdProof ? (
                 <View>
-                  {/* Only show image if it's a public URL, not a local file URI */}
-                  {!adPaymentProofUrl.startsWith('file://') ? (
-                    <Image 
-                      source={{ uri: adPaymentProofUrl }} 
-                      style={styles.proofImage}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={[styles.proofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
-                      {isUploadingAdProof ? (
-                        <ActivityIndicator size="small" color={theme.accent.primary} />
-                      ) : (
-                        <Text style={{ color: theme.text.tertiary }}>Processing...</Text>
-                      )}
-                    </View>
-                  )}
+                  <Image 
+                    source={{ uri: adPaymentProofUrl }} 
+                    style={styles.proofImage}
+                    resizeMode="cover"
+                  />
                   <TouchableOpacity
                     style={[styles.proofUploadButton, { marginTop: 8, borderColor: theme.border.light }]}
                     onPress={handlePickAdProofImage}
                     disabled={isUploadingAdProof}
                   >
                     <Text style={[styles.proofUploadText, { color: theme.text.primary }]}>
-                      {isUploadingAdProof ? 'Uploading...' : 'Change Image'}
+                      Change Image
                     </Text>
                   </TouchableOpacity>
+                </View>
+              ) : isUploadingAdProof ? (
+                <View style={[styles.proofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
+                  <ActivityIndicator size="small" color={theme.accent.primary} />
+                  <Text style={[styles.proofUploadText, { marginTop: 8, color: theme.text.tertiary }]}>Uploading...</Text>
                 </View>
               ) : (
                 <TouchableOpacity

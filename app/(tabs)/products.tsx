@@ -349,8 +349,7 @@ export default function ProductsScreen() {
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        // Match book cover pattern: set local URI first for immediate preview
-        setAdPaymentProofUrl(asset.uri);
+        // Don't set local URI - just show loading, then set public URL when done
         setIsUploadingAdProof(true);
         try {
           const base64 = await getBase64FromAsset(asset);
@@ -366,7 +365,7 @@ export default function ProductsScreen() {
             upsert: false,
           });
           
-          // Replace local URI with public URL (same as book covers)
+          // Set public URL only after upload completes
           setAdPaymentProofUrl(publicUrl);
         } catch (error: any) {
           console.error('[Product Ad Proof Upload] Upload failed:', {
