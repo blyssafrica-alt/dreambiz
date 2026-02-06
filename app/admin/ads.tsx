@@ -1210,7 +1210,9 @@ export default function AdsManagementScreen() {
                               setFailedImageUrls(prev => new Set(prev).add(normalizedUrl || ''));
                             }
                           }}
-                        />
+                            />
+                          );
+                        })()}
                             <View style={styles.proofImageOverlay}>
                               <Text style={styles.proofImageOverlayText}>Tap to view full size</Text>
                             </View>
@@ -1294,13 +1296,17 @@ export default function AdsManagementScreen() {
               >
                 <X size={24} color="#FFF" />
               </TouchableOpacity>
-              {viewingProofImage && (
+              {viewingProofImage && !viewingProofImage.startsWith('file://') ? (
                 <Image
                   source={{ uri: viewingProofImage }}
                   style={styles.fullSizeProofImage}
                   resizeMode="contain"
                 />
-              )}
+              ) : viewingProofImage ? (
+                <View style={[styles.fullSizeProofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
+                  <Text style={{ color: theme.text.tertiary }}>Invalid URL - Cannot display local file</Text>
+                </View>
+              ) : null}
             </View>
           </TouchableOpacity>
         </View>
