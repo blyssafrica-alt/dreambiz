@@ -353,8 +353,9 @@ export default function ProductsScreen() {
         try {
           const base64 = await getBase64FromAsset(asset);
           const fileName = buildAssetFileName(asset, 'ad-payment-proof');
-          // filePath should NOT include the bucket name - it's already specified in the bucket parameter
-          const filePath = fileName;
+          // Match book cover pattern: include bucket prefix in filePath
+          const filePath = `ad_payment_proofs/${fileName}`;
+          
           const publicUrl = await uploadBase64ToStorage(supabase, {
             bucket: 'ad_payment_proofs',
             filePath,
@@ -362,48 +363,9 @@ export default function ProductsScreen() {
             contentType: asset.mimeType || 'image/jpeg',
             upsert: false,
           });
-          // Clean URL: ensure no spaces in bucket name or path
-          const cleanUrl = cleanPaymentProofUrl(publicUrl);
           
-          // Double-check: if URL still has spaces, log error
-          if (cleanUrl.includes(' ')) {
-            console.error('[Product Ad Proof Upload] CRITICAL: URL still contains spaces after cleaning!', {
-              original: publicUrl,
-              cleaned: cleanUrl,
-            });
-          }
-          
-          console.log('[Product Ad Proof Upload] Upload successful:', {
-            fileName,
-            filePath,
-            originalUrl: publicUrl,
-            cleanedUrl: cleanUrl,
-            hasSpaces: cleanUrl.includes(' '),
-            bucket: 'ad_payment_proofs',
-          });
-          
-          // Verify the file is accessible after upload
-          try {
-            const verifyResponse = await fetch(cleanUrl, { method: 'HEAD', mode: 'no-cors' });
-            console.log('[Product Ad Proof Upload] Verification response:', {
-              status: verifyResponse.status,
-              ok: verifyResponse.ok,
-              type: verifyResponse.type,
-              url: cleanUrl,
-            });
-            if (!verifyResponse.ok && verifyResponse.type !== 'opaque') {
-              console.warn('[Product Ad Proof Upload] File uploaded but not accessible:', {
-                status: verifyResponse.status,
-                url: cleanUrl,
-                message: 'Bucket may not be public or RLS policies may be blocking access. Run database/fix_ad_payment_proofs_public_access.sql',
-              });
-            }
-          } catch (verifyError) {
-            console.warn('[Product Ad Proof Upload] Could not verify file accessibility (may be CORS):', verifyError);
-          }
-          
-          // Store cleaned URL in state
-          setAdPaymentProofUrl(cleanUrl);
+          // Store URL directly (same as book covers - no cleaning needed)
+          setAdPaymentProofUrl(publicUrl);
         } catch (error: any) {
           console.error('[Product Ad Proof Upload] Upload failed:', {
             error: error.message || String(error),
@@ -1258,64 +1220,9 @@ export default function ProductsScreen() {
               {adPaymentProofUrl ? (
                 <View>
                   <Image 
-                    source={{ uri: cleanPaymentProofUrl(adPaymentProofUrl) }} 
+                    source={{ uri: adPaymentProofUrl }} 
                     style={styles.proofImage}
                     resizeMode="cover"
-                    onLoadStart={() => {
-                      const cleanUrl = cleanPaymentProofUrl(adPaymentProofUrl);
-                      console.log('[Product Ad Proof] Starting to load:', cleanUrl);
-                      if (cleanUrl.includes(' ')) {
-                        console.error('[Product Ad Proof] CRITICAL: URL contains spaces!', cleanUrl);
-                      }
-                    }}
-                    onLoad={() => {
-                      const cleanUrl = cleanPaymentProofUrl(adPaymentProofUrl);
-                      console.log('[Product Ad Proof] Loaded successfully:', cleanUrl);
-                    }}
-                    onError={(e) => {
-                      const cleanUrl = cleanPaymentProofUrl(adPaymentProofUrl);
-                      const errorMessage = e.nativeEvent?.error;
-                      const errorInfo = {
-                        url: cleanUrl,
-                        originalUrl: adPaymentProofUrl,
-                        error: typeof errorMessage === 'string' ? errorMessage : (errorMessage ? JSON.stringify(errorMessage) : 'Unknown error'),
-                        errorCode: e.nativeEvent?.errorCode,
-                        errorMessage: e.nativeEvent?.errorMessage,
-                        hasSpaces: cleanUrl.includes(' '),
-                      };
-                      console.error('[Product Ad Proof] Load error:', JSON.stringify(errorInfo, null, 2));
-                      
-                      // Try to verify the URL is accessible
-                      if (cleanUrl) {
-                        fetch(cleanUrl, { method: 'HEAD', mode: 'no-cors' })
-                          .then(response => {
-                            console.log('[Product Ad Proof] URL fetch response:', {
-                              status: response.status,
-                              statusText: response.statusText,
-                              ok: response.ok,
-                              type: response.type,
-                            });
-                            if (!response.ok && response.type !== 'opaque') {
-                              RNAlert.alert(
-                                'Image Error', 
-                                `Failed to load payment proof image (HTTP ${response.status}).\n\nPlease run the SQL script: database/fix_ad_payment_proofs_public_access.sql\n\nThis will make the bucket public and fix RLS policies.`
-                              );
-                            }
-                          })
-                          .catch(fetchError => {
-                            console.error('[Product Ad Proof] URL fetch failed:', {
-                              message: fetchError?.message || String(fetchError),
-                              name: fetchError?.name,
-                            });
-                            RNAlert.alert(
-                              'Image Error', 
-                              'Failed to load payment proof image.\n\nPlease:\n1. Run database/fix_ad_payment_proofs_public_access.sql\n2. Check bucket is public in Dashboard\n3. Try uploading again'
-                            );
-                          });
-                      } else {
-                        RNAlert.alert('Image Error', 'Invalid payment proof URL. Please try uploading again.');
-                      }
-                    }}
                   />
                   <TouchableOpacity
                     style={[styles.proofUploadButton, { marginTop: 8, borderColor: theme.border.light }]}
