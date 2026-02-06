@@ -193,67 +193,29 @@ export const uploadBase64ToStorage = async (
         }
       }
 
-      const { data } = client.storage.from(bucket).getPublicUrl(filePath);
-      if (!data?.publicUrl) {
-        throw new Error('Failed to resolve public URL for uploaded file.');
-      }
+      // Manually construct the public URL to ensure correct bucket name
+      // This avoids issues with getPublicUrl potentially returning corrupted URLs with spaces
+      // Ensure bucket name is normalized (no spaces) - use the bucket parameter we passed in
+      const normalizedBucket = bucket.replace(/\s+/g, '_');
       
-      // Clean the URL to fix any bucket name corruption (spaces, etc.)
-      // The bucket name in the URL might have spaces that need to be replaced with underscores
-      let cleanedUrl = data.publicUrl;
+      // Manually construct the public URL with correct bucket name
+      // Format: https://<project>.supabase.co/storage/v1/object/public/<bucket>/<filePath>
+      const encodedFilePath = filePath.split('/').map(segment => encodeURIComponent(segment)).join('/');
+      const publicUrl = `${supabaseUrl}/storage/v1/object/public/${normalizedBucket}/${encodedFilePath}`;
       
-      // Use URL parsing to safely extract and fix the bucket name
-      try {
-        const urlObj = new URL(cleanedUrl);
-        const pathMatch = urlObj.pathname.match(/^\/storage\/v1\/object\/public\/([^\/]+)(\/.*)?$/);
-        
-        if (pathMatch) {
-          // Extract bucket name (may be URL-encoded)
-          const bucketNameInUrl = decodeURIComponent(pathMatch[1]);
-          
-          // Normalize the bucket name: replace spaces with underscores
-          const normalizedBucket = bucketNameInUrl.replace(/\s+/g, '_');
-          
-          // Only fix if bucket name has spaces (to avoid unnecessary changes)
-          if (bucketNameInUrl !== normalizedBucket) {
-            // Reconstruct path with normalized bucket name
-            const restOfPath = pathMatch[2] || '';
-            urlObj.pathname = `/storage/v1/object/public/${encodeURIComponent(normalizedBucket)}${restOfPath}`;
-            cleanedUrl = urlObj.toString();
-          }
-        }
-      } catch (urlError) {
-        // If URL parsing fails, fall back to simple string replacement
-        // This should rarely happen, but provides a safety net
-        if (isDev) {
-          console.warn('[Upload] URL parsing failed, using fallback:', urlError);
-        }
-        // Simple fallback: replace spaces in bucket name pattern
-        cleanedUrl = cleanedUrl.replace(
-          /(\/storage\/v1\/object\/public\/)([^\/\?]+)(\/)/,
-          (match, prefix, bucketName, suffix) => {
-            try {
-              const decoded = decodeURIComponent(bucketName);
-              const normalized = decoded.replace(/\s+/g, '_');
-              if (decoded !== normalized) {
-                return prefix + encodeURIComponent(normalized) + suffix;
-              }
-            } catch (e) {
-              // If decoding fails, just replace spaces directly
-              const normalized = bucketName.replace(/\s+/g, '_');
-              if (bucketName !== normalized) {
-                return prefix + normalized + suffix;
-              }
-            }
-            return match;
-          }
-        );
-      }
-      
+      // Verify the URL is correct by comparing with getPublicUrl (for debugging)
       if (isDev) {
-        console.log('[Upload] Success', { bucket, filePath, originalUrl: data.publicUrl, cleanedUrl });
+        const { data: urlData } = client.storage.from(bucket).getPublicUrl(filePath);
+        console.log('[Upload] Success', { 
+          bucket, 
+          normalizedBucket,
+          filePath, 
+          constructedUrl: publicUrl,
+          supabaseGetPublicUrl: urlData?.publicUrl 
+        });
       }
-      return cleanedUrl;
+      
+      return publicUrl;
     } catch (error) {
       lastError = error;
       if (isDev) {
