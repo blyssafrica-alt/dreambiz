@@ -1221,24 +1221,22 @@ export default function ProductsScreen() {
               <Text style={[styles.label, { color: theme.text.secondary }]}>Proof of Payment *</Text>
               {adPaymentProofUrl ? (
                 <View>
-                  <Image 
-                    source={{ uri: adPaymentProofUrl }} 
-                    style={styles.proofImage}
-                    resizeMode="cover"
-                    onError={(e) => {
-                      // If local URI fails, wait for upload to complete
-                      if (adPaymentProofUrl?.startsWith('file://') && isUploadingAdProof) {
-                        console.log('[Product Ad Proof] Local URI failed, waiting for upload to complete...');
-                        return;
-                      }
-                      console.error('[Product Ad Proof] Image load error:', {
-                        url: adPaymentProofUrl,
-                        isLocal: adPaymentProofUrl?.startsWith('file://'),
-                        isUploading: isUploadingAdProof,
-                        error: e.nativeEvent?.error,
-                      });
-                    }}
-                  />
+                  {/* Only show image if it's a public URL, not a local file URI */}
+                  {!adPaymentProofUrl.startsWith('file://') ? (
+                    <Image 
+                      source={{ uri: adPaymentProofUrl }} 
+                      style={styles.proofImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={[styles.proofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
+                      {isUploadingAdProof ? (
+                        <ActivityIndicator size="small" color={theme.accent.primary} />
+                      ) : (
+                        <Text style={{ color: theme.text.tertiary }}>Processing...</Text>
+                      )}
+                    </View>
+                  )}
                   <TouchableOpacity
                     style={[styles.proofUploadButton, { marginTop: 8, borderColor: theme.border.light }]}
                     onPress={handlePickAdProofImage}
