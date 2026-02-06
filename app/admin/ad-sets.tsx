@@ -13,6 +13,7 @@ export default function AdSetsScreen() {
   const router = useRouter();
   const [adSets, setAdSets] = useState<AdSet[]>([]);
   const [adSetStats, setAdSetStats] = useState<Record<string, { clicks: number; conversions: number }>>({});
+  const [adSetTargeting, setAdSetTargeting] = useState<Record<string, string>>({});
   const [campaigns, setCampaigns] = useState<AdCampaign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -39,6 +40,36 @@ export default function AdSetsScreen() {
     loadCampaigns();
     loadAdSets();
   }, []);
+
+  const buildTargetingSummary = (targeting: any) => {
+    if (!targeting) return '';
+    const parts: string[] = [];
+    if (Array.isArray(targeting.targetGenders) && targeting.targetGenders.length > 0) {
+      parts.push(`Gender: ${targeting.targetGenders.map((g: string) => g.replace(/_/g, ' ')).join(', ')}`);
+    }
+    if (targeting.targetAgeMin !== undefined || targeting.targetAgeMax !== undefined) {
+      const min = targeting.targetAgeMin;
+      const max = targeting.targetAgeMax;
+      if (min !== undefined && max !== undefined) {
+        parts.push(`Age: ${min}-${max}`);
+      } else if (min !== undefined) {
+        parts.push(`Age: ${min}+`);
+      } else if (max !== undefined) {
+        parts.push(`Age: <=${max}`);
+      }
+    }
+    if (Array.isArray(targeting.targetInterests) && targeting.targetInterests.length > 0) {
+      const interests = targeting.targetInterests.slice(0, 3).join(', ');
+      const suffix = targeting.targetInterests.length > 3
+        ? ` +${targeting.targetInterests.length - 3}`
+        : '';
+      parts.push(`Interests: ${interests}${suffix}`);
+    }
+    if (parts.length > 0 && targeting.requireAdConsent !== false) {
+      parts.push('Consent required');
+    }
+    return parts.join(' • ');
+  };
 
   const loadCampaigns = async () => {
     const { data } = await supabase.from('ad_campaigns').select('*').order('created_at', { ascending: false });
@@ -109,10 +140,11 @@ export default function AdSetsScreen() {
       if (adSetIds.length > 0) {
         const { data: adsData } = await supabase
           .from('advertisements')
-          .select('ad_set_id, clicks_count, conversions_count')
+          .select('ad_set_id, clicks_count, conversions_count, targeting')
           .in('ad_set_id', adSetIds);
 
         const statsMap: Record<string, { clicks: number; conversions: number }> = {};
+        const targetingMap: Record<string, string[]> = {};
         (adsData || []).forEach((row: any) => {
           if (!row.ad_set_id) return;
           if (!statsMap[row.ad_set_id]) {
@@ -120,11 +152,29 @@ export default function AdSetsScreen() {
           }
           statsMap[row.ad_set_id].clicks += row.clicks_count || 0;
           statsMap[row.ad_set_id].conversions += row.conversions_count || 0;
+
+          const summary = buildTargetingSummary(row.targeting);
+          if (summary) {
+            if (!targetingMap[row.ad_set_id]) {
+              targetingMap[row.ad_set_id] = [];
+            }
+            if (!targetingMap[row.ad_set_id].includes(summary)) {
+              targetingMap[row.ad_set_id].push(summary);
+            }
+          }
         });
 
         setAdSetStats(statsMap);
+        const targetingSummary: Record<string, string> = {};
+        Object.entries(targetingMap).forEach(([adSetId, summaries]) => {
+          const visible = summaries.slice(0, 2);
+          const suffix = summaries.length > 2 ? ` +${summaries.length - 2}` : '';
+          targetingSummary[adSetId] = visible.join(' | ') + suffix;
+        });
+        setAdSetTargeting(targetingSummary);
       } else {
         setAdSetStats({});
+        setAdSetTargeting({});
       }
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to load ad sets.');
@@ -306,6 +356,11 @@ export default function AdSetsScreen() {
               <Text style={[styles.cardMeta, { color: theme.text.tertiary }]}>
                 Billing: {(adSet.billingType || 'cpc').toUpperCase()} @ {adSet.currency || 'USD'} {adSet.billingRate?.toFixed(4) ?? '—'}
               </Text>
+              {adSetTargeting[adSet.id] ? (
+                <Text style={[styles.cardMeta, { color: theme.text.tertiary }]}>
+                  Targeting: {adSetTargeting[adSet.id]}
+                </Text>
+              ) : null}
               <View style={styles.cardActions}>
                 <TouchableOpacity onPress={() => openModal(adSet)}>
                   <Edit size={18} color={theme.accent.primary} />

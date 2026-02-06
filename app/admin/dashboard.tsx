@@ -306,86 +306,14 @@ export default function AdminDashboard() {
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
-          onPress={() => router.push('/admin/ads' as any)}
+          onPress={() => router.push('/admin/ad-settings' as any)}
           activeOpacity={0.7}
         >
           <View style={styles.actionContent}>
             <View style={styles.actionLeft}>
-              <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Advertisements</Text>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Ad Settings</Text>
               <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
-                Create global and targeted ads
-              </Text>
-            </View>
-            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
-              <ArrowRight size={18} color={theme.accent.primary} />
-            </View>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
-          onPress={() => router.push('/admin/ad-packages' as any)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.actionContent}>
-            <View style={styles.actionLeft}>
-              <Text style={[styles.actionText, { color: theme.text.primary }]}>Ad Packages</Text>
-              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
-                Manage pricing tiers and durations
-              </Text>
-            </View>
-            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
-              <Boxes size={18} color={theme.accent.primary} />
-            </View>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
-          onPress={() => router.push('/admin/ad-campaigns' as any)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.actionContent}>
-            <View style={styles.actionLeft}>
-              <Text style={[styles.actionText, { color: theme.text.primary }]}>Ad Campaigns</Text>
-              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
-                Campaign goals and budgets
-              </Text>
-            </View>
-            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
-              <Layers size={18} color={theme.accent.primary} />
-            </View>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
-          onPress={() => router.push('/admin/ad-sets' as any)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.actionContent}>
-            <View style={styles.actionLeft}>
-              <Text style={[styles.actionText, { color: theme.text.primary }]}>Ad Sets</Text>
-              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
-                Delivery rules and rates
-              </Text>
-            </View>
-            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
-              <Layers size={18} color={theme.accent.primary} />
-            </View>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
-          onPress={() => router.push('/admin/settings' as any)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.actionContent}>
-            <View style={styles.actionLeft}>
-              <Text style={[styles.actionText, { color: theme.text.primary }]}>Admin Settings</Text>
-              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
-                Default billing model and rates
+                Packages, campaigns, ad sets, ads, billing
               </Text>
             </View>
             <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>

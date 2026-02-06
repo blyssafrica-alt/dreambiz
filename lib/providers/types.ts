@@ -16,6 +16,11 @@ export interface UserProfile {
   createdAt: string;
   isSuperAdmin?: boolean;
   role?: 'user' | 'moderator' | 'admin' | 'super_admin';
+  gender?: string;
+  birthDate?: string;
+  interests?: string[];
+  adTrackingConsent?: boolean;
+  personalizedAdsConsent?: boolean;
 }
 
 export interface AuthSession {

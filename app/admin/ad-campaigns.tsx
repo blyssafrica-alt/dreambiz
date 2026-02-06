@@ -12,6 +12,7 @@ export default function AdCampaignsScreen() {
   const { isSuperAdmin } = useAuth();
   const router = useRouter();
   const [campaigns, setCampaigns] = useState<AdCampaign[]>([]);
+  const [campaignTargeting, setCampaignTargeting] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<AdCampaign | null>(null);
@@ -29,6 +30,36 @@ export default function AdCampaignsScreen() {
     loadCampaigns();
   }, []);
 
+  const buildTargetingSummary = (targeting: any) => {
+    if (!targeting) return '';
+    const parts: string[] = [];
+    if (Array.isArray(targeting.targetGenders) && targeting.targetGenders.length > 0) {
+      parts.push(`Gender: ${targeting.targetGenders.map((g: string) => g.replace(/_/g, ' ')).join(', ')}`);
+    }
+    if (targeting.targetAgeMin !== undefined || targeting.targetAgeMax !== undefined) {
+      const min = targeting.targetAgeMin;
+      const max = targeting.targetAgeMax;
+      if (min !== undefined && max !== undefined) {
+        parts.push(`Age: ${min}-${max}`);
+      } else if (min !== undefined) {
+        parts.push(`Age: ${min}+`);
+      } else if (max !== undefined) {
+        parts.push(`Age: <=${max}`);
+      }
+    }
+    if (Array.isArray(targeting.targetInterests) && targeting.targetInterests.length > 0) {
+      const interests = targeting.targetInterests.slice(0, 3).join(', ');
+      const suffix = targeting.targetInterests.length > 3
+        ? ` +${targeting.targetInterests.length - 3}`
+        : '';
+      parts.push(`Interests: ${interests}${suffix}`);
+    }
+    if (parts.length > 0 && targeting.requireAdConsent !== false) {
+      parts.push('Consent required');
+    }
+    return parts.join(' • ');
+  };
+
   const loadCampaigns = async () => {
     try {
       setIsLoading(true);
@@ -42,7 +73,7 @@ export default function AdCampaignsScreen() {
           .select('id, campaign_id, status'),
         supabase
           .from('advertisements')
-          .select('id, campaign_id, status'),
+          .select('id, campaign_id, status, targeting'),
       ]);
       if (error) throw error;
 
@@ -56,6 +87,26 @@ export default function AdCampaignsScreen() {
       (adsData || []).forEach((row: any) => {
         if (!row.campaign_id) return;
         adCounts[row.campaign_id] = (adCounts[row.campaign_id] || 0) + 1;
+      });
+
+      const targetingMap: Record<string, string[]> = {};
+      (adsData || []).forEach((row: any) => {
+        if (!row.campaign_id) return;
+        const summary = buildTargetingSummary(row.targeting);
+        if (!summary) return;
+        if (!targetingMap[row.campaign_id]) {
+          targetingMap[row.campaign_id] = [];
+        }
+        if (!targetingMap[row.campaign_id].includes(summary)) {
+          targetingMap[row.campaign_id].push(summary);
+        }
+      });
+
+      const targetingSummary: Record<string, string> = {};
+      Object.entries(targetingMap).forEach(([campaignId, summaries]) => {
+        const visible = summaries.slice(0, 2);
+        const suffix = summaries.length > 2 ? ` +${summaries.length - 2}` : '';
+        targetingSummary[campaignId] = visible.join(' | ') + suffix;
       });
 
       setCampaigns((data || []).map((row: any) => ({
@@ -74,6 +125,7 @@ export default function AdCampaignsScreen() {
         adSetCount: adSetCounts[row.id] || 0,
         adCount: adCounts[row.id] || 0,
       })));
+      setCampaignTargeting(targetingSummary);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to load campaigns.');
     } finally {
@@ -217,6 +269,11 @@ export default function AdCampaignsScreen() {
               <Text style={[styles.cardMeta, { color: theme.text.tertiary }]}>
                 Ad Sets: {campaign.adSetCount ?? 0} · Ads: {campaign.adCount ?? 0}
               </Text>
+              {campaignTargeting[campaign.id] ? (
+                <Text style={[styles.cardMeta, { color: theme.text.tertiary }]}>
+                  Targeting: {campaignTargeting[campaign.id]}
+                </Text>
+              ) : null}
               <View style={styles.cardActions}>
                 <TouchableOpacity onPress={() => openModal(campaign)}>
                   <Edit size={18} color={theme.accent.primary} />

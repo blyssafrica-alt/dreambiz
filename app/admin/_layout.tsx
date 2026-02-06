@@ -106,6 +106,13 @@ export default function AdminLayout() {
         }} 
       />
       <Stack.Screen 
+        name="ad-settings" 
+        options={{ 
+          title: 'Ad Settings',
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
         name="ad-packages" 
         options={{ 
           title: 'Ad Packages',
@@ -123,6 +130,13 @@ export default function AdminLayout() {
         name="ad-sets" 
         options={{ 
           title: 'Ad Sets',
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
+        name="ad-analytics" 
+        options={{ 
+          title: 'Ad Analytics',
           headerShown: false,
         }} 
       />

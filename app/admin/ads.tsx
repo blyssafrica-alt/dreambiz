@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, Image, Switch } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,6 +40,12 @@ export default function AdsManagementScreen() {
     'other',
   ];
   const BUSINESS_STAGE_OPTIONS: BusinessStage[] = ['idea', 'startup', 'running', 'growth', 'growing', 'mature'];
+  const GENDER_OPTIONS = [
+    { value: 'female', label: 'Female' },
+    { value: 'male', label: 'Male' },
+    { value: 'non_binary', label: 'Non-binary' },
+    { value: 'prefer_not_say', label: 'Prefer not to say' },
+  ];
   const BOOK_OPTIONS: DreamBigBook[] = [
     'start-your-business',
     'grow-your-business',
@@ -101,6 +107,11 @@ export default function AdsManagementScreen() {
     targetBusinessStages: [] as BusinessStage[],
     targetFeatures: '',
     excludeUsers: '',
+    targetGenders: [] as string[],
+    targetAgeMin: '',
+    targetAgeMax: '',
+    targetInterests: '',
+    requireAdConsent: true,
   });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const activeFilter = searchParams.filter === 'auto_renew_pending' ? 'auto_renew_pending' : 'all';
@@ -333,6 +344,11 @@ export default function AdsManagementScreen() {
         targetBusinessStages: Array.isArray(ad.targeting?.targetBusinessStages) ? ad.targeting.targetBusinessStages : [],
         targetFeatures: Array.isArray(ad.targeting?.targetFeatures) ? ad.targeting.targetFeatures.join(', ') : '',
         excludeUsers: Array.isArray(ad.targeting?.excludeUsers) ? ad.targeting.excludeUsers.join(', ') : '',
+        targetGenders: Array.isArray(ad.targeting?.targetGenders) ? ad.targeting.targetGenders : [],
+        targetAgeMin: ad.targeting?.targetAgeMin !== undefined ? String(ad.targeting.targetAgeMin) : '',
+        targetAgeMax: ad.targeting?.targetAgeMax !== undefined ? String(ad.targeting.targetAgeMax) : '',
+        targetInterests: Array.isArray(ad.targeting?.targetInterests) ? ad.targeting.targetInterests.join(', ') : '',
+        requireAdConsent: ad.targeting?.requireAdConsent !== false,
       });
     } else {
       setEditingAd(null);
@@ -372,6 +388,11 @@ export default function AdsManagementScreen() {
         targetBusinessStages: [],
         targetFeatures: '',
         excludeUsers: '',
+        targetGenders: [],
+        targetAgeMin: '',
+        targetAgeMax: '',
+        targetInterests: '',
+        requireAdConsent: true,
       });
     }
     setShowModal(true);
@@ -488,6 +509,12 @@ export default function AdsManagementScreen() {
         .split(',')
         .map(item => item.trim())
         .filter(Boolean);
+      const targetInterests = formData.targetInterests
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean);
+      const parsedAgeMin = parseInt(formData.targetAgeMin, 10);
+      const parsedAgeMax = parseInt(formData.targetAgeMax, 10);
       const adData: any = {
         title: formData.title,
         description: formData.description || null,
@@ -521,6 +548,11 @@ export default function AdsManagementScreen() {
           ...(formData.targetBusinessStages.length > 0 ? { targetBusinessStages: formData.targetBusinessStages } : {}),
           ...(targetFeatures.length > 0 ? { targetFeatures } : {}),
           ...(excludeUsers.length > 0 ? { excludeUsers } : {}),
+          ...(formData.targetGenders.length > 0 ? { targetGenders: formData.targetGenders } : {}),
+          ...(Number.isFinite(parsedAgeMin) ? { targetAgeMin: parsedAgeMin } : {}),
+          ...(Number.isFinite(parsedAgeMax) ? { targetAgeMax: parsedAgeMax } : {}),
+          ...(targetInterests.length > 0 ? { targetInterests } : {}),
+          ...(formData.targetingScope === 'targeted' ? { requireAdConsent: formData.requireAdConsent } : {}),
         },
         placement: {
           locations: cleanedLocations,
@@ -591,7 +623,16 @@ export default function AdsManagementScreen() {
     spendCurrency: formData.spendCurrency || 'USD',
     campaignId: formData.campaignId || undefined,
     adSetId: formData.adSetId || undefined,
-    targeting: { scope: formData.targetingScope },
+    targeting: {
+      scope: formData.targetingScope,
+      ...(formData.targetGenders.length > 0 ? { targetGenders: formData.targetGenders } : {}),
+      ...(formData.targetAgeMin ? { targetAgeMin: parseInt(formData.targetAgeMin, 10) || undefined } : {}),
+      ...(formData.targetAgeMax ? { targetAgeMax: parseInt(formData.targetAgeMax, 10) || undefined } : {}),
+      ...(formData.targetInterests
+        ? { targetInterests: formData.targetInterests.split(',').map(item => item.trim()).filter(Boolean) }
+        : {}),
+      ...(formData.targetingScope === 'targeted' ? { requireAdConsent: formData.requireAdConsent } : {}),
+    },
     placement: {
       locations: formData.placementLocations,
       priority: parseInt(formData.placementPriority, 10) || 1,
@@ -1431,6 +1472,77 @@ export default function AdsManagementScreen() {
                     })}
                   </View>
 
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Require demographic consent</Text>
+                  <View style={styles.toggleRow}>
+                    <Text style={[styles.toggleText, { color: theme.text.secondary }]}>
+                      Only deliver when users opt in to ad tracking
+                    </Text>
+                    <Switch
+                      value={formData.requireAdConsent}
+                      onValueChange={(value) => setFormData({ ...formData, requireAdConsent: value })}
+                      trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
+                      thumbColor="#FFF"
+                    />
+                  </View>
+
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Target Genders</Text>
+                  <View style={styles.locationGrid}>
+                    {GENDER_OPTIONS.map(option => {
+                      const isSelected = formData.targetGenders.includes(option.value);
+                      return (
+                        <TouchableOpacity
+                          key={option.value}
+                          style={[
+                            styles.locationChip,
+                            {
+                              backgroundColor: isSelected ? theme.accent.primary + '18' : theme.background.secondary,
+                              borderColor: isSelected ? theme.accent.primary : theme.border.light,
+                            },
+                          ]}
+                          onPress={() => {
+                            const next = isSelected
+                              ? formData.targetGenders.filter(item => item !== option.value)
+                              : [...formData.targetGenders, option.value];
+                            setFormData({ ...formData, targetGenders: next });
+                          }}
+                        >
+                          <Text style={[styles.locationChipText, { color: isSelected ? theme.accent.primary : theme.text.primary }]}>
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Target Age Range</Text>
+                  <View style={styles.rowInputs}>
+                    <TextInput
+                      style={[styles.input, styles.rowInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                      placeholder="Min age"
+                      placeholderTextColor={theme.text.tertiary}
+                      value={formData.targetAgeMin}
+                      onChangeText={(text) => setFormData({ ...formData, targetAgeMin: text.replace(/[^0-9]/g, '') })}
+                      keyboardType="number-pad"
+                    />
+                    <TextInput
+                      style={[styles.input, styles.rowInput, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                      placeholder="Max age"
+                      placeholderTextColor={theme.text.tertiary}
+                      value={formData.targetAgeMax}
+                      onChangeText={(text) => setFormData({ ...formData, targetAgeMax: text.replace(/[^0-9]/g, '') })}
+                      keyboardType="number-pad"
+                    />
+                  </View>
+
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Target Interests (comma-separated)</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                    placeholder="e.g., retail, finance, marketing"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={formData.targetInterests}
+                    onChangeText={(text) => setFormData({ ...formData, targetInterests: text })}
+                  />
+
                   <Text style={[styles.label, { color: theme.text.secondary }]}>Target Features (comma-separated ids)</Text>
                   <TextInput
                     style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
@@ -1676,6 +1788,8 @@ const styles = StyleSheet.create({
   typeButtonText: { fontSize: 14, fontWeight: '600', textTransform: 'capitalize' },
   rowInputs: { flexDirection: 'row', gap: 12 },
   rowInput: { flex: 1 },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 4 },
+  toggleText: { flex: 1, fontSize: 13 },
   sectionLabel: { fontSize: 16, fontWeight: '700', marginTop: 16, marginBottom: 4 },
   locationControls: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   locationActionButton: {

@@ -83,6 +83,12 @@ export default function SettingsScreen() {
     { value: 'running', label: 'Running', desc: 'Already operating' },
     { value: 'growing', label: 'Growing', desc: 'Expanding operations' },
   ];
+  const genderOptions = [
+    { value: 'female', label: 'Female' },
+    { value: 'male', label: 'Male' },
+    { value: 'non_binary', label: 'Non-binary' },
+    { value: 'prefer_not_say', label: 'Prefer not to say' },
+  ];
   const [showBookModal, setShowBookModal] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const [confirmProofSectionY, setConfirmProofSectionY] = useState(0);
@@ -108,6 +114,13 @@ export default function SettingsScreen() {
   const [employeeProfileEmail, setEmployeeProfileEmail] = useState('');
   const [employeeProfilePhone, setEmployeeProfilePhone] = useState('');
   const [isSavingEmployeeProfile, setIsSavingEmployeeProfile] = useState(false);
+  const [adTrackingConsent, setAdTrackingConsent] = useState(false);
+  const [personalizedAdsConsent, setPersonalizedAdsConsent] = useState(false);
+  const [gender, setGender] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [interestsInput, setInterestsInput] = useState('');
+  const [isLoadingAdPreferences, setIsLoadingAdPreferences] = useState(false);
+  const [isSavingAdPreferences, setIsSavingAdPreferences] = useState(false);
   const selectedStage = businessStages.find(stageOption => stageOption.value === stage);
   const hasSettingsAccess =
     !isEmployee ||
@@ -147,6 +160,12 @@ export default function SettingsScreen() {
       setEmployeeProfilePhone(currentEmployee?.phone || '');
     }
   }, [isEmployee, currentEmployee?.name, currentEmployee?.email, currentEmployee?.phone]);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadAdPreferences();
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (searchParams.section === 'confirm-proof' && confirmProofSectionY > 0) {
@@ -229,6 +248,66 @@ export default function SettingsScreen() {
       await updateRemoveProofConfirmPreference(enabled);
     } catch (error: any) {
       RNAlert.alert('Error', error.message || 'Failed to update confirmation setting.');
+    }
+  };
+
+  const loadAdPreferences = async () => {
+    if (!user?.id) return;
+    try {
+      setIsLoadingAdPreferences(true);
+      const { data, error } = await supabase
+        .from('users')
+        .select('gender, birth_date, interests, ad_tracking_consent, personalized_ads_consent')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+
+      setGender(data?.gender || '');
+      setBirthDate(data?.birth_date || '');
+      setInterestsInput(Array.isArray(data?.interests) ? data.interests.join(', ') : '');
+      setAdTrackingConsent(Boolean(data?.ad_tracking_consent));
+      setPersonalizedAdsConsent(Boolean(data?.personalized_ads_consent));
+    } catch (error) {
+      console.error('Failed to load ad preferences:', error);
+    } finally {
+      setIsLoadingAdPreferences(false);
+    }
+  };
+
+  const handleSaveAdPreferences = async () => {
+    if (!user?.id) return;
+    if (birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+      RNAlert.alert('Invalid date', 'Use YYYY-MM-DD format for birth date.');
+      return;
+    }
+
+    try {
+      setIsSavingAdPreferences(true);
+      const interests = interestsInput
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean)
+        .slice(0, 25);
+
+      const { error } = await supabase
+        .from('users')
+        .update({
+          gender: gender || null,
+          birth_date: birthDate || null,
+          interests,
+          ad_tracking_consent: adTrackingConsent,
+          personalized_ads_consent: personalizedAdsConsent,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+      RNAlert.alert('Saved', 'Ad preferences updated.');
+    } catch (error: any) {
+      RNAlert.alert('Error', error?.message || 'Failed to save ad preferences.');
+    } finally {
+      setIsSavingAdPreferences(false);
     }
   };
 
@@ -1114,6 +1193,133 @@ export default function SettingsScreen() {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+
+        <View style={[styles.section, { 
+          backgroundColor: theme.background.card,
+          borderColor: theme.border.light,
+        }]}>
+          <View style={styles.sectionHeader}>
+            <UsersIcon size={20} color={theme.accent.primary} />
+            <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
+              Ad Preferences
+            </Text>
+          </View>
+          <Text style={[styles.sectionSubtitle, { color: theme.text.secondary }]}>
+            Share demographics to unlock audience analytics and better ad personalization.
+          </Text>
+
+          {isLoadingAdPreferences ? (
+            <View style={{ paddingVertical: 12 }}>
+              <ActivityIndicator size="small" color={theme.accent.primary} />
+            </View>
+          ) : (
+            <>
+              <View style={styles.settingRow}>
+                <View style={styles.settingLeft}>
+                  <View style={styles.settingTitleRow}>
+                    <Bell size={18} color={theme.accent.primary} />
+                    <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
+                      Allow ad tracking
+                    </Text>
+                  </View>
+                  <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
+                    Required to include your profile in ad analytics.
+                  </Text>
+                </View>
+                <Switch
+                  value={adTrackingConsent}
+                  onValueChange={setAdTrackingConsent}
+                  trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
+                  thumbColor="#FFF"
+                />
+              </View>
+
+              <View style={[styles.settingRow, { marginTop: 16 }]}>
+                <View style={styles.settingLeft}>
+                  <View style={styles.settingTitleRow}>
+                    <SettingsIcon size={18} color={theme.accent.primary} />
+                    <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
+                      Personalized ads
+                    </Text>
+                  </View>
+                  <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
+                    Use your interests to personalize ad delivery.
+                  </Text>
+                </View>
+                <Switch
+                  value={personalizedAdsConsent}
+                  onValueChange={setPersonalizedAdsConsent}
+                  trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
+                  thumbColor="#FFF"
+                />
+              </View>
+
+              <View style={[styles.inputGroup, { marginTop: 16 }]}>
+                <Text style={[styles.label, { color: theme.text.secondary }]}>Gender</Text>
+                <View style={styles.currencyRow}>
+                  {genderOptions.map(option => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.currencyButton,
+                        {
+                          borderColor: theme.border.light,
+                          backgroundColor: gender === option.value ? theme.accent.primary : theme.background.secondary,
+                        },
+                      ]}
+                      onPress={() => setGender(option.value)}
+                    >
+                      <Text
+                        style={[
+                          styles.currencyButtonText,
+                          { color: gender === option.value ? '#FFF' : theme.text.secondary },
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text.secondary }]}>Birth date</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary, borderColor: theme.border.light }]}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={theme.text.tertiary}
+                  value={birthDate}
+                  onChangeText={setBirthDate}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: theme.text.secondary }]}>Interests</Text>
+                <Text style={[styles.hint, { color: theme.text.tertiary }]}>
+                  Separate interests with commas (e.g., retail, fashion, food).
+                </Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary, borderColor: theme.border.light }]}
+                  placeholder="business, marketing, finance"
+                  placeholderTextColor={theme.text.tertiary}
+                  value={interestsInput}
+                  onChangeText={setInterestsInput}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.saveButton, { backgroundColor: theme.accent.primary, opacity: isSavingAdPreferences ? 0.7 : 1 }]}
+                onPress={handleSaveAdPreferences}
+                disabled={isSavingAdPreferences}
+              >
+                <Save size={18} color="#FFF" />
+                <Text style={styles.saveButtonText}>
+                  {isSavingAdPreferences ? 'Saving...' : 'Save Ad Preferences'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         {/* Subscription Plan Section */}

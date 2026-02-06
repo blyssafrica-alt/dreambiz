@@ -34,6 +34,37 @@ export function AdCard({ ad, location, onPress, preview = false }: AdCardProps) 
   const pacingProgress = hasPacing && adSet?.dailyBudget
     ? Math.min((adSet.spendActualToday || 0) / adSet.dailyBudget, 1)
     : 0;
+  const targetingChips = useMemo(() => {
+    const chips: string[] = [];
+    const targeting = ad.targeting || {};
+    if (targeting.targetGenders && targeting.targetGenders.length > 0) {
+      const label = targeting.targetGenders.map(item => item.replace(/_/g, ' ')).join(', ');
+      chips.push(`Gender: ${label}`);
+    }
+    if (targeting.targetAgeMin !== undefined || targeting.targetAgeMax !== undefined) {
+      const min = targeting.targetAgeMin;
+      const max = targeting.targetAgeMax;
+      if (min !== undefined && max !== undefined) {
+        chips.push(`Age: ${min}-${max}`);
+      } else if (min !== undefined) {
+        chips.push(`Age: ${min}+`);
+      } else if (max !== undefined) {
+        chips.push(`Age: <=${max}`);
+      }
+    }
+    if (targeting.targetInterests && targeting.targetInterests.length > 0) {
+      const interests = targeting.targetInterests.slice(0, 3).join(', ');
+      const suffix = targeting.targetInterests.length > 3
+        ? ` +${targeting.targetInterests.length - 3}`
+        : '';
+      chips.push(`Interests: ${interests}${suffix}`);
+    }
+    const hasDemographicTargets = chips.length > 0;
+    if (hasDemographicTargets && targeting.requireAdConsent !== false) {
+      chips.push('Consent required');
+    }
+    return chips;
+  }, [ad.targeting]);
   const cardStyle = useMemo(() => {
     switch (ad.type) {
       case 'banner':
@@ -133,6 +164,15 @@ export function AdCard({ ad, location, onPress, preview = false }: AdCardProps) 
           )}
         </View>
       </View>
+      {targetingChips.length > 0 && (
+        <View style={styles.targetingRow}>
+          {targetingChips.map((chip) => (
+            <View key={chip} style={[styles.targetingChip, { backgroundColor: theme.background.secondary }]}>
+              <Text style={[styles.targetingChipText, { color: theme.text.secondary }]}>{chip}</Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       {ad.imageUrl && (
         <Image
@@ -341,6 +381,23 @@ const styles = StyleSheet.create({
   },
   learningProgressText: {
     fontSize: 11,
+  },
+  targetingRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginHorizontal: 16,
+    marginBottom: 4,
+  },
+  targetingChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  targetingChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'capitalize',
   },
   headline: {
     fontSize: 18,

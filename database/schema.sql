@@ -16,6 +16,11 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   password_hash TEXT NOT NULL,
   is_super_admin BOOLEAN DEFAULT FALSE,
+  gender TEXT,
+  birth_date DATE,
+  interests TEXT[] DEFAULT '{}'::text[],
+  ad_tracking_consent BOOLEAN DEFAULT FALSE,
+  personalized_ads_consent BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -345,23 +350,27 @@ RETURNS BOOLEAN AS $$
 $$ LANGUAGE sql SECURITY DEFINER;
 
 -- Staff can view all users (moderator or higher)
+DROP POLICY IF EXISTS "Staff can view all users" ON users;
 CREATE POLICY "Staff can view all users" ON users
   FOR SELECT
   USING (public.has_role('moderator'));
 
 -- Super admins can update any user/role
+DROP POLICY IF EXISTS "Super admins can update users" ON users;
 CREATE POLICY "Super admins can update users" ON users
   FOR UPDATE
   USING (public.has_role('super_admin'))
   WITH CHECK (public.has_role('super_admin'));
 
 -- Admins can update user/moderator roles only
+DROP POLICY IF EXISTS "Admins can update limited roles" ON users;
 CREATE POLICY "Admins can update limited roles" ON users
   FOR UPDATE
   USING (public.has_role('admin') AND users.role IN ('user', 'moderator'))
   WITH CHECK (role IN ('user', 'moderator'));
 
 -- Moderators can promote users to moderator or keep user
+DROP POLICY IF EXISTS "Moderators can update limited roles" ON users;
 CREATE POLICY "Moderators can update limited roles" ON users
   FOR UPDATE
   USING (public.has_role('moderator') AND users.role = 'user')

@@ -150,6 +150,11 @@ export class SupabaseProvider implements IBackendProvider {
         createdAt: result.data.createdAt || result.data.created_at,
         isSuperAdmin: result.data.isSuperAdmin || result.data.is_super_admin,
         role: result.data.role || (result.data.is_super_admin ? 'super_admin' : 'user'),
+        gender: result.data.gender,
+        birthDate: result.data.birth_date,
+        interests: result.data.interests || [],
+        adTrackingConsent: result.data.ad_tracking_consent,
+        personalizedAdsConsent: result.data.personalized_ads_consent,
       };
     } catch (error: any) {
       // Re-throw with better error message
@@ -402,6 +407,11 @@ export class SupabaseProvider implements IBackendProvider {
       createdAt: result.data.created_at || new Date().toISOString(),
       isSuperAdmin: result.data.is_super_admin,
       role: result.data.role || (result.data.is_super_admin ? 'super_admin' : 'user'),
+      gender: result.data.gender,
+      birthDate: result.data.birth_date,
+      interests: result.data.interests || [],
+      adTrackingConsent: result.data.ad_tracking_consent,
+      personalizedAdsConsent: result.data.personalized_ads_consent,
     };
   }
 
@@ -411,6 +421,11 @@ export class SupabaseProvider implements IBackendProvider {
     if (updates.name) updateData.name = updates.name;
     if (updates.isSuperAdmin !== undefined) updateData.is_super_admin = updates.isSuperAdmin;
     if (updates.role) updateData.role = updates.role;
+    if (updates.gender !== undefined) updateData.gender = updates.gender;
+    if (updates.birthDate !== undefined) updateData.birth_date = updates.birthDate;
+    if (updates.interests !== undefined) updateData.interests = updates.interests;
+    if (updates.adTrackingConsent !== undefined) updateData.ad_tracking_consent = updates.adTrackingConsent;
+    if (updates.personalizedAdsConsent !== undefined) updateData.personalized_ads_consent = updates.personalizedAdsConsent;
 
     const result = await this.update<any>({
       table: 'users',
@@ -428,6 +443,11 @@ export class SupabaseProvider implements IBackendProvider {
       createdAt: result.data.created_at,
       isSuperAdmin: result.data.is_super_admin,
       role: result.data.role || (result.data.is_super_admin ? 'super_admin' : 'user'),
+      gender: result.data.gender,
+      birthDate: result.data.birth_date,
+      interests: result.data.interests || [],
+      adTrackingConsent: result.data.ad_tracking_consent,
+      personalizedAdsConsent: result.data.personalized_ads_consent,
     };
   }
 

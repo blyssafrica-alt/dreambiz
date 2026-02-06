@@ -26,6 +26,15 @@ RETURNS BOOLEAN AS $$
 $$ LANGUAGE sql SECURITY DEFINER;
 
 -- ============================================
+-- USER DEMOGRAPHICS (Ad Analytics)
+-- ============================================
+ALTER TABLE users ADD COLUMN IF NOT EXISTS gender TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date DATE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS interests TEXT[] DEFAULT '{}'::text[];
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ad_tracking_consent BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS personalized_ads_consent BOOLEAN DEFAULT FALSE;
+
+-- ============================================
 -- PRODUCT CATEGORIES
 -- ============================================
 CREATE TABLE IF NOT EXISTS product_categories (

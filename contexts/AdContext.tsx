@@ -22,6 +22,24 @@ const AdContext = createContext<AdContextValue | undefined>(undefined);
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const formatSupabaseError = (error: unknown) => {
+  if (!error) return 'Unknown error';
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+};
+
+const getAgeFromBirthDate = (birthDate?: string | null) => {
+  if (!birthDate) return null;
+  const date = new Date(birthDate);
+  if (Number.isNaN(date.getTime())) return null;
+  return Math.floor((Date.now() - date.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+};
+
 // Generate or retrieve session ID
 async function getSessionId(): Promise<string> {
   try {
@@ -51,10 +69,52 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [sessionId, setSessionId] = useState<string>('');
   const [lastAdClick, setLastAdClick] = useState<{ adId: string; location: string; at: number } | null>(null);
+  const [userDemographics, setUserDemographics] = useState<{
+    gender?: string | null;
+    birthDate?: string | null;
+    interests: string[];
+    adTrackingConsent?: boolean | null;
+    personalizedAdsConsent?: boolean | null;
+  } | null>(null);
 
   useEffect(() => {
     getSessionId().then(setSessionId);
   }, []);
+
+  useEffect(() => {
+    const loadDemographics = async () => {
+      if (!user?.id) {
+        setUserDemographics(null);
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('gender, birth_date, interests, ad_tracking_consent, personalized_ads_consent')
+          .eq('id', user.id)
+          .single();
+        if (error) throw error;
+        setUserDemographics({
+          gender: data?.gender || null,
+          birthDate: data?.birth_date || null,
+          interests: Array.isArray(data?.interests) ? data.interests : [],
+          adTrackingConsent: data?.ad_tracking_consent,
+          personalizedAdsConsent: data?.personalized_ads_consent,
+        });
+      } catch (error) {
+        console.warn('Failed to load user demographics:', error);
+        setUserDemographics({
+          gender: null,
+          birthDate: null,
+          interests: [],
+          adTrackingConsent: false,
+          personalizedAdsConsent: false,
+        });
+      }
+    };
+
+    loadDemographics();
+  }, [user?.id]);
 
   const loadCampaignsAndSets = useCallback(async () => {
     const today = new Date().toISOString().split('T')[0];
@@ -322,8 +382,43 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
       if (!hasAllFeatures) return false;
     }
 
+    const hasDemographicTargeting =
+      (targeting.targetGenders && targeting.targetGenders.length > 0) ||
+      targeting.targetAgeMin !== undefined ||
+      targeting.targetAgeMax !== undefined ||
+      (targeting.targetInterests && targeting.targetInterests.length > 0);
+    const consentRequired = targeting.requireAdConsent !== false;
+    const hasConsent = Boolean(
+      userDemographics?.adTrackingConsent || userDemographics?.personalizedAdsConsent
+    );
+
+    if (hasDemographicTargeting && consentRequired && !hasConsent) {
+      return false;
+    }
+
+    if (targeting.targetGenders && targeting.targetGenders.length > 0) {
+      if (!userDemographics?.gender) return false;
+      if (!targeting.targetGenders.includes(userDemographics.gender)) {
+        return false;
+      }
+    }
+
+    if (targeting.targetAgeMin !== undefined || targeting.targetAgeMax !== undefined) {
+      const age = getAgeFromBirthDate(userDemographics?.birthDate);
+      if (age === null) return false;
+      if (targeting.targetAgeMin !== undefined && age < targeting.targetAgeMin) return false;
+      if (targeting.targetAgeMax !== undefined && age > targeting.targetAgeMax) return false;
+    }
+
+    if (targeting.targetInterests && targeting.targetInterests.length > 0) {
+      const userInterests = (userDemographics?.interests || []).map(item => item.toLowerCase());
+      const targetInterests = targeting.targetInterests.map(item => item.toLowerCase());
+      const hasMatch = targetInterests.some(interest => userInterests.includes(interest));
+      if (!hasMatch) return false;
+    }
+
     return true;
-  }, [user, business, enabledFeatureIds, impressionHistory, sessionId, campaigns, adSets]);
+  }, [user, business, enabledFeatureIds, impressionHistory, sessionId, campaigns, adSets, userDemographics]);
 
   const getAdsForLocation = useCallback((location: string): Advertisement[] => {
     return ads
@@ -408,7 +503,7 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
         }]);
       }
     } catch (error) {
-      console.error('Failed to track impression:', error);
+      console.error('Failed to track impression:', formatSupabaseError(error));
     }
   }, [user, business, impressionHistory, sessionId]);
 
@@ -474,7 +569,7 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
       }
       setLastAdClick({ adId, location, at: Date.now() });
     } catch (error) {
-      console.error('Failed to track click:', error);
+      console.error('Failed to track click:', formatSupabaseError(error));
     }
   }, [user, business, impressionHistory, sessionId]);
 
@@ -544,7 +639,7 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (error) {
-      console.error('Failed to track conversion:', error);
+      console.error('Failed to track conversion:', formatSupabaseError(error));
     }
   }, [user, business, impressionHistory, sessionId]);
 

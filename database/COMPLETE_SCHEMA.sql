@@ -19,6 +19,11 @@ CREATE TABLE IF NOT EXISTS public.users (
   password_hash TEXT DEFAULT '',
   is_super_admin BOOLEAN DEFAULT FALSE,
   role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'moderator', 'admin', 'super_admin')),
+  gender TEXT,
+  birth_date DATE,
+  interests TEXT[] DEFAULT '{}'::text[],
+  ad_tracking_consent BOOLEAN DEFAULT FALSE,
+  personalized_ads_consent BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

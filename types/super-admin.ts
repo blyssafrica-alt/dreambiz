@@ -147,6 +147,11 @@ export interface AdTargeting {
   targetFeatures?: string[];
   targetWorkflows?: string[];
   excludeUsers?: string[];
+  targetGenders?: string[];
+  targetAgeMin?: number;
+  targetAgeMax?: number;
+  targetInterests?: string[];
+  requireAdConsent?: boolean;
 }
 
 export interface AdPlacement {
