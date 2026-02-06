@@ -1158,7 +1158,6 @@ export default function AdsManagementScreen() {
                                   });
                                 });
                             }
-                            const normalizedUrl = normalizePaymentProofUrl(ad.paymentProofUrl);
                             setFailedImageUrls(prev => new Set(prev).add(normalizedUrl || ''));
                           }}
                         />
