@@ -333,12 +333,12 @@ export default function RootLayout() {
                 <BusinessContext>
                   <PremiumContextProvider>
                     <FeatureContextProvider>
-                      <ProductContextProvider>
-                        <AdContextProvider>
+                      <AdContextProvider>
+                        <ProductContextProvider>
                           <NotificationBootstrap />
                           <RootLayoutNav />
-                        </AdContextProvider>
-                      </ProductContextProvider>
+                        </ProductContextProvider>
+                      </AdContextProvider>
                     </FeatureContextProvider>
                   </PremiumContextProvider>
                 </BusinessContext>
