@@ -362,25 +362,29 @@ export default function ProductsScreen() {
             contentType: asset.mimeType || 'image/jpeg',
             upsert: false,
           });
+          // Clean URL: ensure no spaces in bucket name or path
+          const cleanUrl = publicUrl.replace(/ad payment proofs/g, 'ad_payment_proofs').replace(/ /g, '%20');
+          
           console.log('[Product Ad Proof Upload] Upload successful:', {
             fileName,
             filePath,
-            publicUrl,
+            originalUrl: publicUrl,
+            cleanedUrl: cleanUrl,
             bucket: 'ad_payment_proofs',
           });
           
           // Verify the file is accessible after upload
           try {
-            const verifyResponse = await fetch(publicUrl, { method: 'HEAD' });
+            const verifyResponse = await fetch(cleanUrl, { method: 'HEAD' });
             console.log('[Product Ad Proof Upload] Verification response:', {
               status: verifyResponse.status,
               ok: verifyResponse.ok,
-              url: publicUrl,
+              url: cleanUrl,
             });
             if (!verifyResponse.ok) {
               console.warn('[Product Ad Proof Upload] File uploaded but not accessible:', {
                 status: verifyResponse.status,
-                url: publicUrl,
+                url: cleanUrl,
                 message: 'Bucket may not be public or RLS policies may be blocking access',
               });
             }
@@ -388,7 +392,7 @@ export default function ProductsScreen() {
             console.warn('[Product Ad Proof Upload] Could not verify file accessibility:', verifyError);
           }
           
-          setAdPaymentProofUrl(publicUrl);
+          setAdPaymentProofUrl(cleanUrl);
         } catch (error: any) {
           console.error('[Product Ad Proof Upload] Upload failed:', {
             error: error.message || String(error),
@@ -1244,15 +1248,20 @@ export default function ProductsScreen() {
                 <View>
                   <Image 
                     source={{ uri: (() => {
-                      // Ensure URL is properly encoded and doesn't have spaces
-                      const cleanUrl = adPaymentProofUrl.replace(/ /g, '_');
+                      // Ensure URL is properly encoded - fix bucket name and encode spaces
+                      let cleanUrl = adPaymentProofUrl || '';
+                      // Fix bucket name if it has spaces
+                      cleanUrl = cleanUrl.replace(/ad payment proofs/g, 'ad_payment_proofs');
+                      // Encode any remaining spaces
+                      cleanUrl = cleanUrl.replace(/ /g, '%20');
                       console.log('[Product Ad Proof] Original URL:', adPaymentProofUrl);
                       console.log('[Product Ad Proof] Cleaned URL:', cleanUrl);
                       return cleanUrl;
                     })() }} 
                     style={styles.proofImage}
                     onLoadStart={() => {
-                      const cleanUrl = adPaymentProofUrl.replace(/ /g, '_');
+                      let cleanUrl = adPaymentProofUrl || '';
+                      cleanUrl = cleanUrl.replace(/ad payment proofs/g, 'ad_payment_proofs').replace(/ /g, '%20');
                       console.log('[Product Ad Proof] Starting to load:', cleanUrl);
                     }}
                     onLoad={() => console.log('[Product Ad Proof] Loaded successfully:', adPaymentProofUrl)}

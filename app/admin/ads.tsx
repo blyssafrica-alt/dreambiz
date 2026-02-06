@@ -122,11 +122,17 @@ export default function AdsManagementScreen() {
     ? ads.filter((ad) => ad.autoRenew && ad.status === 'pending')
     : ads;
 
-  // Helper function to normalize payment proof URLs (fix duplicate bucket names)
+  // Helper function to normalize payment proof URLs (fix duplicate bucket names and spaces)
   const normalizePaymentProofUrl = (url: string | undefined | null): string | undefined => {
     if (!url || !url.trim()) return undefined;
+    let normalized = url;
     // Fix duplicate bucket names: /ad_payment_proofs/ad_payment_proofs/ -> /ad_payment_proofs/
-    return url.replace(/\/ad_payment_proofs\/ad_payment_proofs\//g, '/ad_payment_proofs/');
+    normalized = normalized.replace(/\/ad_payment_proofs\/ad_payment_proofs\//g, '/ad_payment_proofs/');
+    // Fix bucket name with spaces: ad payment proofs -> ad_payment_proofs
+    normalized = normalized.replace(/ad payment proofs/g, 'ad_payment_proofs');
+    // Encode any remaining spaces
+    normalized = normalized.replace(/ /g, '%20');
+    return normalized;
   };
 
   // Helper function to get fallback URL (try old duplicate path if correct path fails)
