@@ -193,29 +193,14 @@ export const uploadBase64ToStorage = async (
         }
       }
 
-      // Manually construct the public URL to ensure correct bucket name
-      // This avoids issues with getPublicUrl potentially returning corrupted URLs with spaces
-      // Ensure bucket name is normalized (no spaces) - use the bucket parameter we passed in
-      const normalizedBucket = bucket.replace(/\s+/g, '_');
-      
-      // Manually construct the public URL with correct bucket name
-      // Format: https://<project>.supabase.co/storage/v1/object/public/<bucket>/<filePath>
-      const encodedFilePath = filePath.split('/').map(segment => encodeURIComponent(segment)).join('/');
-      const publicUrl = `${supabaseUrl}/storage/v1/object/public/${normalizedBucket}/${encodedFilePath}`;
-      
-      // Verify the URL is correct by comparing with getPublicUrl (for debugging)
-      if (isDev) {
-        const { data: urlData } = client.storage.from(bucket).getPublicUrl(filePath);
-        console.log('[Upload] Success', { 
-          bucket, 
-          normalizedBucket,
-          filePath, 
-          constructedUrl: publicUrl,
-          supabaseGetPublicUrl: urlData?.publicUrl 
-        });
+      const { data } = client.storage.from(bucket).getPublicUrl(filePath);
+      if (!data?.publicUrl) {
+        throw new Error('Failed to resolve public URL for uploaded file.');
       }
-      
-      return publicUrl;
+      if (isDev) {
+        console.log('[Upload] Success', { bucket, filePath });
+      }
+      return data.publicUrl;
     } catch (error) {
       lastError = error;
       if (isDev) {

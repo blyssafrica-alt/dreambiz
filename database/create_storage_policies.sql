@@ -233,61 +233,8 @@ USING (
 CREATE POLICY "Authenticated Delete - payment_proofs"
 ON storage.objects FOR DELETE
 USING (
-  bucket_id = 'payment_proofs'
+  bucket_id = 'payment_proofs' 
   AND auth.role() = 'authenticated'
-);
-
--- ============================================
--- AD_PAYMENT_PROOFS BUCKET POLICIES
--- ============================================
-
--- Drop existing policies if they exist
-DROP POLICY IF EXISTS "Public Read - ad_payment_proofs" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated Upload - ad_payment_proofs" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated Update - ad_payment_proofs" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated Delete - ad_payment_proofs" ON storage.objects;
-DROP POLICY IF EXISTS "Users can delete own ad payment proofs" ON storage.objects;
-DROP POLICY IF EXISTS "Super admins can manage ad payment proofs" ON storage.objects;
-
--- Allow public read access (needed for viewing ad payment proofs via public URLs)
-CREATE POLICY "Public Read - ad_payment_proofs"
-ON storage.objects FOR SELECT
-USING (bucket_id = 'ad_payment_proofs');
-
--- Allow authenticated users to upload ad payment proofs
-CREATE POLICY "Authenticated Upload - ad_payment_proofs"
-ON storage.objects FOR INSERT
-WITH CHECK (
-  bucket_id = 'ad_payment_proofs' 
-  AND auth.role() = 'authenticated'
-);
-
--- Allow authenticated users to update their ad payment proofs
-CREATE POLICY "Authenticated Update - ad_payment_proofs"
-ON storage.objects FOR UPDATE
-USING (
-  bucket_id = 'ad_payment_proofs' 
-  AND auth.role() = 'authenticated'
-)
-WITH CHECK (
-  bucket_id = 'ad_payment_proofs' 
-  AND auth.role() = 'authenticated'
-);
-
--- Allow authenticated users to delete ad payment proofs
-CREATE POLICY "Authenticated Delete - ad_payment_proofs"
-ON storage.objects FOR DELETE
-USING (
-  bucket_id = 'ad_payment_proofs'
-  AND auth.role() = 'authenticated'
-);
-
--- Allow super admins to manage all ad payment proofs
-CREATE POLICY "Super admins can manage ad payment proofs"
-ON storage.objects FOR ALL
-USING (
-  bucket_id = 'ad_payment_proofs'
-  AND is_super_admin()
 );
 
 -- ============================================
@@ -297,5 +244,5 @@ USING (
 -- SELECT * FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects';
 
 -- Check buckets exist:
--- SELECT name, public FROM storage.buckets WHERE name IN ('book_covers', 'book-documents', 'ad_images', 'product_images', 'business_logos', 'payment_proofs', 'ad_payment_proofs');
+-- SELECT name, public FROM storage.buckets WHERE name IN ('book_covers', 'book-documents', 'ad_images', 'product_images', 'business_logos', 'payment_proofs');
 

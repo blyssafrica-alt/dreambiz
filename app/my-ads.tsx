@@ -198,8 +198,7 @@ export default function MyAdsScreen() {
         try {
           const base64 = await getBase64FromAsset(asset);
           const fileName = buildAssetFileName(asset, 'ad-renewal-proof');
-          // filePath should NOT include the bucket name - it's already specified in the bucket parameter
-          const filePath = fileName;
+          const filePath = `ad_payment_proofs/${fileName}`;
           const publicUrl = await uploadBase64ToStorage(supabase, {
             bucket: 'ad_payment_proofs',
             filePath,

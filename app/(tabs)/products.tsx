@@ -29,7 +29,6 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
-import { normalizeStorageUrl, getSafeImageUrl } from '@/lib/url-utils';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { useBusiness } from '@/contexts/BusinessContext';
@@ -75,8 +74,7 @@ export default function ProductsScreen() {
   const [adBudget, setAdBudget] = useState('');
   const [adCurrency, setAdCurrency] = useState('USD');
   const [adPaymentReference, setAdPaymentReference] = useState('');
-  const [adPaymentProofUrl, setAdPaymentProofUrl] = useState<string | null>(null); // Only public URLs, never file://
-  const [adPaymentProofPreview, setAdPaymentProofPreview] = useState<string | null>(null); // Local file URI for preview only
+  const [adPaymentProofUrl, setAdPaymentProofUrl] = useState<string | null>(null);
   const [isUploadingAdProof, setIsUploadingAdProof] = useState(false);
   const [adPackages, setAdPackages] = useState<AdPackage[]>([]);
   const [selectedAdPackageId, setSelectedAdPackageId] = useState<string | null>(null);
@@ -323,7 +321,6 @@ export default function ProductsScreen() {
     setAdCurrency(business?.currency || 'USD');
     setAdPaymentReference('');
     setAdPaymentProofUrl(null);
-    setAdPaymentProofPreview(null);
     setSelectedAdPackageId(null);
     setAdLocations(['products', 'dashboard']);
     setAutoRenew(false);
@@ -345,22 +342,18 @@ export default function ProductsScreen() {
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: [ImagePicker.MediaType.Images],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         quality: 0.8,
         base64: true,
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        // Set local URI for preview only (never in adPaymentProofUrl state)
-        setAdPaymentProofPreview(asset.uri);
         setIsUploadingAdProof(true);
         try {
           const base64 = await getBase64FromAsset(asset);
           const fileName = buildAssetFileName(asset, 'ad-payment-proof');
-          // Don't include bucket name in filePath - it's already specified in bucket parameter
-          const filePath = fileName;
-          
+          const filePath = `ad_payment_proofs/${fileName}`;
           const publicUrl = await uploadBase64ToStorage(supabase, {
             bucket: 'ad_payment_proofs',
             filePath,
@@ -368,29 +361,8 @@ export default function ProductsScreen() {
             contentType: asset.mimeType || 'image/jpeg',
             upsert: false,
           });
-          
-          // Normalize and set public URL (never file:// URIs)
-          const normalizedUrl = normalizeStorageUrl(publicUrl);
-          if (normalizedUrl && !normalizedUrl.startsWith('file://')) {
-            setAdPaymentProofUrl(normalizedUrl);
-            setAdPaymentProofPreview(null); // Clear preview once we have public URL
-            console.log('[Product Ad Proof Upload] Success:', { 
-              originalUrl: publicUrl, 
-              normalizedUrl, 
-              fileName 
-            });
-          } else {
-            throw new Error('Upload succeeded but no valid public URL returned');
-          }
+          setAdPaymentProofUrl(publicUrl);
         } catch (error: any) {
-          console.error('[Product Ad Proof Upload] Upload failed:', {
-            error: error.message || String(error),
-            fileName,
-            filePath,
-          });
-          // Clear both preview and URL on error
-          setAdPaymentProofUrl(null);
-          setAdPaymentProofPreview(null);
           RNAlert.alert('Upload Error', error.message || 'Failed to upload proof');
         } finally {
           setIsUploadingAdProof(false);
@@ -428,7 +400,7 @@ export default function ProductsScreen() {
         payment_amount: parseFloat(adBudget),
         payment_currency: adCurrency,
         payment_reference: adPaymentReference || null,
-        payment_proof_url: normalizeStorageUrl(adPaymentProofUrl) || adPaymentProofUrl,
+        payment_proof_url: adPaymentProofUrl,
         ad_package_id: selectedAdPackageId,
         auto_renew: autoRenew,
         targeting: { scope: 'global' },
@@ -846,7 +818,7 @@ export default function ProductsScreen() {
                           return;
                         }
                         const result = await ImagePicker.launchImageLibraryAsync({
-                          mediaTypes: [ImagePicker.MediaType.Images],
+                          mediaTypes: ImagePicker.MediaTypeOptions.Images,
                           allowsEditing: true,
                           aspect: [1, 1],
                           quality: 0.8,
@@ -924,7 +896,7 @@ export default function ProductsScreen() {
                             return;
                           }
                           const result = await ImagePicker.launchImageLibraryAsync({
-                            mediaTypes: [ImagePicker.MediaType.Images],
+                            mediaTypes: ImagePicker.MediaTypeOptions.Images,
                             allowsEditing: true,
                             aspect: [1, 1],
                             quality: 0.8,
@@ -1236,56 +1208,8 @@ export default function ProductsScreen() {
                 onChangeText={setAdPaymentReference}
               />
               <Text style={[styles.label, { color: theme.text.secondary }]}>Proof of Payment *</Text>
-              {(adPaymentProofUrl || adPaymentProofPreview) ? (
-                <View>
-                  {/* Show loading indicator if we only have preview (local file) or during upload */}
-                  {adPaymentProofPreview && !adPaymentProofUrl ? (
-                    <View style={[styles.proofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
-                      <ActivityIndicator size="large" color={theme.accent.primary} />
-                      <Text style={[styles.proofUploadText, { color: theme.text.primary, marginTop: 8 }]}>
-                        {isUploadingAdProof ? 'Uploading...' : 'Processing...'}
-                      </Text>
-                    </View>
-                  ) : (() => {
-                    // Get safe, normalized URL for Image component
-                    const safeUrl = getSafeImageUrl(adPaymentProofUrl);
-                    if (safeUrl) {
-                      return (
-                        <Image 
-                          key={safeUrl} // Force re-render when URL changes
-                          source={{ uri: safeUrl }} 
-                          style={styles.proofImage}
-                          resizeMode="cover"
-                          onError={(e) => {
-                            const errorDetails = {
-                              originalUrl: adPaymentProofUrl,
-                              safeUrl,
-                              error: e.nativeEvent?.error || 'Unknown error',
-                              errorCode: e.nativeEvent?.errorCode,
-                              errorMessage: e.nativeEvent?.errorMessage,
-                            };
-                            console.error('[Product Ad Proof] Image load error:', JSON.stringify(errorDetails, null, 2));
-                            // Clear invalid URL
-                            setAdPaymentProofUrl(null);
-                          }}
-                          onLoad={() => {
-                            console.log('[Product Ad Proof] Image loaded successfully:', safeUrl);
-                          }}
-                        />
-                      );
-                    }
-                    return null;
-                  })()}
-                  <TouchableOpacity
-                    style={[styles.proofUploadButton, { marginTop: 8, borderColor: theme.border.light }]}
-                    onPress={handlePickAdProofImage}
-                    disabled={isUploadingAdProof}
-                  >
-                    <Text style={[styles.proofUploadText, { color: theme.text.primary }]}>
-                      {isUploadingAdProof ? 'Uploading...' : 'Change Image'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+              {adPaymentProofUrl ? (
+                <Image source={{ uri: adPaymentProofUrl }} style={styles.proofImage} />
               ) : (
                 <TouchableOpacity
                   style={[styles.proofUploadButton, { borderColor: theme.border.light }]}

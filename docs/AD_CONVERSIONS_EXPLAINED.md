@@ -168,4 +168,3 @@ These are set in the Ad Sets admin screen and affect how conversions are attribu
 - **Revenue tracking**: Conversion value is stored for revenue reporting
 - **Billing impact**: Conversions affect spend for CPA and CPE billing types
 
-

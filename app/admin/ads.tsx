@@ -12,7 +12,6 @@ import type { Advertisement, AdType, AdStatus, AdFrequency, AdCampaign, AdSet } 
 import type { BusinessStage, BusinessType, DreamBigBook } from '@/types/business';
 import * as ImagePicker from 'expo-image-picker';
 import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
-import { normalizeStorageUrl, getSafeImageUrl } from '@/lib/url-utils';
 
 export default function AdsManagementScreen() {
   const LOCATION_OPTIONS = [
@@ -115,37 +114,10 @@ export default function AdsManagementScreen() {
     requireAdConsent: true,
   });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [viewingProofImage, setViewingProofImage] = useState<string | null>(null);
-  const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(new Set());
-  const [imageUrlFallbacks, setImageUrlFallbacks] = useState<Record<string, number>>({});
   const activeFilter = searchParams.filter === 'auto_renew_pending' ? 'auto_renew_pending' : 'all';
   const filteredAds = activeFilter === 'auto_renew_pending'
     ? ads.filter((ad) => ad.autoRenew && ad.status === 'pending')
     : ads;
-
-  // Use centralized URL normalization utility
-  const normalizePaymentProofUrl = (url: string | undefined | null): string | undefined => {
-    const normalized = normalizeStorageUrl(url);
-    return normalized || undefined;
-  };
-
-  // Helper function to get fallback URL (try old duplicate path if correct path fails)
-  const getPaymentProofUrlWithFallback = (url: string | undefined | null): string[] => {
-    if (!url || !url.trim()) return [];
-    const normalized = normalizePaymentProofUrl(url);
-    if (!normalized) return [];
-    
-    // If URL is already normalized (no duplicate), try it first
-    // If it has duplicate, try both the normalized and original
-    if (url.includes('/ad_payment_proofs/ad_payment_proofs/')) {
-      // Original has duplicate - try normalized first, then original as fallback
-      return [normalized, url];
-    } else {
-      // Already normalized - try it, and also try the duplicate version as fallback
-      const duplicateVersion = normalized.replace('/ad_payment_proofs/', '/ad_payment_proofs/ad_payment_proofs/');
-      return [normalized, duplicateVersion];
-    }
-  };
 
   useEffect(() => {
     loadAds();
@@ -288,7 +260,7 @@ export default function AdsManagementScreen() {
           return acc;
         }, {});
 
-        const mappedAds = data.map((row: any) => ({
+        setAds(data.map((row: any) => ({
           id: row.id,
           title: row.title,
           description: row.description,
@@ -318,7 +290,7 @@ export default function AdsManagementScreen() {
           paymentAmount: row.payment_amount !== null && row.payment_amount !== undefined ? parseFloat(row.payment_amount) : undefined,
           paymentCurrency: row.payment_currency || undefined,
           paymentReference: row.payment_reference || undefined,
-          paymentProofUrl: normalizePaymentProofUrl(row.payment_proof_url),
+          paymentProofUrl: row.payment_proof_url || undefined,
           adminNotes: row.admin_notes || undefined,
           adPackageId: row.ad_package_id || undefined,
           autoRenew: row.auto_renew || false,
@@ -334,34 +306,7 @@ export default function AdsManagementScreen() {
           createdBy: row.created_by,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
-        }));
-        
-        // Debug: Log ads with payment proofs
-        const adsWithProofs = mappedAds.filter((ad: any) => ad.paymentProofUrl && ad.paymentProofUrl.trim() !== '');
-        if (adsWithProofs.length > 0) {
-          console.log('[Admin Ads] Ads with payment proofs:', adsWithProofs.map((ad: any) => ({
-            id: ad.id,
-            title: ad.title,
-            paymentProofUrl: ad.paymentProofUrl,
-            status: ad.status,
-            paymentStatus: ad.paymentStatus,
-          })));
-        } else {
-          console.log('[Admin Ads] No ads with payment proofs found. Total ads:', mappedAds.length);
-          // Log ads with pending status to see if they should have proofs
-          const pendingAds = mappedAds.filter((ad: any) => ad.status === 'pending');
-          if (pendingAds.length > 0) {
-            console.log('[Admin Ads] Pending ads without proofs:', pendingAds.map((ad: any) => ({
-              id: ad.id,
-              title: ad.title,
-              paymentStatus: ad.paymentStatus,
-              paymentAmount: ad.paymentAmount,
-              hasProofUrl: !!ad.paymentProofUrl,
-            })));
-          }
-        }
-        
-        setAds(mappedAds);
+        })));
       }
     } catch (error) {
       console.error('Failed to load ads:', error);
@@ -1079,173 +1024,9 @@ export default function AdsManagementScreen() {
                       Reference: {ad.paymentReference}
                     </Text>
                   )}
-                  <View style={styles.proofSection}>
-                    <View style={styles.proofHeader}>
-                      <Text style={[styles.proofLabel, { color: theme.text.secondary }]}>Proof of Payment</Text>
-                      {ad.paymentProofUrl && ad.paymentProofUrl.trim() !== '' && (
-                        <TouchableOpacity
-                          onPress={() => {
-                            console.log('[Payment Proof] Full URL:', ad.paymentProofUrl);
-                            Alert.alert('Payment Proof URL', ad.paymentProofUrl, [
-                              { text: 'Copy', onPress: () => {
-                                // Copy to clipboard if available
-                                if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                                  navigator.clipboard.writeText(ad.paymentProofUrl);
-                                }
-                              }},
-                              { text: 'OK' }
-                            ]);
-                          }}
-                          style={styles.debugButton}
-                        >
-                          <Text style={[styles.debugButtonText, { color: theme.text.tertiary }]}>🔍</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                    {ad.paymentProofUrl && ad.paymentProofUrl.trim() !== '' ? (
-                      <View>
-                        {!failedImageUrls.has(ad.paymentProofUrl) ? (
-                          <TouchableOpacity
-                            onPress={() => setViewingProofImage(normalizePaymentProofUrl(ad.paymentProofUrl) || null)}
-                            activeOpacity={0.7}
-                            style={styles.proofImageContainer}
-                          >
-                        {(() => {
-                          const normalizedUrl = normalizePaymentProofUrl(ad.paymentProofUrl);
-                          if (!normalizedUrl) return null;
-                          
-                          // Don't try to display local file URIs
-                          if (normalizedUrl.startsWith('file://')) {
-                            return (
-                              <View style={[styles.paymentProofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
-                                <Text style={{ color: theme.text.tertiary }}>Invalid URL</Text>
-                              </View>
-                            );
-                          }
-                          
-                          const fallbackIndex = imageUrlFallbacks[ad.id] || 0;
-                          const urls = getPaymentProofUrlWithFallback(ad.paymentProofUrl);
-                          const urlToTry = urls[fallbackIndex] || normalizedUrl;
-                          
-                          // Don't try to display local file URIs in fallback either
-                          if (urlToTry.startsWith('file://')) {
-                            return (
-                              <View style={[styles.paymentProofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
-                                <Text style={{ color: theme.text.tertiary }}>Invalid URL</Text>
-                              </View>
-                            );
-                          }
-                          
-                          console.log('[Payment Proof] Trying URL:', {
-                            adId: ad.id,
-                            fallbackIndex,
-                            url: urlToTry,
-                            allUrls: urls,
-                          });
-                          
-                          return (
-                            <Image
-                              source={{ uri: urlToTry }}
-                              style={styles.paymentProofImage}
-                              resizeMode="cover"
-                          onLoadStart={() => {
-                            const normalizedUrl = normalizePaymentProofUrl(ad.paymentProofUrl);
-                            console.log('[Payment Proof] Starting to load image:', {
-                              url: normalizedUrl,
-                              adId: ad.id,
-                              fileName: normalizedUrl?.split('/').pop(),
-                            });
-                          }}
-                          onLoad={() => {
-                            const normalizedUrl = normalizePaymentProofUrl(ad.paymentProofUrl);
-                            console.log('[Payment Proof] Image loaded successfully:', {
-                              url: normalizedUrl,
-                              adId: ad.id,
-                            });
-                            setFailedImageUrls(prev => {
-                              const next = new Set(prev);
-                              next.delete(normalizedUrl || '');
-                              return next;
-                            });
-                          }}
-                          onError={(e) => {
-                            const normalizedUrl = normalizePaymentProofUrl(ad.paymentProofUrl);
-                            const fallbackIndex = imageUrlFallbacks[ad.id] || 0;
-                            const urls = getPaymentProofUrlWithFallback(ad.paymentProofUrl);
-                            
-                            const errorMessage = e.nativeEvent?.error;
-                            const errorInfo = {
-                              url: urls[fallbackIndex] || normalizedUrl,
-                              fallbackIndex,
-                              totalFallbacks: urls.length,
-                              error: typeof errorMessage === 'string' ? errorMessage : (errorMessage ? JSON.stringify(errorMessage) : 'Unknown error'),
-                              errorCode: e.nativeEvent?.errorCode,
-                              errorMessage: e.nativeEvent?.errorMessage,
-                              nativeEvent: e.nativeEvent,
-                              adId: ad.id,
-                              timestamp: new Date().toISOString(),
-                            };
-                            console.error('[Payment Proof] Image load error:', JSON.stringify(errorInfo, null, 2));
-                            
-                            // Try next fallback URL if available
-                            if (fallbackIndex < urls.length - 1) {
-                              console.log('[Payment Proof] Trying fallback URL:', {
-                                adId: ad.id,
-                                nextIndex: fallbackIndex + 1,
-                                nextUrl: urls[fallbackIndex + 1],
-                              });
-                              setImageUrlFallbacks(prev => ({
-                                ...prev,
-                                [ad.id]: fallbackIndex + 1,
-                              }));
-                            } else {
-                              // All fallbacks exhausted, mark as failed
-                              console.error('[Payment Proof] All fallback URLs failed for ad:', ad.id);
-                              setFailedImageUrls(prev => new Set(prev).add(normalizedUrl || ''));
-                            }
-                          }}
-                            />
-                          );
-                        })()}
-                            <View style={styles.proofImageOverlay}>
-                              <Text style={styles.proofImageOverlayText}>Tap to view full size</Text>
-                            </View>
-                          </TouchableOpacity>
-                        ) : (
-                          <View style={styles.proofErrorContainer}>
-                            <Text style={[styles.proofErrorText, { color: theme.text.secondary }]}>
-                              Image failed to load
-                            </Text>
-                            <Text style={[styles.proofErrorLabel, { color: theme.text.tertiary }]}>
-                              URL:
-                            </Text>
-                            <Text style={[styles.proofErrorUrl, { color: theme.text.tertiary }]} numberOfLines={3}>
-                              {normalizePaymentProofUrl(ad.paymentProofUrl)}
-                            </Text>
-                            <TouchableOpacity
-                              onPress={() => {
-                                const normalizedUrl = normalizePaymentProofUrl(ad.paymentProofUrl);
-                                setFailedImageUrls(prev => {
-                                  const next = new Set(prev);
-                                  next.delete(normalizedUrl || '');
-                                  return next;
-                                });
-                              }}
-                              style={[styles.retryButton, { backgroundColor: theme.background.secondary }]}
-                            >
-                              <Text style={[styles.retryButtonText, { color: theme.accent.primary }]}>Retry</Text>
-                            </TouchableOpacity>
-                          </View>
-                        )}
-                      </View>
-                    ) : (
-                      <View style={styles.noProofSection}>
-                        <Text style={[styles.noProofText, { color: theme.text.tertiary }]}>
-                          No payment proof uploaded
-                        </Text>
-                      </View>
-                    )}
-                  </View>
+                  {ad.paymentProofUrl && (
+                    <Image source={{ uri: ad.paymentProofUrl }} style={styles.paymentProofImage} />
+                  )}
                   <TextInput
                     style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
                     placeholder="Admin notes (optional)"
@@ -1274,37 +1055,6 @@ export default function AdsManagementScreen() {
           })
         )}
       </ScrollView>
-
-      {/* Full-Size Proof Image Modal */}
-      <Modal visible={!!viewingProofImage} transparent animationType="fade" onRequestClose={() => setViewingProofImage(null)}>
-        <View style={styles.imageModalOverlay}>
-          <TouchableOpacity
-            style={styles.imageModalCloseArea}
-            activeOpacity={1}
-            onPress={() => setViewingProofImage(null)}
-          >
-            <View style={styles.imageModalContent}>
-              <TouchableOpacity
-                style={styles.imageModalCloseButton}
-                onPress={() => setViewingProofImage(null)}
-              >
-                <X size={24} color="#FFF" />
-              </TouchableOpacity>
-              {viewingProofImage && !viewingProofImage.startsWith('file://') ? (
-                <Image
-                  source={{ uri: viewingProofImage }}
-                  style={styles.fullSizeProofImage}
-                  resizeMode="contain"
-                />
-              ) : viewingProofImage ? (
-                <View style={[styles.fullSizeProofImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background.secondary }]}>
-                  <Text style={{ color: theme.text.tertiary }}>Invalid URL - Cannot display local file</Text>
-                </View>
-              ) : null}
-            </View>
-          </TouchableOpacity>
-        </View>
-      </Modal>
 
       {/* Ad Form Modal */}
       <Modal visible={showModal} transparent animationType="slide">
@@ -2034,147 +1784,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  proofSection: {
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  proofHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  proofLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    flex: 1,
-  },
-  debugButton: {
-    padding: 4,
-    marginLeft: 8,
-  },
-  debugButtonText: {
-    fontSize: 14,
-  },
-  proofImageContainer: {
-    position: 'relative',
-    width: '100%',
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#F3F4F6',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
   paymentProofImage: {
     width: '100%',
-    height: 200,
-    backgroundColor: '#F3F4F6',
-  },
-  proofImageOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-  },
-  proofImageOverlayText: {
-    color: '#FFF',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  noProofSection: {
-    marginTop: 12,
-    marginBottom: 8,
-    padding: 12,
+    height: 180,
     borderRadius: 8,
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderStyle: 'dashed',
-  },
-  noProofText: {
-    fontSize: 13,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  imageModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imageModalCloseArea: {
-    flex: 1,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imageModalContent: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  imageModalCloseButton: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    zIndex: 10,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fullSizeProofImage: {
-    width: '100%',
-    height: '100%',
-  },
-  proofErrorContainer: {
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  proofErrorText: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  proofErrorLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-  },
-  proofErrorUrl: {
-    fontSize: 10,
-    marginBottom: 12,
-    fontFamily: 'monospace',
-    backgroundColor: '#FFF',
-    padding: 8,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  retryButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginTop: 4,
-  },
-  retryButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
+    marginTop: 8,
   },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
   modalContent: {
