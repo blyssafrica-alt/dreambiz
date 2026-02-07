@@ -47,6 +47,7 @@ import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { LineChart, PieChart, GroupedBarChart } from '@/components/Charts';
 import GlobalSearch from '@/components/GlobalSearch';
 import { AdCard } from '@/components/AdCard';
+import { useAdPlacement } from '@/hooks/useAdPlacement';
 import AnimatedLogo from '@/components/AnimatedLogo';
 import { useResponsive } from '@/hooks/useResponsive';
 import { supabase } from '@/lib/supabase';
@@ -77,6 +78,14 @@ export default function DashboardScreen() {
   
   // Computed values
   const dashboardAds = getAdsForLocation('dashboard');
+  // For dashboard section, limit to 1-2 ads with spacing between them
+  const displayedDashboardAds = useMemo(() => {
+    if (dashboardAds.length === 0) return [];
+    // Show max 2 ads, but ensure they're different if multiple available
+    if (dashboardAds.length === 1) return [dashboardAds[0]];
+    // If multiple ads, show first 2 (they'll be spaced in the UI)
+    return dashboardAds.slice(0, 2);
+  }, [dashboardAds]);
   const employeeName = currentEmployee?.name || 'Employee';
   const welcomeText = isEmployee ? `${t('auth.welcomeBack')}, ${employeeName}` : t('auth.welcomeBack');
   const businessDisplayName = isEmployee
@@ -1136,10 +1145,12 @@ export default function DashboardScreen() {
           ) : null}
 
           {/* Advertisements Section */}
-          {dashboardAds.length > 0 && (
+          {displayedDashboardAds.length > 0 && (
             <View style={styles.adsSection}>
-              {dashboardAds.slice(0, 2).map((ad) => (
-                <AdCard key={ad.id} ad={ad} location="dashboard" />
+              {displayedDashboardAds.map((ad, index) => (
+                <View key={ad.id} style={index > 0 ? { marginTop: 12 } : undefined}>
+                  <AdCard ad={ad} location="dashboard" />
+                </View>
               ))}
             </View>
           )}
