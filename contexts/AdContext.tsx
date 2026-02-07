@@ -190,10 +190,13 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(true);
 
       // Load active ads
+      // For self-serve ads (promoted ads), payment_status must be 'approved'
+      // For admin-created ads, payment_status is NULL, so they're always shown if active
       const query = supabase
         .from('advertisements')
         .select('*')
         .eq('status', 'active')
+        .or('payment_status.is.null,payment_status.eq.approved')
         .order('placement->priority', { ascending: false });
 
       const { data, error } = await query;

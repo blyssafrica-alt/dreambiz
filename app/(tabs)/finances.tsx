@@ -30,6 +30,7 @@ import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAds } from '@/contexts/AdContext';
 import { AdCard } from '@/components/AdCard';
+import { useAdPlacement } from '@/hooks/useAdPlacement';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SALES_CATEGORIES, EXPENSE_CATEGORIES } from '@/constants/categories';
 import type { Currency, TransactionType } from '@/types/business';
@@ -123,6 +124,13 @@ export default function FinancesScreen() {
 
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [safeTransactions, filterType, searchQuery, dateFilter, categoryFilter]);
+
+  const { shouldShowAd, getAdForIndex } = useAdPlacement({
+    ads: financesAds,
+    itemsCount: filteredTransactions.length,
+    minGap: 5,
+    maxAds: Math.ceil(filteredTransactions.length / 5), // Max 1 ad per 5 items
+  });
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -531,24 +539,19 @@ export default function FinancesScreen() {
                         </View>
                       </View>
                     </TouchableOpacity>
-                    {/* Show ad after every 5 transactions */}
-                    {financesAds.length > 0 && (index + 1) % 5 === 0 && index < filteredTransactions.length - 1 && (
-                      <AdCard 
-                        key={`ad-${index}`} 
-                        ad={financesAds[Math.floor((index / 5) % financesAds.length)]} 
-                        location="finances" 
-                      />
-                    )}
+                    {/* Show ad with proper spacing (minimum 5 items between ads) */}
+                    {shouldShowAd(index) && (() => {
+                      const ad = getAdForIndex(index);
+                      return ad ? (
+                        <AdCard 
+                          key={`ad-${index}`} 
+                          ad={ad} 
+                          location="finances" 
+                        />
+                      ) : null;
+                    })()}
                   </React.Fragment>
                 ))}
-                {/* Show ad at the end if there are transactions */}
-                {financesAds.length > 0 && filteredTransactions.length > 0 && (
-                  <AdCard 
-                    key="ad-end" 
-                    ad={financesAds[0]} 
-                    location="finances" 
-                  />
-                )}
               </>
             )}
           </Animated.View>

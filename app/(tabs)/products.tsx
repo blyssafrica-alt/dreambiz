@@ -36,6 +36,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAds } from '@/contexts/AdContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { AdCard } from '@/components/AdCard';
+import { useAdPlacement } from '@/hooks/useAdPlacement';
 import type { Product } from '@/types/business';
 import type { AdPackage } from '@/types/super-admin';
 import { useEmployeePermissions } from '@/hooks/useEmployeePermissions';
@@ -159,6 +160,13 @@ export default function ProductsScreen() {
     
     return filtered;
   }, [safeProducts, searchQuery, selectedCategory]);
+
+  const { shouldShowAd, getAdForIndex } = useAdPlacement({
+    ads: productsAds,
+    itemsCount: filteredProducts.length,
+    minGap: 5,
+    maxAds: Math.ceil(filteredProducts.length / 5), // Max 1 ad per 5 items
+  });
 
   // Low stock threshold (can be made configurable)
   const lowStockThreshold = 10;
@@ -727,25 +735,20 @@ export default function ProductsScreen() {
                   </View>
                 )}
               </View>
-              {/* Show ad after every 5 products */}
-              {productsAds.length > 0 && (index + 1) % 5 === 0 && index < filteredProducts.length - 1 && (
-                <AdCard 
-                  key={`ad-${index}`} 
-                  ad={productsAds[Math.floor((index / 5) % productsAds.length)]} 
-                  location="products" 
-                />
-              )}
+              {/* Show ad with proper spacing (minimum 5 items between ads) */}
+              {shouldShowAd(index) && (() => {
+                const ad = getAdForIndex(index);
+                return ad ? (
+                  <AdCard 
+                    key={`ad-${index}`} 
+                    ad={ad} 
+                    location="products" 
+                  />
+                ) : null;
+              })()}
                 </React.Fragment>
               );
             })}
-            {/* Show ad at the end if there are products */}
-            {productsAds.length > 0 && filteredProducts.length > 0 && (
-              <AdCard 
-                key="ad-end" 
-                ad={productsAds[0]} 
-                location="products" 
-              />
-            )}
           </>
         )}
         </ScrollView>

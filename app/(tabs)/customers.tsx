@@ -34,6 +34,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useAds } from '@/contexts/AdContext';
 import { AdCard } from '@/components/AdCard';
+import { useAdPlacement } from '@/hooks/useAdPlacement';
 import type { Customer } from '@/types/business';
 
 export default function CustomersScreen() {
@@ -42,6 +43,12 @@ export default function CustomersScreen() {
   const { t } = useTranslation();
   const { getAdsForLocation } = useAds();
   const customersAds = getAdsForLocation('customers');
+  const { shouldShowAd, getAdForIndex } = useAdPlacement({
+    ads: customersAds,
+    itemsCount: filteredCustomers.length,
+    minGap: 5,
+    maxAds: Math.ceil(filteredCustomers.length / 5), // Max 1 ad per 5 items
+  });
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
@@ -370,24 +377,19 @@ export default function CustomersScreen() {
                 )}
               </View>
             </View>
-                {/* Show ad after every 5 customers */}
-                {customersAds.length > 0 && (index + 1) % 5 === 0 && index < filteredCustomers.length - 1 && (
-                  <AdCard 
-                    key={`ad-${index}`} 
-                    ad={customersAds[Math.floor((index / 5) % customersAds.length)]} 
-                    location="customers" 
-                  />
-                )}
+                {/* Show ad with proper spacing (minimum 5 items between ads) */}
+                {shouldShowAd(index) && (() => {
+                  const ad = getAdForIndex(index);
+                  return ad ? (
+                    <AdCard 
+                      key={`ad-${index}`} 
+                      ad={ad} 
+                      location="customers" 
+                    />
+                  ) : null;
+                })()}
               </React.Fragment>
             ))}
-            {/* Show ad at the end if there are customers */}
-            {customersAds.length > 0 && filteredCustomers.length > 0 && (
-              <AdCard 
-                key="ad-end" 
-                ad={customersAds[0]} 
-                location="customers" 
-              />
-            )}
           </>
         )}
           </ScrollView>

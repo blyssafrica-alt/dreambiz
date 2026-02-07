@@ -17,6 +17,7 @@ import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAds } from '@/contexts/AdContext';
 import { AdCard } from '@/components/AdCard';
+import { useAdPlacement } from '@/hooks/useAdPlacement';
 import type { DocumentType, DocumentItem, DocumentStatus } from '@/types/business';
 import { getDocumentTemplate } from '@/lib/document-templates-db';
 import DocumentWizard from '@/components/DocumentWizard';
@@ -28,6 +29,12 @@ export default function DocumentsScreen() {
   const { t } = useTranslation();
   const { getAdsForLocation } = useAds();
   const documentsAds = getAdsForLocation('documents');
+  const { shouldShowAd, getAdForIndex } = useAdPlacement({
+    ads: documentsAds,
+    itemsCount: filteredDocuments.length,
+    minGap: 5,
+    maxAds: Math.ceil(filteredDocuments.length / 5), // Max 1 ad per 5 items
+  });
   const [showWizard, setShowWizard] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter] = useState<DocumentStatus | 'all'>('all');
@@ -482,21 +489,20 @@ export default function DocumentsScreen() {
                         <Trash2 size={18} color="#EF4444" />
                       </TouchableOpacity>
                     </View>
-                    {/* Show ad after every 5 documents */}
-                    {documentsAds.length > 0 && (index + 1) % 5 === 0 && index < filteredDocuments.length - 1 && (
-                      <AdCard 
-                        key={`ad-${index}`} 
-                        ad={documentsAds[Math.floor((index / 5) % documentsAds.length)]} 
-                        location="documents" 
-                      />
-                    )}
+                    {/* Show ad with proper spacing (minimum 5 items between ads) */}
+                    {shouldShowAd(index) && (() => {
+                      const ad = getAdForIndex(index);
+                      return ad ? (
+                        <AdCard 
+                          key={`ad-${index}`}
+                          ad={ad} 
+                          location="documents" 
+                        />
+                      ) : null;
+                    })()}
                   </React.Fragment>
                 );
               })}
-              {/* Show ad at the end if there are documents */}
-              {documentsAds.length > 0 && filteredDocuments.length > 0 && (
-                <AdCard 
-                  key="ad-end" 
                   ad={documentsAds[0]} 
                   location="documents" 
                 />
