@@ -34,7 +34,8 @@
   ],
   "exclude": [
     "node_modules",
-    "supabase/functions/**"
+    "supabase/functions/**",
+    "lib/url-utils.ts"
   ],
   "extends": "expo/tsconfig.base"
 }
