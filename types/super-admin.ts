@@ -133,7 +133,7 @@ export interface ProductPurchase {
 // ADVERTISEMENTS
 // ============================================
 export type AdType = 'banner' | 'card' | 'modal' | 'inline' | 'video';
-export type AdStatus = 'draft' | 'pending' | 'active' | 'paused' | 'archived';
+export type AdStatus = 'draft' | 'pending' | 'active' | 'paused' | 'archived' | 'rejected';
 export type AdFrequency = 'once_per_session' | 'once_per_day' | 'always';
 export type AdScope = 'global' | 'targeted';
 export type CtaAction = 'open_product' | 'open_book' | 'open_feature' | 'external_url';

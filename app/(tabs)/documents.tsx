@@ -503,10 +503,6 @@ export default function DocumentsScreen() {
                   </React.Fragment>
                 );
               })}
-                  ad={documentsAds[0]} 
-                  location="documents" 
-                />
-              )}
             </>
           )}
         </ScrollView>
