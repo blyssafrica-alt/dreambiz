@@ -455,10 +455,17 @@ CREATE POLICY "Users can view their own ads" ON advertisements
   USING (auth.uid()::text = created_by::text);
 
 DROP POLICY IF EXISTS "Users can update their own pending ads" ON advertisements;
-CREATE POLICY "Users can update their own pending ads" ON advertisements
+-- Allow users to update their own ads (pause, resume, edit) regardless of status
+CREATE POLICY "Users can update their own ads" ON advertisements
   FOR UPDATE
-  USING (auth.uid()::text = created_by::text AND status IN ('pending', 'rejected'))
-  WITH CHECK (auth.uid()::text = created_by::text AND status IN ('pending', 'rejected'));
+  USING (auth.uid()::text = created_by::text)
+  WITH CHECK (auth.uid()::text = created_by::text);
+
+-- Allow users to delete their own ads
+DROP POLICY IF EXISTS "Users can delete their own ads" ON advertisements;
+CREATE POLICY "Users can delete their own ads" ON advertisements
+  FOR DELETE
+  USING (auth.uid()::text = created_by::text);
 
 -- Ad Impressions
 ALTER TABLE ad_impressions ENABLE ROW LEVEL SECURITY;

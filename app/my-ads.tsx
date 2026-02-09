@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { supabase } from '@/lib/supabase';
 import type { Advertisement } from '@/types/super-admin';
-import { ArrowLeft, RefreshCcw } from 'lucide-react-native';
+import { ArrowLeft, RefreshCcw, Pause, Play, Trash2, Edit, Eye, MousePointerClick, TrendingUp, DollarSign } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 
@@ -81,6 +81,8 @@ export default function MyAdsScreen() {
           impressionsCount: row.impressions_count || 0,
           clicksCount: row.clicks_count || 0,
           conversionsCount: row.conversions_count || 0,
+          spendActual: row.spend_actual !== null && row.spend_actual !== undefined ? parseFloat(row.spend_actual) : undefined,
+          revenue: row.revenue !== null && row.revenue !== undefined ? parseFloat(row.revenue) : undefined,
           createdBy: row.created_by,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
@@ -141,27 +143,50 @@ export default function MyAdsScreen() {
 
   const handleResubmit = async () => {
     if (!editingAd || !user) return;
+    
+    // Only require proof for renewals
     if (editMode === 'renew' && !editPaymentProofUrl) {
       RNAlert.alert('Missing Proof', 'Please upload proof of payment to renew this ad.');
       return;
     }
+    
+    // Check if ad was already paid for and approved
+    const wasAlreadyPaid = editingAd.paymentStatus === 'approved';
+    
+    // All edits require admin approval - set status to pending
+    // But preserve payment status and stats if already paid
+    const updateData: any = {
+      headline: editHeadline.trim(),
+      body_text: editBody.trim() || null,
+      cta_text: editCta.trim() || 'Learn More',
+      payment_reference: editReference || null,
+      auto_renew: editAutoRenew,
+      status: 'pending', // Always require approval for content changes
+      updated_at: new Date().toISOString(),
+    };
+
+    // Only update payment status if it was never approved
+    // If already paid, keep the approved status
+    if (!wasAlreadyPaid) {
+      updateData.payment_status = 'pending';
+      updateData.admin_notes = null;
+    }
+    // If already paid, preserve admin_notes (don't include in update, so it keeps existing value)
+    
+    // Stats are automatically preserved - we don't update these columns:
+    // - impressions_count, clicks_count, conversions_count
+    // - spend_actual, revenue
+    // They remain unchanged in the database
+
+    // Only update payment proof if it's a renewal or if user uploaded new proof
+    if (editMode === 'renew' || editProofDirty) {
+      updateData.payment_proof_url = editPaymentProofUrl;
+    }
+
     try {
       const { error } = await supabase
         .from('advertisements')
-        .update({
-          headline: editHeadline.trim(),
-          body_text: editBody.trim() || null,
-          cta_text: editCta.trim() || 'Learn More',
-          payment_reference: editReference || null,
-          ...(editMode === 'renew' || editProofDirty
-            ? { payment_proof_url: editPaymentProofUrl }
-            : {}),
-          auto_renew: editAutoRenew,
-          status: 'pending',
-          payment_status: 'pending',
-          admin_notes: null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', editingAd.id)
         .eq('created_by', user.id);
       if (error) throw error;
@@ -169,13 +194,15 @@ export default function MyAdsScreen() {
       setEditPaymentProofUrl(null);
       setEditProofDirty(false);
       await loadAds();
-      const message =
-        editMode === 'renew'
-          ? 'Your renewal request has been submitted for approval.'
-          : 'Your ad has been resubmitted for review.';
+      
+      const message = editMode === 'renew'
+        ? 'Your renewal request has been submitted for approval.'
+        : wasAlreadyPaid
+        ? 'Your ad changes have been submitted for admin approval. Your payment status and performance stats are preserved.'
+        : 'Your ad changes have been submitted for admin approval.';
       RNAlert.alert('Submitted', message);
     } catch (error: any) {
-      RNAlert.alert('Error', error.message || 'Failed to resubmit ad.');
+      RNAlert.alert('Error', error.message || 'Failed to update ad.');
     }
   };
 
@@ -223,6 +250,67 @@ export default function MyAdsScreen() {
     loadAds();
     loadAdSets();
   }, [loadAds, loadAdSets]);
+
+  const handlePauseAd = async (adId: string) => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('advertisements')
+        .update({ status: 'paused', updated_at: new Date().toISOString() })
+        .eq('id', adId)
+        .eq('created_by', user.id);
+      if (error) throw error;
+      await loadAds();
+      RNAlert.alert('Paused', 'Your ad has been paused.');
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to pause ad.');
+    }
+  };
+
+  const handleResumeAd = async (adId: string) => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('advertisements')
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .eq('id', adId)
+        .eq('created_by', user.id);
+      if (error) throw error;
+      await loadAds();
+      RNAlert.alert('Resumed', 'Your ad has been resumed.');
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to resume ad.');
+    }
+  };
+
+  const handleDeleteAd = async (adId: string, adTitle: string) => {
+    RNAlert.alert(
+      'Delete Ad',
+      `Are you sure you want to delete "${adTitle}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            if (!user) return;
+            try {
+              const { error } = await supabase
+                .from('advertisements')
+                .delete()
+                .eq('id', adId)
+                .eq('created_by', user.id);
+              if (error) throw error;
+              await loadAds();
+              RNAlert.alert('Deleted', 'Your ad has been deleted.');
+            } catch (error: any) {
+              RNAlert.alert('Error', error.message || 'Failed to delete ad.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleRemoveProof = async () => {
     if (!settings.confirmRemoveProofEnabled) {
@@ -316,6 +404,42 @@ export default function MyAdsScreen() {
               {ad.paymentReference && (
                 <Text style={[styles.metaText, { color: theme.text.tertiary }]}>Ref: {ad.paymentReference}</Text>
               )}
+              
+              {/* Ad Stats Section */}
+              <View style={styles.statsSection}>
+                <Text style={[styles.statsTitle, { color: theme.text.primary }]}>Performance</Text>
+                <View style={styles.statsGrid}>
+                  <View style={styles.statItem}>
+                    <Eye size={16} color={theme.text.secondary} />
+                    <Text style={[styles.statValue, { color: theme.text.primary }]}>{ad.impressionsCount || 0}</Text>
+                    <Text style={[styles.statLabel, { color: theme.text.tertiary }]}>Impressions</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <MousePointerClick size={16} color={theme.text.secondary} />
+                    <Text style={[styles.statValue, { color: theme.text.primary }]}>{ad.clicksCount || 0}</Text>
+                    <Text style={[styles.statLabel, { color: theme.text.tertiary }]}>Clicks</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <TrendingUp size={16} color={theme.text.secondary} />
+                    <Text style={[styles.statValue, { color: theme.text.primary }]}>{ad.conversionsCount || 0}</Text>
+                    <Text style={[styles.statLabel, { color: theme.text.tertiary }]}>Conversions</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <DollarSign size={16} color={theme.text.secondary} />
+                    <Text style={[styles.statValue, { color: theme.text.primary }]}>
+                      {ad.spendActual !== undefined ? ad.spendActual.toFixed(2) : '0.00'}
+                    </Text>
+                    <Text style={[styles.statLabel, { color: theme.text.tertiary }]}>Spent</Text>
+                  </View>
+                </View>
+                {ad.impressionsCount > 0 && (
+                  <Text style={[styles.metaText, { color: theme.text.tertiary, marginTop: 8 }]}>
+                    CTR: {((ad.clicksCount / ad.impressionsCount) * 100).toFixed(2)}% • 
+                    CVR: {ad.clicksCount > 0 ? ((ad.conversionsCount / ad.clicksCount) * 100).toFixed(2) : '0.00'}%
+                  </Text>
+                )}
+              </View>
+
               {adSet && (
                 <Text style={[styles.metaText, { color: theme.text.tertiary }]}>
                   Ad Set: {adSet.name} · Goal: {(optimizationGoal || 'impressions').toUpperCase()}
@@ -352,22 +476,62 @@ export default function MyAdsScreen() {
               {ad.adminNotes && (
                 <Text style={[styles.metaText, { color: theme.text.tertiary }]}>Admin: {ad.adminNotes}</Text>
               )}
-              {ad.status === 'rejected' && (
-                <TouchableOpacity
-                  style={[styles.resubmitButton, { borderColor: theme.accent.primary }]}
-                  onPress={() => openEditModal(ad)}
-                >
-                  <Text style={[styles.resubmitText, { color: theme.accent.primary }]}>Edit & Resubmit</Text>
-                </TouchableOpacity>
-              )}
-              {ad.status === 'active' && (isExpiringSoon || isExpired) && (
-                <TouchableOpacity
-                  style={[styles.renewButton, { borderColor: theme.accent.warning }]}
-                  onPress={() => openEditModal(ad, 'renew')}
-                >
-                  <Text style={[styles.renewText, { color: theme.accent.warning }]}>Renew Now</Text>
-                </TouchableOpacity>
-              )}
+              {/* Action Buttons */}
+              <View style={styles.actionButtonsRow}>
+                {ad.status === 'active' && (
+                  <TouchableOpacity
+                    style={[styles.actionButton, { borderColor: theme.accent.warning }]}
+                    onPress={() => handlePauseAd(ad.id)}
+                  >
+                    <Pause size={16} color={theme.accent.warning} />
+                    <Text style={[styles.actionButtonText, { color: theme.accent.warning }]}>Pause</Text>
+                  </TouchableOpacity>
+                )}
+                {ad.status === 'paused' && (
+                  <TouchableOpacity
+                    style={[styles.actionButton, { borderColor: theme.accent.success }]}
+                    onPress={() => handleResumeAd(ad.id)}
+                  >
+                    <Play size={16} color={theme.accent.success} />
+                    <Text style={[styles.actionButtonText, { color: theme.accent.success }]}>Resume</Text>
+                  </TouchableOpacity>
+                )}
+                {(ad.status === 'active' || ad.status === 'paused' || ad.status === 'pending') && (
+                  <TouchableOpacity
+                    style={[styles.actionButton, { borderColor: theme.accent.primary }]}
+                    onPress={() => openEditModal(ad, ad.status === 'active' && (isExpiringSoon || isExpired) ? 'renew' : 'resubmit')}
+                  >
+                    <Edit size={16} color={theme.accent.primary} />
+                    <Text style={[styles.actionButtonText, { color: theme.accent.primary }]}>Edit</Text>
+                  </TouchableOpacity>
+                )}
+                {ad.status === 'rejected' && (
+                  <TouchableOpacity
+                    style={[styles.actionButton, { borderColor: theme.accent.primary }]}
+                    onPress={() => openEditModal(ad)}
+                  >
+                    <Edit size={16} color={theme.accent.primary} />
+                    <Text style={[styles.actionButtonText, { color: theme.accent.primary }]}>Edit & Resubmit</Text>
+                  </TouchableOpacity>
+                )}
+                {(ad.status === 'active' || ad.status === 'paused' || ad.status === 'rejected' || ad.status === 'pending') && (
+                  <TouchableOpacity
+                    style={[styles.actionButton, { borderColor: theme.accent.danger }]}
+                    onPress={() => handleDeleteAd(ad.id, ad.title)}
+                  >
+                    <Trash2 size={16} color={theme.accent.danger} />
+                    <Text style={[styles.actionButtonText, { color: theme.accent.danger }]}>Delete</Text>
+                  </TouchableOpacity>
+                )}
+                {ad.status === 'active' && (isExpiringSoon || isExpired) && (
+                  <TouchableOpacity
+                    style={[styles.actionButton, { borderColor: theme.accent.warning }]}
+                    onPress={() => openEditModal(ad, 'renew')}
+                  >
+                    <Text style={[styles.actionButtonText, { color: theme.accent.warning }]}>Renew</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           )})
         )}
@@ -454,7 +618,14 @@ export default function MyAdsScreen() {
               />
               {editMode !== 'renew' && (
                 <>
-                  <Text style={[styles.label, { color: theme.text.secondary }]}>Proof of Payment (Optional)</Text>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>
+                    Proof of Payment {editingAd?.paymentStatus === 'approved' ? '(Not Required - Already Paid)' : '(Optional)'}
+                  </Text>
+                  {editingAd?.paymentStatus === 'approved' && (
+                    <Text style={[styles.helpText, { color: theme.text.tertiary }]}>
+                      Your ad has already been paid for. Proof of payment is not required for edits.
+                    </Text>
+                  )}
                   {editPaymentProofUrl ? (
                     <>
                       <Image source={{ uri: editPaymentProofUrl }} style={styles.proofImage} />
@@ -556,7 +727,9 @@ export default function MyAdsScreen() {
                 style={[styles.saveButton, { backgroundColor: theme.accent.primary }]}
                 onPress={handleResubmit}
               >
-                <Text style={styles.saveText}>{editMode === 'renew' ? 'Submit Renewal' : 'Resubmit'}</Text>
+                <Text style={styles.saveText}>
+                  {editMode === 'renew' ? 'Submit Renewal' : 'Submit for Approval'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -668,5 +841,66 @@ const styles = StyleSheet.create({
   cancelText: { fontSize: 14, fontWeight: '600' },
   saveButton: { flex: 1, padding: 12, borderRadius: 10, alignItems: 'center' },
   saveText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  statsSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  statsTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  statItem: {
+    flex: 1,
+    minWidth: '45%',
+    alignItems: 'center',
+    padding: 8,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  statLabel: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flex: 1,
+    minWidth: '30%',
+  },
+  actionButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  helpText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginTop: 4,
+    marginBottom: 8,
+  },
 });
 
