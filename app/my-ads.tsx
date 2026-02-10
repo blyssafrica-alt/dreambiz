@@ -1175,12 +1175,40 @@ export default function MyAdsScreen() {
                         </>
                       )}
 
-                      {/* Placements Tab */}
+                      {/* Placements Tab - Horizontal Bars */}
                       {audienceTab === 'placements' && (
                         <View style={styles.placementsSection}>
-                          <Text style={[styles.placeholderText, { color: theme.text.tertiary }]}>
-                            Placement data will be available soon
-                          </Text>
+                          {analyticsData.placements && analyticsData.placements.length > 0 ? (
+                            analyticsData.placements.map((item: any, idx: number) => {
+                              const maxCount = Math.max(...analyticsData.placements.map((p: any) => p.count));
+                              const barWidth = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+                              return (
+                                <View key={idx} style={styles.placementItem}>
+                                  <Text style={[styles.placementLabel, { color: theme.text.primary }]}>
+                                    {item.placement}
+                                  </Text>
+                                  <View style={styles.placementBarContainer}>
+                                    <View 
+                                      style={[
+                                        styles.placementBar, 
+                                        { 
+                                          width: `${barWidth}%`,
+                                          backgroundColor: theme.accent.primary 
+                                        }
+                                      ]} 
+                                    />
+                                  </View>
+                                  <Text style={[styles.placementValue, { color: theme.text.primary }]}>
+                                    {item.count}
+                                  </Text>
+                                </View>
+                              );
+                            })
+                          ) : (
+                            <Text style={[styles.placeholderText, { color: theme.text.tertiary }]}>
+                              No placement data available yet
+                            </Text>
+                          )}
                         </View>
                       )}
 
@@ -1801,8 +1829,33 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   placementsSection: {
-    paddingVertical: 24,
+    gap: 16,
+  },
+  placementItem: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+  },
+  placementLabel: {
+    fontSize: 14,
+    flex: 1,
+  },
+  placementBarContainer: {
+    flex: 2,
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  placementBar: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  placementValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    minWidth: 50,
+    textAlign: 'right',
   },
   placeholderText: {
     fontSize: 14,

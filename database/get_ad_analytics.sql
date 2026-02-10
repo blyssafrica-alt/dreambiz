@@ -245,6 +245,43 @@ BEGIN
         )
       )
     ),
+    'placements', (
+      SELECT COALESCE(jsonb_agg(
+        jsonb_build_object(
+          'placement', placement_name,
+          'count', impression_count,
+          'clicks', click_count,
+          'conversions', conversion_count
+        )
+      ), '[]'::jsonb)
+      FROM (
+        SELECT 
+          CASE 
+            WHEN location = 'dashboard' THEN 'Dashboard'
+            WHEN location = 'documents' OR location LIKE 'document%' THEN 'Documents'
+            WHEN location = 'products' THEN 'Products'
+            WHEN location = 'customers' THEN 'Customers'
+            WHEN location = 'finances' THEN 'Finances'
+            WHEN location = 'reports' THEN 'Reports'
+            WHEN location = 'cashflow' THEN 'Cashflow'
+            WHEN location = 'tax' THEN 'Tax'
+            WHEN location = 'accounts' THEN 'Accounts'
+            WHEN location = 'projects' THEN 'Projects'
+            WHEN location = 'employees' THEN 'Employees'
+            WHEN location = 'suppliers' THEN 'Suppliers'
+            WHEN location = 'budgets' THEN 'Budgets'
+            WHEN location = 'insights' THEN 'Insights'
+            ELSE INITCAP(REPLACE(location, '_', ' '))
+          END as placement_name,
+          COUNT(*) as impression_count,
+          SUM(CASE WHEN clicked = true THEN 1 ELSE 0 END) as click_count,
+          SUM(CASE WHEN converted = true THEN 1 ELSE 0 END) as conversion_count
+        FROM ad_impressions
+        WHERE ad_id = ad_id_param
+        GROUP BY location
+        ORDER BY impression_count DESC
+      ) placements_data
+    ),
         'ad_locations', (
           SELECT COALESCE(jsonb_agg(
             jsonb_build_object(
