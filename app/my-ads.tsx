@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { supabase } from '@/lib/supabase';
 import type { Advertisement } from '@/types/super-admin';
-import { ArrowLeft, RefreshCcw, Pause, Play, Trash2, Edit, Eye, MousePointerClick, TrendingUp, DollarSign } from 'lucide-react-native';
+import { ArrowLeft, RefreshCcw, Pause, Play, Trash2, Edit, Eye, MousePointerClick, TrendingUp, DollarSign, BarChart3, Users, Calendar, MapPin } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 
@@ -28,6 +28,9 @@ export default function MyAdsScreen() {
   const [editPaymentProofUrl, setEditPaymentProofUrl] = useState<string | null>(null);
   const [isUploadingProof, setIsUploadingProof] = useState(false);
   const [editProofDirty, setEditProofDirty] = useState(false);
+  const [analyticsAd, setAnalyticsAd] = useState<Advertisement | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
 
   const formatExpiry = (endDate?: string) => {
     if (!endDate) return null;
@@ -283,6 +286,24 @@ export default function MyAdsScreen() {
     }
   };
 
+  const loadAdAnalytics = async (ad: Advertisement) => {
+    if (!user) return;
+    setLoadingAnalytics(true);
+    setAnalyticsAd(ad);
+    try {
+      const { data, error } = await supabase.rpc('get_ad_analytics', {
+        ad_id_param: ad.id,
+      });
+      if (error) throw error;
+      setAnalyticsData(data);
+    } catch (error: any) {
+      RNAlert.alert('Error', error.message || 'Failed to load analytics.');
+      setAnalyticsAd(null);
+    } finally {
+      setLoadingAnalytics(false);
+    }
+  };
+
   const handleDeleteAd = async (adId: string, adTitle: string) => {
     RNAlert.alert(
       'Delete Ad',
@@ -478,6 +499,15 @@ export default function MyAdsScreen() {
               )}
               {/* Action Buttons */}
               <View style={styles.actionButtonsRow}>
+                {ad.impressionsCount > 0 && (
+                  <TouchableOpacity
+                    style={[styles.actionButton, { borderColor: theme.accent.info || '#3B82F6' }]}
+                    onPress={() => loadAdAnalytics(ad)}
+                  >
+                    <BarChart3 size={16} color={theme.accent.info || '#3B82F6'} />
+                    <Text style={[styles.actionButtonText, { color: theme.accent.info || '#3B82F6' }]}>Analytics</Text>
+                  </TouchableOpacity>
+                )}
                 {ad.status === 'active' && (
                   <TouchableOpacity
                     style={[styles.actionButton, { borderColor: theme.accent.warning }]}
@@ -735,6 +765,254 @@ export default function MyAdsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Analytics Modal */}
+      <Modal visible={!!analyticsAd} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.background.primary }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text.primary }]}>
+                Ad Analytics: {analyticsAd?.title}
+              </Text>
+              <TouchableOpacity onPress={() => { setAnalyticsAd(null); setAnalyticsData(null); }}>
+                <Text style={[styles.closeButton, { color: theme.text.secondary }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalBody}>
+              {loadingAnalytics ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color={theme.accent.primary} />
+                  <Text style={[styles.loadingText, { color: theme.text.secondary }]}>Loading analytics...</Text>
+                </View>
+              ) : analyticsData ? (
+                <>
+                  {/* Overview */}
+                  {analyticsData.overview && (
+                    <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
+                      <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Overview</Text>
+                      <View style={styles.overviewGrid}>
+                        <View style={styles.overviewItem}>
+                          <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
+                            {analyticsData.overview.total_impressions || 0}
+                          </Text>
+                          <Text style={[styles.overviewLabel, { color: theme.text.tertiary }]}>Impressions</Text>
+                        </View>
+                        <View style={styles.overviewItem}>
+                          <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
+                            {analyticsData.overview.total_clicks || 0}
+                          </Text>
+                          <Text style={[styles.overviewLabel, { color: theme.text.tertiary }]}>Clicks</Text>
+                        </View>
+                        <View style={styles.overviewItem}>
+                          <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
+                            {analyticsData.overview.total_conversions || 0}
+                          </Text>
+                          <Text style={[styles.overviewLabel, { color: theme.text.tertiary }]}>Conversions</Text>
+                        </View>
+                        <View style={styles.overviewItem}>
+                          <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
+                            {analyticsData.overview.unique_users || 0}
+                          </Text>
+                          <Text style={[styles.overviewLabel, { color: theme.text.tertiary }]}>Unique Users</Text>
+                        </View>
+                        <View style={styles.overviewItem}>
+                          <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
+                            {analyticsData.overview.ctr || 0}%
+                          </Text>
+                          <Text style={[styles.overviewLabel, { color: theme.text.tertiary }]}>CTR</Text>
+                        </View>
+                        <View style={styles.overviewItem}>
+                          <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
+                            {analyticsData.overview.cvr || 0}%
+                          </Text>
+                          <Text style={[styles.overviewLabel, { color: theme.text.tertiary }]}>CVR</Text>
+                        </View>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Demographics */}
+                  {analyticsData.demographics && (
+                    <>
+                      {/* Age Groups */}
+                      {analyticsData.demographics.age_groups && analyticsData.demographics.age_groups.length > 0 && (
+                        <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
+                          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
+                            <Users size={18} color={theme.text.primary} /> Age Groups
+                          </Text>
+                          {analyticsData.demographics.age_groups.map((item: any, idx: number) => (
+                            <View key={idx} style={styles.demographicRow}>
+                              <View style={styles.demographicLabelRow}>
+                                <Text style={[styles.demographicLabel, { color: theme.text.secondary }]}>
+                                  {item.age_group}
+                                </Text>
+                                <Text style={[styles.demographicValue, { color: theme.text.primary }]}>
+                                  {item.count} impressions
+                                </Text>
+                              </View>
+                              <View style={[styles.progressBar, { backgroundColor: theme.border.light }]}>
+                                <View 
+                                  style={[
+                                    styles.progressFill, 
+                                    { 
+                                      backgroundColor: theme.accent.primary, 
+                                      width: `${analyticsData.overview.total_impressions > 0 ? (item.count / analyticsData.overview.total_impressions) * 100 : 0}%` 
+                                    }
+                                  ]} 
+                                />
+                              </View>
+                              <Text style={[styles.demographicSubtext, { color: theme.text.tertiary }]}>
+                                {item.clicks} clicks • {item.conversions} conversions
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      {/* Gender */}
+                      {analyticsData.demographics.gender && analyticsData.demographics.gender.length > 0 && (
+                        <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
+                          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Gender</Text>
+                          {analyticsData.demographics.gender.map((item: any, idx: number) => (
+                            <View key={idx} style={styles.demographicRow}>
+                              <View style={styles.demographicLabelRow}>
+                                <Text style={[styles.demographicLabel, { color: theme.text.secondary }]}>
+                                  {item.gender}
+                                </Text>
+                                <Text style={[styles.demographicValue, { color: theme.text.primary }]}>
+                                  {item.count} impressions
+                                </Text>
+                              </View>
+                              <View style={[styles.progressBar, { backgroundColor: theme.border.light }]}>
+                                <View 
+                                  style={[
+                                    styles.progressFill, 
+                                    { 
+                                      backgroundColor: theme.accent.primary, 
+                                      width: `${analyticsData.overview.total_impressions > 0 ? (item.count / analyticsData.overview.total_impressions) * 100 : 0}%` 
+                                    }
+                                  ]} 
+                                />
+                              </View>
+                              <Text style={[styles.demographicSubtext, { color: theme.text.tertiary }]}>
+                                {item.clicks} clicks • {item.conversions} conversions
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      {/* Interests */}
+                      {analyticsData.demographics.interests && analyticsData.demographics.interests.length > 0 && (
+                        <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
+                          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Top Interests</Text>
+                          {analyticsData.demographics.interests.map((item: any, idx: number) => (
+                            <View key={idx} style={styles.demographicRow}>
+                              <View style={styles.demographicLabelRow}>
+                                <Text style={[styles.demographicLabel, { color: theme.text.secondary }]}>
+                                  {item.interest}
+                                </Text>
+                                <Text style={[styles.demographicValue, { color: theme.text.primary }]}>
+                                  {item.count} users
+                                </Text>
+                              </View>
+                              <Text style={[styles.demographicSubtext, { color: theme.text.tertiary }]}>
+                                {item.clicks} clicks • {item.conversions} conversions
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      {/* Business Types */}
+                      {analyticsData.demographics.business_types && analyticsData.demographics.business_types.length > 0 && (
+                        <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
+                          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Business Types</Text>
+                          {analyticsData.demographics.business_types.map((item: any, idx: number) => (
+                            <View key={idx} style={styles.demographicRow}>
+                              <View style={styles.demographicLabelRow}>
+                                <Text style={[styles.demographicLabel, { color: theme.text.secondary }]}>
+                                  {item.business_type}
+                                </Text>
+                                <Text style={[styles.demographicValue, { color: theme.text.primary }]}>
+                                  {item.count} impressions
+                                </Text>
+                              </View>
+                              <Text style={[styles.demographicSubtext, { color: theme.text.tertiary }]}>
+                                {item.clicks} clicks • {item.conversions} conversions
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      {/* Business Stages */}
+                      {analyticsData.demographics.business_stages && analyticsData.demographics.business_stages.length > 0 && (
+                        <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
+                          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Business Stages</Text>
+                          {analyticsData.demographics.business_stages.map((item: any, idx: number) => (
+                            <View key={idx} style={styles.demographicRow}>
+                              <View style={styles.demographicLabelRow}>
+                                <Text style={[styles.demographicLabel, { color: theme.text.secondary }]}>
+                                  {item.stage}
+                                </Text>
+                                <Text style={[styles.demographicValue, { color: theme.text.primary }]}>
+                                  {item.count} impressions
+                                </Text>
+                              </View>
+                              <Text style={[styles.demographicSubtext, { color: theme.text.tertiary }]}>
+                                {item.clicks} clicks • {item.conversions} conversions
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      {/* Locations */}
+                      {analyticsData.demographics.locations && analyticsData.demographics.locations.length > 0 && (
+                        <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
+                          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
+                            <MapPin size={18} color={theme.text.primary} /> Top Locations
+                          </Text>
+                          {analyticsData.demographics.locations.map((item: any, idx: number) => (
+                            <View key={idx} style={styles.demographicRow}>
+                              <View style={styles.demographicLabelRow}>
+                                <Text style={[styles.demographicLabel, { color: theme.text.secondary }]}>
+                                  {item.location}
+                                </Text>
+                                <Text style={[styles.demographicValue, { color: theme.text.primary }]}>
+                                  {item.count} impressions
+                                </Text>
+                              </View>
+                              <Text style={[styles.demographicSubtext, { color: theme.text.tertiary }]}>
+                                {item.clicks} clicks • {item.conversions} conversions
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                    </>
+                  )}
+                </>
+              ) : (
+                <View style={styles.emptyState}>
+                  <Text style={[styles.emptyText, { color: theme.text.secondary }]}>
+                    No analytics data available yet
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.cancelButton, { backgroundColor: theme.background.secondary }]}
+                onPress={() => { setAnalyticsAd(null); setAnalyticsData(null); }}
+              >
+                <Text style={[styles.cancelText, { color: theme.text.secondary }]}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -901,6 +1179,81 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 4,
     marginBottom: 8,
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+  },
+  analyticsSection: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  overviewGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  overviewItem: {
+    flex: 1,
+    minWidth: '30%',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+  },
+  overviewValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  overviewLabel: {
+    fontSize: 11,
+  },
+  demographicRow: {
+    marginBottom: 16,
+  },
+  demographicLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  demographicLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  demographicValue: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  demographicSubtext: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  progressBar: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  progressFill: {
+    height: 6,
+    borderRadius: 3,
   },
 });
 
