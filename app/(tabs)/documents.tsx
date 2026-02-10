@@ -29,12 +29,6 @@ export default function DocumentsScreen() {
   const { t } = useTranslation();
   const { getAdsForLocation } = useAds();
   const documentsAds = getAdsForLocation('documents');
-  const { shouldShowAd, getAdForIndex } = useAdPlacement({
-    ads: documentsAds,
-    itemsCount: filteredDocuments.length,
-    minGap: 5,
-    maxAds: Math.ceil(filteredDocuments.length / 5), // Max 1 ad per 5 items
-  });
   const [showWizard, setShowWizard] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter] = useState<DocumentStatus | 'all'>('all');
@@ -105,6 +99,14 @@ export default function DocumentsScreen() {
 
     return filtered;
   }, [safeDocuments, searchQuery, statusFilter, typeFilter, folderFilter]);
+
+  // Ad placement hook - must be after filteredDocuments is defined
+  const { shouldShowAd, getAdForIndex } = useAdPlacement({
+    ads: documentsAds,
+    itemsCount: filteredDocuments.length,
+    minGap: 5,
+    maxAds: Math.ceil(filteredDocuments.length / 5), // Max 1 ad per 5 items
+  });
 
   // Legacy modal functions removed - DocumentWizard handles document creation
 
