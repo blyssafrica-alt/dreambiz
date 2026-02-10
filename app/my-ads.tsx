@@ -34,6 +34,7 @@ export default function MyAdsScreen() {
   const [analyticsAd, setAnalyticsAd] = useState<Advertisement | null>(null);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [audienceTab, setAudienceTab] = useState<'people' | 'placements' | 'locations'>('people');
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
   const formatExpiry = (endDate?: string) => {
@@ -953,7 +954,7 @@ export default function MyAdsScreen() {
               <Text style={[styles.modalTitle, { color: theme.text.primary }]}>
                 Ad Analytics: {analyticsAd?.title}
               </Text>
-              <TouchableOpacity onPress={() => { setAnalyticsAd(null); setAnalyticsData(null); }}>
+              <TouchableOpacity onPress={() => { setAnalyticsAd(null); setAnalyticsData(null); setAudienceTab('people'); }}>
                 <Text style={[styles.closeButton, { color: theme.text.secondary }]}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -965,290 +966,255 @@ export default function MyAdsScreen() {
                 </View>
               ) : analyticsData ? (
                 <>
-                  {/* Overview Cards - Facebook Style */}
+                  {/* Performance Section - Facebook Style */}
                   {analyticsData.overview && (
                     <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
-                      <Text style={[styles.sectionTitle, { color: theme.text.primary, marginBottom: 16 }]}>Performance Overview</Text>
-                      <View style={styles.overviewGrid}>
-                        <View style={[styles.overviewCard, { backgroundColor: theme.background.secondary }]}>
-                          <Eye size={20} color={theme.accent.primary} />
-                          <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
-                            {analyticsData.overview.total_impressions || 0}
-                          </Text>
-                          <Text style={[styles.overviewLabel, { color: theme.text.tertiary }]}>Impressions</Text>
-                        </View>
-                        <View style={[styles.overviewCard, { backgroundColor: theme.background.secondary }]}>
-                          <MousePointerClick size={20} color={theme.accent.primary} />
-                          <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
+                      <Text style={[styles.sectionTitle, { color: theme.text.primary, marginBottom: 16 }]}>Performance</Text>
+                      <View style={styles.performanceGrid}>
+                        <View style={styles.performanceItem}>
+                          <Text style={[styles.performanceValue, { color: theme.text.primary }]}>
                             {analyticsData.overview.total_clicks || 0}
                           </Text>
-                          <Text style={[styles.overviewLabel, { color: theme.text.tertiary }]}>Clicks</Text>
-                        </View>
-                        <View style={[styles.overviewCard, { backgroundColor: theme.background.secondary }]}>
-                          <TrendingUp size={20} color={theme.accent.primary} />
-                          <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
-                            {analyticsData.overview.total_conversions || 0}
+                          <Text style={[styles.performanceLabel, { color: theme.text.secondary }]}>
+                            Link clicks
                           </Text>
-                          <Text style={[styles.overviewLabel, { color: theme.text.tertiary }]}>Conversions</Text>
                         </View>
-                        <View style={[styles.overviewCard, { backgroundColor: theme.background.secondary }]}>
-                          <Users size={20} color={theme.accent.primary} />
-                          <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
+                        <View style={styles.performanceItem}>
+                          <Text style={[styles.performanceValue, { color: theme.text.primary }]}>
+                            {analyticsData.overview.total_impressions || 0}
+                          </Text>
+                          <Text style={[styles.performanceLabel, { color: theme.text.secondary }]}>
+                            Views
+                          </Text>
+                        </View>
+                        <View style={styles.performanceItem}>
+                          <Text style={[styles.performanceValue, { color: theme.text.primary }]}>
                             {analyticsData.overview.unique_users || 0}
                           </Text>
-                          <Text style={[styles.overviewLabel, { color: theme.text.tertiary }]}>Unique Users</Text>
-                        </View>
-                        <View style={[styles.overviewCard, { backgroundColor: theme.background.secondary }]}>
-                          <BarChart3 size={20} color={theme.accent.primary} />
-                          <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
-                            {analyticsData.overview.ctr || 0}%
+                          <Text style={[styles.performanceLabel, { color: theme.text.secondary }]}>
+                            Reach
                           </Text>
-                          <Text style={[styles.overviewLabel, { color: theme.text.tertiary }]}>CTR</Text>
                         </View>
-                        <View style={[styles.overviewCard, { backgroundColor: theme.background.secondary }]}>
-                          <DollarSign size={20} color={theme.accent.primary} />
-                          <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
-                            {analyticsData.overview.cvr || 0}%
+                        <View style={styles.performanceItem}>
+                          <Text style={[styles.performanceValue, { color: theme.text.primary }]}>
+                            {analyticsData.overview.total_conversions || 0}
                           </Text>
-                          <Text style={[styles.overviewLabel, { color: theme.text.tertiary }]}>CVR</Text>
+                          <Text style={[styles.performanceLabel, { color: theme.text.secondary }]}>
+                            Conversions
+                          </Text>
                         </View>
                       </View>
                     </View>
                   )}
 
-                  {/* Performance Over Time - Line Charts */}
-                  {analyticsData.time_analytics?.daily && analyticsData.time_analytics.daily.length > 0 && (
-                    <>
-                      <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
-                        <Text style={[styles.sectionTitle, { color: theme.text.primary, marginBottom: 16 }]}>
-                          Impressions Over Time
-                        </Text>
-                        <View style={styles.chartContainer}>
-                          <LineChart
-                            data={analyticsData.time_analytics.daily.map((d: any) => d.count || 0)}
-                            labels={analyticsData.time_analytics.daily.map((d: any) => {
-                              const date = new Date(d.date);
-                              return `${date.getMonth() + 1}/${date.getDate()}`;
-                            })}
-                            color={theme.accent.primary}
-                            height={220}
-                          />
+                  {/* Activity Section - Facebook Style with Horizontal Bars */}
+                  {analyticsData.overview && (
+                    <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
+                      <Text style={[styles.sectionTitle, { color: theme.text.primary, marginBottom: 16 }]}>Activity</Text>
+                      <View style={styles.activityList}>
+                        <View style={styles.activityItem}>
+                          <Text style={[styles.activityLabel, { color: theme.text.primary }]}>Post engagements</Text>
+                          <View style={styles.activityBarContainer}>
+                            <View 
+                              style={[
+                                styles.activityBar, 
+                                { 
+                                  width: `${analyticsData.overview.total_impressions > 0 ? Math.min((analyticsData.overview.total_clicks || 0) / analyticsData.overview.total_impressions * 100, 100) : 0}%`,
+                                  backgroundColor: theme.accent.primary 
+                                }
+                              ]} 
+                            />
+                          </View>
+                          <Text style={[styles.activityValue, { color: theme.text.primary }]}>
+                            {analyticsData.overview.total_clicks || 0}
+                          </Text>
+                        </View>
+                        <View style={styles.activityItem}>
+                          <Text style={[styles.activityLabel, { color: theme.text.primary }]}>Link clicks</Text>
+                          <View style={styles.activityBarContainer}>
+                            <View 
+                              style={[
+                                styles.activityBar, 
+                                { 
+                                  width: `${analyticsData.overview.total_impressions > 0 ? Math.min((analyticsData.overview.total_clicks || 0) / analyticsData.overview.total_impressions * 100, 100) : 0}%`,
+                                  backgroundColor: theme.accent.primary 
+                                }
+                              ]} 
+                            />
+                          </View>
+                          <Text style={[styles.activityValue, { color: theme.text.primary }]}>
+                            {analyticsData.overview.total_clicks || 0}
+                          </Text>
+                        </View>
+                        <View style={styles.activityItem}>
+                          <Text style={[styles.activityLabel, { color: theme.text.primary }]}>Conversions</Text>
+                          <View style={styles.activityBarContainer}>
+                            <View 
+                              style={[
+                                styles.activityBar, 
+                                { 
+                                  width: `${analyticsData.overview.total_impressions > 0 ? Math.min((analyticsData.overview.total_conversions || 0) / analyticsData.overview.total_impressions * 100, 100) : 0}%`,
+                                  backgroundColor: theme.accent.primary 
+                                }
+                              ]} 
+                            />
+                          </View>
+                          <Text style={[styles.activityValue, { color: theme.text.primary }]}>
+                            {analyticsData.overview.total_conversions || 0}
+                          </Text>
                         </View>
                       </View>
-                      <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
-                        <Text style={[styles.sectionTitle, { color: theme.text.primary, marginBottom: 16 }]}>
-                          Clicks Over Time
-                        </Text>
-                        <View style={styles.chartContainer}>
-                          <LineChart
-                            data={analyticsData.time_analytics.daily.map((d: any) => d.clicks || 0)}
-                            labels={analyticsData.time_analytics.daily.map((d: any) => {
-                              const date = new Date(d.date);
-                              return `${date.getMonth() + 1}/${date.getDate()}`;
-                            })}
-                            color="#10B981"
-                            height={220}
-                          />
-                        </View>
-                      </View>
-                      <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
-                        <Text style={[styles.sectionTitle, { color: theme.text.primary, marginBottom: 16 }]}>
-                          Conversions Over Time
-                        </Text>
-                        <View style={styles.chartContainer}>
-                          <LineChart
-                            data={analyticsData.time_analytics.daily.map((d: any) => d.conversions || 0)}
-                            labels={analyticsData.time_analytics.daily.map((d: any) => {
-                              const date = new Date(d.date);
-                              return `${date.getMonth() + 1}/${date.getDate()}`;
-                            })}
-                            color="#F59E0B"
-                            height={220}
-                          />
-                        </View>
-                      </View>
-                    </>
+                    </View>
                   )}
 
-                  {/* Demographics */}
-                  {analyticsData.demographics && (
-                    <>
-                      {/* Age Groups - Bar Chart */}
-                      {analyticsData.demographics.age_groups && analyticsData.demographics.age_groups.length > 0 && (
-                        <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
-                          <View style={styles.sectionTitleRow}>
-                            <Users size={18} color={theme.text.primary} />
-                            <Text style={[styles.sectionTitle, { color: theme.text.primary, marginBottom: 16 }]}>
-                              Age Distribution
-                            </Text>
-                          </View>
-                          <View style={styles.chartContainer}>
-                            <BarChart
-                              data={analyticsData.demographics.age_groups.map((item: any) => ({
-                                label: item.age_group,
-                                value: item.count,
-                                color: theme.accent.primary,
-                              }))}
-                              height={220}
-                              showValues={true}
-                            />
-                          </View>
-                          <View style={styles.chartStats}>
-                            {analyticsData.demographics.age_groups.map((item: any, idx: number) => (
-                              <View key={idx} style={styles.chartStatItem}>
-                                <Text style={[styles.chartStatLabel, { color: theme.text.tertiary }]}>
-                                  {item.age_group}
-                                </Text>
-                                <Text style={[styles.chartStatValue, { color: theme.text.primary }]}>
-                                  {item.count} impressions
-                                </Text>
-                                <Text style={[styles.chartStatSubtext, { color: theme.text.tertiary }]}>
-                                  {item.clicks} clicks • {item.conversions} conversions
-                                </Text>
-                              </View>
-                            ))}
-                          </View>
-                        </View>
-                      )}
+                  {/* Audience Section - Facebook Style with Tabs */}
+                  {analyticsData.demographics && analyticsData.overview && (
+                    <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
+                      <View style={styles.audienceHeader}>
+                        <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Audience</Text>
+                      </View>
+                      <Text style={[styles.audienceSubtext, { color: theme.text.secondary }]}>
+                        This ad reached <Text style={{ fontWeight: '700' }}>{analyticsData.overview.unique_users || 0}</Text> accounts in your audience.
+                      </Text>
+                      
+                      {/* Tabs */}
+                      <View style={styles.tabContainer}>
+                        <TouchableOpacity
+                          style={[styles.tab, audienceTab === 'people' && styles.tabActive]}
+                          onPress={() => setAudienceTab('people')}
+                        >
+                          <Text style={[
+                            styles.tabText,
+                            { color: audienceTab === 'people' ? theme.accent.primary : theme.text.secondary }
+                          ]}>
+                            People
+                          </Text>
+                          {audienceTab === 'people' && <View style={[styles.tabUnderline, { backgroundColor: theme.accent.primary }]} />}
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.tab, audienceTab === 'placements' && styles.tabActive]}
+                          onPress={() => setAudienceTab('placements')}
+                        >
+                          <Text style={[
+                            styles.tabText,
+                            { color: audienceTab === 'placements' ? theme.accent.primary : theme.text.secondary }
+                          ]}>
+                            Placements
+                          </Text>
+                          {audienceTab === 'placements' && <View style={[styles.tabUnderline, { backgroundColor: theme.accent.primary }]} />}
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.tab, audienceTab === 'locations' && styles.tabActive]}
+                          onPress={() => setAudienceTab('locations')}
+                        >
+                          <Text style={[
+                            styles.tabText,
+                            { color: audienceTab === 'locations' ? theme.accent.primary : theme.text.secondary }
+                          ]}>
+                            Locations
+                          </Text>
+                          {audienceTab === 'locations' && <View style={[styles.tabUnderline, { backgroundColor: theme.accent.primary }]} />}
+                        </TouchableOpacity>
+                      </View>
 
-                      {/* Gender - Pie Chart */}
-                      {analyticsData.demographics.gender && analyticsData.demographics.gender.length > 0 && (
-                        <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
-                          <Text style={[styles.sectionTitle, { color: theme.text.primary, marginBottom: 16 }]}>Gender Distribution</Text>
-                          <View style={styles.chartContainer}>
-                            <PieChart
-                              data={analyticsData.demographics.gender.map((item: any, idx: number) => ({
-                                label: item.gender,
-                                value: item.count,
-                                color: ['#0066CC', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'][idx % 5] || theme.accent.primary,
-                              }))}
-                              size={200}
-                              showLabels={true}
-                              showLegend={true}
-                            />
-                          </View>
-                          <View style={styles.chartStats}>
-                            {analyticsData.demographics.gender.map((item: any, idx: number) => (
-                              <View key={idx} style={styles.chartStatItem}>
-                                <Text style={[styles.chartStatLabel, { color: theme.text.tertiary }]}>
-                                  {item.gender}
-                                </Text>
-                                <Text style={[styles.chartStatValue, { color: theme.text.primary }]}>
-                                  {item.count} impressions ({analyticsData.overview.total_impressions > 0 ? ((item.count / analyticsData.overview.total_impressions) * 100).toFixed(1) : 0}%)
-                                </Text>
-                                <Text style={[styles.chartStatSubtext, { color: theme.text.tertiary }]}>
-                                  {item.clicks} clicks • {item.conversions} conversions
-                                </Text>
-                              </View>
-                            ))}
-                          </View>
-                        </View>
-                      )}
-
-                      {/* Interests */}
-                      {analyticsData.demographics.interests && analyticsData.demographics.interests.length > 0 && (
-                        <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
-                          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Top Interests</Text>
-                          {analyticsData.demographics.interests.map((item: any, idx: number) => (
-                            <View key={idx} style={styles.demographicRow}>
-                              <View style={styles.demographicLabelRow}>
-                                <Text style={[styles.demographicLabel, { color: theme.text.secondary }]}>
-                                  {item.interest}
-                                </Text>
-                                <Text style={[styles.demographicValue, { color: theme.text.primary }]}>
-                                  {item.count} users
-                                </Text>
-                              </View>
-                              <Text style={[styles.demographicSubtext, { color: theme.text.tertiary }]}>
-                                {item.clicks} clicks • {item.conversions} conversions
-                              </Text>
+                      {/* People Tab */}
+                      {audienceTab === 'people' && (
+                        <>
+                          {/* Gender - Facebook Style (Percentages) */}
+                          {analyticsData.demographics.gender && analyticsData.demographics.gender.length > 0 && (
+                            <View style={styles.peopleSection}>
+                              {analyticsData.demographics.gender.map((item: any, idx: number) => {
+                                const percentage = analyticsData.overview.total_impressions > 0 
+                                  ? ((item.count / analyticsData.overview.total_impressions) * 100).toFixed(1)
+                                  : '0.0';
+                                return (
+                                  <Text key={idx} style={[styles.genderText, { color: theme.text.primary }]}>
+                                    <Text style={{ fontWeight: '700' }}>{percentage}%</Text> {item.gender}
+                                  </Text>
+                                );
+                              })}
                             </View>
-                          ))}
-                        </View>
-                      )}
+                          )}
 
-                      {/* Business Types - Bar Chart */}
-                      {analyticsData.demographics.business_types && analyticsData.demographics.business_types.length > 0 && (
-                        <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
-                          <Text style={[styles.sectionTitle, { color: theme.text.primary, marginBottom: 16 }]}>Business Types</Text>
-                          <View style={styles.chartContainer}>
-                            <BarChart
-                              data={analyticsData.demographics.business_types.map((item: any, idx: number) => ({
-                                label: item.business_type.replace('_', ' ').substring(0, 8),
-                                value: item.count,
-                                color: ['#0066CC', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'][idx % 5] || theme.accent.primary,
-                              }))}
-                              height={220}
-                              showValues={true}
-                            />
-                          </View>
-                          <View style={styles.chartStats}>
-                            {analyticsData.demographics.business_types.map((item: any, idx: number) => (
-                              <View key={idx} style={styles.chartStatItem}>
-                                <Text style={[styles.chartStatLabel, { color: theme.text.tertiary }]}>
-                                  {item.business_type}
-                                </Text>
-                                <Text style={[styles.chartStatValue, { color: theme.text.primary }]}>
-                                  {item.count} impressions
-                                </Text>
-                                <Text style={[styles.chartStatSubtext, { color: theme.text.tertiary }]}>
-                                  {item.clicks} clicks • {item.conversions} conversions
-                                </Text>
+                          {/* Age Groups - Vertical Bar Chart with Percentages */}
+                          {analyticsData.demographics.age_groups && analyticsData.demographics.age_groups.length > 0 && (
+                            <View style={styles.ageChartContainer}>
+                              <BarChart
+                                data={analyticsData.demographics.age_groups.map((item: any) => {
+                                  const percentage = analyticsData.overview.total_impressions > 0
+                                    ? (item.count / analyticsData.overview.total_impressions) * 100
+                                    : 0;
+                                  return {
+                                    label: item.age_group,
+                                    value: percentage,
+                                    color: theme.accent.primary,
+                                  };
+                                })}
+                                height={200}
+                                showValues={false}
+                              />
+                              <View style={styles.ageStats}>
+                                {analyticsData.demographics.age_groups.map((item: any, idx: number) => {
+                                  const percentage = analyticsData.overview.total_impressions > 0
+                                    ? ((item.count / analyticsData.overview.total_impressions) * 100).toFixed(1)
+                                    : '0.0';
+                                  return (
+                                    <View key={idx} style={styles.ageStatItem}>
+                                      <Text style={[styles.ageStatLabel, { color: theme.text.secondary }]}>
+                                        {item.age_group}
+                                      </Text>
+                                      <Text style={[styles.ageStatValue, { color: theme.text.primary }]}>
+                                        {percentage}%
+                                      </Text>
+                                    </View>
+                                  );
+                                })}
                               </View>
-                            ))}
-                          </View>
-                        </View>
-                      )}
-
-                      {/* Business Stages */}
-                      {analyticsData.demographics.business_stages && analyticsData.demographics.business_stages.length > 0 && (
-                        <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
-                          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Business Stages</Text>
-                          {analyticsData.demographics.business_stages.map((item: any, idx: number) => (
-                            <View key={idx} style={styles.demographicRow}>
-                              <View style={styles.demographicLabelRow}>
-                                <Text style={[styles.demographicLabel, { color: theme.text.secondary }]}>
-                                  {item.stage}
-                                </Text>
-                                <Text style={[styles.demographicValue, { color: theme.text.primary }]}>
-                                  {item.count} impressions
-                                </Text>
-                              </View>
-                              <Text style={[styles.demographicSubtext, { color: theme.text.tertiary }]}>
-                                {item.clicks} clicks • {item.conversions} conversions
-                              </Text>
                             </View>
-                          ))}
+                          )}
+                        </>
+                      )}
+
+                      {/* Placements Tab */}
+                      {audienceTab === 'placements' && (
+                        <View style={styles.placementsSection}>
+                          <Text style={[styles.placeholderText, { color: theme.text.tertiary }]}>
+                            Placement data will be available soon
+                          </Text>
                         </View>
                       )}
 
-                      {/* Locations */}
-                      {analyticsData.demographics.locations && analyticsData.demographics.locations.length > 0 && (
-                        <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
-                          <View style={styles.sectionTitleRow}>
-                            <MapPin size={18} color={theme.text.primary} />
-                            <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
-                              Top Locations
-                            </Text>
-                          </View>
-                          {analyticsData.demographics.locations.map((item: any, idx: number) => (
-                            <View key={idx} style={styles.demographicRow}>
-                              <View style={styles.demographicLabelRow}>
-                                <Text style={[styles.demographicLabel, { color: theme.text.secondary }]}>
+                      {/* Locations Tab - Horizontal Bars */}
+                      {audienceTab === 'locations' && analyticsData.demographics.locations && analyticsData.demographics.locations.length > 0 && (
+                        <View style={styles.locationsSection}>
+                          {analyticsData.demographics.locations.map((item: any, idx: number) => {
+                            const maxCount = Math.max(...analyticsData.demographics.locations.map((l: any) => l.count));
+                            const barWidth = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+                            return (
+                              <View key={idx} style={styles.locationItem}>
+                                <Text style={[styles.locationLabel, { color: theme.text.primary }]}>
                                   {item.location}
                                 </Text>
-                                <Text style={[styles.demographicValue, { color: theme.text.primary }]}>
-                                  {item.count} impressions
+                                <View style={styles.locationBarContainer}>
+                                  <View 
+                                    style={[
+                                      styles.locationBar, 
+                                      { 
+                                        width: `${barWidth}%`,
+                                        backgroundColor: theme.accent.primary 
+                                      }
+                                    ]} 
+                                  />
+                                </View>
+                                <Text style={[styles.locationValue, { color: theme.text.primary }]}>
+                                  {item.count}
                                 </Text>
                               </View>
-                              <Text style={[styles.demographicSubtext, { color: theme.text.tertiary }]}>
-                                {item.clicks} clicks • {item.conversions} conversions
-                              </Text>
-                            </View>
-                          ))}
+                            );
+                          })}
                         </View>
                       )}
-                    </>
+                    </View>
                   )}
                 </>
               ) : (
@@ -1725,6 +1691,151 @@ const styles = StyleSheet.create({
   },
   chartStatSubtext: {
     fontSize: 11,
+  },
+  performanceGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  performanceItem: {
+    flex: 1,
+    minWidth: '45%',
+  },
+  performanceValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  performanceLabel: {
+    fontSize: 13,
+  },
+  activityList: {
+    gap: 16,
+  },
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  activityLabel: {
+    fontSize: 14,
+    flex: 1,
+  },
+  activityBarContainer: {
+    flex: 2,
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  activityBar: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  activityValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    minWidth: 50,
+    textAlign: 'right',
+  },
+  audienceHeader: {
+    marginBottom: 8,
+  },
+  audienceSubtext: {
+    fontSize: 14,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    marginBottom: 16,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  tabActive: {
+    // Active state handled by underline
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  tabUnderline: {
+    position: 'absolute',
+    bottom: -1,
+    left: 0,
+    right: 0,
+    height: 2,
+  },
+  peopleSection: {
+    marginBottom: 24,
+    gap: 8,
+  },
+  genderText: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  ageChartContainer: {
+    marginTop: 16,
+  },
+  ageStats: {
+    marginTop: 16,
+    gap: 12,
+  },
+  ageStatItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  ageStatLabel: {
+    fontSize: 13,
+  },
+  ageStatValue: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  placementsSection: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
+  locationsSection: {
+    gap: 16,
+  },
+  locationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  locationLabel: {
+    fontSize: 14,
+    flex: 1,
+  },
+  locationBarContainer: {
+    flex: 2,
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  locationBar: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  locationValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    minWidth: 50,
+    textAlign: 'right',
   },
 });
 
