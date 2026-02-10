@@ -28,6 +28,9 @@ export default function MyAdsScreen() {
   const [editCta, setEditCta] = useState('');
   const [editReference, setEditReference] = useState('');
   const [editAutoRenew, setEditAutoRenew] = useState(false);
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
+  const [editIsOngoing, setEditIsOngoing] = useState(true);
   const [editMode, setEditMode] = useState<'resubmit' | 'renew'>('resubmit');
   const [editPaymentProofUrl, setEditPaymentProofUrl] = useState<string | null>(null);
   const [isUploadingProof, setIsUploadingProof] = useState(false);
@@ -148,6 +151,9 @@ export default function MyAdsScreen() {
     setEditAutoRenew(mode === 'renew' ? true : Boolean(ad.autoRenew));
     setEditPaymentProofUrl(ad.paymentProofUrl || null);
     setEditProofDirty(false);
+    setEditStartDate(ad.startDate || '');
+    setEditEndDate(ad.endDate || '');
+    setEditIsOngoing(!ad.endDate);
   };
 
   const handleResubmit = async () => {
@@ -173,6 +179,10 @@ export default function MyAdsScreen() {
       status: 'pending', // Always require approval for content changes
       updated_at: new Date().toISOString(),
     };
+
+    // Schedule updates (Facebook-style)
+    updateData.start_date = editStartDate || null;
+    updateData.end_date = editIsOngoing ? null : (editEndDate || null);
 
     // Only update payment status if it was never approved
     // If already paid, keep the approved status
@@ -802,6 +812,48 @@ export default function MyAdsScreen() {
                   </View>
                 );
               })()}
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Schedule</Text>
+              <View style={styles.rowInputs}>
+                <View style={styles.rowInput}>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Start Date</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={editStartDate}
+                    onChangeText={setEditStartDate}
+                  />
+                </View>
+                <View style={styles.rowInput}>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>End Date</Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: theme.background.secondary,
+                        color: editIsOngoing ? theme.text.tertiary : theme.text.primary,
+                      },
+                    ]}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={editEndDate}
+                    onChangeText={setEditEndDate}
+                    editable={!editIsOngoing}
+                  />
+                </View>
+              </View>
+              <View style={styles.toggleRow}>
+                <Text style={[styles.toggleText, { color: theme.text.secondary }]}>
+                  Run continuously (no end date)
+                </Text>
+                <Switch
+                  value={editIsOngoing}
+                  onValueChange={(value) => {
+                    setEditIsOngoing(value);
+                    if (value) setEditEndDate('');
+                  }}
+                />
+              </View>
               <Text style={[styles.label, { color: theme.text.secondary }]}>Headline</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
