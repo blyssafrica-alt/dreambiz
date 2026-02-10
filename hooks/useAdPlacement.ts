@@ -41,22 +41,29 @@ export function useAdPlacement({
   // Calculate optimal ad positions with proper spacing
   const adPositions = useMemo(() => {
     if (ads.length === 0 || itemsCount === 0) return [];
-    
+
+    // For short lists, always show at least one ad after the last item
+    // e.g. if there is only 1 document, show 1 ad after that document
+    if (itemsCount <= minGap) {
+      const position = Math.max(0, itemsCount - 1);
+      return [position];
+    }
+
     const positions: number[] = [];
     let currentPosition = minGap; // Start after first minGap items
-    
+
     // Calculate positions ensuring minimum gap
     while (currentPosition < itemsCount && (maxAds === undefined || positions.length < maxAds)) {
       positions.push(currentPosition);
       currentPosition += minGap + 1; // Move forward by minGap + 1 (the ad itself)
-      
+
       // If we've used all ads, cycle back to start
       if (positions.length >= ads.length) {
         // Continue spacing but we'll cycle through ads
         break;
       }
     }
-    
+
     return positions;
   }, [ads.length, itemsCount, minGap, maxAds]);
 
