@@ -1124,19 +1124,37 @@ export default function MyAdsScreen() {
                           {/* Gender - Facebook Style (Percentages) */}
                           {analyticsData.demographics.gender && analyticsData.demographics.gender.length > 0 && (
                             <View style={styles.peopleSection}>
-                              {analyticsData.demographics.gender.map((item: any, idx: number) => {
-                                const percentage = analyticsData.overview.total_impressions > 0 
-                                  ? ((item.count / analyticsData.overview.total_impressions) * 100).toFixed(1)
-                                  : '0.0';
-                                const genderColor = item.gender.toLowerCase().includes('women') || item.gender.toLowerCase().includes('female') 
-                                  ? '#0066CC' 
-                                  : '#10B981';
-                                return (
-                                  <Text key={idx} style={[styles.genderText, { color: genderColor }]}>
-                                    <Text style={{ fontWeight: '700' }}>{percentage}%</Text> {item.gender}
-                                  </Text>
-                                );
-                              })}
+                              {(() => {
+                                // Sort genders: Women first (green), then Men (blue)
+                                const sortedGenders = [...analyticsData.demographics.gender].sort((a, b) => {
+                                  const aIsWomen = a.gender.toLowerCase().includes('women') || 
+                                                   a.gender.toLowerCase().includes('female') || 
+                                                   a.gender.toLowerCase().includes('woman');
+                                  const bIsWomen = b.gender.toLowerCase().includes('women') || 
+                                                   b.gender.toLowerCase().includes('female') || 
+                                                   b.gender.toLowerCase().includes('woman');
+                                  if (aIsWomen && !bIsWomen) return -1;
+                                  if (!aIsWomen && bIsWomen) return 1;
+                                  return 0;
+                                });
+
+                                return sortedGenders.map((item: any, idx: number) => {
+                                  const percentage = analyticsData.overview.total_impressions > 0 
+                                    ? ((item.count / analyticsData.overview.total_impressions) * 100).toFixed(1)
+                                    : '0.0';
+                                  // Women = Green (#10B981), Men = Blue (#0066CC)
+                                  const genderColor = item.gender.toLowerCase().includes('women') || 
+                                                     item.gender.toLowerCase().includes('female') || 
+                                                     item.gender.toLowerCase().includes('woman')
+                                    ? '#10B981' // Green for Women
+                                    : '#0066CC'; // Blue for Men
+                                  return (
+                                    <Text key={idx} style={[styles.genderText, { color: genderColor }]}>
+                                      <Text style={{ fontWeight: '700' }}>{percentage}%</Text> {item.gender}
+                                    </Text>
+                                  );
+                                });
+                              })()}
                             </View>
                           )}
 
@@ -1156,6 +1174,49 @@ export default function MyAdsScreen() {
                                     '65+'
                                   ];
 
+                                  // Always show both genders (Women and Men) in correct order
+                                  const getGenderSeries = (ageItem: any, ageRange: string) => {
+                                    // Get all available genders from the data
+                                    const allGenders = analyticsData.demographics.gender || [];
+                                    
+                                    // Create a map of gender data for this age group
+                                    const genderMap = new Map();
+                                    if (ageItem && ageItem.gender_breakdown) {
+                                      ageItem.gender_breakdown.forEach((g: any) => {
+                                        genderMap.set(g.gender.toLowerCase(), g);
+                                      });
+                                    }
+
+                                    // Always return both Women and Men, in that order
+                                    const series = [];
+                                    
+                                    // Add Women (should be green)
+                                    const womenData = genderMap.get('women') || genderMap.get('female') || genderMap.get('woman');
+                                    const womenCount = womenData?.count || 0;
+                                    const womenPercentage = analyticsData.overview.total_impressions > 0
+                                      ? (womenCount / analyticsData.overview.total_impressions) * 100
+                                      : 0;
+                                    series.push({
+                                      label: 'Women',
+                                      value: Math.max(womenPercentage, 0.1), // Minimum 0.1% to show thin line
+                                      color: '#10B981', // Green for Women
+                                    });
+
+                                    // Add Men (should be blue)
+                                    const menData = genderMap.get('men') || genderMap.get('male') || genderMap.get('man');
+                                    const menCount = menData?.count || 0;
+                                    const menPercentage = analyticsData.overview.total_impressions > 0
+                                      ? (menCount / analyticsData.overview.total_impressions) * 100
+                                      : 0;
+                                    series.push({
+                                      label: 'Men',
+                                      value: Math.max(menPercentage, 0.1), // Minimum 0.1% to show thin line
+                                      color: '#0066CC', // Blue for Men
+                                    });
+
+                                    return series;
+                                  };
+
                                   // Create a map of existing data
                                   const dataMap = new Map();
                                   (analyticsData.demographics.age_groups_with_gender || []).forEach((ageItem: any) => {
@@ -1166,60 +1227,15 @@ export default function MyAdsScreen() {
                                     dataMap.set(normalizedAge, ageItem);
                                   });
 
-                                  // Build data for all age ranges, filling in missing ones with zeros
+                                  // Build data for all age ranges, always showing both genders
                                   return allAgeRanges.map((ageRange) => {
                                     const ageItem = dataMap.get(ageRange);
-                                    
-                                    if (ageItem && ageItem.gender_breakdown) {
-                                      // We have data for this age group
-                                      const genderSeries = ageItem.gender_breakdown.map((genderItem: any) => {
-                                        const percentage = analyticsData.overview.total_impressions > 0
-                                          ? (genderItem.count / analyticsData.overview.total_impressions) * 100
-                                          : 0;
-                                        const genderColor = genderItem.gender.toLowerCase().includes('women') || 
-                                                           genderItem.gender.toLowerCase().includes('female') ||
-                                                           genderItem.gender.toLowerCase().includes('woman')
-                                          ? '#0066CC'
-                                          : '#10B981';
-                                        
-                                        return {
-                                          label: genderItem.gender,
-                                          value: percentage,
-                                          color: genderColor,
-                                        };
-                                      });
+                                    const genderSeries = getGenderSeries(ageItem, ageRange);
 
-                                      return {
-                                        label: ageRange,
-                                        series: genderSeries,
-                                      };
-                                    } else {
-                                      // No data for this age group - show zero bars for all genders
-                                      const allGenders = analyticsData.demographics.gender || [];
-                                      const genderSeries = allGenders.length > 0
-                                        ? allGenders.map((genderItem: any) => {
-                                            const genderColor = genderItem.gender.toLowerCase().includes('women') || 
-                                                               genderItem.gender.toLowerCase().includes('female') ||
-                                                               genderItem.gender.toLowerCase().includes('woman')
-                                              ? '#0066CC'
-                                              : '#10B981';
-                                            
-                                            return {
-                                              label: genderItem.gender,
-                                              value: 0,
-                                              color: genderColor,
-                                            };
-                                          })
-                                        : [
-                                            { label: 'Women', value: 0, color: '#0066CC' },
-                                            { label: 'Men', value: 0, color: '#10B981' }
-                                          ];
-
-                                      return {
-                                        label: ageRange,
-                                        series: genderSeries,
-                                      };
-                                    }
+                                    return {
+                                      label: ageRange,
+                                      series: genderSeries,
+                                    };
                                   });
                                 })()}
                                 height={160}

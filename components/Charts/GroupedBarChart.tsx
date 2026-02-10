@@ -152,7 +152,10 @@ export default function GroupedBarChart({
           return (
             <React.Fragment key={groupIndex}>
               {group.series.map((series, seriesIndex) => {
-                const barHeight = (series.value / niceMaxValue) * chartHeight;
+                // Ensure minimum bar height for visibility (even at 0%)
+                const minBarHeight = 2; // 2px minimum to show thin line
+                const calculatedHeight = (series.value / niceMaxValue) * chartHeight;
+                const barHeight = Math.max(calculatedHeight, minBarHeight);
                 const x = groupX + seriesIndex * (barWidth + barSpacing);
                 const y = PADDING_TOP + chartHeight - barHeight;
 
@@ -175,7 +178,7 @@ export default function GroupedBarChart({
                         fontWeight="600"
                         textAnchor="middle"
                       >
-                        {formatYAxisValue(series.value)}
+                        {formatYAxisValue(series.value, useDecimalLabels, isPercentage)}
                       </SvgText>
                     )}
                   </React.Fragment>
