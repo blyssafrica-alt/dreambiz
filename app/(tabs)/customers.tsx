@@ -43,12 +43,6 @@ export default function CustomersScreen() {
   const { t } = useTranslation();
   const { getAdsForLocation } = useAds();
   const customersAds = getAdsForLocation('customers');
-  const { shouldShowAd, getAdForIndex } = useAdPlacement({
-    ads: customersAds,
-    itemsCount: filteredCustomers.length,
-    minGap: 5,
-    maxAds: Math.ceil(filteredCustomers.length / 5), // Max 1 ad per 5 items
-  });
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
@@ -88,6 +82,16 @@ export default function CustomersScreen() {
       c?.phone?.includes(searchQuery)
     );
   }, [customers, searchQuery]);
+
+  // Ad placement hook - must be after filteredCustomers is defined
+  // Use safe access to filteredCustomers to avoid initialization errors
+  const filteredCustomersLength = filteredCustomers?.length ?? 0;
+  const { shouldShowAd, getAdForIndex } = useAdPlacement({
+    ads: customersAds,
+    itemsCount: filteredCustomersLength,
+    minGap: 5,
+    maxAds: Math.ceil(filteredCustomersLength / 5), // Max 1 ad per 5 items
+  });
 
   // Calculate customer analytics
   const customerAnalytics = useMemo(() => {

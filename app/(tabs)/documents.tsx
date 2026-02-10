@@ -101,11 +101,13 @@ export default function DocumentsScreen() {
   }, [safeDocuments, searchQuery, statusFilter, typeFilter, folderFilter]);
 
   // Ad placement hook - must be after filteredDocuments is defined
+  // Use safe access to filteredDocuments to avoid initialization errors
+  const filteredDocumentsLength = filteredDocuments?.length ?? 0;
   const { shouldShowAd, getAdForIndex } = useAdPlacement({
     ads: documentsAds,
-    itemsCount: filteredDocuments.length,
+    itemsCount: filteredDocumentsLength,
     minGap: 5,
-    maxAds: Math.ceil(filteredDocuments.length / 5), // Max 1 ad per 5 items
+    maxAds: Math.ceil(filteredDocumentsLength / 5), // Max 1 ad per 5 items
   });
 
   // Legacy modal functions removed - DocumentWizard handles document creation
