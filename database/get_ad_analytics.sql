@@ -242,7 +242,7 @@ BEGIN
           SELECT COALESCE(jsonb_agg(
             jsonb_build_object(
               'location', location_val,
-              'count', impression_count,
+              'count', unique_users_count,
               'clicks', click_count,
               'conversions', conversion_count
             )
@@ -250,14 +250,14 @@ BEGIN
           FROM (
             SELECT 
               COALESCE(bp.location, 'Not specified') as location_val,
-              COUNT(*) as impression_count,
+              COUNT(DISTINCT ai.user_id) as unique_users_count,
               SUM(CASE WHEN ai.clicked = true THEN 1 ELSE 0 END) as click_count,
               SUM(CASE WHEN ai.converted = true THEN 1 ELSE 0 END) as conversion_count
             FROM ad_impressions ai
             LEFT JOIN business_profiles bp ON ai.business_id = bp.id
             WHERE ai.ad_id = ad_id_param
             GROUP BY COALESCE(bp.location, 'Not specified')
-            ORDER BY impression_count DESC
+            ORDER BY unique_users_count DESC
             LIMIT 10
           ) locations_data
         )
