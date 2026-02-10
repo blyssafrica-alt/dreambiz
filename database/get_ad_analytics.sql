@@ -251,12 +251,14 @@ BEGIN
             SELECT 
               COALESCE(bp.location, 'Not specified') as location_val,
               COUNT(DISTINCT ai.user_id) as unique_users_count,
-              SUM(CASE WHEN ai.clicked = true THEN 1 ELSE 0 END) as click_count,
-              SUM(CASE WHEN ai.converted = true THEN 1 ELSE 0 END) as conversion_count
+              COUNT(DISTINCT CASE WHEN ai.clicked = true THEN ai.user_id END) as click_count,
+              COUNT(DISTINCT CASE WHEN ai.converted = true THEN ai.user_id END) as conversion_count
             FROM ad_impressions ai
             LEFT JOIN business_profiles bp ON ai.business_id = bp.id
             WHERE ai.ad_id = ad_id_param
+              AND bp.location IS NOT NULL
             GROUP BY COALESCE(bp.location, 'Not specified')
+            HAVING COUNT(DISTINCT ai.user_id) > 0
             ORDER BY unique_users_count DESC
             LIMIT 10
           ) locations_data
