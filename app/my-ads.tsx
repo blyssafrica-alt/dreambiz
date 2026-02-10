@@ -7,6 +7,9 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { supabase } from '@/lib/supabase';
 import type { Advertisement } from '@/types/super-admin';
 import { ArrowLeft, RefreshCcw, Pause, Play, Trash2, Edit, Eye, MousePointerClick, TrendingUp, DollarSign, BarChart3, Users, Calendar, MapPin, ChevronDown, ChevronUp, Info } from 'lucide-react-native';
+import LineChart from '@/components/Charts/LineChart';
+import BarChart from '@/components/Charts/BarChart';
+import PieChart from '@/components/Charts/PieChart';
 import * as ImagePicker from 'expo-image-picker';
 import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 
@@ -962,42 +965,48 @@ export default function MyAdsScreen() {
                 </View>
               ) : analyticsData ? (
                 <>
-                  {/* Overview */}
+                  {/* Overview Cards - Facebook Style */}
                   {analyticsData.overview && (
                     <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
-                      <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Overview</Text>
+                      <Text style={[styles.sectionTitle, { color: theme.text.primary, marginBottom: 16 }]}>Performance Overview</Text>
                       <View style={styles.overviewGrid}>
-                        <View style={styles.overviewItem}>
+                        <View style={[styles.overviewCard, { backgroundColor: theme.background.secondary }]}>
+                          <Eye size={20} color={theme.accent.primary} />
                           <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
                             {analyticsData.overview.total_impressions || 0}
                           </Text>
                           <Text style={[styles.overviewLabel, { color: theme.text.tertiary }]}>Impressions</Text>
                         </View>
-                        <View style={styles.overviewItem}>
+                        <View style={[styles.overviewCard, { backgroundColor: theme.background.secondary }]}>
+                          <MousePointerClick size={20} color={theme.accent.primary} />
                           <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
                             {analyticsData.overview.total_clicks || 0}
                           </Text>
                           <Text style={[styles.overviewLabel, { color: theme.text.tertiary }]}>Clicks</Text>
                         </View>
-                        <View style={styles.overviewItem}>
+                        <View style={[styles.overviewCard, { backgroundColor: theme.background.secondary }]}>
+                          <TrendingUp size={20} color={theme.accent.primary} />
                           <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
                             {analyticsData.overview.total_conversions || 0}
                           </Text>
                           <Text style={[styles.overviewLabel, { color: theme.text.tertiary }]}>Conversions</Text>
                         </View>
-                        <View style={styles.overviewItem}>
+                        <View style={[styles.overviewCard, { backgroundColor: theme.background.secondary }]}>
+                          <Users size={20} color={theme.accent.primary} />
                           <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
                             {analyticsData.overview.unique_users || 0}
                           </Text>
                           <Text style={[styles.overviewLabel, { color: theme.text.tertiary }]}>Unique Users</Text>
                         </View>
-                        <View style={styles.overviewItem}>
+                        <View style={[styles.overviewCard, { backgroundColor: theme.background.secondary }]}>
+                          <BarChart3 size={20} color={theme.accent.primary} />
                           <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
                             {analyticsData.overview.ctr || 0}%
                           </Text>
                           <Text style={[styles.overviewLabel, { color: theme.text.tertiary }]}>CTR</Text>
                         </View>
-                        <View style={styles.overviewItem}>
+                        <View style={[styles.overviewCard, { backgroundColor: theme.background.secondary }]}>
+                          <DollarSign size={20} color={theme.accent.primary} />
                           <Text style={[styles.overviewValue, { color: theme.text.primary }]}>
                             {analyticsData.overview.cvr || 0}%
                           </Text>
@@ -1007,74 +1016,132 @@ export default function MyAdsScreen() {
                     </View>
                   )}
 
+                  {/* Performance Over Time - Line Charts */}
+                  {analyticsData.time_analytics?.daily && analyticsData.time_analytics.daily.length > 0 && (
+                    <>
+                      <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
+                        <Text style={[styles.sectionTitle, { color: theme.text.primary, marginBottom: 16 }]}>
+                          Impressions Over Time
+                        </Text>
+                        <View style={styles.chartContainer}>
+                          <LineChart
+                            data={analyticsData.time_analytics.daily.map((d: any) => d.count || 0)}
+                            labels={analyticsData.time_analytics.daily.map((d: any) => {
+                              const date = new Date(d.date);
+                              return `${date.getMonth() + 1}/${date.getDate()}`;
+                            })}
+                            color={theme.accent.primary}
+                            height={220}
+                          />
+                        </View>
+                      </View>
+                      <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
+                        <Text style={[styles.sectionTitle, { color: theme.text.primary, marginBottom: 16 }]}>
+                          Clicks Over Time
+                        </Text>
+                        <View style={styles.chartContainer}>
+                          <LineChart
+                            data={analyticsData.time_analytics.daily.map((d: any) => d.clicks || 0)}
+                            labels={analyticsData.time_analytics.daily.map((d: any) => {
+                              const date = new Date(d.date);
+                              return `${date.getMonth() + 1}/${date.getDate()}`;
+                            })}
+                            color="#10B981"
+                            height={220}
+                          />
+                        </View>
+                      </View>
+                      <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
+                        <Text style={[styles.sectionTitle, { color: theme.text.primary, marginBottom: 16 }]}>
+                          Conversions Over Time
+                        </Text>
+                        <View style={styles.chartContainer}>
+                          <LineChart
+                            data={analyticsData.time_analytics.daily.map((d: any) => d.conversions || 0)}
+                            labels={analyticsData.time_analytics.daily.map((d: any) => {
+                              const date = new Date(d.date);
+                              return `${date.getMonth() + 1}/${date.getDate()}`;
+                            })}
+                            color="#F59E0B"
+                            height={220}
+                          />
+                        </View>
+                      </View>
+                    </>
+                  )}
+
                   {/* Demographics */}
                   {analyticsData.demographics && (
                     <>
-                      {/* Age Groups */}
+                      {/* Age Groups - Bar Chart */}
                       {analyticsData.demographics.age_groups && analyticsData.demographics.age_groups.length > 0 && (
                         <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
-                          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
-                            <Users size={18} color={theme.text.primary} /> Age Groups
-                          </Text>
-                          {analyticsData.demographics.age_groups.map((item: any, idx: number) => (
-                            <View key={idx} style={styles.demographicRow}>
-                              <View style={styles.demographicLabelRow}>
-                                <Text style={[styles.demographicLabel, { color: theme.text.secondary }]}>
+                          <View style={styles.sectionTitleRow}>
+                            <Users size={18} color={theme.text.primary} />
+                            <Text style={[styles.sectionTitle, { color: theme.text.primary, marginBottom: 16 }]}>
+                              Age Distribution
+                            </Text>
+                          </View>
+                          <View style={styles.chartContainer}>
+                            <BarChart
+                              data={analyticsData.demographics.age_groups.map((item: any) => ({
+                                label: item.age_group,
+                                value: item.count,
+                                color: theme.accent.primary,
+                              }))}
+                              height={220}
+                              showValues={true}
+                            />
+                          </View>
+                          <View style={styles.chartStats}>
+                            {analyticsData.demographics.age_groups.map((item: any, idx: number) => (
+                              <View key={idx} style={styles.chartStatItem}>
+                                <Text style={[styles.chartStatLabel, { color: theme.text.tertiary }]}>
                                   {item.age_group}
                                 </Text>
-                                <Text style={[styles.demographicValue, { color: theme.text.primary }]}>
+                                <Text style={[styles.chartStatValue, { color: theme.text.primary }]}>
                                   {item.count} impressions
                                 </Text>
+                                <Text style={[styles.chartStatSubtext, { color: theme.text.tertiary }]}>
+                                  {item.clicks} clicks • {item.conversions} conversions
+                                </Text>
                               </View>
-                              <View style={[styles.progressBar, { backgroundColor: theme.border.light }]}>
-                                <View 
-                                  style={[
-                                    styles.progressFill, 
-                                    { 
-                                      backgroundColor: theme.accent.primary, 
-                                      width: `${analyticsData.overview.total_impressions > 0 ? (item.count / analyticsData.overview.total_impressions) * 100 : 0}%` 
-                                    }
-                                  ]} 
-                                />
-                              </View>
-                              <Text style={[styles.demographicSubtext, { color: theme.text.tertiary }]}>
-                                {item.clicks} clicks • {item.conversions} conversions
-                              </Text>
-                            </View>
-                          ))}
+                            ))}
+                          </View>
                         </View>
                       )}
 
-                      {/* Gender */}
+                      {/* Gender - Pie Chart */}
                       {analyticsData.demographics.gender && analyticsData.demographics.gender.length > 0 && (
                         <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
-                          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Gender</Text>
-                          {analyticsData.demographics.gender.map((item: any, idx: number) => (
-                            <View key={idx} style={styles.demographicRow}>
-                              <View style={styles.demographicLabelRow}>
-                                <Text style={[styles.demographicLabel, { color: theme.text.secondary }]}>
+                          <Text style={[styles.sectionTitle, { color: theme.text.primary, marginBottom: 16 }]}>Gender Distribution</Text>
+                          <View style={styles.chartContainer}>
+                            <PieChart
+                              data={analyticsData.demographics.gender.map((item: any, idx: number) => ({
+                                label: item.gender,
+                                value: item.count,
+                                color: ['#0066CC', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'][idx % 5] || theme.accent.primary,
+                              }))}
+                              size={200}
+                              showLabels={true}
+                              showLegend={true}
+                            />
+                          </View>
+                          <View style={styles.chartStats}>
+                            {analyticsData.demographics.gender.map((item: any, idx: number) => (
+                              <View key={idx} style={styles.chartStatItem}>
+                                <Text style={[styles.chartStatLabel, { color: theme.text.tertiary }]}>
                                   {item.gender}
                                 </Text>
-                                <Text style={[styles.demographicValue, { color: theme.text.primary }]}>
-                                  {item.count} impressions
+                                <Text style={[styles.chartStatValue, { color: theme.text.primary }]}>
+                                  {item.count} impressions ({analyticsData.overview.total_impressions > 0 ? ((item.count / analyticsData.overview.total_impressions) * 100).toFixed(1) : 0}%)
+                                </Text>
+                                <Text style={[styles.chartStatSubtext, { color: theme.text.tertiary }]}>
+                                  {item.clicks} clicks • {item.conversions} conversions
                                 </Text>
                               </View>
-                              <View style={[styles.progressBar, { backgroundColor: theme.border.light }]}>
-                                <View 
-                                  style={[
-                                    styles.progressFill, 
-                                    { 
-                                      backgroundColor: theme.accent.primary, 
-                                      width: `${analyticsData.overview.total_impressions > 0 ? (item.count / analyticsData.overview.total_impressions) * 100 : 0}%` 
-                                    }
-                                  ]} 
-                                />
-                              </View>
-                              <Text style={[styles.demographicSubtext, { color: theme.text.tertiary }]}>
-                                {item.clicks} clicks • {item.conversions} conversions
-                              </Text>
-                            </View>
-                          ))}
+                            ))}
+                          </View>
                         </View>
                       )}
 
@@ -1100,25 +1167,36 @@ export default function MyAdsScreen() {
                         </View>
                       )}
 
-                      {/* Business Types */}
+                      {/* Business Types - Bar Chart */}
                       {analyticsData.demographics.business_types && analyticsData.demographics.business_types.length > 0 && (
                         <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
-                          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Business Types</Text>
-                          {analyticsData.demographics.business_types.map((item: any, idx: number) => (
-                            <View key={idx} style={styles.demographicRow}>
-                              <View style={styles.demographicLabelRow}>
-                                <Text style={[styles.demographicLabel, { color: theme.text.secondary }]}>
+                          <Text style={[styles.sectionTitle, { color: theme.text.primary, marginBottom: 16 }]}>Business Types</Text>
+                          <View style={styles.chartContainer}>
+                            <BarChart
+                              data={analyticsData.demographics.business_types.map((item: any, idx: number) => ({
+                                label: item.business_type.replace('_', ' ').substring(0, 8),
+                                value: item.count,
+                                color: ['#0066CC', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'][idx % 5] || theme.accent.primary,
+                              }))}
+                              height={220}
+                              showValues={true}
+                            />
+                          </View>
+                          <View style={styles.chartStats}>
+                            {analyticsData.demographics.business_types.map((item: any, idx: number) => (
+                              <View key={idx} style={styles.chartStatItem}>
+                                <Text style={[styles.chartStatLabel, { color: theme.text.tertiary }]}>
                                   {item.business_type}
                                 </Text>
-                                <Text style={[styles.demographicValue, { color: theme.text.primary }]}>
+                                <Text style={[styles.chartStatValue, { color: theme.text.primary }]}>
                                   {item.count} impressions
                                 </Text>
+                                <Text style={[styles.chartStatSubtext, { color: theme.text.tertiary }]}>
+                                  {item.clicks} clicks • {item.conversions} conversions
+                                </Text>
                               </View>
-                              <Text style={[styles.demographicSubtext, { color: theme.text.tertiary }]}>
-                                {item.clicks} clicks • {item.conversions} conversions
-                              </Text>
-                            </View>
-                          ))}
+                            ))}
+                          </View>
                         </View>
                       )}
 
@@ -1147,9 +1225,12 @@ export default function MyAdsScreen() {
                       {/* Locations */}
                       {analyticsData.demographics.locations && analyticsData.demographics.locations.length > 0 && (
                         <View style={[styles.analyticsSection, { backgroundColor: theme.background.card }]}>
-                          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
-                            <MapPin size={18} color={theme.text.primary} /> Top Locations
-                          </Text>
+                          <View style={styles.sectionTitleRow}>
+                            <MapPin size={18} color={theme.text.primary} />
+                            <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
+                              Top Locations
+                            </Text>
+                          </View>
                           {analyticsData.demographics.locations.map((item: any, idx: number) => (
                             <View key={idx} style={styles.demographicRow}>
                               <View style={styles.demographicLabelRow}>
@@ -1312,6 +1393,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
   },
   sectionContent: {
     padding: 16,
@@ -1581,6 +1668,63 @@ const styles = StyleSheet.create({
   progressFill: {
     height: 6,
     borderRadius: 3,
+  },
+  overviewCard: {
+    flex: 1,
+    minWidth: '30%',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  chartContainer: {
+    width: '100%',
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  chartLegend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 12,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  legendText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  chartStats: {
+    marginTop: 16,
+    gap: 12,
+  },
+  chartStatItem: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  chartStatLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 4,
+    textTransform: 'capitalize',
+  },
+  chartStatValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  chartStatSubtext: {
+    fontSize: 11,
   },
 });
 
