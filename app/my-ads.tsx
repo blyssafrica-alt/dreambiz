@@ -769,7 +769,7 @@ export default function MyAdsScreen() {
                 <Text style={[styles.modalClose, { color: theme.text.secondary }]}>Close</Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.modalBody}>
+            <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
               {editingAd && (() => {
                 const adSet = editingAd.adSetId ? adSetsById[editingAd.adSetId] : undefined;
                 if (!adSet) return null;
@@ -812,7 +812,7 @@ export default function MyAdsScreen() {
                   </View>
                 );
               })()}
-              <Text style={[styles.label, { color: theme.text.secondary }]}>Schedule</Text>
+              <Text style={[styles.label, { color: theme.text.secondary, marginTop: 12 }]}>Schedule</Text>
               <View style={styles.rowInputs}>
                 <View style={styles.rowInput}>
                   <Text style={[styles.label, { color: theme.text.secondary }]}>Start Date</Text>
@@ -978,7 +978,7 @@ export default function MyAdsScreen() {
                 <Text style={[styles.label, { color: theme.text.secondary }]}>Auto-renew</Text>
                 <Switch value={editAutoRenew} onValueChange={setEditAutoRenew} />
               </View>
-            </View>
+            </ScrollView>
             <View style={styles.modalFooter}>
               <TouchableOpacity
                 style={[styles.cancelButton, { backgroundColor: theme.background.secondary }]}
@@ -1576,8 +1576,21 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 16, fontWeight: '700' },
   modalClose: { fontSize: 14, fontWeight: '600' },
-  modalBody: { padding: 16, gap: 8 },
+  modalBody: { flex: 1 },
+  modalBodyContent: { padding: 16, gap: 8 },
   modalInsights: { marginBottom: 12, gap: 6 },
+  rowInputs: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  rowInput: {
+    flex: 1,
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
   label: { fontSize: 12, fontWeight: '600', marginTop: 6 },
   input: { padding: 12, borderRadius: 10, fontSize: 14 },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
