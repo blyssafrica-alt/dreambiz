@@ -93,6 +93,7 @@ export default function AdsManagementScreen() {
     status: 'draft' as AdStatus,
     startDate: '',
     endDate: '',
+    isOngoing: true,
     imageUrl: '',
     videoUrl: '',
     thumbnailUrl: '',
@@ -341,6 +342,7 @@ export default function AdsManagementScreen() {
         status: ad.status,
         startDate: ad.startDate || '',
         endDate: ad.endDate || '',
+        isOngoing: !ad.endDate,
         imageUrl: ad.imageUrl || '',
         videoUrl: ad.videoUrl || '',
         thumbnailUrl: ad.thumbnailUrl || '',
@@ -387,6 +389,7 @@ export default function AdsManagementScreen() {
         status: 'draft',
         startDate: '',
         endDate: '',
+        isOngoing: true,
         imageUrl: '',
         videoUrl: '',
         thumbnailUrl: '',
@@ -1384,6 +1387,55 @@ export default function AdsManagementScreen() {
                 ))}
               </View>
 
+              {/* Schedule - Start / End / Ongoing (Facebook-style) */}
+              <Text style={[styles.sectionLabel, { color: theme.text.secondary }]}>Schedule</Text>
+              <View style={styles.row}>
+                <View style={styles.column}>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>Start Date</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={formData.startDate}
+                    onChangeText={(text) => setFormData({ ...formData, startDate: text })}
+                  />
+                </View>
+                <View style={styles.column}>
+                  <Text style={[styles.label, { color: theme.text.secondary }]}>End Date</Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: formData.isOngoing
+                          ? theme.background.secondary
+                          : theme.background.secondary,
+                        color: formData.isOngoing ? theme.text.tertiary : theme.text.primary,
+                      },
+                    ]}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={theme.text.tertiary}
+                    value={formData.endDate}
+                    onChangeText={(text) => setFormData({ ...formData, endDate: text })}
+                    editable={!formData.isOngoing}
+                  />
+                </View>
+              </View>
+              <View style={styles.switchRow}>
+                <Text style={[styles.label, { color: theme.text.secondary }]}>
+                  Run continuously (no end date)
+                </Text>
+                <Switch
+                  value={formData.isOngoing}
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      isOngoing: value,
+                      endDate: value ? '' : formData.endDate,
+                    })
+                  }
+                />
+              </View>
+
               <Text style={[styles.sectionLabel, { color: theme.text.secondary }]}>Targeting</Text>
               <Text style={[styles.label, { color: theme.text.secondary }]}>Scope</Text>
               <View style={styles.typeButtons}>
@@ -1803,6 +1855,15 @@ const styles = StyleSheet.create({
   typeButtons: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
   typeButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
   typeButtonText: { fontSize: 14, fontWeight: '600', textTransform: 'capitalize' },
+  row: { flexDirection: 'row', gap: 12 },
+  column: { flex: 1 },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    marginBottom: 8,
+  },
   rowInputs: { flexDirection: 'row', gap: 12 },
   rowInput: { flex: 1 },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 4 },
