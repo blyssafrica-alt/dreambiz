@@ -424,10 +424,19 @@ export function AdContextProvider({ children }: { children: React.ReactNode }) {
   }, [user, business, enabledFeatureIds, impressionHistory, sessionId, campaigns, adSets, userDemographics]);
 
   const getAdsForLocation = useCallback((location: string): Advertisement[] => {
+    // Default locations where an ad can appear when no explicit locations are set
+    const DEFAULT_LOCATIONS = ['dashboard', 'products', 'customers', 'finances', 'documents', 'insights'];
+
     return ads
       .filter(ad => {
+        // Determine allowed locations for this ad
+        const locations =
+          Array.isArray(ad.placement?.locations) && ad.placement.locations.length > 0
+            ? ad.placement.locations
+            : DEFAULT_LOCATIONS;
+
         // Check if ad should be shown in this location
-        if (!ad.placement.locations?.includes(location)) return false;
+        if (!locations.includes(location)) return false;
         return shouldShowAd(ad);
       })
       .sort((a, b) => {
