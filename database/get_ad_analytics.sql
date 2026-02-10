@@ -30,20 +30,20 @@ BEGIN
     'demographics', (
       SELECT jsonb_build_object(
         'age_groups', (
-          SELECT jsonb_agg(
+          SELECT COALESCE(jsonb_agg(
             jsonb_build_object(
               'age_group', age_group,
-              'count', count,
-              'clicks', clicks,
-              'conversions', conversions
+              'count', impression_count,
+              'clicks', click_count,
+              'conversions', conversion_count
             )
-          )
+          ), '[]'::jsonb)
           FROM (
             SELECT 
               age_group,
-              COUNT(*) as count,
-              COUNT(*) FILTER (WHERE clicked = true) as clicks,
-              COUNT(*) FILTER (WHERE converted = true) as conversions
+              COUNT(*) as impression_count,
+              SUM(CASE WHEN clicked = true THEN 1 ELSE 0 END) as click_count,
+              SUM(CASE WHEN converted = true THEN 1 ELSE 0 END) as conversion_count
             FROM (
               SELECT 
                 ai.clicked,
@@ -76,136 +76,190 @@ BEGIN
           ) age_data
         ),
         'gender', (
-          SELECT jsonb_agg(
+          SELECT COALESCE(jsonb_agg(
             jsonb_build_object(
-              'gender', COALESCE(u.gender, 'Not specified'),
-              'count', COUNT(*),
-              'clicks', COUNT(*) FILTER (WHERE ai.clicked = true),
-              'conversions', COUNT(*) FILTER (WHERE ai.converted = true)
+              'gender', gender_val,
+              'count', impression_count,
+              'clicks', click_count,
+              'conversions', conversion_count
             )
-          )
-          FROM ad_impressions ai
-          LEFT JOIN users u ON ai.user_id = u.id
-          WHERE ai.ad_id = ad_id_param
-          GROUP BY COALESCE(u.gender, 'Not specified')
-        ),
-        'interests', (
-          SELECT jsonb_agg(
-            jsonb_build_object(
-              'interest', interest,
-              'count', count,
-              'clicks', clicks,
-              'conversions', conversions
-            )
-          )
+          ), '[]'::jsonb)
           FROM (
             SELECT 
-              unnest(u.interests) as interest,
-              COUNT(*) as count,
-              COUNT(*) FILTER (WHERE ai.clicked = true) as clicks,
-              COUNT(*) FILTER (WHERE ai.converted = true) as conversions
+              COALESCE(u.gender, 'Not specified') as gender_val,
+              COUNT(*) as impression_count,
+              SUM(CASE WHEN ai.clicked = true THEN 1 ELSE 0 END) as click_count,
+              SUM(CASE WHEN ai.converted = true THEN 1 ELSE 0 END) as conversion_count
             FROM ad_impressions ai
             LEFT JOIN users u ON ai.user_id = u.id
             WHERE ai.ad_id = ad_id_param
-              AND u.interests IS NOT NULL
-              AND array_length(u.interests, 1) > 0
+            GROUP BY COALESCE(u.gender, 'Not specified')
+          ) gender_data
+        ),
+        'interests', (
+          SELECT COALESCE(jsonb_agg(
+            jsonb_build_object(
+              'interest', interest,
+              'count', impression_count,
+              'clicks', click_count,
+              'conversions', conversion_count
+            )
+          ), '[]'::jsonb)
+          FROM (
+            SELECT 
+              interest,
+              COUNT(*) as impression_count,
+              SUM(CASE WHEN clicked = true THEN 1 ELSE 0 END) as click_count,
+              SUM(CASE WHEN converted = true THEN 1 ELSE 0 END) as conversion_count
+            FROM (
+              SELECT 
+                unnest(u.interests) as interest,
+                ai.clicked,
+                ai.converted
+              FROM ad_impressions ai
+              LEFT JOIN users u ON ai.user_id = u.id
+              WHERE ai.ad_id = ad_id_param
+                AND u.interests IS NOT NULL
+                AND array_length(u.interests, 1) > 0
+            ) interests_expanded
             GROUP BY interest
-            ORDER BY count DESC
+            ORDER BY impression_count DESC
             LIMIT 10
           ) interests_data
         ),
         'business_types', (
-          SELECT jsonb_agg(
+          SELECT COALESCE(jsonb_agg(
             jsonb_build_object(
-              'business_type', COALESCE(bp.type, 'Not specified'),
-              'count', COUNT(*),
-              'clicks', COUNT(*) FILTER (WHERE ai.clicked = true),
-              'conversions', COUNT(*) FILTER (WHERE ai.converted = true)
+              'business_type', business_type_val,
+              'count', impression_count,
+              'clicks', click_count,
+              'conversions', conversion_count
             )
-          )
-          FROM ad_impressions ai
-          LEFT JOIN business_profiles bp ON ai.business_id = bp.id
-          WHERE ai.ad_id = ad_id_param
-          GROUP BY COALESCE(bp.type, 'Not specified')
+          ), '[]'::jsonb)
+          FROM (
+            SELECT 
+              COALESCE(bp.type, 'Not specified') as business_type_val,
+              COUNT(*) as impression_count,
+              SUM(CASE WHEN ai.clicked = true THEN 1 ELSE 0 END) as click_count,
+              SUM(CASE WHEN ai.converted = true THEN 1 ELSE 0 END) as conversion_count
+            FROM ad_impressions ai
+            LEFT JOIN business_profiles bp ON ai.business_id = bp.id
+            WHERE ai.ad_id = ad_id_param
+            GROUP BY COALESCE(bp.type, 'Not specified')
+          ) business_types_data
         ),
         'business_stages', (
-          SELECT jsonb_agg(
+          SELECT COALESCE(jsonb_agg(
             jsonb_build_object(
-              'stage', COALESCE(bp.stage, 'Not specified'),
-              'count', COUNT(*),
-              'clicks', COUNT(*) FILTER (WHERE ai.clicked = true),
-              'conversions', COUNT(*) FILTER (WHERE ai.converted = true)
+              'stage', stage_val,
+              'count', impression_count,
+              'clicks', click_count,
+              'conversions', conversion_count
             )
-          )
-          FROM ad_impressions ai
-          LEFT JOIN business_profiles bp ON ai.business_id = bp.id
-          WHERE ai.ad_id = ad_id_param
-          GROUP BY COALESCE(bp.stage, 'Not specified')
+          ), '[]'::jsonb)
+          FROM (
+            SELECT 
+              COALESCE(bp.stage, 'Not specified') as stage_val,
+              COUNT(*) as impression_count,
+              SUM(CASE WHEN ai.clicked = true THEN 1 ELSE 0 END) as click_count,
+              SUM(CASE WHEN ai.converted = true THEN 1 ELSE 0 END) as conversion_count
+            FROM ad_impressions ai
+            LEFT JOIN business_profiles bp ON ai.business_id = bp.id
+            WHERE ai.ad_id = ad_id_param
+            GROUP BY COALESCE(bp.stage, 'Not specified')
+          ) business_stages_data
         ),
         'locations', (
-          SELECT jsonb_agg(
+          SELECT COALESCE(jsonb_agg(
             jsonb_build_object(
-              'location', COALESCE(bp.location, 'Not specified'),
-              'count', COUNT(*),
-              'clicks', COUNT(*) FILTER (WHERE ai.clicked = true),
-              'conversions', COUNT(*) FILTER (WHERE ai.converted = true)
+              'location', location_val,
+              'count', impression_count,
+              'clicks', click_count,
+              'conversions', conversion_count
             )
-          )
-          FROM ad_impressions ai
-          LEFT JOIN business_profiles bp ON ai.business_id = bp.id
-          WHERE ai.ad_id = ad_id_param
-          GROUP BY COALESCE(bp.location, 'Not specified')
-          ORDER BY count DESC
-          LIMIT 10
+          ), '[]'::jsonb)
+          FROM (
+            SELECT 
+              COALESCE(bp.location, 'Not specified') as location_val,
+              COUNT(*) as impression_count,
+              SUM(CASE WHEN ai.clicked = true THEN 1 ELSE 0 END) as click_count,
+              SUM(CASE WHEN ai.converted = true THEN 1 ELSE 0 END) as conversion_count
+            FROM ad_impressions ai
+            LEFT JOIN business_profiles bp ON ai.business_id = bp.id
+            WHERE ai.ad_id = ad_id_param
+            GROUP BY COALESCE(bp.location, 'Not specified')
+            ORDER BY impression_count DESC
+            LIMIT 10
+          ) locations_data
         )
       )
     ),
     'time_analytics', (
       SELECT jsonb_build_object(
         'hourly', (
-          SELECT jsonb_agg(
+          SELECT COALESCE(jsonb_agg(
             jsonb_build_object(
-              'hour', EXTRACT(HOUR FROM viewed_at)::INTEGER,
-              'count', COUNT(*),
-              'clicks', COUNT(*) FILTER (WHERE clicked = true)
+              'hour', hour_val,
+              'count', impression_count,
+              'clicks', click_count
             )
-          )
-          FROM ad_impressions
-          WHERE ad_id = ad_id_param
-          GROUP BY EXTRACT(HOUR FROM viewed_at)
-          ORDER BY EXTRACT(HOUR FROM viewed_at)
+          ), '[]'::jsonb)
+          FROM (
+            SELECT 
+              EXTRACT(HOUR FROM viewed_at)::INTEGER as hour_val,
+              COUNT(*) as impression_count,
+              SUM(CASE WHEN clicked = true THEN 1 ELSE 0 END) as click_count
+            FROM ad_impressions
+            WHERE ad_id = ad_id_param
+            GROUP BY EXTRACT(HOUR FROM viewed_at)
+            ORDER BY EXTRACT(HOUR FROM viewed_at)
+          ) hourly_data
         ),
         'daily', (
-          SELECT jsonb_agg(
+          SELECT COALESCE(jsonb_agg(
             jsonb_build_object(
-              'date', DATE(viewed_at),
-              'count', COUNT(*),
-              'clicks', COUNT(*) FILTER (WHERE clicked = true),
-              'conversions', COUNT(*) FILTER (WHERE converted = true)
+              'date', date_val,
+              'count', impression_count,
+              'clicks', click_count,
+              'conversions', conversion_count
             )
-          )
-          FROM ad_impressions
-          WHERE ad_id = ad_id_param
-          GROUP BY DATE(viewed_at)
-          ORDER BY DATE(viewed_at) DESC
-          LIMIT 30
+          ), '[]'::jsonb)
+          FROM (
+            SELECT 
+              DATE(viewed_at) as date_val,
+              COUNT(*) as impression_count,
+              SUM(CASE WHEN clicked = true THEN 1 ELSE 0 END) as click_count,
+              SUM(CASE WHEN converted = true THEN 1 ELSE 0 END) as conversion_count
+            FROM ad_impressions
+            WHERE ad_id = ad_id_param
+            GROUP BY DATE(viewed_at)
+            ORDER BY DATE(viewed_at) DESC
+            LIMIT 30
+          ) daily_data
         )
       )
     ),
-    'locations', (
-      SELECT jsonb_agg(
-        jsonb_build_object(
-          'location', location,
-          'count', COUNT(*),
-          'clicks', COUNT(*) FILTER (WHERE clicked = true),
-          'conversions', COUNT(*) FILTER (WHERE converted = true)
+        'ad_locations', (
+          SELECT COALESCE(jsonb_agg(
+            jsonb_build_object(
+              'location', location_val,
+              'count', impression_count,
+              'clicks', click_count,
+              'conversions', conversion_count
+            )
+          ), '[]'::jsonb)
+          FROM (
+            SELECT 
+              location as location_val,
+              COUNT(*) as impression_count,
+              SUM(CASE WHEN clicked = true THEN 1 ELSE 0 END) as click_count,
+              SUM(CASE WHEN converted = true THEN 1 ELSE 0 END) as conversion_count
+            FROM ad_impressions
+            WHERE ad_id = ad_id_param
+            GROUP BY location
+            ORDER BY impression_count DESC
+          ) ad_locations_data
         )
-      )
-      FROM ad_impressions
-      WHERE ad_id = ad_id_param
-      GROUP BY location
-      ORDER BY count DESC
-    )
   ) INTO result
   FROM ad_impressions
   WHERE ad_id = ad_id_param

@@ -31,6 +31,7 @@ export default function MyAdsScreen() {
   const [analyticsAd, setAnalyticsAd] = useState<Advertisement | null>(null);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
   const formatExpiry = (endDate?: string) => {
     if (!endDate) return null;
