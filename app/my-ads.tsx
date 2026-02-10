@@ -1,6 +1,6 @@
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert as RNAlert, Modal, TextInput, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert as RNAlert, Modal, TextInput, Switch, Dimensions } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -1011,7 +1011,7 @@ export default function MyAdsScreen() {
                 <Text style={[styles.closeButton, { color: theme.text.secondary }]}>✕</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalBody}>
+            <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
               {loadingAnalytics ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="large" color={theme.accent.primary} />
@@ -1565,7 +1565,9 @@ const styles = StyleSheet.create({
   modalContent: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingBottom: 20,
+    maxHeight: Dimensions.get('window').height * 0.9,
+    minHeight: Dimensions.get('window').height * 0.6,
+    flexDirection: 'column',
   },
   modalHeader: {
     padding: 16,
@@ -1576,8 +1578,14 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 16, fontWeight: '700' },
   modalClose: { fontSize: 14, fontWeight: '600' },
-  modalBody: { flex: 1 },
-  modalBodyContent: { padding: 16, gap: 8 },
+  modalBody: { 
+    flex: 1,
+  },
+  modalBodyContent: { 
+    padding: 16, 
+    gap: 8,
+    paddingBottom: 20,
+  },
   modalInsights: { marginBottom: 12, gap: 6 },
   rowInputs: {
     flexDirection: 'row',
@@ -1616,7 +1624,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
   },
-  modalFooter: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingTop: 12 },
+  modalFooter: { 
+    flexDirection: 'row', 
+    gap: 12, 
+    paddingHorizontal: 16, 
+    paddingTop: 12,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
   cancelButton: { flex: 1, padding: 12, borderRadius: 10, alignItems: 'center' },
   cancelText: { fontSize: 14, fontWeight: '600' },
   saveButton: { flex: 1, padding: 12, borderRadius: 10, alignItems: 'center' },
