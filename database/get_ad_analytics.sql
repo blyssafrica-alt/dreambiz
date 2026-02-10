@@ -81,6 +81,69 @@ BEGIN
               END
           ) age_data
         ),
+        'age_groups_with_gender', (
+          SELECT COALESCE(jsonb_agg(
+            jsonb_build_object(
+              'age_group', age_group,
+              'gender_breakdown', gender_breakdown
+            )
+          ), '[]'::jsonb)
+          FROM (
+            SELECT 
+              age_group,
+              jsonb_agg(
+                jsonb_build_object(
+                  'gender', gender_val,
+                  'count', impression_count,
+                  'clicks', click_count,
+                  'conversions', conversion_count
+                )
+              ) as gender_breakdown
+            FROM (
+              SELECT 
+                CASE 
+                  WHEN u.birth_date IS NULL THEN 'Unknown'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) < 18 THEN 'Under 18'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) BETWEEN 18 AND 24 THEN '18-24'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) BETWEEN 25 AND 34 THEN '25-34'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) BETWEEN 35 AND 44 THEN '35-44'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) BETWEEN 45 AND 54 THEN '45-54'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) >= 55 THEN '55+'
+                  ELSE 'Unknown'
+                END as age_group,
+                COALESCE(u.gender, 'Not specified') as gender_val,
+                COUNT(*) as impression_count,
+                SUM(CASE WHEN ai.clicked = true THEN 1 ELSE 0 END) as click_count,
+                SUM(CASE WHEN ai.converted = true THEN 1 ELSE 0 END) as conversion_count
+              FROM ad_impressions ai
+              LEFT JOIN users u ON ai.user_id = u.id
+              WHERE ai.ad_id = ad_id_param
+              GROUP BY 
+                CASE 
+                  WHEN u.birth_date IS NULL THEN 'Unknown'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) < 18 THEN 'Under 18'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) BETWEEN 18 AND 24 THEN '18-24'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) BETWEEN 25 AND 34 THEN '25-34'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) BETWEEN 35 AND 44 THEN '35-44'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) BETWEEN 45 AND 54 THEN '45-54'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) >= 55 THEN '55+'
+                  ELSE 'Unknown'
+                END,
+                COALESCE(u.gender, 'Not specified')
+            ) age_gender_calc
+            GROUP BY age_group
+            ORDER BY 
+              CASE age_group
+                WHEN 'Under 18' THEN 1
+                WHEN '18-24' THEN 2
+                WHEN '25-34' THEN 3
+                WHEN '35-44' THEN 4
+                WHEN '45-54' THEN 5
+                WHEN '55+' THEN 6
+                ELSE 7
+              END
+          ) age_gender_data
+        ),
         'gender', (
           SELECT COALESCE(jsonb_agg(
             jsonb_build_object(

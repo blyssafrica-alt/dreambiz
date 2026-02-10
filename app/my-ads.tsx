@@ -9,6 +9,7 @@ import type { Advertisement } from '@/types/super-admin';
 import { ArrowLeft, RefreshCcw, Pause, Play, Trash2, Edit, Eye, MousePointerClick, TrendingUp, DollarSign, BarChart3, Users, Calendar, MapPin, ChevronDown, ChevronUp, Info } from 'lucide-react-native';
 import LineChart from '@/components/Charts/LineChart';
 import BarChart from '@/components/Charts/BarChart';
+import GroupedBarChart from '@/components/Charts/GroupedBarChart';
 import PieChart from '@/components/Charts/PieChart';
 import * as ImagePicker from 'expo-image-picker';
 import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
@@ -1127,8 +1128,11 @@ export default function MyAdsScreen() {
                                 const percentage = analyticsData.overview.total_impressions > 0 
                                   ? ((item.count / analyticsData.overview.total_impressions) * 100).toFixed(1)
                                   : '0.0';
+                                const genderColor = item.gender.toLowerCase().includes('women') || item.gender.toLowerCase().includes('female') 
+                                  ? '#0066CC' 
+                                  : '#10B981';
                                 return (
-                                  <Text key={idx} style={[styles.genderText, { color: theme.text.primary }]}>
+                                  <Text key={idx} style={[styles.genderText, { color: genderColor }]}>
                                     <Text style={{ fontWeight: '700' }}>{percentage}%</Text> {item.gender}
                                   </Text>
                                 );
@@ -1136,40 +1140,38 @@ export default function MyAdsScreen() {
                             </View>
                           )}
 
-                          {/* Age Groups - Vertical Bar Chart with Percentages */}
-                          {analyticsData.demographics.age_groups && analyticsData.demographics.age_groups.length > 0 && (
+                          {/* Age Groups with Gender - Grouped Bar Chart (Facebook Style) */}
+                          {analyticsData.demographics.age_groups_with_gender && analyticsData.demographics.age_groups_with_gender.length > 0 && (
                             <View style={styles.ageChartContainer}>
-                              <BarChart
-                                data={analyticsData.demographics.age_groups.map((item: any) => {
-                                  const percentage = analyticsData.overview.total_impressions > 0
-                                    ? (item.count / analyticsData.overview.total_impressions) * 100
-                                    : 0;
+                              <GroupedBarChart
+                                data={analyticsData.demographics.age_groups_with_gender.map((ageItem: any) => {
+                                  const genderSeries = (ageItem.gender_breakdown || []).map((genderItem: any) => {
+                                    const percentage = analyticsData.overview.total_impressions > 0
+                                      ? (genderItem.count / analyticsData.overview.total_impressions) * 100
+                                      : 0;
+                                    const genderColor = genderItem.gender.toLowerCase().includes('women') || 
+                                                       genderItem.gender.toLowerCase().includes('female') ||
+                                                       genderItem.gender.toLowerCase().includes('woman')
+                                      ? '#0066CC'
+                                      : '#10B981';
+                                    
+                                    return {
+                                      label: genderItem.gender,
+                                      value: percentage,
+                                      color: genderColor,
+                                    };
+                                  });
+
                                   return {
-                                    label: item.age_group,
-                                    value: percentage,
-                                    color: theme.accent.primary,
+                                    label: ageItem.age_group,
+                                    series: genderSeries,
                                   };
                                 })}
-                                height={200}
+                                height={160}
                                 showValues={false}
+                                isPercentage={true}
+                                maxPercentage={40}
                               />
-                              <View style={styles.ageStats}>
-                                {analyticsData.demographics.age_groups.map((item: any, idx: number) => {
-                                  const percentage = analyticsData.overview.total_impressions > 0
-                                    ? ((item.count / analyticsData.overview.total_impressions) * 100).toFixed(1)
-                                    : '0.0';
-                                  return (
-                                    <View key={idx} style={styles.ageStatItem}>
-                                      <Text style={[styles.ageStatLabel, { color: theme.text.secondary }]}>
-                                        {item.age_group}
-                                      </Text>
-                                      <Text style={[styles.ageStatValue, { color: theme.text.primary }]}>
-                                        {percentage}%
-                                      </Text>
-                                    </View>
-                                  );
-                                })}
-                              </View>
                             </View>
                           )}
                         </>
@@ -1809,24 +1811,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   ageChartContainer: {
-    marginTop: 16,
-  },
-  ageStats: {
-    marginTop: 16,
-    gap: 12,
-  },
-  ageStatItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  ageStatLabel: {
-    fontSize: 13,
-  },
-  ageStatValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    marginTop: 12,
+    marginBottom: 8,
   },
   placementsSection: {
     gap: 16,

@@ -16,6 +16,8 @@ interface GroupedBarChartProps {
   height?: number;
   showGrid?: boolean;
   showValues?: boolean;
+  isPercentage?: boolean;
+  maxPercentage?: number;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -31,6 +33,8 @@ export default function GroupedBarChart({
   height = DEFAULT_HEIGHT,
   showGrid = true,
   showValues = true,
+  isPercentage = false,
+  maxPercentage = 40,
 }: GroupedBarChartProps) {
   if (!data || data.length === 0) {
     return (
@@ -48,6 +52,14 @@ export default function GroupedBarChart({
 
   // Calculate a "nice" maximum value for Y-axis labels
   const getNiceMaxValue = (value: number): number => {
+    if (isPercentage) {
+      // For percentages, use fixed intervals (0, 10, 20, 30, 40)
+      if (value <= 10) return 10;
+      if (value <= 20) return 20;
+      if (value <= 30) return 30;
+      if (value <= 40) return 40;
+      return Math.ceil(value / 10) * 10; // Round up to nearest 10
+    }
     if (value === 0) return 10; // Default to 10 when all values are 0
     if (value <= 2) return 2;
     const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
@@ -60,7 +72,9 @@ export default function GroupedBarChart({
     return niceValue * magnitude;
   };
 
-  const niceMaxValue = getNiceMaxValue(rawMaxValue || 10);
+  const niceMaxValue = isPercentage 
+    ? Math.min(getNiceMaxValue(rawMaxValue || 10), maxPercentage)
+    : getNiceMaxValue(rawMaxValue || 10);
   const chartHeight = height - PADDING_TOP - PADDING_BOTTOM;
   const chartWidth = CHART_WIDTH - PADDING_LEFT - PADDING_RIGHT;
   
@@ -73,8 +87,11 @@ export default function GroupedBarChart({
   const gridLines = 5;
   const gridStep = chartHeight / gridLines;
 
-  // Format Y-axis values
-  const formatYAxisValue = (value: number, useDecimals: boolean = false): string => {
+  // Format Y-axis values (support percentages)
+  const formatYAxisValue = (value: number, useDecimals: boolean = false, isPercentage: boolean = false): string => {
+    if (isPercentage) {
+      return useDecimals ? `${value.toFixed(1)}%` : `${value.toFixed(0)}%`;
+    }
     if (value >= 1000000) {
       return `${(value / 1000000).toFixed(1)}M`;
     } else if (value >= 1000) {
@@ -122,7 +139,7 @@ export default function GroupedBarChart({
                   textAnchor="end"
                   fontWeight="500"
                 >
-                  {formatYAxisValue(finalValue, useDecimalLabels)}
+                  {formatYAxisValue(finalValue, useDecimalLabels, isPercentage)}
                 </SvgText>
               </React.Fragment>
             );
