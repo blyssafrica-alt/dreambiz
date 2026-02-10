@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { supabase } from '@/lib/supabase';
 import type { Advertisement } from '@/types/super-admin';
-import { ArrowLeft, RefreshCcw, Pause, Play, Trash2, Edit, Eye, MousePointerClick, TrendingUp, DollarSign, BarChart3, Users, Calendar, MapPin } from 'lucide-react-native';
+import { ArrowLeft, RefreshCcw, Pause, Play, Trash2, Edit, Eye, MousePointerClick, TrendingUp, DollarSign, BarChart3, Users, Calendar, MapPin, ChevronDown, ChevronUp, Info } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 
@@ -401,65 +401,228 @@ export default function MyAdsScreen() {
             const pacingProgress = hasPacing && adSet?.dailyBudget
               ? Math.min((adSet.spendActualToday || 0) / adSet.dailyBudget, 1)
               : 0;
+            const sectionKey = `ad-${ad.id}`;
+            const isPerformanceExpanded = expandedSections[`${sectionKey}-performance`] ?? true;
+            const isDetailsExpanded = expandedSections[`${sectionKey}-details`] ?? false;
+            const isActionsExpanded = expandedSections[`${sectionKey}-actions`] ?? false;
+
+            const toggleSection = (section: string) => {
+              setExpandedSections(prev => ({
+                ...prev,
+                [`${sectionKey}-${section}`]: !prev[`${sectionKey}-${section}`],
+              }));
+            };
+
             return (
             <View key={ad.id} style={[styles.adCard, { backgroundColor: theme.background.card }]}>
-              {ad.imageUrl && <Image source={{ uri: ad.imageUrl }} style={styles.adImage} />}
-              <Text style={[styles.adTitle, { color: theme.text.primary }]}>{ad.title}</Text>
-              {ad.headline && (
-                <Text style={[styles.adHeadline, { color: theme.text.secondary }]}>{ad.headline}</Text>
-              )}
-              <View style={styles.metaRow}>
-                <Text style={[styles.metaText, { color: theme.text.tertiary }]}>
-                  Status: {ad.status}
-                </Text>
-                <Text style={[styles.metaText, { color: theme.text.tertiary }]}>
-                  Payment: {ad.paymentStatus || 'pending'}
-                </Text>
-              </View>
-              <Text style={[styles.metaText, { color: theme.text.tertiary }]}>
-                Auto-renew: {ad.autoRenew ? 'On' : 'Off'}
-              </Text>
-              <Text style={[styles.metaText, { color: theme.text.secondary }]}>
-                Budget: {ad.paymentCurrency || ad.spendCurrency || 'USD'} {ad.paymentAmount?.toFixed(2) ?? ad.spend?.toFixed(2) ?? '—'}
-              </Text>
-              {ad.paymentReference && (
-                <Text style={[styles.metaText, { color: theme.text.tertiary }]}>Ref: {ad.paymentReference}</Text>
-              )}
-              
-              {/* Ad Stats Section */}
-              <View style={styles.statsSection}>
-                <Text style={[styles.statsTitle, { color: theme.text.primary }]}>Performance</Text>
-                <View style={styles.statsGrid}>
-                  <View style={styles.statItem}>
-                    <Eye size={16} color={theme.text.secondary} />
-                    <Text style={[styles.statValue, { color: theme.text.primary }]}>{ad.impressionsCount || 0}</Text>
-                    <Text style={[styles.statLabel, { color: theme.text.tertiary }]}>Impressions</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <MousePointerClick size={16} color={theme.text.secondary} />
-                    <Text style={[styles.statValue, { color: theme.text.primary }]}>{ad.clicksCount || 0}</Text>
-                    <Text style={[styles.statLabel, { color: theme.text.tertiary }]}>Clicks</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <TrendingUp size={16} color={theme.text.secondary} />
-                    <Text style={[styles.statValue, { color: theme.text.primary }]}>{ad.conversionsCount || 0}</Text>
-                    <Text style={[styles.statLabel, { color: theme.text.tertiary }]}>Conversions</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <DollarSign size={16} color={theme.text.secondary} />
-                    <Text style={[styles.statValue, { color: theme.text.primary }]}>
-                      {ad.spendActual !== undefined ? ad.spendActual.toFixed(2) : '0.00'}
+              {/* Ad Header - Always Visible */}
+              <View style={styles.adHeader}>
+                {ad.imageUrl && <Image source={{ uri: ad.imageUrl }} style={styles.adImage} />}
+                <View style={styles.adHeaderContent}>
+                  <Text style={[styles.adTitle, { color: theme.text.primary }]} numberOfLines={2}>{ad.title}</Text>
+                  {ad.headline && (
+                    <Text style={[styles.adHeadline, { color: theme.text.secondary }]} numberOfLines={1}>{ad.headline}</Text>
+                  )}
+                  <View style={styles.statusBadge}>
+                    <View style={[
+                      styles.statusDot, 
+                      { backgroundColor: ad.status === 'active' ? '#10B981' : ad.status === 'paused' ? '#F59E0B' : ad.status === 'rejected' ? '#EF4444' : '#6B7280' }
+                    ]} />
+                    <Text style={[styles.statusText, { color: theme.text.secondary }]}>
+                      {ad.status.charAt(0).toUpperCase() + ad.status.slice(1)}
                     </Text>
-                    <Text style={[styles.statLabel, { color: theme.text.tertiary }]}>Spent</Text>
+                    {ad.paymentStatus === 'approved' && (
+                      <View style={[styles.badge, { backgroundColor: '#10B98120' }]}>
+                        <Text style={[styles.badgeText, { color: '#10B981' }]}>Paid</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
-                {ad.impressionsCount > 0 && (
-                  <Text style={[styles.metaText, { color: theme.text.tertiary, marginTop: 8 }]}>
-                    CTR: {((ad.clicksCount / ad.impressionsCount) * 100).toFixed(2)}% • 
-                    CVR: {ad.clicksCount > 0 ? ((ad.conversionsCount / ad.clicksCount) * 100).toFixed(2) : '0.00'}%
-                  </Text>
-                )}
               </View>
+
+              {/* Quick Stats - Always Visible */}
+              <View style={styles.quickStats}>
+                <View style={styles.quickStatItem}>
+                  <Eye size={14} color={theme.text.tertiary} />
+                  <Text style={[styles.quickStatValue, { color: theme.text.primary }]}>{ad.impressionsCount || 0}</Text>
+                </View>
+                <View style={styles.quickStatDivider} />
+                <View style={styles.quickStatItem}>
+                  <MousePointerClick size={14} color={theme.text.tertiary} />
+                  <Text style={[styles.quickStatValue, { color: theme.text.primary }]}>{ad.clicksCount || 0}</Text>
+                </View>
+                <View style={styles.quickStatDivider} />
+                <View style={styles.quickStatItem}>
+                  <TrendingUp size={14} color={theme.text.tertiary} />
+                  <Text style={[styles.quickStatValue, { color: theme.text.primary }]}>{ad.conversionsCount || 0}</Text>
+                </View>
+                <View style={styles.quickStatDivider} />
+                <View style={styles.quickStatItem}>
+                  <DollarSign size={14} color={theme.text.tertiary} />
+                  <Text style={[styles.quickStatValue, { color: theme.text.primary }]}>
+                    {ad.spendActual !== undefined ? ad.spendActual.toFixed(2) : '0.00'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Performance Section - Expandable */}
+              <TouchableOpacity 
+                style={styles.expandableSection}
+                onPress={() => toggleSection('performance')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionHeaderLeft}>
+                    <BarChart3 size={18} color={theme.accent.primary} />
+                    <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Performance</Text>
+                  </View>
+                  {isPerformanceExpanded ? (
+                    <ChevronUp size={20} color={theme.text.tertiary} />
+                  ) : (
+                    <ChevronDown size={20} color={theme.text.tertiary} />
+                  )}
+                </View>
+                {isPerformanceExpanded && (
+                  <View style={styles.sectionContent}>
+                    <View style={styles.statsGrid}>
+                      <View style={styles.statItem}>
+                        <Eye size={20} color={theme.accent.primary} />
+                        <Text style={[styles.statValue, { color: theme.text.primary }]}>{ad.impressionsCount || 0}</Text>
+                        <Text style={[styles.statLabel, { color: theme.text.tertiary }]}>Impressions</Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <MousePointerClick size={20} color={theme.accent.primary} />
+                        <Text style={[styles.statValue, { color: theme.text.primary }]}>{ad.clicksCount || 0}</Text>
+                        <Text style={[styles.statLabel, { color: theme.text.tertiary }]}>Clicks</Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <TrendingUp size={20} color={theme.accent.primary} />
+                        <Text style={[styles.statValue, { color: theme.text.primary }]}>{ad.conversionsCount || 0}</Text>
+                        <Text style={[styles.statLabel, { color: theme.text.tertiary }]}>Conversions</Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <DollarSign size={20} color={theme.accent.primary} />
+                        <Text style={[styles.statValue, { color: theme.text.primary }]}>
+                          {ad.spendActual !== undefined ? ad.spendActual.toFixed(2) : '0.00'}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: theme.text.tertiary }]}>Spent</Text>
+                      </View>
+                    </View>
+                    {ad.impressionsCount > 0 && (
+                      <View style={styles.metricsRow}>
+                        <View style={styles.metricItem}>
+                          <Text style={[styles.metricLabel, { color: theme.text.tertiary }]}>CTR</Text>
+                          <Text style={[styles.metricValue, { color: theme.text.primary }]}>
+                            {((ad.clicksCount / ad.impressionsCount) * 100).toFixed(2)}%
+                          </Text>
+                        </View>
+                        <View style={styles.metricDivider} />
+                        <View style={styles.metricItem}>
+                          <Text style={[styles.metricLabel, { color: theme.text.tertiary }]}>CVR</Text>
+                          <Text style={[styles.metricValue, { color: theme.text.primary }]}>
+                            {ad.clicksCount > 0 ? ((ad.conversionsCount / ad.clicksCount) * 100).toFixed(2) : '0.00'}%
+                          </Text>
+                        </View>
+                        <View style={styles.metricDivider} />
+                        <View style={styles.metricItem}>
+                          <Text style={[styles.metricLabel, { color: theme.text.tertiary }]}>Unique Users</Text>
+                          <Text style={[styles.metricValue, { color: theme.text.primary }]}>
+                            {ad.impressionsCount || 0}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Details Section - Expandable */}
+              <TouchableOpacity 
+                style={styles.expandableSection}
+                onPress={() => toggleSection('details')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionHeaderLeft}>
+                    <Info size={18} color={theme.accent.primary} />
+                    <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Details</Text>
+                  </View>
+                  {isDetailsExpanded ? (
+                    <ChevronUp size={20} color={theme.text.tertiary} />
+                  ) : (
+                    <ChevronDown size={20} color={theme.text.tertiary} />
+                  )}
+                </View>
+                {isDetailsExpanded && (
+                  <View style={styles.sectionContent}>
+                    <View style={styles.detailRow}>
+                      <Text style={[styles.detailLabel, { color: theme.text.tertiary }]}>Budget</Text>
+                      <Text style={[styles.detailValue, { color: theme.text.primary }]}>
+                        {ad.paymentCurrency || ad.spendCurrency || 'USD'} {ad.paymentAmount?.toFixed(2) ?? ad.spend?.toFixed(2) ?? '—'}
+                      </Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={[styles.detailLabel, { color: theme.text.tertiary }]}>Auto-renew</Text>
+                      <Text style={[styles.detailValue, { color: theme.text.primary }]}>
+                        {ad.autoRenew ? 'On' : 'Off'}
+                      </Text>
+                    </View>
+                    {ad.paymentReference && (
+                      <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: theme.text.tertiary }]}>Reference</Text>
+                        <Text style={[styles.detailValue, { color: theme.text.primary }]}>{ad.paymentReference}</Text>
+                      </View>
+                    )}
+                    {adSet && (
+                      <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: theme.text.tertiary }]}>Ad Set</Text>
+                        <Text style={[styles.detailValue, { color: theme.text.primary }]}>
+                          {adSet.name} · {(optimizationGoal || 'impressions').toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    {ad.status === 'active' && ad.endDate && (
+                      <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: theme.text.tertiary }]}>Expires</Text>
+                        <Text style={[
+                          styles.detailValue, 
+                          { color: expiryLabel?.includes('Expires') ? theme.accent.warning : theme.text.primary }
+                        ]}>
+                          {expiryLabel}
+                        </Text>
+                      </View>
+                    )}
+                    {ad.adminNotes && (
+                      <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: theme.text.tertiary }]}>Admin Notes</Text>
+                        <Text style={[styles.detailValue, { color: theme.text.primary }]}>{ad.adminNotes}</Text>
+                      </View>
+                    )}
+                    {isLearning && (
+                      <View style={styles.learningRow}>
+                        <Text style={[styles.detailLabel, { color: theme.text.tertiary, marginBottom: 8 }]}>Learning Progress</Text>
+                        <View style={[styles.learningBar, { backgroundColor: theme.border.light }]}>
+                          <View style={[styles.learningFill, { backgroundColor: theme.accent.primary, width: `${learningProgress * 100}%` }]} />
+                        </View>
+                        <Text style={[styles.learningText, { color: theme.text.tertiary }]}>
+                          {learningEvents}/{learningThreshold} events
+                        </Text>
+                      </View>
+                    )}
+                    {hasPacing && (
+                      <View style={styles.learningRow}>
+                        <Text style={[styles.detailLabel, { color: theme.text.tertiary, marginBottom: 8 }]}>Daily Spend</Text>
+                        <View style={[styles.learningBar, { backgroundColor: theme.border.light }]}>
+                          <View style={[styles.learningFill, { backgroundColor: theme.accent.primary, width: `${pacingProgress * 100}%` }]} />
+                        </View>
+                        <Text style={[styles.learningText, { color: theme.text.tertiary }]}>
+                          {adSet?.currency || 'USD'} {adSet?.spendActualToday?.toFixed(2) ?? '0.00'} / {adSet?.dailyBudget?.toFixed(2) ?? '—'}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </TouchableOpacity>
 
               {adSet && (
                 <Text style={[styles.metaText, { color: theme.text.tertiary }]}>
@@ -1030,10 +1193,117 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700' },
   content: { padding: 20, gap: 12 },
   emptyText: { textAlign: 'center', marginTop: 40 },
-  adCard: { padding: 16, borderRadius: 12 },
-  adImage: { width: '100%', height: 160, borderRadius: 10, marginBottom: 12 },
-  adTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
-  adHeadline: { fontSize: 14, marginBottom: 8 },
+  adCard: { 
+    padding: 0, 
+    borderRadius: 16, 
+    overflow: 'hidden',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  adHeader: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+  },
+  adImage: { 
+    width: 80, 
+    height: 80, 
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+  },
+  adHeaderContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  adTitle: { 
+    fontSize: 16, 
+    fontWeight: '700', 
+    marginBottom: 4,
+    lineHeight: 22,
+  },
+  adHeadline: { 
+    fontSize: 13, 
+    marginBottom: 8,
+    lineHeight: 18,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  badge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  quickStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#F9FAFB',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderTopColor: '#E5E7EB',
+    borderBottomColor: '#E5E7EB',
+  },
+  quickStatItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  quickStatValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  quickStatDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: '#E5E7EB',
+  },
+  expandableSection: {
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  sectionContent: {
+    padding: 16,
+    paddingTop: 0,
+  },
   metaRow: { flexDirection: 'row', justifyContent: 'space-between' },
   metaText: { fontSize: 12, marginTop: 4 },
   learningRow: { width: '100%', gap: 6, marginTop: 8 },
@@ -1173,6 +1443,50 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  detailLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  detailValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'right',
+    flex: 1,
+    marginLeft: 16,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  metricItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  metricLabel: {
+    fontSize: 11,
+    marginBottom: 4,
+  },
+  metricValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  metricDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#E5E7EB',
   },
   helpText: {
     fontSize: 12,

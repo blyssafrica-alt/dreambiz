@@ -40,24 +40,28 @@ BEGIN
           )
           FROM (
             SELECT 
-              CASE 
-                WHEN age < 18 THEN 'Under 18'
-                WHEN age BETWEEN 18 AND 24 THEN '18-24'
-                WHEN age BETWEEN 25 AND 34 THEN '25-34'
-                WHEN age BETWEEN 35 AND 44 THEN '35-44'
-                WHEN age BETWEEN 45 AND 54 THEN '45-54'
-                WHEN age >= 55 THEN '55+'
-                ELSE 'Unknown'
-              END as age_group,
+              age_group,
               COUNT(*) as count,
-              COUNT(*) FILTER (WHERE ai.clicked = true) as clicks,
-              COUNT(*) FILTER (WHERE ai.converted = true) as conversions
-            FROM ad_impressions ai
-            LEFT JOIN users u ON ai.user_id = u.id
-            LEFT JOIN LATERAL (
-              SELECT EXTRACT(YEAR FROM AGE(u.birth_date))::INTEGER as age
-            ) age_calc ON true
-            WHERE ai.ad_id = ad_id_param
+              COUNT(*) FILTER (WHERE clicked = true) as clicks,
+              COUNT(*) FILTER (WHERE converted = true) as conversions
+            FROM (
+              SELECT 
+                ai.clicked,
+                ai.converted,
+                CASE 
+                  WHEN u.birth_date IS NULL THEN 'Unknown'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) < 18 THEN 'Under 18'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) BETWEEN 18 AND 24 THEN '18-24'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) BETWEEN 25 AND 34 THEN '25-34'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) BETWEEN 35 AND 44 THEN '35-44'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) BETWEEN 45 AND 54 THEN '45-54'
+                  WHEN EXTRACT(YEAR FROM AGE(u.birth_date)) >= 55 THEN '55+'
+                  ELSE 'Unknown'
+                END as age_group
+              FROM ad_impressions ai
+              LEFT JOIN users u ON ai.user_id = u.id
+              WHERE ai.ad_id = ad_id_param
+            ) age_calc
             GROUP BY age_group
             ORDER BY 
               CASE age_group
