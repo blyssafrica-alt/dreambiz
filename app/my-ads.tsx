@@ -295,7 +295,19 @@ export default function MyAdsScreen() {
       const { data, error } = await supabase.rpc('get_ad_analytics', {
         ad_id_param: ad.id,
       });
-      if (error) throw error;
+      if (error) {
+        // Check if function doesn't exist
+        if (error.message?.includes('could not find') || error.message?.includes('schema cache')) {
+          RNAlert.alert(
+            'Analytics Not Available',
+            'The analytics function needs to be set up in the database. Please contact support or run the SQL script: database/get_ad_analytics.sql'
+          );
+        } else {
+          throw error;
+        }
+        setAnalyticsAd(null);
+        return;
+      }
       setAnalyticsData(data);
     } catch (error: any) {
       RNAlert.alert('Error', error.message || 'Failed to load analytics.');

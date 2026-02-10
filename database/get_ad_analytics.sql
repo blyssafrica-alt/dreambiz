@@ -1,7 +1,13 @@
 -- Function to get detailed ad analytics with demographics
 -- This allows ad owners to see who is interacting with their ads
+-- 
+-- IMPORTANT: Run this entire script in Supabase SQL Editor
+-- Make sure you're connected to the correct database
 
-CREATE OR REPLACE FUNCTION get_ad_analytics(ad_id_param UUID)
+-- Drop function if it exists (to ensure clean recreation)
+DROP FUNCTION IF EXISTS public.get_ad_analytics(UUID);
+
+CREATE OR REPLACE FUNCTION public.get_ad_analytics(ad_id_param UUID)
 RETURNS JSONB AS $$
 DECLARE
   result JSONB;
