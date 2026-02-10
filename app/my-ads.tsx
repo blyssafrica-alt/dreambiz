@@ -1141,32 +1141,87 @@ export default function MyAdsScreen() {
                           )}
 
                           {/* Age Groups with Gender - Grouped Bar Chart (Facebook Style) */}
-                          {analyticsData.demographics.age_groups_with_gender && analyticsData.demographics.age_groups_with_gender.length > 0 && (
+                          {analyticsData.demographics.age_groups_with_gender && (
                             <View style={styles.ageChartContainer}>
                               <GroupedBarChart
-                                data={analyticsData.demographics.age_groups_with_gender.map((ageItem: any) => {
-                                  const genderSeries = (ageItem.gender_breakdown || []).map((genderItem: any) => {
-                                    const percentage = analyticsData.overview.total_impressions > 0
-                                      ? (genderItem.count / analyticsData.overview.total_impressions) * 100
-                                      : 0;
-                                    const genderColor = genderItem.gender.toLowerCase().includes('women') || 
-                                                       genderItem.gender.toLowerCase().includes('female') ||
-                                                       genderItem.gender.toLowerCase().includes('woman')
-                                      ? '#0066CC'
-                                      : '#10B981';
-                                    
-                                    return {
-                                      label: genderItem.gender,
-                                      value: percentage,
-                                      color: genderColor,
-                                    };
+                                data={(() => {
+                                  // Define all age ranges in order (like Facebook)
+                                  const allAgeRanges = [
+                                    '13-17',
+                                    '18-24',
+                                    '25-34',
+                                    '35-44',
+                                    '45-54',
+                                    '55-64',
+                                    '65+'
+                                  ];
+
+                                  // Create a map of existing data
+                                  const dataMap = new Map();
+                                  (analyticsData.demographics.age_groups_with_gender || []).forEach((ageItem: any) => {
+                                    // Normalize age group names to match our standard format
+                                    let normalizedAge = ageItem.age_group;
+                                    if (normalizedAge === 'Under 18') normalizedAge = '13-17';
+                                    if (normalizedAge === '55+') normalizedAge = '65+'; // Keep as is
+                                    dataMap.set(normalizedAge, ageItem);
                                   });
 
-                                  return {
-                                    label: ageItem.age_group,
-                                    series: genderSeries,
-                                  };
-                                })}
+                                  // Build data for all age ranges, filling in missing ones with zeros
+                                  return allAgeRanges.map((ageRange) => {
+                                    const ageItem = dataMap.get(ageRange);
+                                    
+                                    if (ageItem && ageItem.gender_breakdown) {
+                                      // We have data for this age group
+                                      const genderSeries = ageItem.gender_breakdown.map((genderItem: any) => {
+                                        const percentage = analyticsData.overview.total_impressions > 0
+                                          ? (genderItem.count / analyticsData.overview.total_impressions) * 100
+                                          : 0;
+                                        const genderColor = genderItem.gender.toLowerCase().includes('women') || 
+                                                           genderItem.gender.toLowerCase().includes('female') ||
+                                                           genderItem.gender.toLowerCase().includes('woman')
+                                          ? '#0066CC'
+                                          : '#10B981';
+                                        
+                                        return {
+                                          label: genderItem.gender,
+                                          value: percentage,
+                                          color: genderColor,
+                                        };
+                                      });
+
+                                      return {
+                                        label: ageRange,
+                                        series: genderSeries,
+                                      };
+                                    } else {
+                                      // No data for this age group - show zero bars for all genders
+                                      const allGenders = analyticsData.demographics.gender || [];
+                                      const genderSeries = allGenders.length > 0
+                                        ? allGenders.map((genderItem: any) => {
+                                            const genderColor = genderItem.gender.toLowerCase().includes('women') || 
+                                                               genderItem.gender.toLowerCase().includes('female') ||
+                                                               genderItem.gender.toLowerCase().includes('woman')
+                                              ? '#0066CC'
+                                              : '#10B981';
+                                            
+                                            return {
+                                              label: genderItem.gender,
+                                              value: 0,
+                                              color: genderColor,
+                                            };
+                                          })
+                                        : [
+                                            { label: 'Women', value: 0, color: '#0066CC' },
+                                            { label: 'Men', value: 0, color: '#10B981' }
+                                          ];
+
+                                      return {
+                                        label: ageRange,
+                                        series: genderSeries,
+                                      };
+                                    }
+                                  });
+                                })()}
                                 height={160}
                                 showValues={false}
                                 isPercentage={true}
