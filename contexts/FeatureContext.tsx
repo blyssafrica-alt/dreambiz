@@ -169,22 +169,28 @@ export function FeatureContextProvider({ children }: { children: React.ReactNode
     if (!feature) return false;
     if (!feature.enabled) return false;
 
-    // Check premium requirement
+    // PRIORITY CHECK: If feature is assigned to specific plans via premium_plan_ids,
+    // it should ONLY be visible to users with those plans (regardless of isPremium flag)
+    if (feature.premiumPlanIds && feature.premiumPlanIds.length > 0) {
+      if (!currentPlan) {
+        return false; // Feature is assigned to specific plans but user has no plan
+      }
+      if (!feature.premiumPlanIds.includes(currentPlan.id)) {
+        return false; // User's plan is not in the allowed list - hide feature
+      }
+      // User has the correct plan, continue to check other requirements
+    }
+
+    // Check premium requirement (if feature is marked as premium)
     if (feature.isPremium) {
       if (!hasActivePremium) {
-        return false; // Feature requires premium
+        return false; // Feature requires premium but user doesn't have it
       }
       
-      // Check if feature has specific plan restrictions (premium_plan_ids)
-      if (feature.premiumPlanIds && feature.premiumPlanIds.length > 0) {
-        // Feature is restricted to specific plans - check if user's plan is in the list
-        if (!currentPlan || !feature.premiumPlanIds.includes(currentPlan.id)) {
-          return false; // User's plan is not in the allowed list
-        }
-      } else {
-        // Feature is premium but no plan restrictions - check if plan includes it via features array
+      // If feature doesn't have premium_plan_ids, check if it's in plan's features array
+      if (!feature.premiumPlanIds || feature.premiumPlanIds.length === 0) {
         if (!checkFeatureAccess(featureId)) {
-          return false; // User's plan doesn't include this feature
+          return false; // User's plan doesn't include this feature in its features array
         }
       }
     }

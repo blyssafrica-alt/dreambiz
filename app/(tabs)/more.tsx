@@ -114,6 +114,17 @@ export default function MoreScreen() {
           visible: true,
         },
         {
+          id: 'financial-tools',
+          title: 'Financial Tools',
+          description: 'Calculators & financial statements',
+          icon: FileText,
+          route: '/financial-tools',
+          color: '#8B5CF6',
+          gradient: ['#8B5CF6', '#7C3AED'],
+          visible: isFeatureVisible('financial-tools'),
+          disabled: isEmployee && !hasPermission(['finances:view', 'finances:view_reports']),
+        },
+        {
           id: 'products',
           title: 'Products',
           description: 'Manage your product catalog',
