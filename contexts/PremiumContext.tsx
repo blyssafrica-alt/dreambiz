@@ -143,7 +143,7 @@ export function PremiumContextProvider({ children }: { children: React.ReactNode
     }
   }, [user?.id]);
 
-  // Set up real-time subscription for premium_trials and user_subscriptions
+  // Set up real-time subscription for premium_trials, user_subscriptions, and subscription_plans
   useEffect(() => {
     if (!user?.id) return;
 
@@ -185,6 +185,23 @@ export function PremiumContextProvider({ children }: { children: React.ReactNode
       )
       .subscribe();
 
+    // Subscribe to subscription_plans changes (when admin updates plan features)
+    const plansChannel = supabase
+      .channel('subscription_plans_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'subscription_plans',
+        },
+        () => {
+          // Refresh premium status when plan features change
+          refreshPremiumStatus();
+        }
+      )
+      .subscribe();
+
     // Refresh when app comes to foreground
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
@@ -195,6 +212,7 @@ export function PremiumContextProvider({ children }: { children: React.ReactNode
     return () => {
       trialsChannel.unsubscribe();
       subscriptionsChannel.unsubscribe();
+      plansChannel.unsubscribe();
       subscription.remove();
     };
   }, [user?.id, refreshPremiumStatus]);
@@ -216,12 +234,18 @@ export function PremiumContextProvider({ children }: { children: React.ReactNode
       }
 
       // Enterprise plan has all features
-      if (currentPlan.features.includes('*')) {
+      if (Array.isArray(currentPlan.features) && currentPlan.features.includes('*')) {
         return true;
       }
 
-      // Check if feature is included in plan
-      return currentPlan.features.includes(featureId);
+      // Check if feature is included in plan's features array
+      if (Array.isArray(currentPlan.features) && currentPlan.features.includes(featureId)) {
+        return true;
+      }
+
+      // Note: Feature-level premium_plan_ids check is done in FeatureContext
+      // where we have access to the full feature object
+      return false;
     },
     [hasActivePremium, currentPlan]
   );

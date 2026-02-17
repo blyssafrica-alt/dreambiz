@@ -21,6 +21,7 @@ export default function PremiumManagementScreen() {
   const [trials, setTrials] = useState<PremiumTrial[]>([]);
   const [discounts, setDiscounts] = useState<UserDiscount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [availableFeatures, setAvailableFeatures] = useState<Array<{ id: string; featureId: string; name: string; description?: string }>>([]);
 
   // Trial Modal State
   const [showTrialModal, setShowTrialModal] = useState(false);
@@ -62,18 +63,43 @@ export default function PremiumManagementScreen() {
     maxStorageMb: '100',
     isActive: true,
     displayOrder: '0',
+    selectedFeatures: [] as string[], // Array of feature IDs
   });
 
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
-      await Promise.all([loadPlans(), loadTrials(), loadDiscounts()]);
+      await Promise.all([loadPlans(), loadTrials(), loadDiscounts(), loadFeatures()]);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
       setIsLoading(false);
     }
   }, []);
+
+  const loadFeatures = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('feature_config')
+        .select('id, feature_id, name, description')
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+
+      if (data) {
+        setAvailableFeatures(
+          data.map((row: any) => ({
+            id: row.id,
+            featureId: row.feature_id,
+            name: row.name,
+            description: row.description,
+          }))
+        );
+      }
+    } catch (error) {
+      console.error('Failed to load features:', error);
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -390,7 +416,7 @@ export default function PremiumManagementScreen() {
         max_storage_mb: maxStorage,
         is_active: planForm.isActive,
         display_order: displayOrder,
-        features: [],
+        features: planForm.selectedFeatures, // Save selected features as JSONB array
       };
 
       if (editingPlan) {
@@ -620,25 +646,26 @@ export default function PremiumManagementScreen() {
 
         {activeTab === 'plans' && (
           <>
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: theme.accent.primary }]}
-              onPress={() => {
-                setEditingPlan(null);
-                setPlanForm({
-                  name: '',
-                  description: '',
-                  price: '',
-                  currency: 'USD',
-                  billingPeriod: 'monthly',
-                  maxBusinesses: '1',
-                  maxUsers: '1',
-                  maxStorageMb: '100',
-                  isActive: true,
-                  displayOrder: '0',
-                });
-                setShowPlanModal(true);
-              }}
-            >
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: theme.accent.primary }]}
+                onPress={() => {
+                  setEditingPlan(null);
+                  setPlanForm({
+                    name: '',
+                    description: '',
+                    price: '',
+                    currency: 'USD',
+                    billingPeriod: 'monthly',
+                    maxBusinesses: '1',
+                    maxUsers: '1',
+                    maxStorageMb: '100',
+                    isActive: true,
+                    displayOrder: '0',
+                    selectedFeatures: [],
+                  });
+                  setShowPlanModal(true);
+                }}
+              >
               <Plus size={18} color="#FFF" />
               <Text style={styles.actionButtonText}>Create Plan</Text>
             </TouchableOpacity>
@@ -682,6 +709,7 @@ export default function PremiumManagementScreen() {
                           maxStorageMb: plan.maxStorageMb === -1 || plan.maxStorageMb === null || plan.maxStorageMb === undefined ? '-1' : plan.maxStorageMb.toString(),
                           isActive: plan.isActive,
                           displayOrder: plan.displayOrder ? plan.displayOrder.toString() : '0',
+                          selectedFeatures: Array.isArray(plan.features) ? plan.features : [],
                         });
                         setShowPlanModal(true);
                       }}
@@ -697,8 +725,27 @@ export default function PremiumManagementScreen() {
                   {plan.currency} {plan.price.toFixed(2)} / {plan.billingPeriod}
                 </Text>
                 <Text style={[styles.cardText, { color: theme.text.secondary }]}>
-                  Features: {plan.features.length} | Max Businesses: {plan.maxBusinesses === -1 ? 'Unlimited' : plan.maxBusinesses} | Max Users: {plan.maxUsers === -1 ? 'Unlimited' : plan.maxUsers}
+                  Features: {Array.isArray(plan.features) ? plan.features.length : 0} | Max Businesses: {plan.maxBusinesses === -1 ? 'Unlimited' : plan.maxBusinesses} | Max Users: {plan.maxUsers === -1 ? 'Unlimited' : plan.maxUsers}
                 </Text>
+                {Array.isArray(plan.features) && plan.features.length > 0 && (
+                  <View style={styles.featuresList}>
+                    {plan.features.slice(0, 5).map((featureId: string) => {
+                      const feature = availableFeatures.find(f => f.featureId === featureId);
+                      return (
+                        <View key={featureId} style={[styles.featureTag, { backgroundColor: theme.surface.info }]}>
+                          <Text style={[styles.featureTagText, { color: theme.accent.info }]}>
+                            {feature?.name || featureId}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                    {plan.features.length > 5 && (
+                      <Text style={[styles.cardText, { color: theme.text.tertiary }]}>
+                        +{plan.features.length - 5} more
+                      </Text>
+                    )}
+                  </View>
+                )}
               </View>
             ))}
           </>
@@ -997,6 +1044,67 @@ export default function PremiumManagementScreen() {
                 keyboardType="numeric"
               />
 
+              <Text style={[styles.label, { color: theme.text.secondary }]}>Features Included</Text>
+              <Text style={[styles.labelHint, { color: theme.text.tertiary }]}>
+                Select which features are included in this subscription plan
+              </Text>
+              <ScrollView style={styles.featuresSelector} nestedScrollEnabled>
+                {availableFeatures.map((feature) => {
+                  const isSelected = planForm.selectedFeatures.includes(feature.featureId);
+                  return (
+                    <TouchableOpacity
+                      key={feature.id}
+                      style={[
+                        styles.featureOption,
+                        {
+                          backgroundColor: isSelected
+                            ? `${theme.accent.primary}20`
+                            : theme.background.secondary,
+                          borderColor: isSelected ? theme.accent.primary : theme.border.light,
+                        },
+                      ]}
+                      onPress={() => {
+                        if (isSelected) {
+                          setPlanForm({
+                            ...planForm,
+                            selectedFeatures: planForm.selectedFeatures.filter(
+                              (id) => id !== feature.featureId
+                            ),
+                          });
+                        } else {
+                          setPlanForm({
+                            ...planForm,
+                            selectedFeatures: [...planForm.selectedFeatures, feature.featureId],
+                          });
+                        }
+                      }}
+                    >
+                      <View style={styles.featureOptionContent}>
+                        <Text style={[styles.featureOptionName, { color: theme.text.primary }]}>
+                          {feature.name}
+                        </Text>
+                        {feature.description && (
+                          <Text style={[styles.featureOptionDesc, { color: theme.text.secondary }]}>
+                            {feature.description}
+                          </Text>
+                        )}
+                      </View>
+                      <View
+                        style={[
+                          styles.checkbox,
+                          {
+                            backgroundColor: isSelected ? theme.accent.primary : 'transparent',
+                            borderColor: isSelected ? theme.accent.primary : theme.border.medium,
+                          },
+                        ]}
+                      >
+                        {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
               <Text style={[styles.label, { color: theme.text.secondary }]}>Display Order</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
@@ -1286,6 +1394,64 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  featuresList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  featureTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  featureTagText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  labelHint: {
+    fontSize: 12,
+    marginBottom: 8,
+    fontStyle: 'italic',
+  },
+  featuresSelector: {
+    maxHeight: 200,
+    marginBottom: 12,
+  },
+  featureOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  featureOptionContent: {
+    flex: 1,
+    marginRight: 12,
+  },
+  featureOptionName: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  featureOptionDesc: {
+    fontSize: 12,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkmark: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
 

@@ -21,7 +21,7 @@ const FeatureContext = createContext<FeatureContextValue | undefined>(undefined)
 export function FeatureContextProvider({ children }: { children: React.ReactNode }) {
   const { user, isSuperAdmin } = useAuth();
   const { business } = useBusiness();
-  const { hasActivePremium, checkFeatureAccess } = usePremium();
+  const { hasActivePremium, checkFeatureAccess, currentPlan } = usePremium();
   const [features, setFeatures] = useState<FeatureConfig[]>([]);
   const [enabledFeatureIds, setEnabledFeatureIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -88,6 +88,50 @@ export function FeatureContextProvider({ children }: { children: React.ReactNode
     loadFeatures();
   }, [loadFeatures]);
 
+  // Set up real-time subscription for feature_config and subscription_plans changes
+  useEffect(() => {
+    if (!user) return;
+
+    // Set up real-time subscription for feature_config changes
+    const featureConfigChannel = supabase
+      .channel('feature_config_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'feature_config',
+        },
+        () => {
+          // Refresh features when config changes
+          loadFeatures();
+        }
+      )
+      .subscribe();
+
+    // Set up real-time subscription for subscription_plans changes
+    const subscriptionPlansChannel = supabase
+      .channel('subscription_plans_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'subscription_plans',
+        },
+        () => {
+          // Refresh features when plans change (features might be updated)
+          loadFeatures();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      featureConfigChannel.unsubscribe();
+      subscriptionPlansChannel.unsubscribe();
+    };
+  }, [user, loadFeatures]);
+
   useEffect(() => {
     const loadBookFeatures = async () => {
       const bookSlug = business?.dreamBigBook;
@@ -131,8 +175,14 @@ export function FeatureContextProvider({ children }: { children: React.ReactNode
         return false; // Feature requires premium
       }
       
-      // Check if user's plan includes this feature
+      // Check if feature has specific plan restrictions (premium_plan_ids)
       if (feature.premiumPlanIds && feature.premiumPlanIds.length > 0) {
+        // Feature is restricted to specific plans - check if user's plan is in the list
+        if (!currentPlan || !feature.premiumPlanIds.includes(currentPlan.id)) {
+          return false; // User's plan is not in the allowed list
+        }
+      } else {
+        // Feature is premium but no plan restrictions - check if plan includes it via features array
         if (!checkFeatureAccess(featureId)) {
           return false; // User's plan doesn't include this feature
         }
