@@ -1,5 +1,5 @@
-import { Stack, useRouter, Redirect } from 'expo-router';
-import { useState } from 'react';
+import { Stack, useRouter } from 'expo-router';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -20,11 +20,48 @@ import {
 export default function FinancialToolsScreen() {
   const { theme } = useTheme();
   const router = useRouter();
-  const { isFeatureVisible } = useFeatures();
+  const { isFeatureVisible, isLoading, features } = useFeatures();
 
-  // Check if feature is visible
-  if (!isFeatureVisible('financial-tools')) {
-    return <Redirect href="/(tabs)/more" />;
+  // Check if feature is visible - but don't redirect immediately
+  // Allow the page to load first, then check
+  const featureVisible = isFeatureVisible('financial-tools');
+  
+  // Only redirect if feature is explicitly not visible AND we're done loading
+  // This prevents redirecting when feature is still loading
+  useEffect(() => {
+    if (!isLoading) {
+      if (!featureVisible) {
+        console.log('Financial Tools: Feature not visible, redirecting...');
+        // Use push instead of replace to allow back navigation
+        const timer = setTimeout(() => {
+          router.push('/(tabs)/more' as any);
+        }, 500); // Longer delay to see if page loads
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [featureVisible, isLoading, router]);
+  
+  // Show loading state
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background.primary, flex: 1, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: theme.text.secondary }}>Loading Financial Tools...</Text>
+      </View>
+    );
+  }
+  
+  // If feature not visible, show message briefly before redirect
+  if (!featureVisible) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background.primary, flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <Text style={{ color: theme.text.secondary, textAlign: 'center', marginBottom: 20 }}>
+          Financial Tools feature is not available.
+        </Text>
+        <Text style={{ color: theme.text.tertiary, textAlign: 'center', fontSize: 12 }}>
+          Make sure the feature is enabled in Admin → Features
+        </Text>
+      </View>
+    );
   }
 
   const calculators = [
