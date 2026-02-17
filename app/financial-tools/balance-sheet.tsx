@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase';
 
 export default function BalanceSheetScreen() {
   const { theme } = useTheme();
-  const { business, transactions, documents } = useBusiness();
+  const { business, transactions, documents, products } = useBusiness();
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   
@@ -48,40 +48,70 @@ export default function BalanceSheetScreen() {
       const filteredTransactions = transactions.filter(t => t.date <= asOfDate);
 
       // ASSETS
-      // Current Assets
-      const cash = business?.capital || 0;
+      // Separate capital purchases from operating expenses
+      const capitalPurchaseCategories = ['Capital Purchase', 'Equipment', 'Property'];
+      const capitalPurchases = filteredTransactions.filter(t => 
+        t.type === 'expense' && capitalPurchaseCategories.includes(t.category || '')
+      );
+      const capitalPurchaseAmount = capitalPurchases.reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0);
+      
+      // Operating expenses (excluding capital purchases)
+      const operatingExpenses = filteredTransactions.filter(t => 
+        t.type === 'expense' && !capitalPurchaseCategories.includes(t.category || '')
+      );
+      const totalOperatingExpenses = operatingExpenses.reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0);
+      
+      // Revenue
       const sales = filteredTransactions.filter(t => t.type === 'sale');
       const totalRevenue = sales.reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0);
-      const expenses = filteredTransactions.filter(t => t.type === 'expense');
-      const totalExpenses = expenses.reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0);
-      const netIncome = totalRevenue - totalExpenses;
-      const cashBalance = cash + netIncome;
-
-      // Accounts Receivable (unpaid invoices)
+      
+      // Net Income (revenue - operating expenses only, capital purchases are assets not expenses)
+      const netIncome = totalRevenue - totalOperatingExpenses;
+      
+      // Accounts Receivable (unpaid invoices) - needed for cash calculation
       const unpaidInvoices = documents?.filter(d => 
         d.type === 'invoice' && 
         d.status !== 'paid' && 
         d.date <= asOfDate
       ) || [];
       const accountsReceivable = unpaidInvoices.reduce((sum, d) => sum + parseFloat(d.total.toString()), 0);
+      
+      // Revenue from unpaid invoices (haven't received cash yet)
+      const revenueFromUnpaidInvoices = unpaidInvoices.reduce((sum, d) => sum + parseFloat(d.total.toString()), 0);
+      
+      // Current Assets
+      const initialCapital = business?.capital || 0;
+      // Cash = initial capital + net income - capital purchases - revenue from unpaid invoices
+      // (Unpaid invoices create AR but don't increase cash, even though they increase revenue/retained earnings)
+      const cashBalance = initialCapital + netIncome - capitalPurchaseAmount - revenueFromUnpaidInvoices;
 
-      // Inventory (if products exist)
-      // This would need product data - for now, estimate from cost of goods
-      const inventory = 0; // Would calculate from products table
+      // Accounts Receivable already calculated above
+
+      // Inventory (calculate from products if available)
+      let inventory = 0;
+      if (products && products.length > 0) {
+        inventory = products.reduce((sum, p) => {
+          const quantity = typeof p.quantity === 'number' ? p.quantity : parseFloat(p.quantity?.toString() || '0');
+          const costPrice = typeof p.costPrice === 'number' ? p.costPrice : parseFloat(p.costPrice?.toString() || '0');
+          return sum + (quantity * costPrice);
+        }, 0);
+      }
 
       const currentAssets = cashBalance + accountsReceivable + inventory;
 
-      // Fixed Assets (capital purchases)
-      const fixedAssets = expenses
-        .filter(t => ['Capital Purchase', 'Equipment', 'Property'].includes(t.category || ''))
-        .reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0);
+      // Fixed Assets (capital purchases become fixed assets)
+      const fixedAssets = capitalPurchaseAmount;
 
       const totalAssets = currentAssets + fixedAssets;
 
       // LIABILITIES
-      // Current Liabilities
-      // Accounts Payable (unpaid supplier invoices - would need supplier data)
-      const accountsPayable = 0; // Would calculate from supplier invoices
+      // Accounts Payable (unpaid supplier invoices/purchase orders)
+      const accountsPayable = documents?.filter(d => 
+        (d.type === 'purchase_order' || d.type === 'supplier_agreement') && 
+        d.status !== 'paid' && 
+        d.status !== 'cancelled' &&
+        d.date <= asOfDate
+      ).reduce((sum, d) => sum + parseFloat(d.total.toString()), 0) || 0;
 
       // Short-term loans (would need loan data)
       const shortTermLoans = 0;
@@ -94,12 +124,33 @@ export default function BalanceSheetScreen() {
       const totalLiabilities = currentLiabilities + longTermLoans;
 
       // EQUITY
-      const capital = business?.capital || 0;
-      const retainedEarnings = netIncome; // Simplified - would track retained earnings separately
+      const capital = initialCapital;
+      // Retained Earnings = net income (revenue - operating expenses)
+      // Note: Capital purchases don't affect retained earnings, they're assets
+      const retainedEarnings = netIncome;
       const totalEquity = capital + retainedEarnings;
 
       // Check if balance sheet balances
-      const balances = Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01;
+      const difference = totalAssets - (totalLiabilities + totalEquity);
+      const balances = Math.abs(difference) < 0.01;
+      
+      // Debug logging
+      if (__DEV__ && !balances) {
+        console.log('Balance Sheet Calculation:');
+        console.log('  Total Assets:', totalAssets);
+        console.log('  Cash:', cashBalance);
+        console.log('  Accounts Receivable:', accountsReceivable);
+        console.log('  Inventory:', inventory);
+        console.log('  Fixed Assets:', fixedAssets);
+        console.log('  Total Liabilities:', totalLiabilities);
+        console.log('  Accounts Payable:', accountsPayable);
+        console.log('  Capital:', capital);
+        console.log('  Retained Earnings:', retainedEarnings);
+        console.log('  Total Equity:', totalEquity);
+        console.log('  Difference:', difference);
+        console.log('  Net Income:', netIncome);
+        console.log('  Capital Purchases:', capitalPurchaseAmount);
+      }
 
       setBalanceSheetData({
         assets: {
