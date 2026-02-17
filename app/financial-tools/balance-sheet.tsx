@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Animate
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
-import { ArrowLeft, Building2, Wallet, TrendingUp, FileText } from 'lucide-react-native';
+import { ArrowLeft, Building2, Wallet, TrendingUp, TrendingDown, FileText } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 
 export default function BalanceSheetScreen() {
