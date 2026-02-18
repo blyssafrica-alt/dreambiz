@@ -70,8 +70,9 @@ export default function PremiumUpgradeModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const featureConfig = featureId ? features.find((f) => f.featureId === featureId) : null;
-  const requiredPlanIds = requiredPlanIdsProp ?? featureConfig?.premiumPlanIds ?? [];
+  const requiredPlanIds = requiredPlanIdsProp != null ? requiredPlanIdsProp : (featureConfig && featureConfig.premiumPlanIds) || [];
   const plansThatUnlock = plans.filter((p) => requiredPlanIds.some((id) => String(id) === String(p.id)));
+  const featureDisplayName = featureName || (featureConfig && featureConfig.name);
 
   const loadPlans = useCallback(async () => {
     try {
@@ -356,7 +357,7 @@ export default function PremiumUpgradeModal({
 
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
             {step === 'plans' ? (
-              <>
+              <View style={styles.plansStep}>
                 <View style={[styles.messageCard, { backgroundColor: theme.surface.warning }]}>
                   <Zap size={20} color={theme.accent.warning} />
                   <Text style={[styles.messageText, { color: theme.text.primary }]}>
@@ -364,14 +365,14 @@ export default function PremiumUpgradeModal({
                   </Text>
                 </View>
 
-                {(featureName || featureConfig?.name) && (
+                {featureDisplayName ? (
                   <View style={[styles.featureCard, { backgroundColor: theme.background.secondary }]}>
                     <Lock size={18} color={theme.text.tertiary} />
                     <Text style={[styles.featureText, { color: theme.text.secondary }]}>
-                      Feature: <Text style={{ fontWeight: '600', color: theme.text.primary }}>{featureName || featureConfig?.name}</Text>
+                      Feature: <Text style={{ fontWeight: '600', color: theme.text.primary }}>{featureDisplayName}</Text>
                     </Text>
                   </View>
-                )}
+                ) : null}
 
                 {currentPlan && (
                   <View style={[styles.currentPlanCard, { backgroundColor: theme.background.secondary }]}>
@@ -491,9 +492,9 @@ export default function PremiumUpgradeModal({
                 })}
               </View>
             )}
-              </>
+              </View>
             ) : (
-              <>
+              <View style={styles.paymentStep}>
                 <View style={[styles.paymentHeader, { backgroundColor: theme.background.secondary }]}>
                   <Text style={[styles.paymentPlanName, { color: theme.text.primary }]}>
                     {selectedPlan?.name}
@@ -637,7 +638,7 @@ export default function PremiumUpgradeModal({
                     </View>
                   </>
                 )}
-              </>
+              </View>
             )}
           </ScrollView>
 
@@ -740,6 +741,8 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
   },
+  plansStep: {},
+  paymentStep: {},
   messageCard: {
     flexDirection: 'row',
     alignItems: 'center',
