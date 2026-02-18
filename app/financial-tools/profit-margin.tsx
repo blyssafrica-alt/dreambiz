@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useFeatures } from '@/contexts/FeatureContext';
+import FeatureAccessGuard from '@/components/FeatureAccessGuard';
 import { ArrowLeft, TrendingUp, AlertCircle, CheckCircle, BarChart3 } from 'lucide-react-native';
 
 export default function ProfitMarginAnalyzerScreen() {
@@ -15,12 +16,6 @@ export default function ProfitMarginAnalyzerScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   
   const toolVisible = isFeatureVisible('profit-margin-analyzer') || isFeatureVisible('financial-tools');
-  
-  useEffect(() => {
-    if (!featuresLoading && !toolVisible) {
-      router.back();
-    }
-  }, [toolVisible, featuresLoading, router]);
   
   const [revenue, setRevenue] = useState('');
   const [costOfGoodsSold, setCostOfGoodsSold] = useState('');
@@ -335,6 +330,7 @@ export default function ProfitMarginAnalyzerScreen() {
           </ScrollView>
         </Animated.View>
       </View>
+      </FeatureAccessGuard>
     </>
   );
 }

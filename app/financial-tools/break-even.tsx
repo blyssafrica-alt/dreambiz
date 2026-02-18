@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useFeatures } from '@/contexts/FeatureContext';
+import FeatureAccessGuard from '@/components/FeatureAccessGuard';
 import { ArrowLeft, Target, AlertCircle, CheckCircle, TrendingUp } from 'lucide-react-native';
 
 export default function BreakEvenCalculatorScreen() {
@@ -16,12 +17,6 @@ export default function BreakEvenCalculatorScreen() {
   
   // Check if this specific tool is visible
   const toolVisible = isFeatureVisible('break-even-calculator') || isFeatureVisible('financial-tools');
-  
-  useEffect(() => {
-    if (!featuresLoading && !toolVisible) {
-      router.back();
-    }
-  }, [toolVisible, featuresLoading, router]);
   
   const [fixedCosts, setFixedCosts] = useState('');
   const [variableCostPerUnit, setVariableCostPerUnit] = useState('');
@@ -87,7 +82,11 @@ export default function BreakEvenCalculatorScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
+      <FeatureAccessGuard 
+        featureId="break-even-calculator" 
+        showUpgradeModal={true}
+      >
+        <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
         <LinearGradient
           colors={['#3B82F6', '#2563EB']}
           start={{ x: 0, y: 0 }}
@@ -269,6 +268,7 @@ export default function BreakEvenCalculatorScreen() {
           </ScrollView>
         </Animated.View>
       </View>
+      </FeatureAccessGuard>
     </>
   );
 }

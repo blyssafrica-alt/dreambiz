@@ -166,30 +166,61 @@ export function FeatureContextProvider({ children }: { children: React.ReactNode
 
     const feature = features.find(f => f.featureId === featureId);
     const hasBookFeature = bookFeatureIds.includes(featureId);
-    if (!feature) return false;
-    if (!feature.enabled) return false;
+    if (!feature) {
+      if (__DEV__) {
+        console.log(`[FeatureAccess] Feature "${featureId}" not found in features list`);
+      }
+      return false;
+    }
+    if (!feature.enabled) {
+      if (__DEV__) {
+        console.log(`[FeatureAccess] Feature "${featureId}" is disabled`);
+      }
+      return false;
+    }
 
     // PRIORITY CHECK: If feature is assigned to specific plans via premium_plan_ids,
     // it should ONLY be visible to users with those plans (regardless of isPremium flag)
     if (feature.premiumPlanIds && feature.premiumPlanIds.length > 0) {
       if (!currentPlan) {
+        if (__DEV__) {
+          console.log(`[FeatureAccess] Feature "${featureId}" requires plans ${feature.premiumPlanIds.join(', ')}, but user has no plan`);
+        }
         return false; // Feature is assigned to specific plans but user has no plan
       }
-      if (!feature.premiumPlanIds.includes(currentPlan.id)) {
+      
+      // Convert both to strings for comparison (UUIDs might be stored differently)
+      const userPlanId = String(currentPlan.id);
+      const hasAccess = feature.premiumPlanIds.some(planId => String(planId) === userPlanId);
+      
+      if (!hasAccess) {
+        if (__DEV__) {
+          console.log(`[FeatureAccess] Feature "${featureId}" requires plans ${feature.premiumPlanIds.join(', ')}, user has plan ${userPlanId}`);
+        }
         return false; // User's plan is not in the allowed list - hide feature
       }
+      
       // User has the correct plan, continue to check other requirements
+      if (__DEV__) {
+        console.log(`[FeatureAccess] Feature "${featureId}" access granted - user has required plan ${userPlanId}`);
+      }
     }
 
     // Check premium requirement (if feature is marked as premium)
     if (feature.isPremium) {
       if (!hasActivePremium) {
+        if (__DEV__) {
+          console.log(`[FeatureAccess] Feature "${featureId}" requires premium but user doesn't have active premium`);
+        }
         return false; // Feature requires premium but user doesn't have it
       }
       
       // If feature doesn't have premium_plan_ids, check if it's in plan's features array
       if (!feature.premiumPlanIds || feature.premiumPlanIds.length === 0) {
         if (!checkFeatureAccess(featureId)) {
+          if (__DEV__) {
+            console.log(`[FeatureAccess] Feature "${featureId}" not in plan's features array`);
+          }
           return false; // User's plan doesn't include this feature in its features array
         }
       }

@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useFeatures } from '@/contexts/FeatureContext';
+import FeatureAccessGuard from '@/components/FeatureAccessGuard';
 import { ArrowLeft, Building2, Wallet, TrendingUp, TrendingDown, FileText } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 
@@ -16,12 +17,6 @@ export default function BalanceSheetScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   
   const toolVisible = isFeatureVisible('balance-sheet') || isFeatureVisible('financial-tools');
-  
-  useEffect(() => {
-    if (!featuresLoading && !toolVisible) {
-      router.back();
-    }
-  }, [toolVisible, featuresLoading, router]);
   
   const [asOfDate, setAsOfDate] = useState(new Date().toISOString().split('T')[0]);
   const [balanceSheetData, setBalanceSheetData] = useState<any>(null);
@@ -447,6 +442,7 @@ export default function BalanceSheetScreen() {
           </ScrollView>
         </Animated.View>
       </View>
+      </FeatureAccessGuard>
     </>
   );
 }

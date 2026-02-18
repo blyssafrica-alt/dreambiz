@@ -279,9 +279,13 @@ export default function PremiumUpgradeModal({
         [
           {
             text: 'OK',
-            onPress: () => {
-              onClose();
-              refreshPremiumStatus();
+            onPress: async () => {
+              // Refresh premium status immediately
+              await refreshPremiumStatus();
+              // Close modal after a brief delay to allow state update
+              setTimeout(() => {
+                onClose();
+              }, 100);
             },
           },
         ]
