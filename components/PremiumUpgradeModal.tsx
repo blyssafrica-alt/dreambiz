@@ -197,8 +197,14 @@ export default function PremiumUpgradeModal({
     }
 
     features.push('Priority support');
-    features.push('All premium features');
-    
+    // For every plan (Free, Starter, Pro, etc.): only show accurate premium copy. Admin controls which features each plan gets.
+    const planFeatures = Array.isArray(plan.features) ? plan.features : [];
+    if (planFeatures.includes('*')) {
+      features.push('All premium features');
+    } else if (planFeatures.length > 0) {
+      features.push(`${planFeatures.length} premium tool(s) included`);
+    }
+    // If plan has no premium features list, we don't add a line (no misleading "All premium features")
     return features;
   };
 
@@ -717,6 +723,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '90%',
+    minHeight: '70%',
   },
   header: {
     flexDirection: 'row',
