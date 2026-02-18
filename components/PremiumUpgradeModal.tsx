@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,15 @@ import {
   TextInput,
   Image,
   Alert,
+  Animated,
+  Platform,
 } from 'react-native';
-import { X, Crown, Check, Zap, CreditCard, Camera } from 'lucide-react-native';
+import { X, Crown, Check, Zap, CreditCard, Camera, Lock } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { usePremium } from '@/contexts/PremiumContext';
+import { useFeatures } from '@/contexts/FeatureContext';
 import { supabase } from '@/lib/supabase';
 import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 import type { SubscriptionPlan } from '@/types/premium';
@@ -25,7 +28,12 @@ interface PremiumUpgradeModalProps {
   onClose: () => void;
   title?: string;
   message?: string;
+  /** Display name of the feature (e.g. "Break-Even Calculator") */
   feature?: string;
+  /** Feature ID to resolve required plans from feature config (e.g. "break-even-calculator") */
+  featureId?: string;
+  /** Optional override: plan IDs that unlock this feature (UUIDs) */
+  requiredPlanIds?: string[];
 }
 
 interface PaymentMethod {
@@ -40,11 +48,15 @@ export default function PremiumUpgradeModal({
   onClose,
   title = 'Upgrade to Premium',
   message = 'Unlock this feature and more with a premium plan',
-  feature,
+  feature: featureName,
+  featureId,
+  requiredPlanIds: requiredPlanIdsProp,
 }: PremiumUpgradeModalProps) {
   const { theme } = useTheme();
   const { user } = useAuth();
   const { currentPlan, refreshPremiumStatus } = usePremium();
+  const { features } = useFeatures();
+  const slideAnim = useRef(new Animated.Value(0)).current;
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
@@ -56,6 +68,10 @@ export default function PremiumUpgradeModal({
   const [proofImage, setProofImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const featureConfig = featureId ? features.find((f) => f.featureId === featureId) : null;
+  const requiredPlanIds = requiredPlanIdsProp ?? featureConfig?.premiumPlanIds ?? [];
+  const plansThatUnlock = plans.filter((p) => requiredPlanIds.some((id) => String(id) === String(p.id)));
 
   const loadPlans = useCallback(async () => {
     try {
@@ -95,7 +111,7 @@ export default function PremiumUpgradeModal({
     } finally {
       setIsLoading(false);
     }
-  }, [selectedPlan]);
+  }, []);
 
   const loadPaymentMethods = useCallback(async () => {
     try {
@@ -126,8 +142,21 @@ export default function PremiumUpgradeModal({
       setReference('');
       setNotes('');
       setProofImage(null);
+      slideAnim.setValue(0);
+      Animated.timing(slideAnim, {
+        toValue: 1,
+        duration: 280,
+        useNativeDriver: true,
+      }).start();
     }
-  }, [visible, loadPlans, loadPaymentMethods]);
+  }, [visible, loadPlans, loadPaymentMethods, slideAnim]);
+
+  useEffect(() => {
+    if (visible && plans.length > 0 && requiredPlanIds.length > 0) {
+      const firstUnlock = plans.find((p) => requiredPlanIds.some((id) => String(id) === String(p.id)));
+      if (firstUnlock) setSelectedPlan(firstUnlock);
+    }
+  }, [visible, plans, requiredPlanIds]);
 
   const formatPrice = (plan: SubscriptionPlan) => {
     return `${plan.currency} ${plan.price.toFixed(2)}`;
@@ -298,10 +327,21 @@ export default function PremiumUpgradeModal({
     }
   };
 
+  const slideY = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [500, 0],
+  });
+
   return (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal visible={visible} transparent animationType="fade">
       <View style={styles.overlay}>
-        <View style={[styles.container, { backgroundColor: theme.background.card }]}>
+        <Animated.View
+          style={[
+            styles.container,
+            { backgroundColor: theme.background.card },
+            { transform: [{ translateY: slideY }] },
+          ]}
+        >
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <Crown size={24} color={theme.accent.primary} />
@@ -309,7 +349,7 @@ export default function PremiumUpgradeModal({
                 {title}
               </Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton} accessibilityLabel="Close">
               <X size={24} color={theme.text.secondary} />
             </TouchableOpacity>
           </View>
@@ -324,22 +364,42 @@ export default function PremiumUpgradeModal({
                   </Text>
                 </View>
 
-            {feature && (
-              <Text style={[styles.featureText, { color: theme.text.secondary }]}>
-                Feature: <Text style={{ fontWeight: '600' }}>{feature}</Text>
-              </Text>
-            )}
+                {(featureName || featureConfig?.name) && (
+                  <View style={[styles.featureCard, { backgroundColor: theme.background.secondary }]}>
+                    <Lock size={18} color={theme.text.tertiary} />
+                    <Text style={[styles.featureText, { color: theme.text.secondary }]}>
+                      Feature: <Text style={{ fontWeight: '600', color: theme.text.primary }}>{featureName || featureConfig?.name}</Text>
+                    </Text>
+                  </View>
+                )}
 
-            {currentPlan && (
-              <View style={[styles.currentPlanCard, { backgroundColor: theme.background.secondary }]}>
-                <Text style={[styles.currentPlanLabel, { color: theme.text.tertiary }]}>
-                  Current Plan
-                </Text>
-                <Text style={[styles.currentPlanName, { color: theme.text.primary }]}>
-                  {currentPlan.name}
-                </Text>
-              </View>
-            )}
+                {currentPlan && (
+                  <View style={[styles.currentPlanCard, { backgroundColor: theme.background.secondary }]}>
+                    <Text style={[styles.currentPlanLabel, { color: theme.text.tertiary }]}>
+                      Your current plan
+                    </Text>
+                    <Text style={[styles.currentPlanName, { color: theme.text.primary }]}>
+                      {currentPlan.name}
+                    </Text>
+                  </View>
+                )}
+
+                {plansThatUnlock.length > 0 && (
+                  <View style={[styles.requiredPlanCard, { backgroundColor: theme.surface.info }]}>
+                    <Text style={[styles.requiredPlanLabel, { color: theme.text.tertiary }]}>
+                      Required plan to unlock
+                    </Text>
+                    <Text style={[styles.requiredPlanNames, { color: theme.text.primary }]}>
+                      {plansThatUnlock.map((p) => p.name).join(', ')}
+                    </Text>
+                  </View>
+                )}
+
+                {!isLoading && plans.length > 0 && (
+                  <Text style={[styles.compareLabel, { color: theme.text.tertiary }]}>
+                    Compare plans
+                  </Text>
+                )}
 
             {isLoading ? (
               <View style={styles.loadingContainer}>
@@ -358,8 +418,8 @@ export default function PremiumUpgradeModal({
               <View style={styles.plansContainer}>
                 {plans.map((plan) => {
                   const isCurrentPlan = currentPlan?.id === plan.id;
-                  const features = getFeatureList(plan);
-                  
+                  const planFeatures = getFeatureList(plan);
+                  const unlocksFeature = plansThatUnlock.some((p) => String(p.id) === String(plan.id));
                   return (
                     <TouchableOpacity
                       key={plan.id}
@@ -367,8 +427,8 @@ export default function PremiumUpgradeModal({
                         styles.planCard,
                         {
                           backgroundColor: theme.background.secondary,
-                          borderColor: selectedPlan?.id === plan.id 
-                            ? theme.accent.primary 
+                          borderColor: selectedPlan?.id === plan.id
+                            ? theme.accent.primary
                             : theme.border.light,
                           borderWidth: selectedPlan?.id === plan.id ? 2 : 1,
                         },
@@ -382,7 +442,6 @@ export default function PremiumUpgradeModal({
                           <Text style={styles.popularText}>Most Popular</Text>
                         </View>
                       )}
-
                       <Text style={[styles.planName, { color: theme.text.primary }]}>
                         {plan.name}
                       </Text>
@@ -391,6 +450,13 @@ export default function PremiumUpgradeModal({
                         <Text style={[styles.planDescription, { color: theme.text.secondary }]}>
                           {plan.description}
                         </Text>
+                      )}
+
+                      {unlocksFeature && requiredPlanIds.length > 0 && !isCurrentPlan && (
+                        <View style={[styles.unlocksBadge, { backgroundColor: theme.surface.info }]}>
+                          <Lock size={12} color={theme.accent.info} />
+                          <Text style={[styles.unlocksBadgeText, { color: theme.accent.info }]}>Unlocks this feature</Text>
+                        </View>
                       )}
 
                       <View style={styles.priceContainer}>
@@ -403,11 +469,11 @@ export default function PremiumUpgradeModal({
                       </View>
 
                       <View style={styles.featuresContainer}>
-                        {features.map((feature, index) => (
+                        {planFeatures.map((item, index) => (
                           <View key={index} style={styles.featureRow}>
                             <Check size={16} color={theme.accent.success} />
                             <Text style={[styles.featureItem, { color: theme.text.primary }]}>
-                              {feature}
+                              {item}
                             </Text>
                           </View>
                         ))}
@@ -687,10 +753,17 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 22,
   },
+  featureCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
   featureText: {
     fontSize: 14,
-    marginBottom: 16,
-    textAlign: 'center',
+    flex: 1,
   },
   currentPlanCard: {
     padding: 12,
@@ -707,6 +780,41 @@ const styles = StyleSheet.create({
   currentPlanName: {
     fontSize: 18,
     fontWeight: '700' as const,
+  },
+  requiredPlanCard: {
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  requiredPlanLabel: {
+    fontSize: 12,
+    textTransform: 'uppercase',
+    fontWeight: '600' as const,
+    marginBottom: 4,
+  },
+  requiredPlanNames: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  compareLabel: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+  },
+  unlocksBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  unlocksBadgeText: {
+    fontSize: 11,
+    fontWeight: '600' as const,
   },
   loadingContainer: {
     padding: 40,

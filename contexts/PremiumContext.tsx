@@ -130,11 +130,12 @@ export function PremiumContextProvider({ children }: { children: React.ReactNode
         return;
       }
 
-      // No active premium
+      // No active premium (expired, cancelled, or never subscribed)
       setHasActivePremium(false);
       setCurrentPlan(null);
       setSubscription(null);
       setTrial(null);
+      setIsLoading(false);
     } catch (error) {
       console.error('Failed to load premium status:', error);
       setHasActivePremium(false);

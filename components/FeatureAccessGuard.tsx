@@ -97,18 +97,15 @@ export default function FeatureAccessGuard({
         )}
         <PremiumUpgradeModal
           visible={showModal}
-          onClose={() => {
-            setShowModal(false);
-            // Refresh premium status after modal closes (in case user upgraded)
-            // The modal's onClose already calls refreshPremiumStatus
-          }}
-          title={feature?.name || 'Premium Feature'}
+          onClose={() => setShowModal(false)}
+          title="Upgrade to unlock"
           message={
             requiredPlans.length > 0
-              ? `This feature is available in specific subscription plans. Upgrade to unlock it!`
-              : `Unlock ${feature?.name || 'this feature'} and more with a premium plan`
+              ? `This feature is available in specific subscription plans. Choose a plan below to unlock it.`
+              : `Unlock ${feature?.name || 'this feature'} and more with a premium plan.`
           }
-          feature={featureId}
+          feature={feature?.name || featureId}
+          featureId={featureId}
         />
       </>
     );

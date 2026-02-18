@@ -1,5 +1,5 @@
 import { Stack, useRouter } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -10,23 +10,44 @@ import {
   TrendingUp,
   Percent,
   Target,
-  FileText,
   ArrowRight,
   BarChart3,
   Wallet,
   Building2,
+  Lock,
 } from 'lucide-react-native';
+import PremiumUpgradeModal from '@/components/PremiumUpgradeModal';
 
 export default function FinancialToolsScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const { isFeatureVisible, isLoading, features } = useFeatures();
+  const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
+  const [upgradeFeatureName, setUpgradeFeatureName] = useState<string | null>(null);
+  const [upgradeFeatureId, setUpgradeFeatureId] = useState<string | null>(null);
 
   // Check if parent feature is visible (for backward compatibility)
-  // Individual tools will check their own visibility
   const parentFeatureVisible = isFeatureVisible('financial-tools');
+
+  const hasAccessToTool = (featureId: string) => {
+    const toolVisible = isFeatureVisible(featureId);
+    if (!toolVisible && parentFeatureVisible) {
+      const toolFeature = features.find(f => f.featureId === featureId);
+      return !toolFeature;
+    }
+    return toolVisible;
+  };
   
-  // Show loading state
+  const handleToolPress = (item: { featureId: string; title: string; route: string }) => {
+    if (hasAccessToTool(item.featureId)) {
+      router.push(item.route as any);
+    } else {
+      setUpgradeFeatureName(item.title);
+      setUpgradeFeatureId(item.featureId);
+      setUpgradeModalVisible(true);
+    }
+  };
+  
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background.primary, flex: 1, justifyContent: 'center', alignItems: 'center' }]}>
@@ -121,32 +142,6 @@ export default function FinancialToolsScreen() {
     },
   ];
   
-  // Filter tools based on individual feature visibility
-  // Always check individual tool visibility, even if parent is visible
-  // This ensures premium plan restrictions are respected
-  const visibleCalculators = calculators.filter(calc => {
-    // Check individual tool visibility first
-    const toolVisible = isFeatureVisible(calc.featureId);
-    // Only fall back to parent if individual tool doesn't exist as a feature
-    // (for backward compatibility with old setup)
-    if (!toolVisible && parentFeatureVisible) {
-      // Check if the individual tool feature exists in the database
-      // If it doesn't exist, allow parent feature to control it
-      const toolFeature = features.find(f => f.featureId === calc.featureId);
-      return !toolFeature; // Show if tool feature doesn't exist (old setup)
-    }
-    return toolVisible;
-  });
-    
-  const visibleStatements = statements.filter(stmt => {
-    const toolVisible = isFeatureVisible(stmt.featureId);
-    if (!toolVisible && parentFeatureVisible) {
-      const toolFeature = features.find(f => f.featureId === stmt.featureId);
-      return !toolFeature; // Show if tool feature doesn't exist (old setup)
-    }
-    return toolVisible;
-  });
-
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
@@ -188,40 +183,46 @@ export default function FinancialToolsScreen() {
               Powerful tools to analyze your business finances
             </Text>
 
-            {visibleCalculators.length === 0 && !parentFeatureVisible && (
-              <View style={[styles.emptyState, { backgroundColor: theme.background.secondary }]}>
-                <Text style={[styles.emptyStateText, { color: theme.text.secondary }]}>
-                  No calculators available. Contact your administrator to enable financial tools.
-                </Text>
-              </View>
-            )}
-            
-            {visibleCalculators.map((calc) => {
+            {calculators.map((calc) => {
               const Icon = calc.icon;
+              const locked = !hasAccessToTool(calc.featureId);
               return (
                 <TouchableOpacity
                   key={calc.id}
-                  style={[styles.toolCard, { backgroundColor: theme.background.card }]}
-                  onPress={() => router.push(calc.route as any)}
+                  style={[
+                    styles.toolCard,
+                    { backgroundColor: theme.background.card },
+                    locked && styles.toolCardLocked,
+                  ]}
+                  onPress={() => handleToolPress(calc)}
                   activeOpacity={0.7}
                 >
                   <LinearGradient
                     colors={calc.gradient}
-                    style={styles.iconContainer}
+                    style={[styles.iconContainer, locked && styles.iconContainerLocked]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                   >
                     <Icon size={24} color="#FFF" strokeWidth={2.5} />
+                    {locked && (
+                      <View style={styles.lockBadge}>
+                        <Lock size={14} color="#FFF" strokeWidth={2.5} />
+                      </View>
+                    )}
                   </LinearGradient>
                   <View style={styles.toolContent}>
-                    <Text style={[styles.toolTitle, { color: theme.text.primary }]}>
+                    <Text style={[styles.toolTitle, { color: theme.text.primary }, locked && { color: theme.text.secondary }]}>
                       {calc.title}
                     </Text>
                     <Text style={[styles.toolDescription, { color: theme.text.secondary }]}>
                       {calc.description}
                     </Text>
                   </View>
-                  <ArrowRight size={20} color={theme.text.tertiary} />
+                  {locked ? (
+                    <Lock size={20} color={theme.text.tertiary} />
+                  ) : (
+                    <ArrowRight size={20} color={theme.text.tertiary} />
+                  )}
                 </TouchableOpacity>
               );
             })}
@@ -234,45 +235,64 @@ export default function FinancialToolsScreen() {
               Comprehensive reports from your business data
             </Text>
 
-            {visibleStatements.length === 0 && !parentFeatureVisible && (
-              <View style={[styles.emptyState, { backgroundColor: theme.background.secondary }]}>
-                <Text style={[styles.emptyStateText, { color: theme.text.secondary }]}>
-                  No financial statements available. Contact your administrator to enable financial tools.
-                </Text>
-              </View>
-            )}
-            
-            {visibleStatements.map((stmt) => {
+            {statements.map((stmt) => {
               const Icon = stmt.icon;
+              const locked = !hasAccessToTool(stmt.featureId);
               return (
                 <TouchableOpacity
                   key={stmt.id}
-                  style={[styles.toolCard, { backgroundColor: theme.background.card }]}
-                  onPress={() => router.push(stmt.route as any)}
+                  style={[
+                    styles.toolCard,
+                    { backgroundColor: theme.background.card },
+                    locked && styles.toolCardLocked,
+                  ]}
+                  onPress={() => handleToolPress(stmt)}
                   activeOpacity={0.7}
                 >
                   <LinearGradient
                     colors={stmt.gradient}
-                    style={styles.iconContainer}
+                    style={[styles.iconContainer, locked && styles.iconContainerLocked]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                   >
                     <Icon size={24} color="#FFF" strokeWidth={2.5} />
+                    {locked && (
+                      <View style={styles.lockBadge}>
+                        <Lock size={14} color="#FFF" strokeWidth={2.5} />
+                      </View>
+                    )}
                   </LinearGradient>
                   <View style={styles.toolContent}>
-                    <Text style={[styles.toolTitle, { color: theme.text.primary }]}>
+                    <Text style={[styles.toolTitle, { color: theme.text.primary }, locked && { color: theme.text.secondary }]}>
                       {stmt.title}
                     </Text>
                     <Text style={[styles.toolDescription, { color: theme.text.secondary }]}>
                       {stmt.description}
                     </Text>
                   </View>
-                  <ArrowRight size={20} color={theme.text.tertiary} />
+                  {locked ? (
+                    <Lock size={20} color={theme.text.tertiary} />
+                  ) : (
+                    <ArrowRight size={20} color={theme.text.tertiary} />
+                  )}
                 </TouchableOpacity>
               );
             })}
           </View>
         </ScrollView>
+
+        <PremiumUpgradeModal
+          visible={upgradeModalVisible}
+          onClose={() => {
+            setUpgradeModalVisible(false);
+            setUpgradeFeatureName(null);
+            setUpgradeFeatureId(null);
+          }}
+          title="Upgrade to unlock"
+          message={upgradeFeatureName ? `Unlock "${upgradeFeatureName}" and more with a premium plan.` : 'Unlock this feature and more with a premium plan.'}
+          feature={upgradeFeatureName || undefined}
+          featureId={upgradeFeatureId || undefined}
+        />
       </View>
     </>
   );
@@ -348,6 +368,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
+  },
+  toolCardLocked: {
+    opacity: 0.92,
+  },
+  iconContainerLocked: {
+    opacity: 0.9,
+  },
+  lockBadge: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   toolContent: {
     flex: 1,
