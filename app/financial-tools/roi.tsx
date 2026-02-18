@@ -4,13 +4,23 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Platfo
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { useFeatures } from '@/contexts/FeatureContext';
 import { ArrowLeft, Calculator, AlertCircle, CheckCircle, TrendingUp, Target } from 'lucide-react-native';
 
 export default function ROICalculatorScreen() {
   const { theme } = useTheme();
   const { business } = useBusiness();
+  const { isFeatureVisible, isLoading: featuresLoading } = useFeatures();
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  
+  const toolVisible = isFeatureVisible('roi-calculator') || isFeatureVisible('financial-tools');
+  
+  useEffect(() => {
+    if (!featuresLoading && !toolVisible) {
+      router.back();
+    }
+  }, [toolVisible, featuresLoading, router]);
   
   const [initialInvestment, setInitialInvestment] = useState('');
   const [finalValue, setFinalValue] = useState('');

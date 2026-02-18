@@ -4,13 +4,23 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Platfo
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { useFeatures } from '@/contexts/FeatureContext';
 import { ArrowLeft, Percent, AlertCircle, CheckCircle, TrendingUp } from 'lucide-react-native';
 
 export default function MarkupCalculatorScreen() {
   const { theme } = useTheme();
   const { business, products } = useBusiness();
+  const { isFeatureVisible, isLoading: featuresLoading } = useFeatures();
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  
+  const toolVisible = isFeatureVisible('markup-calculator') || isFeatureVisible('financial-tools');
+  
+  useEffect(() => {
+    if (!featuresLoading && !toolVisible) {
+      router.back();
+    }
+  }, [toolVisible, featuresLoading, router]);
   
   const [costPrice, setCostPrice] = useState('');
   const [sellingPrice, setSellingPrice] = useState('');

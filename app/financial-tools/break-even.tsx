@@ -4,13 +4,24 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Platfo
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { useFeatures } from '@/contexts/FeatureContext';
 import { ArrowLeft, Target, AlertCircle, CheckCircle, TrendingUp } from 'lucide-react-native';
 
 export default function BreakEvenCalculatorScreen() {
   const { theme } = useTheme();
   const { business, transactions } = useBusiness();
+  const { isFeatureVisible, isLoading: featuresLoading } = useFeatures();
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  
+  // Check if this specific tool is visible
+  const toolVisible = isFeatureVisible('break-even-calculator') || isFeatureVisible('financial-tools');
+  
+  useEffect(() => {
+    if (!featuresLoading && !toolVisible) {
+      router.back();
+    }
+  }, [toolVisible, featuresLoading, router]);
   
   const [fixedCosts, setFixedCosts] = useState('');
   const [variableCostPerUnit, setVariableCostPerUnit] = useState('');

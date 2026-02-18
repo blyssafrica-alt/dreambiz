@@ -4,14 +4,24 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Animate
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { useFeatures } from '@/contexts/FeatureContext';
 import { ArrowLeft, BarChart3, Download, Calendar, TrendingUp, TrendingDown } from 'lucide-react-native';
 import LineChart from '@/components/Charts/LineChart';
 
 export default function PLStatementScreen() {
   const { theme } = useTheme();
   const { business, transactions } = useBusiness();
+  const { isFeatureVisible, isLoading: featuresLoading } = useFeatures();
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  
+  const toolVisible = isFeatureVisible('pl-statement') || isFeatureVisible('financial-tools');
+  
+  useEffect(() => {
+    if (!featuresLoading && !toolVisible) {
+      router.back();
+    }
+  }, [toolVisible, featuresLoading, router]);
   
   const [period, setPeriod] = useState<'monthly' | 'yearly'>('monthly');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());

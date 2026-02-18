@@ -20,26 +20,11 @@ import {
 export default function FinancialToolsScreen() {
   const { theme } = useTheme();
   const router = useRouter();
-  const { isFeatureVisible, isLoading, features } = useFeatures();
+  const { isFeatureVisible, isLoading } = useFeatures();
 
-  // Check if feature is visible - but don't redirect immediately
-  // Allow the page to load first, then check
-  const featureVisible = isFeatureVisible('financial-tools');
-  
-  // Only redirect if feature is explicitly not visible AND we're done loading
-  // This prevents redirecting when feature is still loading
-  useEffect(() => {
-    if (!isLoading) {
-      if (!featureVisible) {
-        console.log('Financial Tools: Feature not visible, redirecting...');
-        // Use push instead of replace to allow back navigation
-        const timer = setTimeout(() => {
-          router.push('/(tabs)/more' as any);
-        }, 500); // Longer delay to see if page loads
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [featureVisible, isLoading, router]);
+  // Check if parent feature is visible (for backward compatibility)
+  // Individual tools will check their own visibility
+  const parentFeatureVisible = isFeatureVisible('financial-tools');
   
   // Show loading state
   if (isLoading) {
@@ -49,24 +34,11 @@ export default function FinancialToolsScreen() {
       </View>
     );
   }
-  
-  // If feature not visible, show message briefly before redirect
-  if (!featureVisible) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.background.primary, flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
-        <Text style={{ color: theme.text.secondary, textAlign: 'center', marginBottom: 20 }}>
-          Financial Tools feature is not available.
-        </Text>
-        <Text style={{ color: theme.text.tertiary, textAlign: 'center', fontSize: 12 }}>
-          Make sure the feature is enabled in Admin → Features
-        </Text>
-      </View>
-    );
-  }
 
   const calculators = [
     {
       id: 'break-even',
+      featureId: 'break-even-calculator',
       title: 'Break-Even Calculator',
       description: 'Calculate when your business will break even',
       icon: Target,
@@ -76,6 +48,7 @@ export default function FinancialToolsScreen() {
     },
     {
       id: 'pricing',
+      featureId: 'pricing-calculator',
       title: 'Pricing Calculator',
       description: 'Determine optimal product pricing',
       icon: DollarSign,
@@ -85,6 +58,7 @@ export default function FinancialToolsScreen() {
     },
     {
       id: 'profit-margin',
+      featureId: 'profit-margin-analyzer',
       title: 'Profit Margin Analyzer',
       description: 'Analyze your profit margins',
       icon: TrendingUp,
@@ -94,6 +68,7 @@ export default function FinancialToolsScreen() {
     },
     {
       id: 'markup',
+      featureId: 'markup-calculator',
       title: 'Business Markup Calculator',
       description: 'Calculate markup percentages',
       icon: Percent,
@@ -103,6 +78,7 @@ export default function FinancialToolsScreen() {
     },
     {
       id: 'roi',
+      featureId: 'roi-calculator',
       title: 'Business ROI Calculator',
       description: 'Calculate return on investment',
       icon: Calculator,
@@ -115,6 +91,7 @@ export default function FinancialToolsScreen() {
   const statements = [
     {
       id: 'pl',
+      featureId: 'pl-statement',
       title: 'Profit & Loss Statement',
       description: 'Monthly and yearly P&L reports',
       icon: BarChart3,
@@ -124,6 +101,7 @@ export default function FinancialToolsScreen() {
     },
     {
       id: 'cashflow',
+      featureId: 'cashflow-statement',
       title: 'Cash Flow Statement',
       description: 'Track cash inflows and outflows',
       icon: Wallet,
@@ -133,6 +111,7 @@ export default function FinancialToolsScreen() {
     },
     {
       id: 'balance-sheet',
+      featureId: 'balance-sheet',
       title: 'Balance Sheet',
       description: 'Statement of financial position',
       icon: Building2,
@@ -141,6 +120,17 @@ export default function FinancialToolsScreen() {
       color: '#F97316',
     },
   ];
+  
+  // Filter tools based on individual feature visibility
+  // If parent feature is visible, show all tools (backward compatibility)
+  // Otherwise, only show tools that are individually visible
+  const visibleCalculators = parentFeatureVisible 
+    ? calculators 
+    : calculators.filter(calc => isFeatureVisible(calc.featureId));
+    
+  const visibleStatements = parentFeatureVisible
+    ? statements
+    : statements.filter(stmt => isFeatureVisible(stmt.featureId));
 
   return (
     <>
@@ -183,7 +173,15 @@ export default function FinancialToolsScreen() {
               Powerful tools to analyze your business finances
             </Text>
 
-            {calculators.map((calc) => {
+            {visibleCalculators.length === 0 && !parentFeatureVisible && (
+              <View style={[styles.emptyState, { backgroundColor: theme.background.secondary }]}>
+                <Text style={[styles.emptyStateText, { color: theme.text.secondary }]}>
+                  No calculators available. Contact your administrator to enable financial tools.
+                </Text>
+              </View>
+            )}
+            
+            {visibleCalculators.map((calc) => {
               const Icon = calc.icon;
               return (
                 <TouchableOpacity
@@ -221,7 +219,15 @@ export default function FinancialToolsScreen() {
               Comprehensive reports from your business data
             </Text>
 
-            {statements.map((stmt) => {
+            {visibleStatements.length === 0 && !parentFeatureVisible && (
+              <View style={[styles.emptyState, { backgroundColor: theme.background.secondary }]}>
+                <Text style={[styles.emptyStateText, { color: theme.text.secondary }]}>
+                  No financial statements available. Contact your administrator to enable financial tools.
+                </Text>
+              </View>
+            )}
+            
+            {visibleStatements.map((stmt) => {
               const Icon = stmt.icon;
               return (
                 <TouchableOpacity
@@ -339,6 +345,17 @@ const styles = StyleSheet.create({
   toolDescription: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  emptyState: {
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 
