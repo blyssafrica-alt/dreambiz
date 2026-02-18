@@ -235,7 +235,7 @@ export function FeatureContextProvider({ children }: { children: React.ReactNode
     }
 
     return true;
-  }, [features, enabledFeatureIds, business, isSuperAdmin, hasActivePremium, checkFeatureAccess]);
+  }, [features, enabledFeatureIds, business, isSuperAdmin, hasActivePremium, checkFeatureAccess, currentPlan, bookFeatureIds]);
 
   const shouldShowAsTab = useCallback((featureId: string): boolean => {
     if (!isFeatureVisible(featureId)) return false;

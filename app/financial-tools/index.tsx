@@ -20,7 +20,7 @@ import {
 export default function FinancialToolsScreen() {
   const { theme } = useTheme();
   const router = useRouter();
-  const { isFeatureVisible, isLoading } = useFeatures();
+  const { isFeatureVisible, isLoading, features } = useFeatures();
 
   // Check if parent feature is visible (for backward compatibility)
   // Individual tools will check their own visibility
@@ -122,15 +122,30 @@ export default function FinancialToolsScreen() {
   ];
   
   // Filter tools based on individual feature visibility
-  // If parent feature is visible, show all tools (backward compatibility)
-  // Otherwise, only show tools that are individually visible
-  const visibleCalculators = parentFeatureVisible 
-    ? calculators 
-    : calculators.filter(calc => isFeatureVisible(calc.featureId));
+  // Always check individual tool visibility, even if parent is visible
+  // This ensures premium plan restrictions are respected
+  const visibleCalculators = calculators.filter(calc => {
+    // Check individual tool visibility first
+    const toolVisible = isFeatureVisible(calc.featureId);
+    // Only fall back to parent if individual tool doesn't exist as a feature
+    // (for backward compatibility with old setup)
+    if (!toolVisible && parentFeatureVisible) {
+      // Check if the individual tool feature exists in the database
+      // If it doesn't exist, allow parent feature to control it
+      const toolFeature = features.find(f => f.featureId === calc.featureId);
+      return !toolFeature; // Show if tool feature doesn't exist (old setup)
+    }
+    return toolVisible;
+  });
     
-  const visibleStatements = parentFeatureVisible
-    ? statements
-    : statements.filter(stmt => isFeatureVisible(stmt.featureId));
+  const visibleStatements = statements.filter(stmt => {
+    const toolVisible = isFeatureVisible(stmt.featureId);
+    if (!toolVisible && parentFeatureVisible) {
+      const toolFeature = features.find(f => f.featureId === stmt.featureId);
+      return !toolFeature; // Show if tool feature doesn't exist (old setup)
+    }
+    return toolVisible;
+  });
 
   return (
     <>
