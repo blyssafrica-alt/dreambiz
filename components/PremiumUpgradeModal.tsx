@@ -701,7 +701,7 @@ export default function PremiumUpgradeModal({
               </TouchableOpacity>
             </View>
           )}
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
