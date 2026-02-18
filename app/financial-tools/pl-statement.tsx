@@ -242,7 +242,7 @@ export default function PLStatementScreen() {
             {/* Revenue Breakdown */}
             <View style={[styles.sectionCard, { backgroundColor: theme.background.card }]}>
               <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Revenue Breakdown</Text>
-              {Object.keys(plData.revenueByCategory).length > 0 ? (
+              {(Object.keys(plData.revenueByCategory).length > 0) ? (
                 Object.entries(plData.revenueByCategory)
                   .sort(([, a], [, b]) => b - a)
                   .map(([category, amount]) => {
@@ -273,7 +273,7 @@ export default function PLStatementScreen() {
             {/* Expenses Breakdown */}
             <View style={[styles.sectionCard, { backgroundColor: theme.background.card }]}>
               <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Expenses Breakdown</Text>
-              {Object.keys(plData.expensesByCategory).length > 0 ? (
+              {(Object.keys(plData.expensesByCategory).length > 0) ? (
                 Object.entries(plData.expensesByCategory)
                   .sort(([, a], [, b]) => b - a)
                   .map(([category, amount]) => {
@@ -302,7 +302,7 @@ export default function PLStatementScreen() {
             </View>
 
             {/* Yearly Chart */}
-            {period === 'yearly' && plData.monthlyData.length > 0 && (
+            {(period === 'yearly' && plData.monthlyData.length > 0) && (
               <View style={[styles.chartCard, { backgroundColor: theme.background.card }]}>
                 <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Monthly Trend</Text>
                 <LineChart

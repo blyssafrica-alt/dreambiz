@@ -376,7 +376,7 @@ export default function CashFlowStatementScreen() {
             </View>
 
             {/* Monthly Chart */}
-            {period === 'yearly' && cashFlowData.monthlyData.length > 0 && (
+            {(period === 'yearly' && cashFlowData.monthlyData.length > 0) && (
               <View style={[styles.chartCard, { backgroundColor: theme.background.card }]}>
                 <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Monthly Cash Flow Trend</Text>
                 <LineChart

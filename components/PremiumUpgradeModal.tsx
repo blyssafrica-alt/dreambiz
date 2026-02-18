@@ -385,7 +385,7 @@ export default function PremiumUpgradeModal({
                   </View>
                 )}
 
-                {plansThatUnlock.length > 0 && (
+                {(plansThatUnlock.length > 0) && (
                   <View style={[styles.requiredPlanCard, { backgroundColor: theme.surface.info }]}>
                     <Text style={[styles.requiredPlanLabel, { color: theme.text.tertiary }]}>
                       Required plan to unlock
@@ -396,7 +396,7 @@ export default function PremiumUpgradeModal({
                   </View>
                 )}
 
-                {!isLoading && plans.length > 0 && (
+                {(!isLoading && plans.length > 0) && (
                   <Text style={[styles.compareLabel, { color: theme.text.tertiary }]}>
                     Compare plans
                   </Text>
@@ -409,7 +409,7 @@ export default function PremiumUpgradeModal({
                   Loading plans...
                 </Text>
               </View>
-            ) : plans.length === 0 ? (
+            ) : (plans.length === 0) ? (
               <View style={styles.emptyContainer}>
                 <Text style={[styles.emptyText, { color: theme.text.secondary }]}>
                   No plans available at the moment
@@ -418,7 +418,7 @@ export default function PremiumUpgradeModal({
             ) : (
               <View style={styles.plansContainer}>
                 {plans.map((plan) => {
-                  const isCurrentPlan = currentPlan?.id === plan.id;
+                  const isCurrentPlan = (currentPlan && currentPlan.id) === plan.id;
                   const planFeatures = getFeatureList(plan);
                   const unlocksFeature = plansThatUnlock.some((p) => String(p.id) === String(plan.id));
                   return (
@@ -428,10 +428,10 @@ export default function PremiumUpgradeModal({
                         styles.planCard,
                         {
                           backgroundColor: theme.background.secondary,
-                          borderColor: selectedPlan?.id === plan.id
+                          borderColor: (selectedPlan && selectedPlan.id) === plan.id
                             ? theme.accent.primary
                             : theme.border.light,
-                          borderWidth: selectedPlan?.id === plan.id ? 2 : 1,
+                          borderWidth: (selectedPlan && selectedPlan.id) === plan.id ? 2 : 1,
                         },
                         isCurrentPlan && styles.currentPlanHighlight,
                       ]}
@@ -453,7 +453,7 @@ export default function PremiumUpgradeModal({
                         </Text>
                       )}
 
-                      {unlocksFeature && requiredPlanIds.length > 0 && !isCurrentPlan && (
+                      {(unlocksFeature && requiredPlanIds.length > 0 && !isCurrentPlan) && (
                         <View style={[styles.unlocksBadge, { backgroundColor: theme.surface.info }]}>
                           <Lock size={12} color={theme.accent.info} />
                           <Text style={[styles.unlocksBadgeText, { color: theme.accent.info }]}>Unlocks this feature</Text>
@@ -497,13 +497,13 @@ export default function PremiumUpgradeModal({
               <View style={styles.paymentStep}>
                 <View style={[styles.paymentHeader, { backgroundColor: theme.background.secondary }]}>
                   <Text style={[styles.paymentPlanName, { color: theme.text.primary }]}>
-                    {selectedPlan?.name}
+                    {selectedPlan ? selectedPlan.name : ''}
                   </Text>
                   <Text style={[styles.paymentAmount, { color: theme.accent.primary }]}>
-                    {selectedPlan?.currency} {selectedPlan?.price.toFixed(2)}
+                    {selectedPlan ? selectedPlan.currency : ''} {selectedPlan ? selectedPlan.price.toFixed(2) : '0.00'}
                   </Text>
                   <Text style={[styles.paymentPeriod, { color: theme.text.tertiary }]}>
-                    {getBillingText(selectedPlan?.billingPeriod || 'monthly')}
+                    {getBillingText(selectedPlan ? (selectedPlan.billingPeriod || 'monthly') : 'monthly')}
                   </Text>
                 </View>
 
@@ -527,10 +527,10 @@ export default function PremiumUpgradeModal({
                               styles.paymentMethodCard,
                               {
                                 backgroundColor: theme.background.secondary,
-                                borderColor: selectedPaymentMethod?.id === method.id
+                                borderColor: (selectedPaymentMethod && selectedPaymentMethod.id) === method.id
                                   ? theme.accent.primary
                                   : theme.border.light,
-                                borderWidth: selectedPaymentMethod?.id === method.id ? 2 : 1,
+                                borderWidth: (selectedPaymentMethod && selectedPaymentMethod.id) === method.id ? 2 : 1,
                               },
                             ]}
                             onPress={() => setSelectedPaymentMethod(method)}
@@ -544,7 +544,7 @@ export default function PremiumUpgradeModal({
                                 {method.type.replace('_', ' ')}
                               </Text>
                             </View>
-                            {selectedPaymentMethod?.id === method.id && (
+                            {(selectedPaymentMethod && selectedPaymentMethod.id) === method.id && (
                               <Check size={20} color={theme.accent.primary} />
                             )}
                           </TouchableOpacity>
@@ -657,10 +657,10 @@ export default function PremiumUpgradeModal({
                 style={[
                   styles.upgradeButton,
                   { backgroundColor: theme.accent.primary },
-                  (!selectedPlan || selectedPlan?.id === currentPlan?.id) && styles.disabledButton,
+                  (!selectedPlan || (selectedPlan && selectedPlan.id) === (currentPlan && currentPlan.id)) && styles.disabledButton,
                 ]}
                 onPress={handleContinueToPayment}
-                disabled={!selectedPlan || selectedPlan?.id === currentPlan?.id}
+                disabled={!selectedPlan || (selectedPlan && selectedPlan.id) === (currentPlan && currentPlan.id)}
               >
                 <Crown size={20} color="#FFF" />
                 <Text style={styles.upgradeButtonText}>

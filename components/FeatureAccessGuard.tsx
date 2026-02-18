@@ -70,13 +70,13 @@ export default function FeatureAccessGuard({
 
   // If user has access, render children
   if (hasAccess) {
-    return <>{children}</>;
+    return <React.Fragment>{children}</React.Fragment>;
   }
 
   // If showing upgrade modal
   if (showUpgradeModal) {
     return (
-      <>
+      <React.Fragment>
         {fallback || (
           <View style={[styles.lockedContainer, { backgroundColor: theme.background.secondary }]}>
             <Lock size={48} color={theme.text.tertiary} />
@@ -102,17 +102,17 @@ export default function FeatureAccessGuard({
           message={
             requiredPlans.length > 0
               ? `This feature is available in specific subscription plans. Choose a plan below to unlock it.`
-              : `Unlock ${feature?.name || 'this feature'} and more with a premium plan.`
+              : `Unlock ${(feature && feature.name) || 'this feature'} and more with a premium plan.`
           }
-          feature={feature?.name || featureId}
+          feature={(feature && feature.name) || featureId}
           featureId={featureId}
         />
-      </>
+      </React.Fragment>
     );
   }
 
   // Otherwise, show fallback
-  return <>{fallback || null}</>;
+  return <React.Fragment>{fallback || null}</React.Fragment>;
 }
 
 /**
