@@ -125,7 +125,11 @@ export default function ProfitMarginAnalyzerScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
+      <FeatureAccessGuard 
+        featureId="profit-margin-analyzer" 
+        showUpgradeModal={true}
+      >
+        <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
         <LinearGradient
           colors={['#F59E0B', '#D97706']}
           start={{ x: 0, y: 0 }}

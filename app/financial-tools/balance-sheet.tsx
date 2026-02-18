@@ -194,7 +194,11 @@ export default function BalanceSheetScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
+      <FeatureAccessGuard 
+        featureId="balance-sheet" 
+        showUpgradeModal={true}
+      >
+        <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
         <LinearGradient
           colors={['#F97316', '#EA580C']}
           start={{ x: 0, y: 0 }}

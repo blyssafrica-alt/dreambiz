@@ -84,7 +84,11 @@ export default function MarkupCalculatorScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
+      <FeatureAccessGuard 
+        featureId="markup-calculator" 
+        showUpgradeModal={true}
+      >
+        <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
         <LinearGradient
           colors={['#EC4899', '#DB2777']}
           start={{ x: 0, y: 0 }}

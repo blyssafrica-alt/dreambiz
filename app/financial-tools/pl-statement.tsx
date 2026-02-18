@@ -129,7 +129,11 @@ export default function PLStatementScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
+      <FeatureAccessGuard 
+        featureId="pl-statement" 
+        showUpgradeModal={true}
+      >
+        <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
         <LinearGradient
           colors={['#6366F1', '#4F46E5']}
           start={{ x: 0, y: 0 }}

@@ -154,7 +154,11 @@ export default function CashFlowStatementScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
+      <FeatureAccessGuard 
+        featureId="cashflow-statement" 
+        showUpgradeModal={true}
+      >
+        <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
         <LinearGradient
           colors={['#14B8A6', '#0D9488']}
           start={{ x: 0, y: 0 }}

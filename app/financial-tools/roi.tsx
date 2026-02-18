@@ -95,7 +95,11 @@ export default function ROICalculatorScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
+      <FeatureAccessGuard 
+        featureId="roi-calculator" 
+        showUpgradeModal={true}
+      >
+        <View style={[styles.container, { backgroundColor: theme.background.primary }]}>
         <LinearGradient
           colors={['#8B5CF6', '#7C3AED']}
           start={{ x: 0, y: 0 }}

@@ -4,8 +4,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { usePremium } from '@/contexts/PremiumContext';
 import PremiumUpgradeModal from './PremiumUpgradeModal';
-import { Crown, Lock, X, ArrowRight } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { Crown, Lock } from 'lucide-react-native';
 
 interface FeatureAccessGuardProps {
   featureId: string;
@@ -29,7 +28,6 @@ export default function FeatureAccessGuard({
   const { theme } = useTheme();
   const { isFeatureVisible, features, isLoading } = useFeatures();
   const { currentPlan, hasActivePremium } = usePremium();
-  const router = useRouter();
   const [showModal, setShowModal] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
   const [checking, setChecking] = useState(true);
