@@ -7,3 +7,13 @@ verify_jwt = false
 [functions.process-ad-renewals-cron]
 verify_jwt = false
 
+[functions.expire-promotion-subscriptions]
+verify_jwt = false
+
+# Admin mailing: gateway JWT check can fail with React Native tokens; we validate inside the function
+[functions.admin-mailing-send-test]
+verify_jwt = false
+
+[functions.admin-mailing-send-campaign]
+verify_jwt = false
+

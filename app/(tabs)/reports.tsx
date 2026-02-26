@@ -1,8 +1,11 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { 
   Download,
   FileText,
-  BarChart3
+  BarChart3,
+  TrendingUp,
+  Package,
+  ArrowRight,
 } from 'lucide-react-native';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import {
@@ -18,8 +21,11 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useFeatures } from '@/contexts/FeatureContext';
 import { LineChart, PieChart } from '@/components/Charts';
 import { useTranslation } from '@/hooks/useTranslation';
+import { usePnlSummary } from '@/hooks/usePnlSummary';
+import { useEmployeePermissions } from '@/hooks/useEmployeePermissions';
 
 type ReportPeriod = 'today' | 'week' | 'month' | 'quarter' | 'year' | 'custom';
 
@@ -27,9 +33,29 @@ export default function ReportsScreen() {
   const { business, transactions, documents } = useBusiness();
   const { theme } = useTheme();
   const { t } = useTranslation();
+  const router = useRouter();
+  const { isFeatureVisible } = useFeatures();
+  const { hasPermission, isOwner } = useEmployeePermissions();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [period, setPeriod] = useState<ReportPeriod>('month');
+
+  const dateRange = useMemo(() => {
+    const now = new Date();
+    let start: Date;
+    const end = new Date(now);
+    switch (period) {
+      case 'today': start = new Date(now); start.setHours(0, 0, 0, 0); break;
+      case 'week': start = new Date(now); start.setDate(now.getDate() - 7); break;
+      case 'month': start = new Date(now.getFullYear(), now.getMonth(), 1); break;
+      case 'quarter': start = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1); break;
+      case 'year': start = new Date(now.getFullYear(), 0, 1); break;
+      default: start = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+    return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] };
+  }, [period]);
+  const pnlSummary = usePnlSummary(business?.id, dateRange.start, dateRange.end);
+  const hasCogs = pnlSummary.data?.ok && (pnlSummary.data?.total_cogs ?? 0) >= 0;
 
   useEffect(() => {
     Animated.parallel([
@@ -289,16 +315,63 @@ export default function ReportsScreen() {
             </View>
           </View>
 
+          {hasCogs && pnlSummary.data && (
+            <View style={[styles.grossRow, { backgroundColor: theme.background.tertiary }]}>
+              <Text style={[styles.metricLabel, { color: theme.text.secondary }]}>Cost of goods sold</Text>
+              <Text style={[styles.metricValue, { color: theme.text.primary }]}>
+                {formatCurrency(pnlSummary.data.total_cogs)}
+              </Text>
+            </View>
+          )}
+          {hasCogs && pnlSummary.data && (
+            <View style={[styles.grossRow, { backgroundColor: '#E0F2FE' }]}>
+              <Text style={[styles.metricLabel, { color: theme.text.secondary }]}>Gross profit</Text>
+              <Text style={[styles.metricValue, { color: '#0369A1' }]}>
+                {formatCurrency(pnlSummary.data.gross_profit)}
+              </Text>
+            </View>
+          )}
+
           <View style={[styles.profitCard, { backgroundColor: reportData.profit >= 0 ? '#D1FAE5' : '#FEE2E2' }]}>
             <Text style={[styles.profitLabel, { color: theme.text.secondary }]}>Net Profit</Text>
             <Text style={[styles.profitValue, { color: reportData.profit >= 0 ? '#065F46' : '#991B1B' }]}>
-              {formatCurrency(reportData.profit)}
+              {formatCurrency(hasCogs && pnlSummary.data ? pnlSummary.data.net_profit : reportData.profit)}
             </Text>
             <Text style={[styles.profitMargin, { color: theme.text.tertiary }]}>
-              Margin: {reportData.profitMargin.toFixed(2)}%
+              Margin: {reportData.totalSales > 0
+                ? (((hasCogs && pnlSummary.data ? pnlSummary.data.net_profit : reportData.profit) / reportData.totalSales) * 100).toFixed(2)
+                : '0.00'}%
             </Text>
           </View>
         </View>
+
+        {/* More reports */}
+        {(isFeatureVisible('supplier-profit-report') || isFeatureVisible('inventory-valuation-report')) &&
+          (isOwner || hasPermission('reports:view') || hasPermission('finances:view_reports')) && (
+          <View style={[styles.card, { backgroundColor: theme.background.card }]}>
+            <Text style={[styles.cardTitle, { color: theme.text.primary }]}>More reports</Text>
+            {isFeatureVisible('supplier-profit-report') && (
+              <TouchableOpacity
+                style={[styles.reportLink, { backgroundColor: theme.background.tertiary }]}
+                onPress={() => router.push('/reports/supplier-profit' as any)}
+              >
+                <TrendingUp size={20} color={theme.accent.primary} />
+                <Text style={[styles.reportLinkText, { color: theme.text.primary }]}>Supplier profit</Text>
+                <ArrowRight size={18} color={theme.text.tertiary} />
+              </TouchableOpacity>
+            )}
+            {isFeatureVisible('inventory-valuation-report') && (
+              <TouchableOpacity
+                style={[styles.reportLink, { backgroundColor: theme.background.tertiary }]}
+                onPress={() => router.push('/reports/inventory-valuation' as any)}
+              >
+                <Package size={20} color={theme.accent.primary} />
+                <Text style={[styles.reportLinkText, { color: theme.text.primary }]}>Inventory valuation</Text>
+                <ArrowRight size={18} color={theme.text.tertiary} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Charts Section */}
         {(reportData.dailySales.some(v => v > 0) || reportData.dailyExpenses.some(v => v > 0)) && (
@@ -647,6 +720,27 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
+  },
+  grossRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  reportLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  reportLinkText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
   },
   profitLabel: {
     fontSize: 14,

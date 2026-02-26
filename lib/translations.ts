@@ -410,6 +410,28 @@ export interface Translations {
     currency: string;
     capital: string;
   };
+
+  // Supplier application wizard
+  supplierApplication: {
+    title: string;
+    step0Title: string;
+    step0Intro: string;
+    understandReview: string;
+    agreeTerms: string;
+    startApplication: string;
+    saveAndExit: string;
+    continue: string;
+    back: string;
+    submit: string;
+    resumePrompt: string;
+    resumeContinue: string;
+    resumeStartNew: string;
+    applicationSubmitted: string;
+    underReview: string;
+    needsInfo: string;
+    approved: string;
+    declined: string;
+  };
 }
 
 const translations: Record<Language, Translations> = {
@@ -775,6 +797,26 @@ const translations: Record<Language, Translations> = {
       currency: 'Currency',
       capital: 'Capital',
     },
+    supplierApplication: {
+      title: 'Become a Supplier',
+      step0Title: 'Eligibility',
+      step0Intro: 'DreamBiz will review your application. A subscription may be required to list products. You will be notified when approved or if we need more information.',
+      understandReview: 'I understand DreamBiz will review and can decline.',
+      agreeTerms: 'I agree to Supplier Terms.',
+      startApplication: 'Start Application',
+      saveAndExit: 'Save & Exit',
+      continue: 'Continue',
+      back: 'Back',
+      submit: 'Submit application',
+      resumePrompt: 'Continue where you left off?',
+      resumeContinue: 'Continue',
+      resumeStartNew: 'Start over',
+      applicationSubmitted: 'Application submitted. We will notify you when it is reviewed.',
+      underReview: 'Your application is under review.',
+      needsInfo: 'We need more information. Please check your notifications.',
+      approved: 'Your application was approved. You can access the Supplier Dashboard.',
+      declined: 'Your application was declined. Contact support to reapply.',
+    },
   },
   
   sn: {
@@ -1139,6 +1181,26 @@ const translations: Record<Language, Translations> = {
       currency: 'Mari',
       capital: 'Capital',
     },
+    supplierApplication: {
+      title: 'Va Mutengesi',
+      step0Title: 'Kukodzera',
+      step0Intro: 'DreamBiz ichaongorora chikumbiro chako. Subscription inogona kudikanwa kuti utise zvigadzirwa. Unozoziviswa kana wabvumirwa.',
+      understandReview: 'Ndinonzwisisa kuti DreamBiz ichaongorora uye inogona kuramba.',
+      agreeTerms: 'Ndinobvuma Zvirevo zveMutengesi.',
+      startApplication: 'Tanga Chikumbiro',
+      saveAndExit: 'Sevha uye Buda',
+      continue: 'Enderera',
+      back: 'Dzokera',
+      submit: 'Tumira chikumbiro',
+      resumePrompt: 'Enderera mberi kwaakasiya?',
+      resumeContinue: 'Enderera',
+      resumeStartNew: 'Tanga patsva',
+      applicationSubmitted: 'Chikumbiro chatumirwa. Tichakuzivisa kana chaongororwa.',
+      underReview: 'Chikumbiro chiri kuongororwa.',
+      needsInfo: 'Tinoda rumwe ruzivo. Tarisa zviziviso.',
+      approved: 'Chikumbiro chako chabvumirwa. Unogona kuwana Supplier Dashboard.',
+      declined: 'Chikumbiro chako charambwa. Bata rutsigiro kuti unyore zvakare.',
+    },
   },
   
   nd: {
@@ -1502,6 +1564,26 @@ const translations: Record<Language, Translations> = {
       location: 'Indawo',
       currency: 'Imali',
       capital: 'I-Capital',
+    },
+    supplierApplication: {
+      title: 'Yiba Umthwali',
+      step0Title: 'Ukufaneleka',
+      step0Intro: 'I-DreamBiz izobuyekeza isicelo sakho. Ukubhalisa kungadingeka ukuthi uhluze imikhiqizo. Uzaziswa lapho kuvunywe noma kudingeka ulwazi olwengeziwe.',
+      understandReview: 'Ngiyaqonda ukuthi i-DreamBiz izobuyekeza futhi ingenqaba.',
+      agreeTerms: 'Ngiyavuma Imigomo Yomthwali.',
+      startApplication: 'Qala Isicelo',
+      saveAndExit: 'Londoloza uphume',
+      continue: 'Qhubeka',
+      back: 'Emuva',
+      submit: 'Thumela isicelo',
+      resumePrompt: 'Uqhubeka lapho owashiya khona?',
+      resumeContinue: 'Qhubeka',
+      resumeStartNew: 'Qala kabusha',
+      applicationSubmitted: 'Isicelo sithunyelwe. Sizokwazisa lapho sibuyekezwe.',
+      underReview: 'Isicelo sakho siyabuyekezwa.',
+      needsInfo: 'Sidinga ulwazi olwengeziwe. Sicela ubheke izaziso.',
+      approved: 'Isicelo sakho savunywa. Ungangena ku-Supplier Dashboard.',
+      declined: 'Isicelo sakho sanqatshwa. Xhumana nosekeli ukuze ubhale futhi.',
     },
   },
 };

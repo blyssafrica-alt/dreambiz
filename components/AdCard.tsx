@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Linking, Alert, Modal } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAds } from '@/contexts/AdContext';
-import type { Advertisement } from '@/types/super-admin';
+import type { Advertisement, AdTargeting } from '@/types/super-admin';
 import { ExternalLink } from 'lucide-react-native';
 import { router } from 'expo-router';
 
@@ -36,7 +36,7 @@ export function AdCard({ ad, location, onPress, preview = false }: AdCardProps) 
     : 0;
   const targetingChips = useMemo(() => {
     const chips: string[] = [];
-    const targeting = ad.targeting || {};
+    const targeting = (ad.targeting || {}) as AdTargeting;
     if (targeting.targetGenders && targeting.targetGenders.length > 0) {
       const label = targeting.targetGenders.map(item => item.replace(/_/g, ' ')).join(', ');
       chips.push(`Gender: ${label}`);

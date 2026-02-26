@@ -42,6 +42,7 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
+import { supabase } from '@/lib/supabase';
 import PageHeader from '@/components/PageHeader';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -386,6 +387,7 @@ export default function POSScreen() {
         quantity: item.quantity,
         unitPrice: item.product.sellingPrice,
         total: item.product.sellingPrice * item.quantity,
+        productId: item.product.id,
       }));
 
       // Update product stock
@@ -426,16 +428,24 @@ export default function POSScreen() {
       newReceipt.changeAmount = changeAmount;
       newReceipt.employeeName = employeeName; // Ensure employee name is available for PDF
 
-      // Create transaction for the sale
+      // Create transaction for the sale (link to receipt for COGS)
       try {
-        await addTransaction({
+        const saleTx = await addTransaction({
           type: 'sale',
           amount: cartTotal,
           currency: business?.currency || 'USD',
           description: `POS Sale - ${customerName}`,
           category: 'sales',
           date: new Date().toISOString().split('T')[0],
+          documentId: newReceipt.id,
         });
+        // Record COGS per product for profit reporting (if RPC exists)
+        try {
+          await supabase.rpc('record_sale_cogs', {
+            p_document_id: newReceipt.id,
+            p_sale_transaction_id: saleTx?.id ?? null,
+          });
+        } catch (_) { /* optional: COGS not available in this env */ }
       } catch (error) {
         console.error('Failed to create transaction for POS sale:', error);
         // Don't fail the checkout if transaction creation fails
@@ -598,8 +608,8 @@ export default function POSScreen() {
           transform: [{ translateY: slideAnim }],
         }}>
           {/* Search and Category Filter */}
-          <View style={styles.searchSection}>
-            <View style={[styles.searchBox, { backgroundColor: theme.background.card }]}>
+          <View style={[styles.searchSection, { backgroundColor: theme.background.card, borderBottomColor: theme.border.light }]}>
+            <View style={[styles.searchBox, { backgroundColor: theme.background.secondary }]}>
               <Search size={20} color={theme.text.tertiary} />
               <TextInput
                 style={[styles.searchInput, { color: theme.text.primary }]}
@@ -683,11 +693,11 @@ export default function POSScreen() {
                     {product.featuredImage || (product.images && product.images.length > 0) ? (
                       <Image 
                         source={{ uri: product.featuredImage || product.images?.[0] }} 
-                        style={styles.productImage}
+                        style={[styles.productImage, { backgroundColor: theme.background.tertiary }]}
                         resizeMode="cover"
                       />
                     ) : (
-                      <View style={styles.productImagePlaceholder}>
+                      <View style={[styles.productImagePlaceholder, { backgroundColor: theme.background.tertiary }]}>
                         <Package size={32} color={theme.text.tertiary} />
                       </View>
                     )}
@@ -744,7 +754,7 @@ export default function POSScreen() {
           >
           <View style={[styles.cartSheetContent, { backgroundColor: theme.background.card, paddingBottom: cartSheetPaddingBottom }]}>
             {/* Cart Header */}
-            <View style={styles.cartHeader}>
+            <View style={[styles.cartHeader, { borderBottomColor: theme.border.light }]}>
               <View style={styles.cartHeaderLeft}>
                 <ShoppingCart size={24} color={theme.accent.primary} />
                 <Text style={[styles.cartHeaderTitle, { color: theme.text.primary }]}>
@@ -1950,11 +1960,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    minHeight: '70%',
+    minHeight: '60%',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '90%',
-    minHeight: '60%',
     paddingBottom: Platform.OS === 'ios' ? 40 : 20,
   },
   modalHeader: {

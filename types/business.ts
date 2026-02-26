@@ -39,7 +39,7 @@ export interface BusinessProfile {
   userId?: string; // Optional: included when admin views all businesses
 }
 
-export type TransactionType = 'sale' | 'expense';
+export type TransactionType = 'sale' | 'expense' | 'inventory_purchase';
 
 export interface Transaction {
   id: string;
@@ -50,6 +50,8 @@ export interface Transaction {
   category: string;
   date: string;
   createdAt: string;
+  /** Link to document (e.g. receipt) for COGS */
+  documentId?: string;
 }
 
 export type DocumentType = 'invoice' | 'receipt' | 'quotation' | 'purchase_order' | 'contract' | 'supplier_agreement';
@@ -134,6 +136,7 @@ export interface Employee {
   email?: string;
   phone?: string;
   role?: string;
+  roleId?: string;
   position?: string;
   hireDate?: string;
   salary?: number;
@@ -179,6 +182,8 @@ export interface DocumentItem {
   quantity: number;
   unitPrice: number;
   total: number;
+  /** Set when recording POS/receipt so COGS can be tracked */
+  productId?: string;
 }
 
 export interface ViabilityInput {
@@ -251,6 +256,10 @@ export interface Product {
   isTaxExempt?: boolean;
   featuredImage?: string; // Base64 or URI for featured image
   images?: string[]; // Array of additional images (Base64 or URIs)
+  defaultSupplierId?: string; // Supplier (marketplace) when created from PO
+  /** Weighted average cost (for COGS/valuation); may equal costPrice */
+  averageCostPrice?: number;
+  lastPurchaseDate?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -269,6 +278,19 @@ export interface Customer {
   updatedAt: string;
 }
 
+export interface SupplierAccountsPayable {
+  id: string;
+  business_id: string;
+  supplier_id: string;
+  purchase_order_id: string | null;
+  amount: number;
+  currency: string;
+  reference?: string;
+  status: 'unpaid' | 'paid' | 'cancelled';
+  paid_at: string | null;
+  created_at: string;
+}
+
 export interface Supplier {
   id: string;
   name: string;
@@ -282,4 +304,6 @@ export interface Supplier {
   paymentTerms?: string;
   createdAt: string;
   updatedAt: string;
+  /** When set, this private supplier is linked to a marketplace supplier profile (Find Suppliers). */
+  marketplaceSupplierId?: string | null;
 }

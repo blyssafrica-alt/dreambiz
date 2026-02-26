@@ -100,8 +100,9 @@ export default {
       sentryProject: process.env.EXPO_PUBLIC_SENTRY_PROJECT,
       sentryUrl: process.env.EXPO_PUBLIC_SENTRY_URL || 'https://sentry.io/',
       router: {},
+      // EAS project ID – from .env or this linked project (set by build:configure).
       eas: {
-        projectId: '5df39e4f-9924-47a0-bf53-bf6c1a350e36',
+        projectId: process.env.EXPO_PUBLIC_PROJECT_ID || '35f473cd-d058-4127-9c33-fddb7f68d2f6',
       },
     },
     runtimeVersion: {

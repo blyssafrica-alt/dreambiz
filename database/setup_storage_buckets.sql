@@ -38,6 +38,13 @@
 --    - File size limit: 2 MB
 --    - Allowed MIME types: image/jpeg, image/png, image/webp
 
+-- 6. supplier_assets (Become a Supplier: logos, covers, application documents)
+--    - Name: supplier_assets
+--    - Public bucket: YES
+--    - File size limit: 10 MB
+--    - Allowed MIME types: image/jpeg, image/png, image/webp, application/pdf
+--    - Then run database/create_storage_policies.sql to add RLS for this bucket.
+
 -- ============================================
 -- STEP 2: Storage Policies (via Dashboard)
 -- ============================================

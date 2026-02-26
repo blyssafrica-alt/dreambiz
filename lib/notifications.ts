@@ -9,6 +9,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -20,6 +22,8 @@ type SendNotificationPayload = {
     push?: boolean;
     email?: boolean;
   };
+  /** When set, notification is sent to this user (allowed only when caller is admin). */
+  userId?: string;
 };
 
 const getProjectId = () => {

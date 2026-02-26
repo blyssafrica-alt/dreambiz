@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Sparkles, TrendingUp, Shield, Zap, ArrowRight, Star, CheckCircle2, Users, FileText, Calculator, BookOpen, AlertTriangle, BarChart3, DollarSign, Target, Globe, ChevronDown } from 'lucide-react-native';
+import { Sparkles, TrendingUp, Shield, Zap, ArrowRight, Star, CheckCircle2, Users, FileText, Calculator, BookOpen, AlertTriangle, BarChart3, DollarSign, Target, Globe, ChevronDown, Truck, LogIn } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -197,6 +197,30 @@ export default function LandingScreen() {
                 <Text style={styles.secondaryButtonText}>
                   Sign In
                 </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.supplierCtaRow}>
+              <View style={[styles.supplierCtaBadge, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                <Truck size={14} color="#FFF" />
+                <Text style={styles.supplierCtaLabel}>For Suppliers</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.supplierCtaLink}
+                onPress={() => router.push('/supplier-apply' as any)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.supplierCtaLinkText}>Become a Supplier</Text>
+                <ArrowRight size={16} color="rgba(255,255,255,0.95)" />
+              </TouchableOpacity>
+              <Text style={styles.supplierCtaDivider}>|</Text>
+              <TouchableOpacity
+                style={styles.supplierCtaLink}
+                onPress={() => router.push('/supplier-login' as any)}
+                activeOpacity={0.8}
+              >
+                <LogIn size={16} color="rgba(255,255,255,0.95)" />
+                <Text style={styles.supplierCtaLinkText}>Supplier Login</Text>
               </TouchableOpacity>
             </View>
 
@@ -865,6 +889,42 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600' as const,
     color: '#FFF',
+  },
+  supplierCtaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 16,
+    marginBottom: 8,
+    justifyContent: 'center',
+  },
+  supplierCtaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  supplierCtaLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  supplierCtaLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  supplierCtaLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.95)',
+  },
+  supplierCtaDivider: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.5)',
   },
   statsRow: {
     flexDirection: 'row',

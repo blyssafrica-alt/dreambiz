@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase';
 
 export default function BalanceSheetScreen() {
   const { theme } = useTheme();
-  const { business, transactions, documents, products } = useBusiness();
+  const { business, transactions, documents, products, supplierAccountsPayable } = useBusiness();
   const { isFeatureVisible, isLoading: featuresLoading } = useFeatures();
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -29,7 +29,7 @@ export default function BalanceSheetScreen() {
       useNativeDriver: true,
     }).start();
     calculateBalanceSheet();
-  }, [asOfDate, transactions, documents, business]);
+  }, [asOfDate, transactions, documents, business, products, supplierAccountsPayable]);
 
   const formatCurrency = (amount: number) => {
     const symbol = business?.currency === 'USD' ? '$' : 'ZWL';
@@ -39,7 +39,7 @@ export default function BalanceSheetScreen() {
   const calculateBalanceSheet = async () => {
     setLoading(true);
     try {
-      if (!transactions || transactions.length === 0) {
+      if (!business) {
         setBalanceSheetData({
           assets: { current: 0, fixed: 0, total: 0 },
           liabilities: { current: 0, longTerm: 0, total: 0 },
@@ -50,7 +50,7 @@ export default function BalanceSheetScreen() {
         return;
       }
 
-      const filteredTransactions = transactions.filter(t => t.date <= asOfDate);
+      const filteredTransactions = (transactions ?? []).filter(t => t.date <= asOfDate);
 
       // ASSETS
       // Separate capital purchases from operating expenses
@@ -84,11 +84,15 @@ export default function BalanceSheetScreen() {
       // Revenue from unpaid invoices (haven't received cash yet)
       const revenueFromUnpaidInvoices = unpaidInvoices.reduce((sum, d) => sum + parseFloat(d.total.toString()), 0);
       
+      // Inventory purchases (reduce cash when paid by cash/bank/mobile; not an expense for P&L)
+      const inventoryPurchases = filteredTransactions.filter(t => t.type === 'inventory_purchase');
+      const inventoryPurchaseOutflow = inventoryPurchases.reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0);
+
       // Current Assets
       const initialCapital = business?.capital || 0;
-      // Cash = initial capital + net income - capital purchases - revenue from unpaid invoices
-      // (Unpaid invoices create AR but don't increase cash, even though they increase revenue/retained earnings)
-      const cashBalance = initialCapital + netIncome - capitalPurchaseAmount - revenueFromUnpaidInvoices;
+      // Cash = initial capital + net income - capital purchases - revenue from unpaid invoices - inventory purchase outflows
+      // (Unpaid invoices create AR but don't increase cash; inventory_purchase reduces cash when paid)
+      const cashBalance = initialCapital + netIncome - capitalPurchaseAmount - revenueFromUnpaidInvoices - inventoryPurchaseOutflow;
 
       // Accounts Receivable already calculated above
 
@@ -96,8 +100,8 @@ export default function BalanceSheetScreen() {
       let inventory = 0;
       if (products && products.length > 0) {
         inventory = products.reduce((sum, p) => {
-          const quantity = typeof p.quantity === 'number' ? p.quantity : parseFloat(p.quantity?.toString() || '0');
-          const costPrice = typeof p.costPrice === 'number' ? p.costPrice : parseFloat(p.costPrice?.toString() || '0');
+          const quantity = Number(p.quantity) || 0;
+          const costPrice = Number(p.costPrice) || 0;
           return sum + (quantity * costPrice);
         }, 0);
       }
@@ -110,13 +114,17 @@ export default function BalanceSheetScreen() {
       const totalAssets = currentAssets + fixedAssets;
 
       // LIABILITIES
-      // Accounts Payable (unpaid supplier invoices/purchase orders)
-      const accountsPayable = documents?.filter(d => 
+      // Accounts Payable: document-based (unpaid POs/supplier agreements) + supplier marketplace AP (credit purchases)
+      const documentAp = documents?.filter(d => 
         (d.type === 'purchase_order' || d.type === 'supplier_agreement') && 
         d.status !== 'paid' && 
         d.status !== 'cancelled' &&
         d.date <= asOfDate
       ).reduce((sum, d) => sum + parseFloat(d.total.toString()), 0) || 0;
+      const supplierAp = (supplierAccountsPayable ?? [])
+        .filter(ap => ap.status === 'unpaid')
+        .reduce((sum, ap) => sum + ap.amount, 0);
+      const accountsPayable = documentAp + supplierAp;
 
       // Short-term loans (would need loan data)
       const shortTermLoans = 0;

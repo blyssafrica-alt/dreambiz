@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { 
   Plus, 
   Truck,
@@ -13,7 +13,9 @@ import {
   FileText,
   DollarSign,
   TrendingUp,
-  Clock
+  Clock,
+  ExternalLink,
+  Store
 } from 'lucide-react-native';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import {
@@ -38,6 +40,7 @@ export default function SuppliersScreen() {
   const { business, suppliers, documents, addSupplier, updateSupplier, deleteSupplier } = useBusiness();
   const { theme } = useTheme();
   const { t } = useTranslation();
+  const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const [showModal, setShowModal] = useState(false);
@@ -300,9 +303,17 @@ export default function SuppliersScreen() {
             >
               <View style={styles.supplierHeader}>
                 <View style={styles.supplierInfo}>
-                  <Text style={[styles.supplierName, { color: theme.text.primary }]}>
-                    {supplier.name}
-                  </Text>
+                  <View style={styles.supplierNameRow}>
+                    <Text style={[styles.supplierName, { color: theme.text.primary }]}>
+                      {supplier.name}
+                    </Text>
+                    {supplier.marketplaceSupplierId && (
+                      <View style={[styles.marketplaceBadge, { backgroundColor: theme.surface.info }]}>
+                        <Store size={12} color={theme.accent.info} />
+                        <Text style={[styles.marketplaceBadgeText, { color: theme.accent.info }]}>Marketplace</Text>
+                      </View>
+                    )}
+                  </View>
                   {supplier.totalPurchases > 0 && (
                     <Text style={[styles.supplierTotal, { color: theme.accent.primary }]}>
                       Total: {formatCurrency(supplier.totalPurchases)}
@@ -403,6 +414,19 @@ export default function SuppliersScreen() {
             </View>
 
             <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
+              {selectedSupplier?.marketplaceSupplierId && (
+                <TouchableOpacity
+                  style={[styles.viewStoreButton, { backgroundColor: theme.accent.primary }]}
+                  onPress={() => {
+                    setShowSupplierDetail(false);
+                    router.push(`/suppliers-marketplace/${selectedSupplier.marketplaceSupplierId}` as any);
+                  }}
+                >
+                  <Store size={18} color="#FFF" />
+                  <Text style={styles.viewStoreButtonText}>View Supplier Store</Text>
+                  <ExternalLink size={16} color="#FFF" />
+                </TouchableOpacity>
+              )}
               {supplierAnalytics && (
                 <>
                   {/* Supplier Stats */}
@@ -686,10 +710,28 @@ const styles = StyleSheet.create({
   supplierInfo: {
     flex: 1,
   },
+  supplierNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 4,
+  },
   supplierName: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 4,
+  },
+  marketplaceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  marketplaceBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   supplierTotal: {
     fontSize: 14,
@@ -763,6 +805,20 @@ const styles = StyleSheet.create({
   },
   modalBodyContent: {
     paddingBottom: 56,
+  },
+  viewStoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 14,
+    borderRadius: 10,
+    marginBottom: 16,
+  },
+  viewStoreButtonText: {
+    color: '#FFF',
+    fontWeight: '600',
+    fontSize: 15,
   },
   inputGroup: {
     marginBottom: 16,

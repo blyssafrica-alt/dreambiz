@@ -279,6 +279,8 @@ export default function TabLayout() {
       <Tabs.Screen name="settings" options={{ href: null }} />
       <Tabs.Screen name="store" options={{ href: null }} />
       <Tabs.Screen name="store/[id]" options={{ href: null }} />
+      <Tabs.Screen name="store/cart" options={{ href: null }} />
+      <Tabs.Screen name="store/checkout" options={{ href: null }} />
     </Tabs>
   );
 }

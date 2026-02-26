@@ -1,6 +1,7 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Mail, Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   Text,
@@ -17,10 +18,19 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import AnimatedLogo from '@/components/AnimatedLogo';
 
+const SUPPLIER_INTENT_KEY = 'SUPPLIER_INTENT';
+
 export default function SignUpScreen() {
+  const params = useLocalSearchParams<{ intent?: string }>();
   const { signUp } = useAuth();
   const { theme, isDark } = useTheme();
   const [name, setName] = useState('');
+
+  useEffect(() => {
+    if (params?.intent === 'supplier') {
+      AsyncStorage.setItem(SUPPLIER_INTENT_KEY, 'true');
+    }
+  }, [params?.intent]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -83,10 +93,12 @@ export default function SignUpScreen() {
             />
 
             <Text style={[styles.title, { color: theme.text.primary }]}>
-              Create Account
+              {params?.intent === 'supplier' ? 'Apply as Supplier' : 'Create Account'}
             </Text>
             <Text style={[styles.subtitle, { color: theme.text.secondary }]}>
-              Join DreamBig Business OS
+              {params?.intent === 'supplier'
+                ? 'Create an account to submit your supplier application. Approval is required before you can publish products.'
+                : 'Join DreamBig Business OS'}
             </Text>
           </View>
 

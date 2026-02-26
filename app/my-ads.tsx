@@ -1405,6 +1405,22 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 18, fontWeight: '700' },
   content: { padding: 20, gap: 12 },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  closeButton: {
+    fontSize: 18,
+    fontWeight: '600',
+    padding: 8,
+  },
+  emptyState: {
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   emptyText: { textAlign: 'center', marginTop: 40 },
   adCard: { 
     padding: 0, 
@@ -1755,14 +1771,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   overviewGrid: {
     flexDirection: 'row',

@@ -32,13 +32,10 @@ export default function PricingCalculatorScreen() {
 
   // Auto-fill from products if available
   useEffect(() => {
-    if (products && products.length > 0 && !costPrice && !sellingPrice) {
+    if (products && products.length > 0 && !costPrice) {
       const firstProduct = products[0];
-      if (firstProduct.cost_price) {
-        setCostPrice(firstProduct.cost_price.toString());
-      }
-      if (firstProduct.selling_price) {
-        setSellingPrice(firstProduct.selling_price.toString());
+      if (firstProduct.costPrice != null) {
+        setCostPrice(String(firstProduct.costPrice));
       }
     }
   }, [products]);

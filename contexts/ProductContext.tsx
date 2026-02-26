@@ -1,11 +1,16 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { PlatformProduct, ProductCategory, ProductPurchase } from '@/types/super-admin';
+import type { PlatformProduct, ProductCategory, ProductPurchase, StoreOrder, DeliveryType, FulfillmentStatus } from '@/types/super-admin';
 import type { DreamBigBook, BusinessType, BusinessStage } from '@/types/business';
 import { useAuth } from './AuthContext';
 import { useBusiness } from './BusinessContext';
 import { useFeatures } from './FeatureContext';
 import { useAds } from './AdContext';
+
+export interface StoreCartItem {
+  product: PlatformProduct;
+  quantity: number;
+}
 
 interface ProductContextValue {
   products: PlatformProduct[];
@@ -15,7 +20,23 @@ interface ProductContextValue {
   getVisibleProducts: () => PlatformProduct[];
   getProductById: (id: string) => PlatformProduct | undefined;
   purchaseProduct: (productId: string, quantity?: number) => Promise<ProductPurchase | null>;
+  /** Checkout full cart: create order, record each purchase with fulfillment, clear cart. Returns order + purchases for success screen. */
+  checkoutCart: () => Promise<{ order: StoreOrder; purchases: ProductPurchase[] } | null>;
+  /** Same as checkoutCart but with payment proof (DreamBig books style): order is pending until admin verifies. */
+  checkoutCartWithPayment: (params: {
+    paymentMethod: string;
+    paymentReference?: string;
+    paymentNotes?: string;
+    proofOfPaymentUrl: string;
+  }) => Promise<{ order: StoreOrder; purchases: ProductPurchase[] } | null>;
   refreshProducts: () => Promise<void>;
+  /** Store cart (platform products) – add here, then checkout from cart screen */
+  storeCart: StoreCartItem[];
+  storeCartCount: number;
+  addToStoreCart: (product: PlatformProduct, quantity?: number) => void;
+  removeFromStoreCart: (productId: string) => void;
+  updateStoreCartQuantity: (productId: string, quantity: number) => void;
+  clearStoreCart: () => void;
 }
 
 const ProductContext = createContext<ProductContextValue | undefined>(undefined);
@@ -28,6 +49,41 @@ export function ProductContextProvider({ children }: { children: React.ReactNode
   const [products, setProducts] = useState<PlatformProduct[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [storeCart, setStoreCart] = useState<StoreCartItem[]>([]);
+
+  const storeCartCount = storeCart.reduce((sum, item) => sum + item.quantity, 0);
+
+  const addToStoreCart = useCallback((product: PlatformProduct, quantity: number = 1) => {
+    setStoreCart((prev) => {
+      const existing = prev.find((i) => i.product.id === product.id);
+      const qty = Math.max(1, quantity);
+      if (product.manageStock && product.stockQuantity < (existing ? existing.quantity + qty : qty)) {
+        return prev;
+      }
+      if (existing) {
+        return prev.map((i) =>
+          i.product.id === product.id ? { ...i, quantity: i.quantity + qty } : i
+        );
+      }
+      return [...prev, { product, quantity: qty }];
+    });
+  }, []);
+
+  const removeFromStoreCart = useCallback((productId: string) => {
+    setStoreCart((prev) => prev.filter((i) => i.product.id !== productId));
+  }, []);
+
+  const updateStoreCartQuantity = useCallback((productId: string, quantity: number) => {
+    if (quantity < 1) {
+      setStoreCart((prev) => prev.filter((i) => i.product.id !== productId));
+      return;
+    }
+    setStoreCart((prev) =>
+      prev.map((i) => (i.product.id === productId ? { ...i, quantity } : i))
+    );
+  }, []);
+
+  const clearStoreCart = useCallback(() => setStoreCart([]), []);
 
   const loadProducts = useCallback(async () => {
     if (!user) {
@@ -103,6 +159,8 @@ export function ProductContextProvider({ children }: { children: React.ReactNode
           createdBy: row.created_by,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
+          deliveryType: row.delivery_type ?? (row.type === 'digital' ? 'download' : row.type === 'physical' ? 'shipping' : undefined),
+          deliveryConfig: row.delivery_config ?? undefined,
         }));
 
         setProducts(platformProducts);
@@ -255,6 +313,297 @@ export function ProductContextProvider({ children }: { children: React.ReactNode
     }
   }, [user, business, consumeLastAdClick, trackConversion, getProductById]);
 
+  /** Derive fulfillment status and metadata from product delivery type (download → unlock, shipping → pending, course → enrolled, event → ticket). */
+  const getFulfillmentForProduct = useCallback((
+    product: PlatformProduct,
+    quantity: number
+  ): { fulfillmentStatus: FulfillmentStatus; fulfillmentMetadata: Record<string, unknown> } => {
+    const deliveryType: DeliveryType = product.deliveryType ?? (
+      product.type === 'digital' ? 'download' :
+      product.type === 'physical' ? 'shipping' :
+      product.type === 'course' ? 'course' :
+      product.type === 'event' ? 'event' : 'na'
+    );
+    const config = product.deliveryConfig ?? {};
+    switch (deliveryType) {
+      case 'download':
+        return {
+          fulfillmentStatus: 'unlocked',
+          fulfillmentMetadata: {
+            download_url: config.downloadUrl ?? product.videoUrl ?? (product.images?.[0] ?? null),
+          },
+        };
+      case 'shipping':
+        return { fulfillmentStatus: 'pending', fulfillmentMetadata: {} };
+      case 'course':
+        return {
+          fulfillmentStatus: 'enrolled',
+          fulfillmentMetadata: {
+            course_platform: config.coursePlatform ?? 'whatsapp',
+            course_link: config.courseLink ?? null,
+          },
+        };
+      case 'event':
+        return {
+          fulfillmentStatus: 'ticket_issued',
+          fulfillmentMetadata: {
+            event_id: config.eventId ?? null,
+            event_name: config.eventName ?? product.name,
+            event_date: config.eventDate ?? null,
+            ticket_quantity: quantity,
+          },
+        };
+      default:
+        return { fulfillmentStatus: 'na', fulfillmentMetadata: {} };
+    }
+  }, []);
+
+  const checkoutCart = useCallback(async (): Promise<{ order: StoreOrder; purchases: ProductPurchase[] } | null> => {
+    if (!user || !business || storeCart.length === 0) return null;
+
+    const currency = storeCart[0]?.product.currency ?? 'USD';
+    let orderTotal = 0;
+    const lineItems: { product: PlatformProduct; quantity: number; unitPrice: number; totalPrice: number }[] = [];
+    for (const item of storeCart) {
+      const product = getProductById(item.product.id) ?? item.product;
+      if (product.manageStock && product.stockQuantity < item.quantity) {
+        throw new Error(`Insufficient stock for ${product.name}`);
+      }
+      const unitPrice = product.salePrice != null ? product.salePrice : product.basePrice;
+      const totalPrice = unitPrice * item.quantity;
+      orderTotal += totalPrice;
+      lineItems.push({ product, quantity: item.quantity, unitPrice, totalPrice });
+    }
+
+    try {
+      const { data: orderRow, error: orderError } = await supabase
+        .from('store_orders')
+        .insert({
+          user_id: user.id,
+          business_id: business.id,
+          total_amount: orderTotal,
+          currency,
+          payment_status: 'completed',
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+      if (!orderRow) throw new Error('Failed to create order');
+
+      const orderId = orderRow.id;
+      const purchases: ProductPurchase[] = [];
+
+      for (const line of lineItems) {
+        const { fulfillmentStatus, fulfillmentMetadata } = getFulfillmentForProduct(line.product, line.quantity);
+        const attribution = consumeLastAdClick();
+        const typeSnapshot = {
+          type: line.product.type || 'physical',
+          deliveryType: line.product.deliveryType ?? (line.product.type === 'digital' ? 'download' : line.product.type === 'physical' ? 'shipping' : line.product.type === 'course' ? 'course' : line.product.type === 'event' ? 'event' : null),
+        };
+        const { data: purchaseRow, error: purchaseError } = await supabase
+          .from('product_purchases')
+          .insert({
+            product_id: line.product.id,
+            user_id: user.id,
+            business_id: business.id,
+            order_id: orderId,
+            quantity: line.quantity,
+            unit_price: line.unitPrice,
+            total_price: line.totalPrice,
+            currency: line.product.currency,
+            payment_status: 'completed',
+            fulfillment_status: fulfillmentStatus,
+            fulfillment_metadata: fulfillmentMetadata,
+            type_snapshot: typeSnapshot,
+            ...(attribution ? { ad_id: attribution.adId } : {}),
+          })
+          .select()
+          .single();
+
+        if (purchaseError) throw purchaseError;
+        if (purchaseRow) {
+          purchases.push({
+            id: purchaseRow.id,
+            productId: purchaseRow.product_id,
+            userId: purchaseRow.user_id,
+            businessId: purchaseRow.business_id,
+            quantity: purchaseRow.quantity,
+            unitPrice: parseFloat(purchaseRow.unit_price),
+            totalPrice: parseFloat(purchaseRow.total_price),
+            currency: purchaseRow.currency,
+            paymentStatus: purchaseRow.payment_status,
+            purchasedAt: purchaseRow.purchased_at,
+            orderId: purchaseRow.order_id,
+            fulfillmentStatus: purchaseRow.fulfillment_status,
+            fulfillmentMetadata: purchaseRow.fulfillment_metadata,
+            typeSnapshot: purchaseRow.type_snapshot,
+            createdAt: purchaseRow.created_at,
+          });
+        }
+
+        if (line.product.manageStock) {
+          await supabase
+            .from('platform_products')
+            .update({ stock_quantity: line.product.stockQuantity - line.quantity })
+            .eq('id', line.product.id);
+        }
+
+        if (attribution) {
+          await trackConversion(attribution.adId, attribution.location, line.totalPrice);
+        }
+      }
+
+      await supabase.rpc('fulfill_order_access', { _order_id: orderId });
+      clearStoreCart();
+      await loadProducts();
+
+      const order: StoreOrder = {
+        id: orderRow.id,
+        userId: orderRow.user_id,
+        businessId: orderRow.business_id,
+        totalAmount: parseFloat(orderRow.total_amount),
+        currency: orderRow.currency,
+        paymentStatus: orderRow.payment_status,
+        orderStatus: (orderRow as any).order_status,
+        paymentMethod: orderRow.payment_method,
+        createdAt: orderRow.created_at,
+        updatedAt: orderRow.updated_at,
+      };
+      return { order, purchases };
+    } catch (error) {
+      console.error('Checkout failed:', error);
+      throw error;
+    }
+  }, [user, business, storeCart, getProductById, getFulfillmentForProduct, clearStoreCart, loadProducts, consumeLastAdClick, trackConversion]);
+
+  const checkoutCartWithPayment = useCallback(async (params: {
+    paymentMethod: string;
+    paymentReference?: string;
+    paymentNotes?: string;
+    proofOfPaymentUrl: string;
+  }): Promise<{ order: StoreOrder; purchases: ProductPurchase[] } | null> => {
+    if (!user || !business || storeCart.length === 0) return null;
+
+    const currency = storeCart[0]?.product.currency ?? 'USD';
+    let orderTotal = 0;
+    const lineItems: { product: PlatformProduct; quantity: number; unitPrice: number; totalPrice: number }[] = [];
+    for (const item of storeCart) {
+      const product = getProductById(item.product.id) ?? item.product;
+      if (product.manageStock && product.stockQuantity < item.quantity) {
+        throw new Error(`Insufficient stock for ${product.name}`);
+      }
+      const unitPrice = product.salePrice != null ? product.salePrice : product.basePrice;
+      const totalPrice = unitPrice * item.quantity;
+      orderTotal += totalPrice;
+      lineItems.push({ product, quantity: item.quantity, unitPrice, totalPrice });
+    }
+
+    try {
+      const { data: orderRow, error: orderError } = await supabase
+        .from('store_orders')
+        .insert({
+          user_id: user.id,
+          business_id: business.id,
+          total_amount: orderTotal,
+          currency,
+          payment_status: 'pending',
+          payment_method: params.paymentMethod,
+          payment_reference: params.paymentReference || null,
+          payment_notes: params.paymentNotes || null,
+          proof_of_payment_url: params.proofOfPaymentUrl,
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+      if (!orderRow) throw new Error('Failed to create order');
+
+      const orderId = orderRow.id;
+      const purchases: ProductPurchase[] = [];
+
+      for (const line of lineItems) {
+        const { fulfillmentStatus, fulfillmentMetadata } = getFulfillmentForProduct(line.product, line.quantity);
+        const attribution = consumeLastAdClick();
+        const typeSnapshot = {
+          type: line.product.type || 'physical',
+          deliveryType: line.product.deliveryType ?? (line.product.type === 'digital' ? 'download' : line.product.type === 'physical' ? 'shipping' : line.product.type === 'course' ? 'course' : line.product.type === 'event' ? 'event' : null),
+        };
+        const { data: purchaseRow, error: purchaseError } = await supabase
+          .from('product_purchases')
+          .insert({
+            product_id: line.product.id,
+            user_id: user.id,
+            business_id: business.id,
+            order_id: orderId,
+            quantity: line.quantity,
+            unit_price: line.unitPrice,
+            total_price: line.totalPrice,
+            currency: line.product.currency,
+            payment_status: 'pending',
+            fulfillment_status: fulfillmentStatus,
+            fulfillment_metadata: fulfillmentMetadata,
+            type_snapshot: typeSnapshot,
+            ...(attribution ? { ad_id: attribution.adId } : {}),
+          })
+          .select()
+          .single();
+
+        if (purchaseError) throw purchaseError;
+        if (purchaseRow) {
+          purchases.push({
+            id: purchaseRow.id,
+            productId: purchaseRow.product_id,
+            userId: purchaseRow.user_id,
+            businessId: purchaseRow.business_id,
+            quantity: purchaseRow.quantity,
+            unitPrice: parseFloat(purchaseRow.unit_price),
+            totalPrice: parseFloat(purchaseRow.total_price),
+            currency: purchaseRow.currency,
+            paymentStatus: purchaseRow.payment_status,
+            purchasedAt: purchaseRow.purchased_at,
+            orderId: purchaseRow.order_id,
+            fulfillmentStatus: purchaseRow.fulfillment_status,
+            fulfillmentMetadata: purchaseRow.fulfillment_metadata,
+            typeSnapshot: purchaseRow.type_snapshot,
+            createdAt: purchaseRow.created_at,
+          });
+        }
+
+        if (line.product.manageStock) {
+          await supabase
+            .from('platform_products')
+            .update({ stock_quantity: line.product.stockQuantity - line.quantity })
+            .eq('id', line.product.id);
+        }
+
+        if (attribution) {
+          await trackConversion(attribution.adId, attribution.location, line.totalPrice);
+        }
+      }
+
+      clearStoreCart();
+      await loadProducts();
+
+      const order: StoreOrder = {
+        id: orderRow.id,
+        userId: orderRow.user_id,
+        businessId: orderRow.business_id,
+        totalAmount: parseFloat(orderRow.total_amount),
+        currency: orderRow.currency,
+        paymentStatus: orderRow.payment_status,
+        orderStatus: orderRow.order_status as any,
+        paymentMethod: orderRow.payment_method,
+        createdAt: orderRow.created_at,
+        updatedAt: orderRow.updated_at,
+      };
+      return { order, purchases };
+    } catch (error) {
+      console.error('Checkout with payment failed:', error);
+      throw error;
+    }
+  }, [user, business, storeCart, getProductById, getFulfillmentForProduct, clearStoreCart, loadProducts, consumeLastAdClick, trackConversion]);
+
   const refreshProducts = useCallback(async () => {
     await loadProducts();
   }, [loadProducts]);
@@ -269,7 +618,15 @@ export function ProductContextProvider({ children }: { children: React.ReactNode
         getVisibleProducts,
         getProductById,
         purchaseProduct,
+        checkoutCart,
+        checkoutCartWithPayment,
         refreshProducts,
+        storeCart,
+        storeCartCount,
+        addToStoreCart,
+        removeFromStoreCart,
+        updateStoreCartQuantity,
+        clearStoreCart,
       }}
     >
       {children}

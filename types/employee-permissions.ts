@@ -35,7 +35,9 @@ export type PermissionCode =
   | 'employees:manage'
   // Settings Permissions
   | 'settings:view'
-  | 'settings:edit';
+  | 'settings:edit'
+  // Suppliers (marketplace) Permissions
+  | 'suppliers:view_marketplace';
 
 export interface EmployeePermission {
   id: string;
@@ -81,6 +83,7 @@ export const PERMISSION_CATEGORIES = {
   finances: 'Finances',
   employees: 'Employees',
   settings: 'Settings',
+  suppliers: 'Suppliers',
 } as const;
 
 export const DEFAULT_ROLES = {

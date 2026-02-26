@@ -667,7 +667,6 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     maxHeight: '90%',
-    minHeight: '70%',
   },
   modalHeader: {
     flexDirection: 'row',

@@ -30,7 +30,7 @@ export function PremiumContextProvider({ children }: { children: React.ReactNode
         .or('end_date.is.null,end_date.gt.' + new Date().toISOString())
         .order('start_date', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (subscriptionData) {
         const sub = subscriptionData as any;
@@ -87,7 +87,7 @@ export function PremiumContextProvider({ children }: { children: React.ReactNode
         .gt('end_date', new Date().toISOString())
         .order('start_date', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (trialData) {
         const tr = trialData as any;

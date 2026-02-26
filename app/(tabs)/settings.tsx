@@ -19,6 +19,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import { LinearGradient } from 'expo-linear-gradient';
 import { buildAssetFileName, getBase64FromAsset, uploadBase64ToStorage } from '@/lib/upload-utils';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -27,7 +28,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { usePremium } from '@/contexts/PremiumContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { supabase } from '@/lib/supabase';
-import type { BusinessStage, Currency, DreamBigBook } from '@/types/business';
+import type { BusinessStage, Currency, DreamBigBook, Transaction, Customer, Supplier, CashflowProjection, Employee } from '@/types/business';
 import { PERMISSION_CATEGORIES, type PermissionCode } from '@/types/employee-permissions';
 import { exportAllData, shareData } from '@/lib/data-export';
 import { DREAMBIG_BOOKS, getBookFeatures } from '@/constants/books';
@@ -117,6 +118,7 @@ export default function SettingsScreen() {
   const [isSavingEmployeeProfile, setIsSavingEmployeeProfile] = useState(false);
   const [adTrackingConsent, setAdTrackingConsent] = useState(false);
   const [personalizedAdsConsent, setPersonalizedAdsConsent] = useState(false);
+  const [emailPrefs, setEmailPrefs] = useState({ marketing: true, transactional: true, supplierPromos: true, languagePreference: 'en' as 'en' | 'sn' | 'nd' });
   const [gender, setGender] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [interestsInput, setInterestsInput] = useState('');
@@ -172,8 +174,39 @@ export default function SettingsScreen() {
       loadAdPreferences();
       loadUserProfile();
       checkAdPreferencesPrompt();
+      loadEmailPrefs();
     }
   }, [user?.id]);
+
+  const loadEmailPrefs = async () => {
+    if (!user?.id) return;
+    const { data } = await supabase.from('email_preferences').select('marketing_opt_in, transactional_opt_in, supplier_promos_opt_in, language_preference').eq('user_id', user.id).single();
+    if (data) {
+      setEmailPrefs({
+        marketing: data.marketing_opt_in ?? true,
+        transactional: data.transactional_opt_in ?? true,
+        supplierPromos: data.supplier_promos_opt_in ?? true,
+        languagePreference: (data.language_preference as 'en' | 'sn' | 'nd') || 'en',
+      });
+    }
+  };
+
+  const handleEmailPrefChange = async (key: 'marketing' | 'transactional' | 'supplierPromos', value: boolean) => {
+    if (!user?.id) return;
+    const col = key === 'marketing' ? 'marketing_opt_in' : key === 'transactional' ? 'transactional_opt_in' : 'supplier_promos_opt_in';
+    setEmailPrefs((p) => ({ ...p, [key]: value }));
+    const { data: existing } = await supabase.from('email_preferences').select('user_id').eq('user_id', user.id).single();
+    if (existing) {
+      await supabase.from('email_preferences').update({ [col]: value, updated_at: new Date().toISOString() }).eq('user_id', user.id);
+    } else {
+      await supabase.from('email_preferences').insert({
+        user_id: user.id,
+        marketing_opt_in: key === 'marketing' ? value : true,
+        transactional_opt_in: key === 'transactional' ? value : true,
+        supplier_promos_opt_in: key === 'supplierPromos' ? value : true,
+      });
+    }
+  };
 
   const loadUserProfile = async () => {
     if (!user?.id) return;
@@ -741,7 +774,7 @@ export default function SettingsScreen() {
 
       if (Array.isArray(parsed.transactions)) {
         for (const t of parsed.transactions) {
-          await addTransaction(stripMeta(t));
+          await addTransaction(stripMeta(t) as Omit<Transaction, 'id' | 'createdAt'>);
         }
       }
 
@@ -760,13 +793,13 @@ export default function SettingsScreen() {
 
       if (Array.isArray(parsed.customers)) {
         for (const c of parsed.customers) {
-          await addCustomer(stripMeta(c));
+          await addCustomer(stripMeta(c) as Omit<Customer, 'id' | 'createdAt' | 'updatedAt' | 'totalPurchases' | 'lastPurchaseDate'>);
         }
       }
 
       if (Array.isArray(parsed.suppliers)) {
         for (const s of parsed.suppliers) {
-          await addSupplier(stripMeta(s));
+          await addSupplier(stripMeta(s) as Omit<Supplier, 'id' | 'createdAt' | 'updatedAt' | 'totalPurchases' | 'lastPurchaseDate'>);
         }
       }
 
@@ -778,7 +811,7 @@ export default function SettingsScreen() {
 
       if (Array.isArray(parsed.cashflowProjections)) {
         for (const c of parsed.cashflowProjections) {
-          await addCashflowProjection(stripMeta(c));
+          await addCashflowProjection(stripMeta(c) as Omit<CashflowProjection, 'id' | 'createdAt'>);
         }
       }
 
@@ -790,7 +823,7 @@ export default function SettingsScreen() {
 
       if (Array.isArray(parsed.employees)) {
         for (const e of parsed.employees) {
-          await addEmployee(stripMeta(e));
+          await addEmployee(stripMeta(e) as (Omit<Employee, 'id' | 'createdAt' | 'updatedAt'> & { authUserId?: string; roleId?: string; canLogin?: boolean }));
         }
       }
 
@@ -1109,13 +1142,22 @@ export default function SettingsScreen() {
         <View style={[styles.section, { 
           backgroundColor: theme.background.card,
           borderColor: theme.border.light,
+          overflow: 'hidden',
         }]}>
-          <View style={styles.sectionHeader}>
-            <SettingsIcon size={20} color={theme.accent.primary} />
-            <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
-              {t('settings.configurations')}
-            </Text>
-          </View>
+          <LinearGradient
+            colors={[theme.accent.primary + '18', theme.accent.primary + '08']}
+            style={styles.configurationsHero}
+          >
+            <SettingsIcon size={24} color={theme.accent.primary} />
+            <View style={styles.configurationsHeroText}>
+              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
+                {t('settings.configurations')}
+              </Text>
+              <Text style={[styles.configurationsSubtitle, { color: theme.text.secondary }]}>
+                Notifications, language & region
+              </Text>
+            </View>
+          </LinearGradient>
 
           {/* SMS Settings */}
           <View style={styles.settingRow}>
@@ -1280,125 +1322,233 @@ export default function SettingsScreen() {
             />
           </Animated.View>
 
-          {/* Language Preference */}
-          <View style={[styles.inputGroup, { marginTop: 16 }]}>
-            <View style={styles.settingTitleRow}>
-              <Globe size={18} color={theme.accent.primary} />
-              <Text style={[styles.label, { color: theme.text.secondary, marginLeft: 8 }]}>
-                {t('settings.language')}
+          {/* Email Preferences */}
+          <View style={[styles.settingRow, { marginTop: 16 }]}>
+            <View style={styles.settingLeft}>
+              <View style={styles.settingTitleRow}>
+                <Mail size={18} color={theme.accent.primary} />
+                <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
+                  Marketing emails
+                </Text>
+              </View>
+              <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
+                Promotions and product updates
               </Text>
             </View>
-            <View style={styles.currencyRow}>
-              <TouchableOpacity
-                style={[
-                  styles.currencyButton,
-                  { 
-                    borderColor: theme.border.light,
-                    backgroundColor: settings.language === 'en' ? theme.accent.primary : theme.background.secondary,
-                  },
-                ]}
-                onPress={() => handleUpdateLanguage('en')}
-              >
-                <Text
-                  style={[
-                    styles.currencyButtonText,
-                    { color: settings.language === 'en' ? '#FFF' : theme.text.secondary },
-                  ]}
-                >
-                  English
+            <Switch
+              value={emailPrefs.marketing}
+              onValueChange={(v) => handleEmailPrefChange('marketing', v)}
+              trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
+              thumbColor="#FFF"
+            />
+          </View>
+          <View style={[styles.settingRow, { marginTop: 16 }]}>
+            <View style={styles.settingLeft}>
+              <View style={styles.settingTitleRow}>
+                <Mail size={18} color={theme.accent.primary} />
+                <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
+                  Transactional updates
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.currencyButton,
-                  { 
-                    borderColor: theme.border.light,
-                    backgroundColor: settings.language === 'sn' ? theme.accent.primary : theme.background.secondary,
-                  },
-                ]}
-                onPress={() => handleUpdateLanguage('sn')}
-              >
-                <Text
-                  style={[
-                    styles.currencyButtonText,
-                    { color: settings.language === 'sn' ? '#FFF' : theme.text.secondary },
-                  ]}
-                >
-                  Shona
+              </View>
+              <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
+                Orders, invoices, account alerts
+              </Text>
+            </View>
+            <Switch
+              value={emailPrefs.transactional}
+              onValueChange={(v) => handleEmailPrefChange('transactional', v)}
+              trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
+              thumbColor="#FFF"
+            />
+          </View>
+          <View style={[styles.settingRow, { marginTop: 16 }]}>
+            <View style={styles.settingLeft}>
+              <View style={styles.settingTitleRow}>
+                <Mail size={18} color={theme.accent.primary} />
+                <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
+                  Supplier promos
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.currencyButton,
-                  { 
-                    borderColor: theme.border.light,
-                    backgroundColor: settings.language === 'nd' ? theme.accent.primary : theme.background.secondary,
-                  },
-                ]}
-                onPress={() => handleUpdateLanguage('nd')}
-              >
-                <Text
+              </View>
+              <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
+                Supplier offers and marketplace updates
+              </Text>
+            </View>
+            <Switch
+              value={emailPrefs.supplierPromos}
+              onValueChange={(v) => handleEmailPrefChange('supplierPromos', v)}
+              trackColor={{ false: theme.border.medium, true: theme.accent.primary }}
+              thumbColor="#FFF"
+            />
+          </View>
+          <View style={[styles.emailLanguageBlock, { marginTop: 16 }]}>
+            <View style={styles.settingTitleRow}>
+              <Globe size={18} color={theme.accent.primary} />
+              <Text style={[styles.settingLabel, { color: theme.text.primary }]}>
+                Email language
+              </Text>
+            </View>
+            <Text style={[styles.settingDesc, { color: theme.text.secondary }]}>
+              Preferred language for marketing emails (en/sn/nd)
+            </Text>
+            <View style={styles.emailLanguageChips}>
+              {(['en', 'sn', 'nd'] as const).map((lang) => (
+                <TouchableOpacity
+                  key={lang}
                   style={[
-                    styles.currencyButtonText,
-                    { color: settings.language === 'nd' ? '#FFF' : theme.text.secondary },
+                    styles.currencyButton,
+                    {
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      borderColor: theme.border.light,
+                      backgroundColor: emailPrefs.languagePreference === lang ? theme.accent.primary : theme.background.secondary,
+                    },
                   ]}
+                  onPress={async () => {
+                    if (!user?.id) return;
+                    setEmailPrefs((p) => ({ ...p, languagePreference: lang }));
+                    const { data: existing } = await supabase.from('email_preferences').select('user_id').eq('user_id', user.id).single();
+                    if (existing) {
+                      await supabase.from('email_preferences').update({ language_preference: lang, updated_at: new Date().toISOString() }).eq('user_id', user.id);
+                    } else {
+                      await supabase.from('email_preferences').insert({ user_id: user.id, language_preference: lang });
+                    }
+                  }}
                 >
-                  Ndebele
-                </Text>
-              </TouchableOpacity>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: emailPrefs.languagePreference === lang ? '#FFF' : theme.text.secondary }}>
+                    {lang === 'en' ? 'En' : lang === 'sn' ? 'Sn' : 'Nd'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 
-          {/* Currency Preference */}
-          <View style={[styles.inputGroup, { marginTop: 16 }]}>
-            <View style={styles.settingTitleRow}>
-              <DollarSign size={18} color={theme.accent.primary} />
-              <Text style={[styles.label, { color: theme.text.secondary, marginLeft: 8 }]}>
+          {/* Language & region — single card for better visual balance */}
+          <View style={[styles.languageRegionCard, { backgroundColor: theme.background.secondary }]}>
+            <LinearGradient
+              colors={[theme.accent.primary + '22', theme.accent.primary + '08']}
+              style={styles.languageRegionHeader}
+            >
+              <Globe size={22} color={theme.accent.primary} />
+              <View style={styles.languageRegionHeaderText}>
+                <Text style={[styles.languageRegionTitle, { color: theme.text.primary }]}>
+                  Language & region
+                </Text>
+                <Text style={[styles.languageRegionSubtitle, { color: theme.text.secondary }]}>
+                  App language and default currency
+                </Text>
+              </View>
+            </LinearGradient>
+
+            <View style={styles.languageRegionBody}>
+              <Text style={[styles.languageRegionLabel, { color: theme.text.secondary }]}>
+                {t('settings.language')}
+              </Text>
+              <View style={styles.currencyRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.currencyButton,
+                    { 
+                      borderColor: theme.border.light,
+                      backgroundColor: settings.language === 'en' ? theme.accent.primary : theme.background.card,
+                    },
+                  ]}
+                  onPress={() => handleUpdateLanguage('en')}
+                >
+                  <Text
+                    style={[
+                      styles.currencyButtonText,
+                      { color: settings.language === 'en' ? '#FFF' : theme.text.secondary },
+                    ]}
+                  >
+                    English
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.currencyButton,
+                    { 
+                      borderColor: theme.border.light,
+                      backgroundColor: settings.language === 'sn' ? theme.accent.primary : theme.background.card,
+                    },
+                  ]}
+                  onPress={() => handleUpdateLanguage('sn')}
+                >
+                  <Text
+                    style={[
+                      styles.currencyButtonText,
+                      { color: settings.language === 'sn' ? '#FFF' : theme.text.secondary },
+                    ]}
+                  >
+                    Shona
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.currencyButton,
+                    { 
+                      borderColor: theme.border.light,
+                      backgroundColor: settings.language === 'nd' ? theme.accent.primary : theme.background.card,
+                    },
+                  ]}
+                  onPress={() => handleUpdateLanguage('nd')}
+                >
+                  <Text
+                    style={[
+                      styles.currencyButtonText,
+                      { color: settings.language === 'nd' ? '#FFF' : theme.text.secondary },
+                    ]}
+                  >
+                    Ndebele
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={[styles.languageRegionLabel, { color: theme.text.secondary, marginTop: 16 }]}>
                 {t('settings.defaultCurrency')}
               </Text>
-            </View>
-            <Text style={[styles.hint, { color: theme.text.tertiary }]}>
-              {t('settings.preferredCurrency')}
-            </Text>
-            <View style={styles.currencyRow}>
-              <TouchableOpacity
-                style={[
-                  styles.currencyButton,
-                  { 
-                    borderColor: theme.border.light,
-                    backgroundColor: settings.currencyPreference === 'USD' ? theme.accent.primary : theme.background.secondary,
-                  },
-                ]}
-                onPress={() => handleUpdateCurrencyPreference('USD')}
-              >
-                <Text
+              <Text style={[styles.hint, { color: theme.text.tertiary }]}>
+                {t('settings.preferredCurrency')}
+              </Text>
+              <View style={[styles.currencyRow, { marginTop: 4 }]}>
+                <TouchableOpacity
                   style={[
-                    styles.currencyButtonText,
-                    { color: settings.currencyPreference === 'USD' ? '#FFF' : theme.text.secondary },
+                    styles.currencyButton,
+                    { 
+                      borderColor: theme.border.light,
+                      backgroundColor: settings.currencyPreference === 'USD' ? theme.accent.primary : theme.background.card,
+                    },
                   ]}
+                  onPress={() => handleUpdateCurrencyPreference('USD')}
                 >
-                  USD
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.currencyButton,
-                  { 
-                    borderColor: theme.border.light,
-                    backgroundColor: settings.currencyPreference === 'ZWL' ? theme.accent.primary : theme.background.secondary,
-                  },
-                ]}
-                onPress={() => handleUpdateCurrencyPreference('ZWL')}
-              >
-                <Text
+                  <Text
+                    style={[
+                      styles.currencyButtonText,
+                      { color: settings.currencyPreference === 'USD' ? '#FFF' : theme.text.secondary },
+                    ]}
+                  >
+                    USD
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
                   style={[
-                    styles.currencyButtonText,
-                    { color: settings.currencyPreference === 'ZWL' ? '#FFF' : theme.text.secondary },
+                    styles.currencyButton,
+                    { 
+                      borderColor: theme.border.light,
+                      backgroundColor: settings.currencyPreference === 'ZWL' ? theme.accent.primary : theme.background.card,
+                    },
                   ]}
+                  onPress={() => handleUpdateCurrencyPreference('ZWL')}
                 >
-                  ZWL
-                </Text>
-              </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.currencyButtonText,
+                      { color: settings.currencyPreference === 'ZWL' ? '#FFF' : theme.text.secondary },
+                    ]}
+                  >
+                    ZWL
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -2513,6 +2663,20 @@ const styles = StyleSheet.create({
     padding: 18,
     borderWidth: 1,
   },
+  configurationsHero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 18,
+    borderRadius: 14,
+    marginBottom: 16,
+    marginHorizontal: -2,
+    gap: 12,
+  },
+  configurationsHeroText: { flex: 1 },
+  configurationsSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2523,11 +2687,57 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700' as const,
   },
+  sectionSubtitle: {
+    fontSize: 14,
+    opacity: 0.9,
+    marginTop: 4,
+  },
+  languageRegionCard: {
+    borderRadius: 16,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  languageRegionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 12,
+  },
+  languageRegionHeaderText: { flex: 1 },
+  languageRegionTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+  },
+  languageRegionSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  languageRegionBody: {
+    padding: 16,
+    paddingTop: 8,
+  },
+  languageRegionLabel: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  helperText: {
+    fontSize: 12,
+    marginTop: 4,
+    opacity: 0.8,
+  },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 6,
+  },
+  emailLanguageBlock: {
+    paddingVertical: 6,
+  },
+  emailLanguageChips: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
   },
   settingLeft: {
     flex: 1,

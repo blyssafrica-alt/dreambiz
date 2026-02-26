@@ -315,7 +315,7 @@ export default function AdCampaignsScreen() {
               <TextInput
                 style={[styles.input, { backgroundColor: theme.background.secondary, color: theme.text.primary }]}
                 value={formData.status}
-                onChangeText={(text) => setFormData({ ...formData, status: text })}
+                onChangeText={(text) => setFormData({ ...formData, status: text as AdCampaign['status'] })}
               />
               <Text style={[styles.label, { color: theme.text.secondary }]}>Budget</Text>
               <TextInput

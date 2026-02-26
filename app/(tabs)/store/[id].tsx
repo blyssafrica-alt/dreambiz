@@ -10,26 +10,42 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  Platform,
+  Animated,
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useProducts } from '@/contexts/ProductContext';
-import { ArrowLeft, ShoppingCart, Star, Package, Minus, Plus, AlertCircle } from 'lucide-react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StoreProductCard } from '@/components/StoreProductCard';
+import { ArrowLeft, ShoppingCart, Star, Package, Minus, Plus, AlertCircle, ChevronDown, ChevronUp, Download, Calendar, MapPin, Truck, GraduationCap } from 'lucide-react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { PlatformProduct } from '@/types/super-admin';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const IMAGE_MAX_HEIGHT = 300;
+const TAB_BAR_HEIGHT = 64;
+const BOTTOM_EXTRA_PADDING = 20;
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { theme } = useTheme();
-  const { getProductById, purchaseProduct } = useProducts();
+  const insets = useSafeAreaInsets();
+  const { getProductById, addToStoreCart, products } = useProducts();
   const [product, setProduct] = useState<PlatformProduct | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPurchasing, setIsPurchasing] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariations, setSelectedVariations] = useState<Record<string, string>>({});
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(24)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 65, friction: 10 }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
 
   const loadProduct = useCallback(() => {
     if (!id) {
@@ -91,7 +107,7 @@ export default function ProductDetailScreen() {
     return basePrice + variationModifier;
   };
 
-  const handlePurchase = async () => {
+  const handleAddToCart = () => {
     if (!product) return;
 
     if (product.manageStock && product.stockQuantity < quantity) {
@@ -99,17 +115,15 @@ export default function ProductDetailScreen() {
       return;
     }
 
-    try {
-      setIsPurchasing(true);
-      await purchaseProduct(product.id, quantity);
-      Alert.alert('Success', 'Product added to your purchases!', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to purchase product');
-    } finally {
-      setIsPurchasing(false);
-    }
+    addToStoreCart(product, quantity);
+    Alert.alert(
+      'Added to cart',
+      `${product.name} has been added. Go to cart to checkout.`,
+      [
+        { text: 'Continue shopping' },
+        { text: 'View cart', onPress: () => router.push('/(tabs)/store/cart' as any) },
+      ]
+    );
   };
 
   const handleQuantityChange = (delta: number) => {
@@ -163,47 +177,81 @@ export default function ProductDetailScreen() {
     ? (product.stockQuantity === 0 ? 'Out of Stock' : `${product.stockQuantity} in stock`)
     : 'In Stock';
 
+  const stickyBarBottomPadding = TAB_BAR_HEIGHT + insets.bottom + BOTTOM_EXTRA_PADDING;
+  const bottomBarHeight = 160 + stickyBarBottomPadding;
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background.secondary }]} edges={['top']}>
+    <View style={[styles.container, { backgroundColor: theme.background.secondary }]}>
       <Stack.Screen options={{ title: product.name, headerShown: false }} />
-      
-      <View style={[styles.header, { backgroundColor: theme.background.card }]}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <ArrowLeft size={24} color={theme.text.primary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]} numberOfLines={1}>
-          {product.name}
-        </Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <SafeAreaView style={styles.safeTop} edges={['top']}>
+        <View style={[styles.header, { backgroundColor: theme.background.card }]}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <ArrowLeft size={24} color={theme.text.primary} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme.text.primary }]} numberOfLines={1}>
+            {product.name}
+          </Text>
+          <View style={{ width: 24 }} />
+        </View>
+      </SafeAreaView>
 
       <ScrollView 
         ref={scrollViewRef}
         style={styles.scrollView} 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomBarHeight }]}
+        showsVerticalScrollIndicator={true}
+        bounces={true}
+        overScrollMode="always"
       >
-        {/* Image Gallery */}
+        {/* Section 1: Product media gallery – contain so full image visible; badges top-right to avoid overlapping title */}
         {product.images && product.images.length > 0 && (
           <View style={styles.imageSection}>
-            <ScrollView 
-              horizontal 
-              pagingEnabled 
+            <ScrollView
+              horizontal
+              pagingEnabled
+              scrollEventThrottle={16}
               showsHorizontalScrollIndicator={false}
               onMomentumScrollEnd={(event) => {
                 const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
                 setSelectedImageIndex(index);
               }}
+              style={styles.imageCarousel}
+              nestedScrollEnabled={false}
             >
               {product.images.map((imageUri, index) => (
-                <Image 
-                  key={index} 
-                  source={{ uri: imageUri }} 
-                  style={styles.productImage}
-                  resizeMode="cover"
-                />
+                <View key={index} style={[styles.productImageWrap, { width: SCREEN_WIDTH, height: IMAGE_MAX_HEIGHT }]}>
+                  <Image
+                    source={{ uri: imageUri }}
+                    style={styles.productImage}
+                    resizeMode="contain"
+                  />
+                </View>
               ))}
             </ScrollView>
+            {/* Badge pills – top-right so they don't overlap product title text in banner */}
+            <View style={styles.badgeOverlay} pointerEvents="none">
+              {product.featured && (
+                <View style={[styles.badgePill, { backgroundColor: theme.accent.primary }]}>
+                  <Star size={12} color="#FFF" fill="#FFF" />
+                  <Text style={styles.badgePillText}>Featured</Text>
+                </View>
+              )}
+              {isOnSale && (
+                <View style={[styles.badgePill, { backgroundColor: '#EF4444' }]}>
+                  <Text style={styles.badgePillText}>Hot Deal</Text>
+                </View>
+              )}
+              {product.manageStock && product.stockQuantity > 0 && product.stockQuantity <= product.lowStockThreshold && (
+                <View style={[styles.badgePill, { backgroundColor: '#F59E0B' }]}>
+                  <Text style={styles.badgePillText}>Low stock</Text>
+                </View>
+              )}
+              {(product.tags || []).some(t => /^new$/i.test(String(t))) && (
+                <View style={[styles.badgePill, { backgroundColor: '#10B981' }]}>
+                  <Text style={styles.badgePillText}>New</Text>
+                </View>
+              )}
+            </View>
             {product.images.length > 1 && (
               <View style={styles.imageIndicators}>
                 {product.images.map((_, index) => (
@@ -224,8 +272,26 @@ export default function ProductDetailScreen() {
           </View>
         )}
 
-        {/* Product Info */}
-        <View style={[styles.infoSection, { backgroundColor: theme.background.card }]}>
+        {/* Product Info – card with rounded corners and shadow (animated) */}
+        <Animated.View
+          style={[
+            styles.infoSection,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+              backgroundColor: theme.background.card,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              marginTop: -12,
+              overflow: 'hidden',
+              paddingTop: 24,
+              ...Platform.select({
+                ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12 },
+                android: { elevation: 8 },
+              }),
+            },
+          ]}
+        >
           <View style={styles.titleRow}>
             <View style={styles.titleContent}>
               <Text style={[styles.title, { color: theme.text.primary }]}>{product.name}</Text>
@@ -293,20 +359,36 @@ export default function ProductDetailScreen() {
             </View>
           )}
 
-          {/* Description */}
+          {/* Section 4: Description – expandable Read more */}
           {product.description && (
             <View style={styles.descriptionSection}>
-              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Description</Text>
-              <Text style={[styles.description, { color: theme.text.secondary }]}>
+              <TouchableOpacity
+                style={styles.descriptionHeaderRow}
+                onPress={() => setDescriptionExpanded((e) => !e)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Description</Text>
+                {descriptionExpanded ? (
+                  <ChevronUp size={20} color={theme.text.tertiary} />
+                ) : (
+                  <ChevronDown size={20} color={theme.text.tertiary} />
+                )}
+              </TouchableOpacity>
+              <Text style={[styles.description, { color: theme.text.secondary }]} selectable numberOfLines={descriptionExpanded ? undefined : 4}>
                 {product.description}
               </Text>
+              {!descriptionExpanded && product.description.length > 80 && (
+                <TouchableOpacity onPress={() => setDescriptionExpanded(true)} style={styles.readMoreBtn}>
+                  <Text style={[styles.readMoreText, { color: theme.accent.primary }]}>Read more</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
           {/* Short Description */}
           {product.shortDescription && (
             <View style={styles.descriptionSection}>
-              <Text style={[styles.description, { color: theme.text.secondary }]}>
+              <Text style={[styles.description, { color: theme.text.secondary }]} selectable>
                 {product.shortDescription}
               </Text>
             </View>
@@ -371,7 +453,7 @@ export default function ProductDetailScreen() {
               <View style={styles.detailItem}>
                 <Text style={[styles.detailLabel, { color: theme.text.tertiary }]}>Type</Text>
                 <Text style={[styles.detailValue, { color: theme.text.primary }]}>
-                  {product.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  {(product.type || 'physical').replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                 </Text>
               </View>
               {product.categoryId && (
@@ -396,69 +478,166 @@ export default function ProductDetailScreen() {
               )}
             </View>
           </View>
-        </View>
+
+          {/* Type-specific sections (extensions only) */}
+          {(product.type === 'digital' || product.deliveryType === 'download') && (
+            <View style={styles.detailsSection}>
+              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Files included</Text>
+              <View style={[styles.typeSectionBlock, { backgroundColor: theme.background.secondary }]}>
+                <View style={styles.typeSectionRow}>
+                  <Download size={20} color={theme.text.tertiary} />
+                  <Text style={[styles.typeSectionText, { color: theme.text.secondary }]}>
+                    Digital files (PDF, documents, media) — available after purchase. Download or open from My Purchases.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+          {(product.type === 'course' || product.deliveryType === 'course') && (
+            <View style={styles.detailsSection}>
+              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Course outline</Text>
+              <View style={[styles.typeSectionBlock, { backgroundColor: theme.background.secondary }]}>
+                <View style={styles.typeSectionRow}>
+                  <GraduationCap size={20} color={theme.text.tertiary} />
+                  <Text style={[styles.typeSectionText, { color: theme.text.secondary }]}>
+                    {product.deliveryConfig?.courseLink
+                      ? 'Modules and lessons — available after purchase. Continue from My Purchases.'
+                      : 'Course content — available after purchase. Access via My Purchases.'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+          {(product.type === 'event' || product.deliveryType === 'event') && (
+            <View style={styles.detailsSection}>
+              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Event details</Text>
+              <View style={[styles.typeSectionBlock, { backgroundColor: theme.background.secondary }]}>
+                {product.deliveryConfig?.eventDate && (
+                  <View style={styles.typeSectionRow}>
+                    <Calendar size={18} color={theme.text.tertiary} />
+                    <Text style={[styles.typeSectionText, { color: theme.text.secondary }]}>{product.deliveryConfig.eventDate}</Text>
+                  </View>
+                )}
+                {(product.deliveryConfig?.venueName || product.deliveryConfig?.address || product.deliveryConfig?.city) && (
+                  <View style={styles.typeSectionRow}>
+                    <MapPin size={18} color={theme.text.tertiary} />
+                    <Text style={[styles.typeSectionText, { color: theme.text.secondary }]}>
+                      {[product.deliveryConfig.venueName, product.deliveryConfig.address, product.deliveryConfig.city].filter(Boolean).join(' · ')}
+                    </Text>
+                  </View>
+                )}
+                {!product.deliveryConfig?.eventDate && !product.deliveryConfig?.venueName && (
+                  <Text style={[styles.typeSectionText, { color: theme.text.secondary }]}>
+                    Date and venue — see your ticket after purchase (My Purchases).
+                  </Text>
+                )}
+              </View>
+            </View>
+          )}
+          {(product.type === 'physical' || product.deliveryType === 'shipping') && (
+            <View style={styles.detailsSection}>
+              <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Shipping & delivery</Text>
+              <View style={[styles.typeSectionBlock, { backgroundColor: theme.background.secondary }]}>
+                <View style={styles.typeSectionRow}>
+                  <Truck size={20} color={theme.text.tertiary} />
+                  <Text style={[styles.typeSectionText, { color: theme.text.secondary }]}>
+                    Physical item — we ship to your address. Track your order from My Purchases after payment.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Section 6: Related products – same category */}
+          {(() => {
+            const related = (products || [])
+              .filter((p) => p.id !== product.id && p.status === 'published' && (product.categoryId ? p.categoryId === product.categoryId : true))
+              .slice(0, 8);
+            if (related.length === 0) return null;
+            return (
+              <View style={styles.relatedSection}>
+                <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>More like this</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.relatedScroll} contentContainerStyle={styles.relatedScrollContent}>
+                  {related.map((p) => (
+                    <StoreProductCard key={p.id} product={p} variant="featured" onPress={() => router.push(`/(tabs)/store/${p.id}` as any)} />
+                  ))}
+                </ScrollView>
+              </View>
+            );
+          })()}
+        </Animated.View>
       </ScrollView>
 
-      {/* Purchase Footer */}
-      <View style={[styles.footer, { backgroundColor: theme.background.card, borderTopColor: theme.border.light }]}>
-        <View style={styles.quantitySection}>
-          <Text style={[styles.quantityLabel, { color: theme.text.secondary }]}>Quantity</Text>
-          <View style={styles.quantityControls}>
-            <TouchableOpacity
-              style={[styles.quantityButton, { backgroundColor: theme.background.secondary }]}
-              onPress={() => handleQuantityChange(-1)}
-              disabled={quantity <= 1}
-            >
-              <Minus size={18} color={quantity <= 1 ? theme.text.tertiary : theme.text.primary} />
-            </TouchableOpacity>
-            <Text style={[styles.quantityValue, { color: theme.text.primary }]}>{quantity}</Text>
-            <TouchableOpacity
-              style={[styles.quantityButton, { backgroundColor: theme.background.secondary }]}
-              onPress={() => handleQuantityChange(1)}
-              disabled={product.manageStock && quantity >= product.stockQuantity}
-            >
-              <Plus size={18} color={product.manageStock && quantity >= product.stockQuantity ? theme.text.tertiary : theme.text.primary} />
-            </TouchableOpacity>
+      {/* Sticky bottom action bar – explicit bottom padding so price and button are never cut */}
+      <View style={[styles.footerWrapper, { paddingBottom: stickyBarBottomPadding }]}>
+        <View style={[styles.footer, { backgroundColor: theme.background.card, borderTopColor: theme.border.light }]}>
+          <View style={styles.quantitySection}>
+            <Text style={[styles.quantityLabel, { color: theme.text.secondary }]}>Quantity</Text>
+            <View style={styles.quantityControls}>
+              <TouchableOpacity
+                style={[styles.quantityButton, { backgroundColor: theme.background.secondary }]}
+                onPress={() => handleQuantityChange(-1)}
+                disabled={quantity <= 1}
+              >
+                <Minus size={18} color={quantity <= 1 ? theme.text.tertiary : theme.text.primary} />
+              </TouchableOpacity>
+              <Text style={[styles.quantityValue, { color: theme.text.primary }]}>{quantity}</Text>
+              <TouchableOpacity
+                style={[styles.quantityButton, { backgroundColor: theme.background.secondary }]}
+                onPress={() => handleQuantityChange(1)}
+                disabled={product.manageStock && quantity >= product.stockQuantity}
+              >
+                <Plus size={18} color={product.manageStock && quantity >= product.stockQuantity ? theme.text.tertiary : theme.text.primary} />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-        <View style={styles.purchaseSection}>
-          <View style={styles.totalPrice}>
-            <Text style={[styles.totalLabel, { color: theme.text.secondary }]}>Total</Text>
-            <Text style={[styles.totalValue, { color: theme.accent.primary }]}>
-              {product.currency} {totalPrice.toFixed(2)}
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={[
-              styles.purchaseButton, 
-              { 
-                backgroundColor: hasStock ? theme.accent.primary : theme.text.tertiary,
-                opacity: hasStock ? 1 : 0.6,
-              }
-            ]}
-            onPress={handlePurchase}
-            disabled={!hasStock || isPurchasing}
-          >
-            {isPurchasing ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
+          <View style={styles.purchaseSection}>
+            <View style={styles.totalPrice}>
+              <Text style={[styles.totalLabel, { color: theme.text.secondary }]}>Total</Text>
+              <Text style={[styles.totalValue, { color: theme.accent.primary }]} numberOfLines={1}>
+                {product.currency} {totalPrice.toFixed(2)}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.purchaseButton,
+                {
+                  backgroundColor: hasStock ? theme.accent.primary : theme.text.tertiary,
+                  opacity: hasStock ? 1 : 0.6,
+                },
+              ]}
+              onPress={handleAddToCart}
+              disabled={!hasStock}
+              activeOpacity={0.85}
+            >
               <>
                 <ShoppingCart size={20} color="#FFF" />
                 <Text style={styles.purchaseButtonText}>
                   {hasStock ? 'Add to Cart' : 'Out of Stock'}
                 </Text>
               </>
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  safeTop: {
+    backgroundColor: 'transparent',
+  },
+  footerWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    width: '100%',
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',
@@ -498,15 +677,50 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 120,
+    paddingBottom: 24,
   },
   imageSection: {
-    marginBottom: 20,
+    marginBottom: 0,
+    backgroundColor: '#F3F4F6',
+    overflow: 'hidden',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  imageCarousel: {
+    width: SCREEN_WIDTH,
+  },
+  productImageWrap: {
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   productImage: {
     width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH,
-    backgroundColor: '#F3F4F6',
+    height: IMAGE_MAX_HEIGHT,
+    backgroundColor: 'transparent',
+  },
+  badgeOverlay: {
+    position: 'absolute',
+    top: 12,
+    right: 16,
+    left: undefined,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'flex-end',
+  },
+  badgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 4,
+  },
+  badgePillText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   imageIndicators: {
     flexDirection: 'row',
@@ -584,6 +798,19 @@ const styles = StyleSheet.create({
   descriptionSection: {
     marginBottom: 24,
   },
+  descriptionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  readMoreBtn: {
+    marginTop: 8,
+  },
+  readMoreText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
@@ -591,7 +818,8 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 16,
-    lineHeight: 24,
+    lineHeight: 26,
+    letterSpacing: 0.2,
   },
   variationsSection: {
     marginBottom: 24,
@@ -628,6 +856,21 @@ const styles = StyleSheet.create({
   detailsSection: {
     marginBottom: 24,
   },
+  typeSectionBlock: {
+    flexDirection: 'column',
+    padding: 16,
+    borderRadius: 12,
+    gap: 10,
+  },
+  typeSectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  typeSectionText: {
+    fontSize: 14,
+    flex: 1,
+  },
   detailsGrid: {
     gap: 16,
   },
@@ -657,21 +900,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
+  relatedSection: {
+    marginTop: 24,
+    marginBottom: 24,
+  },
+  relatedScroll: {
+    marginHorizontal: -20,
+  },
+  relatedScrollContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+  },
   footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
+    width: '100%',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 20,
     borderTopWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 12,
   },
   quantitySection: {
-    marginBottom: 12,
+    marginBottom: 14,
   },
   quantityLabel: {
     fontSize: 14,
@@ -699,16 +952,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    minHeight: 52,
   },
   totalPrice: {
-    flex: 1,
+    flexShrink: 0,
+    minWidth: 0,
+    maxWidth: '42%',
   },
   totalLabel: {
     fontSize: 12,
     marginBottom: 4,
   },
   totalValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
   },
   purchaseButton: {
@@ -716,8 +972,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
+    minHeight: 52,
+    minWidth: 150,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
     gap: 8,
   },
   purchaseButtonText: {

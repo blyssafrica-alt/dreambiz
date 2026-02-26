@@ -315,12 +315,12 @@ export default function FinancesScreen() {
                 style={[
                   styles.headerButton, 
                   { 
-                    backgroundColor: activeFiltersCount > 0 ? '#FFF' : 'rgba(255, 255, 255, 0.2)',
+                    backgroundColor: activeFiltersCount > 0 ? theme.text.inverse : 'rgba(255, 255, 255, 0.2)',
                   }
                 ]} 
                 onPress={() => setShowFilterModal(true)}
               >
-                <Filter size={20} color={activeFiltersCount > 0 ? '#0066CC' : '#FFF'} strokeWidth={2.5} />
+                <Filter size={20} color={activeFiltersCount > 0 ? theme.accent.primary : '#FFF'} strokeWidth={2.5} />
                 {activeFiltersCount > 0 && (
                   <View style={styles.filterBadge}>
                     <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
@@ -336,42 +336,44 @@ export default function FinancesScreen() {
           <Animated.View style={[styles.summaryContainer, {
             opacity: fadeAnim,
             transform: [{ translateY: slideAnim }],
+            backgroundColor: theme.background.card,
+            borderBottomColor: theme.border.light,
           }]}>
             <ScrollView 
               horizontal 
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.summaryScroll}
             >
-              <View style={[styles.summaryCard, { backgroundColor: '#10B98120', borderColor: '#10B98140' }]}>
-                <View style={[styles.summaryIcon, { backgroundColor: '#10B981' }]}>
+              <View style={[styles.summaryCard, { backgroundColor: theme.surface.success, borderColor: theme.accent.success + '40' }]}>
+                <View style={[styles.summaryIcon, { backgroundColor: theme.accent.success }]}>
                   <TrendingUp size={20} color="#FFF" />
                 </View>
                 <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Sales</Text>
-                <Text style={[styles.summaryValue, { color: '#10B981' }]}>
+                <Text style={[styles.summaryValue, { color: theme.accent.success }]}>
                   {formatCurrency(totals.sales)}
                 </Text>
               </View>
 
-              <View style={[styles.summaryCard, { backgroundColor: '#EF444420', borderColor: '#EF444440' }]}>
-                <View style={[styles.summaryIcon, { backgroundColor: '#EF4444' }]}>
+              <View style={[styles.summaryCard, { backgroundColor: theme.surface.danger, borderColor: theme.accent.danger + '40' }]}>
+                <View style={[styles.summaryIcon, { backgroundColor: theme.accent.danger }]}>
                   <TrendingDown size={20} color="#FFF" />
                 </View>
                 <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Expenses</Text>
-                <Text style={[styles.summaryValue, { color: '#EF4444' }]}>
+                <Text style={[styles.summaryValue, { color: theme.accent.danger }]}>
                   {formatCurrency(totals.expenses)}
                 </Text>
               </View>
 
               <View style={[styles.summaryCard, { 
-                backgroundColor: totals.profit >= 0 ? '#10B98120' : '#EF444420',
-                borderColor: totals.profit >= 0 ? '#10B98140' : '#EF444440'
+                backgroundColor: totals.profit >= 0 ? theme.surface.success : theme.surface.danger,
+                borderColor: totals.profit >= 0 ? theme.accent.success + '40' : theme.accent.danger + '40',
               }]}>
-                <View style={[styles.summaryIcon, { backgroundColor: totals.profit >= 0 ? '#10B981' : '#EF4444' }]}>
+                <View style={[styles.summaryIcon, { backgroundColor: totals.profit >= 0 ? theme.accent.success : theme.accent.danger }]}>
                   <DollarSign size={20} color="#FFF" />
                 </View>
                 <Text style={[styles.summaryLabel, { color: theme.text.secondary }]}>Profit</Text>
                 <Text style={[styles.summaryValue, { 
-                  color: totals.profit >= 0 ? '#10B981' : '#EF4444' 
+                  color: totals.profit >= 0 ? theme.accent.success : theme.accent.danger,
                 }]}>
                   {formatCurrency(totals.profit)}
                 </Text>
@@ -384,6 +386,8 @@ export default function FinancesScreen() {
         <Animated.View style={[styles.searchContainer, {
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
+          backgroundColor: theme.background.card,
+          borderBottomColor: theme.border.light,
         }]}>
           <View style={[styles.searchBox, { backgroundColor: theme.background.card }]}>
             <Search size={18} color={theme.text.tertiary} />
@@ -404,7 +408,7 @@ export default function FinancesScreen() {
 
         {/* Active Filters */}
         {(filterType !== 'all' || dateFilter !== 'all' || categoryFilter) && (
-          <View style={styles.activeFiltersContainer}>
+          <View style={[styles.activeFiltersContainer, { backgroundColor: theme.background.card, borderBottomColor: theme.border.light }]}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.activeFilters}>
               {filterType !== 'all' && (
                 <View style={[styles.filterChip, { backgroundColor: theme.accent.primary + '20' }]}>
@@ -1236,7 +1240,7 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: '#FFF',
   },
-  filtermodalContent: {
+  filterModalContent: {
     minHeight: '70%',
     borderRadius: 24,
     padding: 24,

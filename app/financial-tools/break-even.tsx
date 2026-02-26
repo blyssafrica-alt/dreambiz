@@ -124,7 +124,7 @@ export default function BreakEvenCalculatorScreen() {
                   Fixed Costs ({business?.currency || 'USD'})
                 </Text>
                 <Text style={[styles.hint, { color: theme.text.tertiary }]}>
-                  Rent, salaries, utilities (costs that don't change with sales)
+                  Rent, salaries, utilities (costs that don&apos;t change with sales)
                 </Text>
                 <TextInput
                   style={[styles.input, {

@@ -298,13 +298,13 @@ export default function DocumentsScreen() {
         />
         {/* Payment Reminders Banner */}
         {overdueInvoices.length > 0 && (
-          <View style={styles.paymentReminderBanner}>
-            <AlertCircle size={20} color="#EF4444" />
+          <View style={[styles.paymentReminderBanner, { backgroundColor: theme.surface.danger, borderLeftColor: theme.accent.danger }]}>
+            <AlertCircle size={20} color={theme.accent.danger} />
             <View style={styles.paymentReminderContent}>
-              <Text style={styles.paymentReminderTitle}>
+              <Text style={[styles.paymentReminderTitle, { color: theme.accent.danger }]}>
                 {overdueInvoices.length} Overdue Invoice{overdueInvoices.length > 1 ? 's' : ''}
               </Text>
-              <Text style={styles.paymentReminderText}>
+              <Text style={[styles.paymentReminderText, { color: theme.text.secondary }]}>
                 Total outstanding: {formatCurrency(overdueInvoices.reduce((sum, doc) => sum + doc.total, 0))}
               </Text>
             </View>
@@ -315,54 +315,75 @@ export default function DocumentsScreen() {
         <View style={[styles.searchFilterContainer, { 
           marginTop: -12,
           paddingTop: 12,
+          backgroundColor: theme.background.card,
+          borderBottomColor: theme.border.light,
         }]}>
           <View style={[styles.searchBox, {
-            backgroundColor: theme.background.card,
-            shadowColor: '#000',
+            backgroundColor: theme.background.secondary,
+            borderColor: theme.border.light,
+            shadowColor: theme.shadow.color,
             shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
+            shadowOpacity: theme.shadow.opacity,
             shadowRadius: 8,
             elevation: 3,
             borderWidth: 1,
-            borderColor: 'rgba(0,0,0,0.05)',
           }]}>
-            <FileText size={18} color="#94A3B8" />
+            <FileText size={18} color={theme.text.tertiary} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: theme.text.primary }]}
               placeholder="Search documents..."
+              placeholderTextColor={theme.text.tertiary}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <X size={18} color="#94A3B8" />
+                <X size={18} color={theme.text.tertiary} />
               </TouchableOpacity>
             )}
           </View>
           <TouchableOpacity
-            style={[styles.filterButton, (statusFilter !== 'all' || typeFilter !== 'all') && styles.filterButtonActive]}
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor: (statusFilter !== 'all' || typeFilter !== 'all') ? theme.accent.primary : theme.background.secondary,
+                borderColor: (statusFilter !== 'all' || typeFilter !== 'all') ? theme.accent.primary : theme.border.light,
+              },
+            ]}
           >
-            <Filter size={18} color={(statusFilter !== 'all' || typeFilter !== 'all') ? '#fff' : '#64748B'} />
+            <Filter size={18} color={(statusFilter !== 'all' || typeFilter !== 'all') ? theme.text.inverse : theme.text.secondary} />
           </TouchableOpacity>
         </View>
 
         {/* View Toggle */}
-        <View style={styles.viewToggle}>
+        <View style={[styles.viewToggle, { backgroundColor: theme.background.secondary }]}>
           <TouchableOpacity
-            style={[styles.viewToggleButton, currentView === 'documents' && styles.viewToggleButtonActive]}
+            style={[
+              styles.viewToggleButton,
+              currentView === 'documents' && { backgroundColor: theme.accent.primary },
+            ]}
             onPress={() => setCurrentView('documents')}
           >
-            <FileText size={16} color={currentView === 'documents' ? '#fff' : '#64748B'} />
-            <Text style={[styles.viewToggleText, currentView === 'documents' && styles.viewToggleTextActive]}>
+            <FileText size={16} color={currentView === 'documents' ? theme.text.inverse : theme.text.secondary} />
+            <Text style={[
+              styles.viewToggleText,
+              { color: currentView === 'documents' ? theme.text.inverse : theme.text.secondary },
+            ]}>
               Documents
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.viewToggleButton, currentView === 'folders' && styles.viewToggleButtonActive]}
+            style={[
+              styles.viewToggleButton,
+              currentView === 'folders' && { backgroundColor: theme.accent.primary },
+            ]}
             onPress={() => setCurrentView('folders')}
           >
-            <Folder size={16} color={currentView === 'folders' ? '#fff' : '#64748B'} />
-            <Text style={[styles.viewToggleText, currentView === 'folders' && styles.viewToggleTextActive]}>
+            <Folder size={16} color={currentView === 'folders' ? theme.text.inverse : theme.text.secondary} />
+            <Text style={[
+              styles.viewToggleText,
+              { color: currentView === 'folders' ? theme.text.inverse : theme.text.secondary },
+            ]}>
               Folders
             </Text>
           </TouchableOpacity>
@@ -379,26 +400,44 @@ export default function DocumentsScreen() {
               <View style={styles.foldersGrid}>
                 {/* "All Documents" folder */}
                 <TouchableOpacity
-                  style={[styles.folderCard, folderFilter === 'all' && styles.folderCardActive]}
+                  style={[
+                    styles.folderCard,
+                    {
+                      backgroundColor: theme.background.card,
+                      borderColor: folderFilter === 'all' ? theme.accent.primary : theme.border.light,
+                    },
+                    folderFilter === 'all' && { backgroundColor: theme.surface.info },
+                  ]}
                   onPress={() => {
                     setFolderFilter('all');
                     setCurrentView('documents');
                   }}
                 >
-                  <View style={[styles.folderIcon, { backgroundColor: '#94A3B820' }]}>
-                    <FolderOpen size={32} color="#94A3B8" />
+                  <View style={[styles.folderIcon, { backgroundColor: theme.background.tertiary }]}>
+                    <FolderOpen size={32} color={theme.text.tertiary} />
                   </View>
-                  <Text style={[styles.folderName, folderFilter === 'all' && styles.folderNameActive]}>
+                  <Text style={[
+                    styles.folderName,
+                    { color: theme.text.primary },
+                    folderFilter === 'all' && { color: theme.accent.primary },
+                  ]}>
                     All Documents
                   </Text>
-                  <Text style={styles.folderCount}>{safeDocuments.length} documents</Text>
+                  <Text style={[styles.folderCount, { color: theme.text.tertiary }]}>{safeDocuments.length} documents</Text>
                 </TouchableOpacity>
 
                 {/* User-created folders */}
                 {folders.map((folder) => (
                   <TouchableOpacity
                     key={folder.id}
-                    style={[styles.folderCard, folderFilter === folder.id && styles.folderCardActive]}
+                    style={[
+                      styles.folderCard,
+                      {
+                        backgroundColor: theme.background.card,
+                        borderColor: folderFilter === folder.id ? theme.accent.primary : theme.border.light,
+                      },
+                      folderFilter === folder.id && { backgroundColor: theme.surface.info },
+                    ]}
                     onPress={() => {
                       setFolderFilter(folder.id);
                       setCurrentView('documents');
@@ -407,10 +446,14 @@ export default function DocumentsScreen() {
                     <View style={[styles.folderIcon, { backgroundColor: `${folder.color}20` }]}>
                       <Folder size={32} color={folder.color} />
                     </View>
-                    <Text style={[styles.folderName, folderFilter === folder.id && styles.folderNameActive]}>
+                    <Text style={[
+                      styles.folderName,
+                      { color: theme.text.primary },
+                      folderFilter === folder.id && { color: theme.accent.primary },
+                    ]}>
                       {folder.name}
                     </Text>
-                    <Text style={styles.folderCount}>{folder.documentCount || 0} documents</Text>
+                    <Text style={[styles.folderCount, { color: theme.text.tertiary }]}>{folder.documentCount || 0} documents</Text>
                     <TouchableOpacity
                       style={styles.folderMenu}
                       onPress={() => {
@@ -420,14 +463,14 @@ export default function DocumentsScreen() {
                         setShowFolderModal(true);
                       }}
                     >
-                      <MoreVertical size={16} color="#94A3B8" />
+                      <MoreVertical size={16} color={theme.text.tertiary} />
                     </TouchableOpacity>
                   </TouchableOpacity>
                 ))}
 
                 {/* Add Folder Button */}
                 <TouchableOpacity
-                  style={styles.addFolderCard}
+                  style={[styles.addFolderCard, { backgroundColor: theme.background.secondary, borderColor: theme.border.light }]}
                   onPress={() => {
                     setEditingFolder(null);
                     setFolderName('');
@@ -435,16 +478,16 @@ export default function DocumentsScreen() {
                     setShowFolderModal(true);
                   }}
                 >
-                  <Plus size={32} color="#94A3B8" />
-                  <Text style={styles.addFolderText}>Add Folder</Text>
+                  <Plus size={32} color={theme.text.tertiary} />
+                  <Text style={[styles.addFolderText, { color: theme.text.secondary }]}>Add Folder</Text>
                 </TouchableOpacity>
               </View>
             </>
           ) : filteredDocuments.length === 0 ? (
             <View style={styles.emptyState}>
-              <FileText size={48} color="#CBD5E1" />
-              <Text style={styles.emptyTitle}>No documents yet</Text>
-              <Text style={styles.emptyDesc}>Create professional invoices, receipts, quotations, purchase orders, contracts, and supplier agreements</Text>
+              <FileText size={48} color={theme.text.tertiary} />
+              <Text style={[styles.emptyTitle, { color: theme.text.primary }]}>No documents yet</Text>
+              <Text style={[styles.emptyDesc, { color: theme.text.secondary }]}>Create professional invoices, receipts, quotations, purchase orders, contracts, and supplier agreements</Text>
             </View>
           ) : (
             <>
@@ -453,7 +496,11 @@ export default function DocumentsScreen() {
                 return (
                   <React.Fragment key={doc.id}>
                     <View 
-                      style={[styles.docCard, overdue && { borderLeftWidth: 4, borderLeftColor: '#EF4444' }]}
+                      style={[
+                        styles.docCard,
+                        { backgroundColor: theme.background.card },
+                        overdue && { borderLeftWidth: 4, borderLeftColor: theme.accent.danger },
+                      ]}
                     >
                       <TouchableOpacity 
                         style={styles.docCardContent}
@@ -461,19 +508,19 @@ export default function DocumentsScreen() {
                       >
                         <View style={styles.docHeader}>
                           <View style={styles.docLeft}>
-                            <View style={styles.docIcon}>{getIcon(doc.type)}</View>
+                            <View style={[styles.docIcon, { backgroundColor: theme.surface.info }]}>{getIcon(doc.type)}</View>
                             <View>
-                              <Text style={styles.docNumber}>{doc.documentNumber}</Text>
-                              <Text style={styles.docCustomer}>{doc.customerName}</Text>
+                              <Text style={[styles.docNumber, { color: theme.text.primary }]}>{doc.documentNumber}</Text>
+                              <Text style={[styles.docCustomer, { color: theme.text.secondary }]}>{doc.customerName}</Text>
                               {doc.dueDate && (
-                                <Text style={[styles.docDueDate, { color: overdue ? '#EF4444' : '#64748B' }]}>
+                                <Text style={[styles.docDueDate, { color: overdue ? theme.accent.danger : theme.text.tertiary }]}>
                                   Due: {formatDate(doc.dueDate)} {overdue && '⚠️'}
                                 </Text>
                               )}
                             </View>
                           </View>
                           <View style={styles.docRight}>
-                            <Text style={styles.docAmount}>{formatCurrency(doc.total)}</Text>
+                            <Text style={[styles.docAmount, { color: theme.accent.primary }]}>{formatCurrency(doc.total)}</Text>
                             <View style={styles.statusRow}>
                               <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(doc.status)}20` }]}>
                                 {getStatusIcon(doc.status)}
@@ -482,15 +529,15 @@ export default function DocumentsScreen() {
                                 </Text>
                               </View>
                             </View>
-                            <Text style={styles.docDate}>{formatDate(doc.date)}</Text>
+                            <Text style={[styles.docDate, { color: theme.text.tertiary }]}>{formatDate(doc.date)}</Text>
                           </View>
                         </View>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={styles.deleteButton}
+                        style={[styles.deleteButton, { backgroundColor: theme.surface.danger, borderLeftColor: theme.border.medium }]}
                         onPress={() => handleDeleteDocument(doc.id, doc.documentNumber)}
                       >
-                        <Trash2 size={18} color="#EF4444" />
+                        <Trash2 size={18} color={theme.accent.danger} />
                       </TouchableOpacity>
                     </View>
                     {/* Show ad with proper spacing (minimum 5 items between ads) */}
@@ -778,13 +825,12 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    minHeight: '70%',
+    minHeight: '80%',
     backgroundColor: '#FFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
     paddingBottom: 40,
-    minHeight: '80%',
   },
   modalTitle: {
     fontSize: 24,

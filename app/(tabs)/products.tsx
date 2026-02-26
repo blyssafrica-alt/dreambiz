@@ -1661,6 +1661,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
   helperText: {
     fontSize: 12,
     marginTop: 8,
@@ -1681,12 +1685,6 @@ const styles = StyleSheet.create({
   proofUploadText: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 12,
   },
   proofImage: {
     width: '100%',

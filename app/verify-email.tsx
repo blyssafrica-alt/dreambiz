@@ -1,4 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
+import { ArrowLeft } from 'lucide-react-native';
 import { Mail, CheckCircle, AlertCircle, ArrowRight, Sparkles, Clock, RefreshCw } from 'lucide-react-native';
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -29,6 +30,8 @@ export default function VerifyEmailScreen() {
   const [email, setEmail] = useState(authUser?.email || '');
   const [resendCooldown, setResendCooldown] = useState(0);
   const [checkMessage, setCheckMessage] = useState<string | null>(null);
+  const [loadTimeout, setLoadTimeout] = useState(false);
+  const LOAD_TIMEOUT_MS = 10000;
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -146,6 +149,13 @@ export default function VerifyEmailScreen() {
       return () => clearTimeout(timer);
     }
   }, [resendCooldown]);
+
+  // Timeout: if still not verified after 10s, show Retry + Back to Login (no infinite loading)
+  useEffect(() => {
+    if (!authUser || isVerified) return;
+    const t = setTimeout(() => setLoadTimeout(true), LOAD_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [authUser, isVerified]);
 
   const checkEmailStatus = React.useCallback(async (showUI = false) => {
     if (isVerified) return; // Don't check if already verified
@@ -637,6 +647,34 @@ export default function VerifyEmailScreen() {
                     </>
                   )}
                 </TouchableOpacity>
+
+                {/* Timeout: no infinite loading - show Retry + Back to Login after 10s */}
+                {loadTimeout && (
+                  <View style={[styles.infoBox, { backgroundColor: theme.accent.warning + '10', borderColor: theme.accent.warning + '30', marginTop: 16 }]}>
+                    <Text style={[styles.infoTitle, { color: theme.text.primary }]}>Taking longer than expected</Text>
+                    <Text style={[styles.infoText, { color: theme.text.secondary, marginTop: 8 }]}>
+                      Verification can take a moment. You can retry or return to sign in.
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+                      <TouchableOpacity
+                        style={[styles.resendButton, { flex: 1, backgroundColor: theme.accent.primary }]}
+                        onPress={() => { setLoadTimeout(false); checkEmailStatus(true); }}
+                        activeOpacity={0.8}
+                      >
+                        <RefreshCw size={20} color="#FFF" />
+                        <Text style={styles.resendButtonText}>Retry</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.resendButton, { flex: 1, backgroundColor: theme.background.secondary }]}
+                        onPress={() => router.replace('/sign-in' as any)}
+                        activeOpacity={0.8}
+                      >
+                        <ArrowLeft size={20} color={theme.text.primary} />
+                        <Text style={[styles.resendButtonText, { color: theme.text.primary }]}>Back to Login</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </>
             )}
 

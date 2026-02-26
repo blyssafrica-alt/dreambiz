@@ -198,7 +198,7 @@ export default function FinancialToolsScreen() {
                   activeOpacity={0.7}
                 >
                   <LinearGradient
-                    colors={calc.gradient}
+                    colors={calc.gradient as [string, string]}
                     style={[styles.iconContainer, locked && styles.iconContainerLocked]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
@@ -250,7 +250,7 @@ export default function FinancialToolsScreen() {
                   activeOpacity={0.7}
                 >
                   <LinearGradient
-                    colors={stmt.gradient}
+                    colors={stmt.gradient as [string, string]}
                     style={[styles.iconContainer, locked && styles.iconContainerLocked]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}

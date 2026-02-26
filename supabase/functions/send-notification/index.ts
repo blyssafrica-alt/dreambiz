@@ -101,12 +101,15 @@ serve(async (req) => {
       });
     }
 
-    const targetUserId = body.userId || authData.user.id;
+    let targetUserId = body.userId || authData.user.id;
     if (targetUserId !== authData.user.id) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      const { data: isAdmin } = await supabaseAdmin.rpc('user_is_admin', { user_id: authData.user.id });
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ error: 'Forbidden' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     const channels = body.channels || { push: true, email: false };

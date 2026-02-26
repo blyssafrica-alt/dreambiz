@@ -25,13 +25,16 @@ export default function PageHeader({
   rightAction,
   showLogo = true, // Show logo by default
 }: PageHeaderProps) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { isEmployee, currentEmployee, business } = useBusiness();
+  const headerGradient = isDark
+    ? [theme.background.secondary, theme.background.tertiary] as [string, string]
+    : (theme.gradient.primary as [string, string]);
 
   return (
-    <SafeAreaView edges={['top']} style={styles.safeArea}>
+    <SafeAreaView edges={['top']} style={[styles.safeArea, { backgroundColor: theme.background.primary }]}>
       <LinearGradient
-        colors={theme.gradient.primary as [string, string]}
+        colors={headerGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.headerGradient}

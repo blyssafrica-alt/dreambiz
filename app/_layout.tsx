@@ -19,9 +19,14 @@ import { AdContextProvider } from "@/contexts/AdContext";
 import { PremiumContextProvider } from "@/contexts/PremiumContext";
 import { SettingsContext } from "@/contexts/SettingsContext";
 import NotificationBootstrap from "@/components/NotificationBootstrap";
-import { StatusBar } from 'react-native';
+import { StatusBar, Linking } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import LoadingScreen from '@/components/LoadingScreen';
+import { useSupplierFlowState } from '@/hooks/useSupplierFlowState';
+import { isSupplierFlowPath } from '@/lib/supplier-flow';
+
+const SUPPLIER_INTENT_KEY = 'SUPPLIER_INTENT';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -47,6 +52,19 @@ function RootLayoutNav() {
   const [emailVerified, setEmailVerified] = React.useState<boolean | null>(null);
   const [showLoadingScreen, setShowLoadingScreen] = React.useState(true);
   const hasCompletedInitialLoad = React.useRef(false);
+
+  const currentPath = segments.join('/');
+  const pathWithSlash = currentPath ? (currentPath.startsWith('/') ? currentPath : '/' + currentPath) : '/';
+  const inSupplierFlowPath = isSupplierFlowPath(pathWithSlash);
+
+  const supplierFlow = useSupplierFlowState({
+    userId: authUser?.id ?? null,
+    email: authUser?.email ?? null,
+    emailVerified: emailVerified ?? false,
+    onboardingComplete: hasOnboarded,
+    isEmployee,
+    enabled: inSupplierFlowPath,
+  });
 
   const isLoading = businessLoading || authLoading;
 
@@ -164,12 +182,13 @@ function RootLayoutNav() {
       currentPath.includes('sign-up') ||
       currentPath.includes('sign-in') ||
       currentPath.includes('employee-login');
+    const inSupplierEntry = currentPath.includes('supplier-apply') || currentPath.includes('supplier-login');
     const inVerifyEmail = currentPath.includes('verify-email');
     const inOnboarding = currentPath.includes('onboarding');
     const inAdmin = currentPath.includes('admin');
     const inTabs = currentPath.includes('(tabs)') || currentPath === '';
     // Routes that are valid for authenticated users but outside tabs
-    const allowedNonTabRoutes = ['books', 'my-library', 'my-ads', 'business-plan', 'help', 'receipt-scan', 'document', 'subscription', 'payments', 'legal', 'financial-tools'];
+    const allowedNonTabRoutes = ['books', 'my-library', 'my-purchases', 'my-ads', 'business-plan', 'help', 'receipt-scan', 'document', 'subscription', 'payments', 'legal', 'financial-tools', 'suppliers-marketplace', 'supplier', 'rfq', 'purchase-orders', 'reorder-suggestions'];
     const inAllowedNonTabRoute = allowedNonTabRoutes.some(route => currentPath.includes(route));
 
     // Use authUser as source of truth for authentication (more reliable than isAuthenticated computed value)
@@ -206,8 +225,8 @@ function RootLayoutNav() {
     let targetRoute: string | null = null;
 
     if (!actuallyAuthenticated) {
-      // Not authenticated - go to landing
-      if (!inAuth) {
+      // Not authenticated - go to landing (allow supplier entry points)
+      if (!inAuth && !inSupplierEntry) {
         targetRoute = '/landing';
       }
     } else {
@@ -253,7 +272,18 @@ function RootLayoutNav() {
     if (targetRoute && targetRoute !== currentPath) {
       navigationRef.current = targetRoute;
       lastNavigationTimeRef.current = now;
-      router.replace(targetRoute as any);
+      if (targetRoute === '/(tabs)') {
+        AsyncStorage.getItem(SUPPLIER_INTENT_KEY).then((intent) => {
+          if (intent === 'true') {
+            AsyncStorage.removeItem(SUPPLIER_INTENT_KEY);
+            router.replace('/supplier-apply' as any);
+          } else {
+            router.replace(targetRoute as any);
+          }
+        });
+      } else {
+        router.replace(targetRoute as any);
+      }
     } else if (!targetRoute && inAuth && actuallyAuthenticated) {
       // Emergency fallback: if authenticated but stuck on auth screen with no target route
       // Force navigation to prevent getting stuck
@@ -269,11 +299,50 @@ function RootLayoutNav() {
     }
   }, [isAuthenticated, hasOnboarded, emailVerified, isLoading, authLoading, businessLoading, segments, router, authUser]);
 
+  // Deep link: when app opens from auth link (e.g. email verify), refresh session so state is correct
+  React.useEffect(() => {
+    const handleUrl = async (url: string | null) => {
+      if (!url) return;
+      if (url.includes('access_token=') || url.includes('refresh_token=') || url.includes('type=recovery')) {
+        try {
+          await supabase.auth.getSession();
+        } catch (_) {}
+      }
+    };
+    Linking.getInitialURL().then(handleUrl);
+    const sub = Linking.addEventListener('url', ({ url }) => handleUrl(url));
+    return () => sub.remove();
+  }, []);
+
+  // Supplier flow route guard: enforce single allowed route per state (no bypass via URL)
+  React.useEffect(() => {
+    if (!inSupplierFlowPath || supplierFlow.isLoading || supplierFlow.isFetching) return;
+    const state = supplierFlow.state;
+    const expectedRoute = supplierFlow.expectedRoute;
+    if (!state || !expectedRoute) return;
+
+    const pathNorm = pathWithSlash.replace(/\/$/, '') || '/';
+    const expectedNorm = expectedRoute.replace(/\/$/, '') || '/';
+
+    if (state === 'NOT_LOGGED_IN') {
+      if (pathNorm.includes('supplier-apply') || pathNorm.includes('supplier-login')) return;
+      router.replace('/landing' as any);
+      return;
+    }
+    // NO_APPLICATION: don't redirect from Supplier Dashboard - let supplier/_layout show "need approved profile" screen
+    if (state === 'NO_APPLICATION' && (pathNorm === '/supplier' || pathNorm.startsWith('/supplier/'))) return;
+    // NO_APPLICATION: allow become-a-supplier so we don't redirect back to supplier-apply after it just sent user here (avoids flicker/loop)
+    if (state === 'NO_APPLICATION' && (pathNorm === '/suppliers-marketplace/become-a-supplier' || pathNorm.startsWith('/suppliers-marketplace/become-a-supplier/'))) return;
+    if (pathNorm !== expectedNorm && !pathNorm.startsWith(expectedNorm + '/')) {
+      router.replace(expectedRoute as any);
+    }
+  }, [inSupplierFlowPath, pathWithSlash, supplierFlow.state, supplierFlow.expectedRoute, supplierFlow.isLoading, supplierFlow.isFetching, router]);
+
   // Always render the Stack navigator so routes are available
   // Show loading screen as overlay if needed
   return (
     <>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.background.primary} />
       <Stack 
         screenOptions={{ 
           headerBackTitle: "Back",
@@ -297,10 +366,18 @@ function RootLayoutNav() {
         <Stack.Screen name="subscription" options={{ title: 'Subscription', headerShown: false }} />
         <Stack.Screen name="books" options={{ headerShown: false }} />
         <Stack.Screen name="my-library" options={{ title: 'My Library', headerShown: false }} />
+        <Stack.Screen name="my-purchases" options={{ title: 'My Purchases', headerShown: false }} />
         <Stack.Screen name="my-ads" options={{ title: 'My Ads', headerShown: false }} />
         <Stack.Screen name="receipt-scan" options={{ title: 'Scan Receipt', headerShown: false }} />
         <Stack.Screen name="payments" options={{ headerShown: false }} />
         <Stack.Screen name="admin" options={{ headerShown: false }} />
+        <Stack.Screen name="supplier-apply" options={{ headerShown: false }} />
+        <Stack.Screen name="supplier-login" options={{ headerShown: false }} />
+        <Stack.Screen name="suppliers-marketplace" options={{ headerShown: false }} />
+        <Stack.Screen name="supplier" options={{ headerShown: false }} />
+        <Stack.Screen name="rfq" options={{ headerShown: false }} />
+        <Stack.Screen name="purchase-orders" options={{ headerShown: false }} />
+        <Stack.Screen name="reorder-suggestions" options={{ headerShown: false }} />
       </Stack>
       {showLoadingScreen || isLoading ? (
         <LoadingScreen message="Loading DreamBiz..." />

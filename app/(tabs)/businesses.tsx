@@ -23,6 +23,7 @@ import {
   Animated,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import PageHeader from '@/components/PageHeader';
 import PremiumUpgradeModal from '@/components/PremiumUpgradeModal';
 import { useBusiness } from '@/contexts/BusinessContext';
@@ -84,24 +85,7 @@ export default function BusinessesScreen() {
     dreamBigBook: 'none' as DreamBigBook,
   });
 
-  if (isEmployee) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.background.primary }]}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.emptyState}>
-          <Building2 size={48} color={theme.text.tertiary} />
-          <Text style={[styles.emptyStateTitle, { color: theme.text.primary }]}>
-            Access restricted
-          </Text>
-          <Text style={[styles.emptyStateSubtitle, { color: theme.text.secondary }]}>
-            Only business owners can create or switch businesses. Contact your owner to update assignments.
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Load books and features from database
+  // Load books and features from database (hooks must run before any conditional return)
   useEffect(() => {
     const loadDatabaseBooks = async () => {
       try {
@@ -201,6 +185,23 @@ export default function BusinessesScreen() {
       }),
     ]).start();
   }, [fadeAnim, slideAnim]);
+
+  if (isEmployee) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background.primary }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.emptyState}>
+          <Building2 size={48} color={theme.text.tertiary} />
+          <Text style={[styles.emptyStateTitle, { color: theme.text.primary }]}>
+            Access restricted
+          </Text>
+          <Text style={[styles.emptyStateSubtitle, { color: theme.text.secondary }]}>
+            Only business owners can create or switch businesses. Contact your owner to update assignments.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const handleAddBusiness = () => {
     // Check limit before showing modal
@@ -874,6 +875,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 40,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptyStateSubtitle: {
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 24,
   },
   emptyText: {
     fontSize: 16,

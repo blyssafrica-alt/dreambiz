@@ -255,8 +255,8 @@ export function FeatureContextProvider({ children }: { children: React.ReactNode
     if (!feature) return false;
 
     // Keep tabs limited: only show when explicitly configured as a tab
-    const visibility = feature.visibility || {};
-    return visibility.showAsTab === true && visibility.type === 'tab';
+    const visibility = feature.visibility;
+    return visibility != null && visibility.showAsTab === true && visibility.type === 'tab';
   }, [features, isFeatureVisible]);
 
   const getVisibleTabs = useCallback((): string[] => {

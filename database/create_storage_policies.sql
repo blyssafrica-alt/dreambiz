@@ -238,11 +238,47 @@ USING (
 );
 
 -- ============================================
+-- SUPPLIER_ASSETS BUCKET POLICIES (application logos, covers, documents)
+-- ============================================
+-- Used by: Become a Supplier form (logos/, covers/, application_docs/)
+-- Create bucket in Dashboard: Storage > New bucket > name: supplier_assets, Public: YES
+
+DROP POLICY IF EXISTS "Public Read - supplier_assets" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Upload - supplier_assets" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Update - supplier_assets" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Delete - supplier_assets" ON storage.objects;
+
+CREATE POLICY "Public Read - supplier_assets"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'supplier_assets');
+
+CREATE POLICY "Authenticated Upload - supplier_assets"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'supplier_assets'
+  AND auth.role() = 'authenticated'
+);
+
+CREATE POLICY "Authenticated Update - supplier_assets"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'supplier_assets'
+  AND auth.role() = 'authenticated'
+);
+
+CREATE POLICY "Authenticated Delete - supplier_assets"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'supplier_assets'
+  AND auth.role() = 'authenticated'
+);
+
+-- ============================================
 -- VERIFICATION
 -- ============================================
 -- Check that policies were created:
 -- SELECT * FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects';
 
 -- Check buckets exist:
--- SELECT name, public FROM storage.buckets WHERE name IN ('book_covers', 'book-documents', 'ad_images', 'product_images', 'business_logos', 'payment_proofs');
+-- SELECT name, public FROM storage.buckets WHERE name IN ('book_covers', 'book-documents', 'ad_images', 'product_images', 'business_logos', 'payment_proofs', 'supplier_assets');
 

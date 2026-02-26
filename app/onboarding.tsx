@@ -563,6 +563,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 32,
   },
+  title: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
   logo: {
     fontSize: 32,
     fontWeight: '700' as const,

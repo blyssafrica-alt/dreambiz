@@ -16,6 +16,7 @@ import type {
   Product,
   Customer,
   Supplier,
+  SupplierAccountsPayable,
   Budget,
   CashflowProjection,
   TaxRate,
@@ -35,6 +36,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     const [products, setProducts] = useState<Product[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+    const [supplierAccountsPayable, setSupplierAccountsPayable] = useState<SupplierAccountsPayable[]>([]);
     const [budgets, setBudgets] = useState<Budget[]>([]);
     const [cashflowProjections, setCashflowProjections] = useState<CashflowProjection[]>([]);
     const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
@@ -273,7 +275,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         ? supabase.from('business_profiles').select('*').eq('id', currentBusinessId).maybeSingle()
         : supabase.from('business_profiles').select('*').eq('user_id', userId).order('created_at', { ascending: false });
 
-      const [businessRes, transactionsRes, documentsRes, productsRes, customersRes, suppliersRes, budgetsRes, cashflowRes, taxRatesRes, employeesRes, projectsRes, projectTasksRes, recurringInvoicesRes, paymentsRes, foldersRes, exchangeRateRes] = await Promise.all([
+      const [businessRes, transactionsRes, documentsRes, productsRes, customersRes, suppliersRes, budgetsRes, cashflowRes, taxRatesRes, employeesRes, projectsRes, projectTasksRes, recurringInvoicesRes, paymentsRes, foldersRes, exchangeRateRes, supplierApRes] = await Promise.all([
         safeQuery(businessQuery, 'business_profiles'),
         safeQuery(buildQuery('transactions', 'date', 'desc'), 'transactions'),
         safeQuery(buildQuery('documents', 'date', 'desc'), 'documents'),
@@ -294,6 +296,12 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           supabase.from('exchange_rates').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
           'exchange_rates'
         ),
+        currentBusinessId
+          ? safeQuery(
+              supabase.from('supplier_accounts_payable').select('*').eq('business_id', currentBusinessId).order('created_at', { ascending: false }),
+              'supplier_accounts_payable'
+            )
+          : Promise.resolve({ data: [], error: null }),
       ]);
 
       const businessList = Array.isArray(businessRes.data)
@@ -336,6 +344,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           category: t.category,
           date: t.date,
           createdAt: t.created_at,
+          documentId: t.document_id,
         })));
       }
 
@@ -416,9 +425,29 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           isActive: p.is_active,
           featuredImage: p.featured_image || undefined,
           images: p.images ? (typeof p.images === 'string' ? JSON.parse(p.images) : p.images) : undefined,
+          defaultSupplierId: p.default_supplier_id || undefined,
+          averageCostPrice: p.average_cost_price != null ? Number(p.average_cost_price) : undefined,
+          lastPurchaseDate: p.last_purchase_date || undefined,
           createdAt: p.created_at,
           updatedAt: p.updated_at,
         })));
+      }
+
+      if (supplierApRes?.data) {
+        setSupplierAccountsPayable(supplierApRes.data.map((ap: any) => ({
+          id: ap.id,
+          business_id: ap.business_id,
+          supplier_id: ap.supplier_id,
+          purchase_order_id: ap.purchase_order_id ?? null,
+          amount: Number(ap.amount),
+          currency: ap.currency ?? 'USD',
+          reference: ap.reference ?? undefined,
+          status: ap.status ?? 'unpaid',
+          paid_at: ap.paid_at ?? null,
+          created_at: ap.created_at,
+        })));
+      } else {
+        setSupplierAccountsPayable([]);
       }
 
       if (customersRes.data) {
@@ -437,7 +466,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       }
 
       if (suppliersRes.data) {
-        setSuppliers(suppliersRes.data.map(s => ({
+        setSuppliers(suppliersRes.data.map((s: any) => ({
           id: s.id,
           name: s.name,
           email: s.email || undefined,
@@ -450,6 +479,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           paymentTerms: s.payment_terms || undefined,
           createdAt: s.created_at,
           updatedAt: s.updated_at,
+          marketplaceSupplierId: s.marketplace_supplier_id ?? undefined,
         })));
       }
 
@@ -636,6 +666,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     setProducts([]);
     setCustomers([]);
     setSuppliers([]);
+    setSupplierAccountsPayable([]);
     setBudgets([]);
     setCashflowProjections([]);
     setTaxRates([]);
@@ -1223,6 +1254,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
           description: transaction.description,
           category: transaction.category,
           date: transaction.date,
+          document_id: (transaction as any).documentId ?? null,
         })
         .select()
         .single();
@@ -1238,6 +1270,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         category: data.category,
         date: data.date,
         createdAt: data.created_at,
+        documentId: data.document_id,
       };
 
       setTransactions([newTransaction, ...transactions]);
@@ -1767,6 +1800,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
         paymentTerms: data.payment_terms || undefined,
         createdAt: data.created_at,
         updatedAt: data.updated_at,
+        marketplaceSupplierId: data.marketplace_supplier_id ?? undefined,
       };
 
       setSuppliers([newSupplier, ...suppliers]);
@@ -1787,6 +1821,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       if (updates.contactPerson !== undefined) updateData.contact_person = updates.contactPerson || null;
       if (updates.notes !== undefined) updateData.notes = updates.notes || null;
       if (updates.paymentTerms !== undefined) updateData.payment_terms = updates.paymentTerms || null;
+      if (updates.marketplaceSupplierId !== undefined) updateData.marketplace_supplier_id = updates.marketplaceSupplierId || null;
 
       const { error } = await supabase
         .from('suppliers')
@@ -1819,6 +1854,64 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
       console.error('Failed to delete supplier:', error);
       throw error;
     }
+  };
+
+  /** Add a private supplier linked to a marketplace profile (from "Add to My Suppliers" on storefront). */
+  const addSupplierFromMarketplace = async (marketplaceSupplierId: string) => {
+    if (!userId || !business?.id) throw new Error('User or business not found');
+    const existing = suppliers.find(s => s.marketplaceSupplierId === marketplaceSupplierId);
+    if (existing) return existing;
+
+    const { data: profile, error: fetchError } = await supabase
+      .from('supplier_marketplace_profiles')
+      .select('id, business_name, email, phone')
+      .eq('id', marketplaceSupplierId)
+      .eq('status', 'approved')
+      .single();
+
+    if (fetchError || !profile) throw new Error('Supplier not found or not approved');
+
+    const { data, error } = await supabase
+      .from('suppliers')
+      .insert({
+        user_id: userId,
+        business_id: business.id,
+        name: (profile as any).business_name,
+        email: (profile as any).email || null,
+        phone: (profile as any).phone || null,
+        marketplace_supplier_id: marketplaceSupplierId,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    const newSupplier: Supplier = {
+      id: data.id,
+      name: data.name,
+      email: data.email || undefined,
+      phone: data.phone || undefined,
+      address: data.address || undefined,
+      contactPerson: data.contact_person || undefined,
+      notes: data.notes || undefined,
+      totalPurchases: Number(data.total_purchases),
+      lastPurchaseDate: data.last_purchase_date || undefined,
+      paymentTerms: data.payment_terms || undefined,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+      marketplaceSupplierId: data.marketplace_supplier_id ?? undefined,
+    };
+
+    setSuppliers([newSupplier, ...suppliers]);
+    return newSupplier;
+  };
+
+  /** Remove a supplier that was added from the marketplace (by marketplace profile id). */
+  const removeSupplierFromMarketplace = async (marketplaceSupplierId: string) => {
+    if (!userId || !business?.id) throw new Error('User or business not found');
+    const existing = suppliers.find(s => s.marketplaceSupplierId === marketplaceSupplierId);
+    if (!existing) return;
+    await deleteSupplier(existing.id);
   };
 
   const getDashboardMetrics = async (): Promise<DashboardMetrics> => {
@@ -3161,6 +3254,7 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     products: Array.isArray(products) ? products : [],
     customers: Array.isArray(customers) ? customers : [],
     suppliers: Array.isArray(suppliers) ? suppliers : [],
+    supplierAccountsPayable: Array.isArray(supplierAccountsPayable) ? supplierAccountsPayable : [],
     budgets: Array.isArray(budgets) ? budgets : [],
     cashflowProjections: Array.isArray(cashflowProjections) ? cashflowProjections : [],
     taxRates: Array.isArray(taxRates) ? taxRates : [],
@@ -3194,6 +3288,8 @@ export const [BusinessContext, useBusiness] = createContextHook(() => {
     addSupplier,
     updateSupplier,
     deleteSupplier,
+    addSupplierFromMarketplace,
+    removeSupplierFromMarketplace,
     addBudget,
     updateBudget,
     deleteBudget,

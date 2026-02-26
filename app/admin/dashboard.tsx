@@ -4,13 +4,15 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { supabase } from '@/lib/supabase';
-import { TrendingUp, Package, Megaphone, Users, Building2, DollarSign, ArrowRight, Boxes, Bell, Settings as SettingsIcon, Layers } from 'lucide-react-native';
+import { TrendingUp, Package, Megaphone, Users, Building2, DollarSign, ArrowRight, Boxes, Bell, Settings as SettingsIcon, Layers, Truck, Ticket, Mail } from 'lucide-react-native';
+import { useFeatures } from '@/contexts/FeatureContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function AdminDashboard() {
   const { theme } = useTheme();
   const { t } = useTranslation();
   const router = useRouter();
+  const { isFeatureVisible } = useFeatures();
   const [stats, setStats] = useState({
     totalUsers: 0,
     activeUsers: 0,
@@ -306,6 +308,24 @@ export default function AdminDashboard() {
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/event-check-in' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Event Check-in</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Scan or enter ticket code, mark used, undo
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <Ticket size={18} color={theme.accent.primary} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
           onPress={() => router.push('/admin/ad-settings' as any)}
           activeOpacity={0.7}
         >
@@ -386,6 +406,170 @@ export default function AdminDashboard() {
               <Text style={[styles.actionText, { color: theme.text.primary }]}>Manage Books</Text>
               <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
                 Add and manage DreamBig books
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card, borderLeftWidth: 3, borderLeftColor: '#0EA5E9' }]}
+          onPress={() => router.push('/admin/supplier-applications' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>New supplier applications</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Review and approve applications from Become a Supplier
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: '#0EA5E915' }]}>
+              <ArrowRight size={18} color="#0EA5E9" />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/suppliers' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Suppliers (profiles)</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                All marketplace suppliers: approve, decline, suspend
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <Truck size={18} color={theme.accent.primary} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/supplier-subcategory-governance' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Subcategory governance</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Approve, rename, or merge supplier subcategories
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <Layers size={18} color={theme.accent.primary} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/supplier-rfqs' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Supplier RFQs</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                View all requests for quote
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/supplier-purchase-orders' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Purchase orders</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                View all supplier POs
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/supplier-sponsored-placements' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Sponsored placements</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Approve or reject supplier promotions
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/subscription-promotions' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Subscription promotions</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Trials, percentage & fixed discounts on supplier plans
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>
+              <ArrowRight size={18} color={theme.accent.primary} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        {isFeatureVisible('admin-mailing') && (
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card, borderLeftWidth: 3, borderLeftColor: '#0EA5E9' }]}
+          onPress={() => router.push('/admin/mailing' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Mailing</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Email campaigns to suppliers and business owners
+              </Text>
+            </View>
+            <View style={[styles.actionArrowContainer, { backgroundColor: '#0EA5E915' }]}>
+              <Mail size={18} color="#0EA5E9" />
+            </View>
+          </View>
+        </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.background.card }]}
+          onPress={() => router.push('/admin/supplier-performance' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.actionContent}>
+            <View style={styles.actionLeft}>
+              <Text style={[styles.actionText, { color: theme.text.primary }]}>Supplier performance</Text>
+              <Text style={[styles.actionSubtext, { color: theme.text.secondary }]}>
+                Ranking, scores and badges
               </Text>
             </View>
             <View style={[styles.actionArrowContainer, { backgroundColor: `${theme.accent.primary}15` }]}>

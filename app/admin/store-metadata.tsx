@@ -148,7 +148,7 @@ export default function StoreMetadataScreen() {
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Store Metadata</Text>
         <TouchableOpacity onPress={handleSave} disabled={isSaving}>
-          <Save size={22} color={isSaving ? theme.text.muted : theme.accent.primary} />
+          <Save size={22} color={isSaving ? theme.text.tertiary : theme.accent.primary} />
         </TouchableOpacity>
       </View>
 
@@ -157,7 +157,7 @@ export default function StoreMetadataScreen() {
         <TextInput
           style={[styles.input, { backgroundColor: theme.background.card, color: theme.text.primary, borderColor: theme.border.light, borderWidth: 1 }]}
           placeholder="Privacy Policy URL"
-          placeholderTextColor={theme.text.muted}
+          placeholderTextColor={theme.text.tertiary}
           value={formData.privacyPolicyUrl}
           onChangeText={(text) => setFormData(prev => ({ ...prev, privacyPolicyUrl: text }))}
           autoCapitalize="none"
@@ -165,7 +165,7 @@ export default function StoreMetadataScreen() {
         <TextInput
           style={[styles.input, { backgroundColor: theme.background.card, color: theme.text.primary, borderColor: theme.border.light, borderWidth: 1 }]}
           placeholder="Terms of Service URL"
-          placeholderTextColor={theme.text.muted}
+          placeholderTextColor={theme.text.tertiary}
           value={formData.termsUrl}
           onChangeText={(text) => setFormData(prev => ({ ...prev, termsUrl: text }))}
           autoCapitalize="none"
@@ -173,7 +173,7 @@ export default function StoreMetadataScreen() {
         <TextInput
           style={[styles.input, { backgroundColor: theme.background.card, color: theme.text.primary, borderColor: theme.border.light, borderWidth: 1 }]}
           placeholder="Support URL"
-          placeholderTextColor={theme.text.muted}
+          placeholderTextColor={theme.text.tertiary}
           value={formData.supportUrl}
           onChangeText={(text) => setFormData(prev => ({ ...prev, supportUrl: text }))}
           autoCapitalize="none"
@@ -183,7 +183,7 @@ export default function StoreMetadataScreen() {
         <TextInput
           style={[styles.textArea, { backgroundColor: theme.background.card, color: theme.text.primary, borderColor: theme.border.light, borderWidth: 1 }]}
           placeholder="App store description"
-          placeholderTextColor={theme.text.muted}
+          placeholderTextColor={theme.text.tertiary}
           value={formData.description}
           onChangeText={(text) => setFormData(prev => ({ ...prev, description: text }))}
           multiline
@@ -193,7 +193,7 @@ export default function StoreMetadataScreen() {
         <TextInput
           style={[styles.input, { backgroundColor: theme.background.card, color: theme.text.primary, borderColor: theme.border.light, borderWidth: 1 }]}
           placeholder="Comma-separated keywords"
-          placeholderTextColor={theme.text.muted}
+          placeholderTextColor={theme.text.tertiary}
           value={keywordsInput}
           onChangeText={setKeywordsInput}
           autoCapitalize="none"
@@ -209,7 +209,7 @@ export default function StoreMetadataScreen() {
           <TextInput
             style={[styles.input, styles.screenshotInput, { backgroundColor: theme.background.card, color: theme.text.primary, borderColor: theme.border.light, borderWidth: 1 }]}
             placeholder="Screenshot URL"
-            placeholderTextColor={theme.text.muted}
+            placeholderTextColor={theme.text.tertiary}
             value={screenshotInput}
             onChangeText={setScreenshotInput}
             autoCapitalize="none"

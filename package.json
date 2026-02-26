@@ -4,9 +4,11 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "bunx rork start -p l1akc9w0qq5qrzi6ksiej --tunnel",
-    "start-web": "bunx rork start -p l1akc9w0qq5qrzi6ksiej --web --tunnel",
-    "start-web-dev": "DEBUG=expo* bunx rork start -p l1akc9w0qq5qrzi6ksiej --web --tunnel",
+    "start": "expo start",
+    "start:tunnel": "expo start --tunnel",
+    "start-web": "expo start --web",
+    "start-web:tunnel": "expo start --web --tunnel",
+    "start-web-dev": "expo start --web",
     "lint": "expo lint",
     "create-super-admin": "node scripts/create-super-admin.js",
     "build:ios": "eas build --platform ios --profile production",
@@ -14,7 +16,8 @@
     "build:all": "eas build --platform all --profile production",
     "submit:ios": "eas submit --platform ios --profile production",
     "submit:android": "eas submit --platform android --profile production",
-    "prebuild": "expo prebuild --clean"
+    "prebuild": "expo prebuild --clean",
+    "test": "echo 'Supplier flow tests: see __tests__/supplier-flow-router.test.ts; run with npx jest after adding jest'"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -79,6 +82,7 @@
     "@types/react": "~19.1.10",
     "eslint": "^9.31.0",
     "eslint-config-expo": "~10.0.0",
+    "supabase": "^2.76.14",
     "typescript": "~5.9.2"
   },
   "resolutions": {

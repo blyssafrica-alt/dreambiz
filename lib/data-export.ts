@@ -156,16 +156,20 @@ export async function shareData(data: string, filename: string, mimeType: string
 
     if (Platform.OS === 'web') {
       try {
-        const blob = new Blob([data], { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        return;
+        const g = typeof globalThis !== 'undefined' ? globalThis : undefined;
+        const doc = g && 'document' in g ? (g as { document: { createElement: (tag: string) => { href: string; download: string; click: () => void }; body: { appendChild: (el: unknown) => void; removeChild: (el: unknown) => void } } }).document : undefined;
+        if (doc) {
+          const blob = new Blob([data], { type: mimeType });
+          const url = URL.createObjectURL(blob);
+          const link = doc.createElement('a');
+          link.href = url;
+          link.download = filename;
+          doc.body.appendChild(link);
+          link.click();
+          doc.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          return;
+        }
       } catch (webError) {
         console.warn('Web download failed:', webError);
       }

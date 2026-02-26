@@ -92,6 +92,13 @@ export default function AdminLayout() {
         }} 
       />
       <Stack.Screen 
+        name="event-check-in" 
+        options={{ 
+          title: 'Event Check-in',
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
         name="settings" 
         options={{ 
           title: 'Admin Settings',
@@ -258,6 +265,102 @@ export default function AdminLayout() {
           title: 'Business Details',
           headerShown: false,
         }} 
+      />
+      <Stack.Screen 
+        name="suppliers/index" 
+        options={{ title: 'Supplier Applications', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="suppliers/[id]" 
+        options={{ title: 'Supplier Detail', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="supplier-applications/index" 
+        options={{ title: 'Applications (new)', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="supplier-applications/[id]" 
+        options={{ title: 'Application Detail', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="supplier-categories" 
+        options={{ title: 'Supplier Categories', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="supplier-subcategory-governance" 
+        options={{ title: 'Subcategory governance', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="supplier-products" 
+        options={{ title: 'Supplier Products', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="supplier-reviews" 
+        options={{ title: 'Supplier Reviews', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="supplier-complaints" 
+        options={{ title: 'Supplier Complaints', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="supplier-rfqs" 
+        options={{ title: 'Supplier RFQs', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="supplier-purchase-orders" 
+        options={{ title: 'Purchase orders', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="supplier-sponsored-placements" 
+        options={{ title: 'Sponsored placements', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="supplier-placement-tiers" 
+        options={{ title: 'Placement tiers', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="supplier-subscription-plans" 
+        options={{ title: 'Supplier Plans', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="subscription-promotions" 
+        options={{ title: 'Subscription Promotions', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="supplier-subscriptions" 
+        options={{ title: 'Supplier Subscriptions', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="supplier-performance" 
+        options={{ title: 'Supplier Performance', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="mailing/index" 
+        options={{ title: 'Mailing', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="mailing/new" 
+        options={{ title: 'New Campaign', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="mailing/campaign/[id]" 
+        options={{ title: 'Campaign Detail', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="mailing/templates/index" 
+        options={{ title: 'Templates', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="mailing/templates/[id]" 
+        options={{ title: 'Template', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="mailing/templates/new" 
+        options={{ title: 'New Template', headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="mailing/segments/index" 
+        options={{ title: 'Segments', headerShown: false }} 
       />
     </Stack>
   );

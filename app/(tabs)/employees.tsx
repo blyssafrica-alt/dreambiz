@@ -932,6 +932,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 60,
   },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    opacity: 0.9,
+  },
   emptyText: {
     fontSize: 16,
     marginTop: 16,

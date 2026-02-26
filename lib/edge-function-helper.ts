@@ -112,11 +112,11 @@ export async function invokeEdgeFunction<T = any>(
         };
       }
 
-      // Prepare headers - explicitly include Authorization header
-      // supabase.functions.invoke should automatically add it, but we ensure it's there
+      // Prepare headers - include Authorization. Do NOT set Content-Type here:
+      // the Supabase client will add it and JSON.stringify the body. If we set
+      // Content-Type ourselves, the client skips stringification and sends the
+      // raw object, which becomes "[object Object]" and causes "is not valid JSON".
       const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        // Always include Authorization header if session exists
         'Authorization': `Bearer ${session.access_token}`,
         ...options.headers,
       };
