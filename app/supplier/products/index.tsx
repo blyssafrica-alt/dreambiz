@@ -180,7 +180,14 @@ export default function SupplierProductsScreen() {
             RNAlert.alert('Deleted', 'Product removed.');
             load();
           } catch (e: any) {
-            RNAlert.alert('Error', e?.message || 'Failed to delete');
+            const msg = e?.message || '';
+            const isFkViolation = /foreign key|violates.*constraint|supplier_purchase_order/i.test(msg);
+            RNAlert.alert(
+              'Cannot delete',
+              isFkViolation
+                ? "This product can't be deleted because it appears in purchase orders. Unpublish it instead to hide it from your store."
+                : msg || 'Failed to delete'
+            );
           } finally {
             setActingId(null);
           }
@@ -291,7 +298,14 @@ export default function SupplierProductsScreen() {
                         setSelectedIds(new Set());
                         load();
                       } catch (e: any) {
-                        RNAlert.alert('Error', e?.message || 'Failed to delete');
+                        const msg = e?.message || '';
+                        const isFkViolation = /foreign key|violates.*constraint|supplier_purchase_order/i.test(msg);
+                        RNAlert.alert(
+                          'Cannot delete',
+                          isFkViolation
+                            ? "One or more products can't be deleted because they appear in purchase orders. Unpublish them instead to hide from your store."
+                            : msg || 'Failed to delete'
+                        );
                       } finally {
                         setBulkActing(false);
                       }
