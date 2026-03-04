@@ -23,6 +23,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import {
   createPromotion,
+  deletePromotion,
   getPromotion,
   getPromotionManualTargets,
   listPromotions,
@@ -309,16 +310,16 @@ export default function AdminSubscriptionPromotionsScreen() {
     } catch {}
     RNAlert.alert(
       'Delete promotion',
-      `Delete "${promo.name}"?${count > 0 ? ` It has ${count} redemption(s).` : ''}`,
+      `Permanently delete "${promo.name}"? It will be removed from the system.${count > 0 ? ` It has ${count} redemption(s); existing subscriptions will keep their discount/trial but will no longer reference this promotion.` : ''}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Delete permanently',
           style: 'destructive',
           onPress: async () => {
             try {
-              await updatePromotion(promo.id, { isActive: false });
-              RNAlert.alert('Deactivated', 'Promotion deactivated (soft delete).');
+              await deletePromotion(promo.id);
+              RNAlert.alert('Deleted', 'Promotion has been permanently removed.');
               load();
             } catch (e: unknown) {
               RNAlert.alert('Error', (e as Error)?.message ?? 'Failed to delete');

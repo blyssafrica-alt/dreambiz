@@ -343,17 +343,28 @@ export default function AdminSupplierSubscriptionsScreen() {
           </TouchableOpacity>
         }
       />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filters} contentContainerStyle={styles.filterContent}>
-        {STATUS_FILTERS.map((f) => (
-          <TouchableOpacity
-            key={f}
-            style={[styles.filterChip, statusFilter === f && { backgroundColor: theme.accent.primary }]}
-            onPress={() => setStatusFilter(f)}
-          >
-            <Text style={[styles.filterChipText, { color: statusFilter === f ? '#FFF' : theme.text.secondary }]}>{STATUS_LABELS[f] || f.replace('_', ' ')}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={[styles.filterRow, { backgroundColor: theme.background.primary }]}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
+          {STATUS_FILTERS.map((f) => (
+            <TouchableOpacity
+              key={f}
+              style={[
+                styles.filterChip,
+                statusFilter === f && {
+                  borderBottomWidth: 3,
+                  borderBottomColor: theme.accent.primary,
+                  backgroundColor: 'transparent',
+                },
+              ]}
+              onPress={() => setStatusFilter(f)}
+            >
+              <Text style={[styles.filterChipText, { color: statusFilter === f ? theme.accent.primary : theme.text.secondary }]}>
+                {STATUS_LABELS[f] || f.replace('_', ' ')}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
       {loading && !refreshing ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={theme.accent.primary} />
@@ -549,9 +560,9 @@ export default function AdminSupplierSubscriptionsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  filters: { paddingHorizontal: 16, paddingBottom: 12 },
-  filterContent: { flexDirection: 'row', gap: 10 },
-  filterChip: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 24 },
+  filterRow: { paddingHorizontal: 16, paddingVertical: 12 },
+  filterContent: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  filterChip: { paddingHorizontal: 14, paddingVertical: 10 },
   filterChipText: { fontSize: 15, fontWeight: '600' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll: { flex: 1 },

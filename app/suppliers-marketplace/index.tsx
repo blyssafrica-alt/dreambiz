@@ -471,10 +471,10 @@ export default function SuppliersMarketplaceScreen() {
                   >
                     <StorageImage uri={s.logoUrl} bucket="supplier" style={styles.supplierListLogo} containerStyle={styles.supplierListLogoWrap} resizeMode="contain" />
                     <View style={styles.supplierListBody}>
-                      <Text style={[styles.cardTitle, { color: theme.text.primary }]} numberOfLines={1}>
+                      <View style={styles.cardTitleRow}>
                         {s.featured && <Star size={12} color={theme.accent.primary} fill={theme.accent.primary} style={styles.cardStar} />}
-                        {s.businessName}
-                      </Text>
+                        <Text style={[styles.cardTitle, { color: theme.text.primary }]} numberOfLines={1}>{s.businessName}</Text>
+                      </View>
                       {(s.city || s.country) && (
                         <Text style={[styles.cardSub, { color: theme.text.tertiary }]} numberOfLines={1}>{[s.city, s.country].filter(Boolean).join(', ')}</Text>
                       )}
@@ -500,10 +500,10 @@ export default function SuppliersMarketplaceScreen() {
                   <View style={styles.supplierCardTop}>
                     <StorageImage uri={s.logoUrl} bucket="supplier" style={styles.supplierCardLogo} containerStyle={styles.supplierCardLogoWrap} resizeMode="contain" />
                     <View style={styles.supplierCardBody}>
-                      <Text style={[styles.cardTitle, { color: theme.text.primary }]} numberOfLines={1}>
+                      <View style={styles.cardTitleRow}>
                         {s.featured && <Star size={14} color={theme.accent.primary} fill={theme.accent.primary} style={styles.cardStar} />}
-                        {s.businessName}
-                      </Text>
+                        <Text style={[styles.cardTitle, { color: theme.text.primary }]} numberOfLines={1}>{s.businessName}</Text>
+                      </View>
                       {(s.city || s.country) && (
                         <Text style={[styles.cardSub, { color: theme.text.tertiary }]} numberOfLines={1}>
                           {[s.city, s.country].filter(Boolean).join(', ')}
@@ -580,8 +580,9 @@ const styles = StyleSheet.create({
   supplierCardLogo: { width: 52, height: 52, borderRadius: radius.md },
   supplierCardBody: { flex: 1, marginLeft: spacing.sm },
   cardRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 },
   cardTitle: { ...typography.cardTitle, flex: 1 },
-  cardStar: { marginRight: spacing.xxs },
+  cardStar: { marginRight: spacing.xs },
   badges: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' },
   tierBadge: { flexDirection: 'row', alignItems: 'center', gap: spacing.xxs, paddingHorizontal: spacing.xs, paddingVertical: 2, borderRadius: radius.sm },
   tierBadgeText: { ...typography.overline },

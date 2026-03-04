@@ -5,6 +5,7 @@
 
 export {
   createPromotion,
+  deletePromotion,
   getPromotion,
   getPromotionManualTargets,
   listPromotions,

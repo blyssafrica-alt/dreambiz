@@ -146,6 +146,15 @@ export async function updatePromotion(
 }
 
 /**
+ * Permanently delete a promotion. Targets and redemptions are removed (CASCADE).
+ * Subscriptions keep their row; promotion_id is set to NULL (ON DELETE SET NULL).
+ */
+export async function deletePromotion(id: string): Promise<void> {
+  const { error } = await supabase.from('subscription_promotions').delete().eq('id', id);
+  if (error) throw error;
+}
+
+/**
  * Get manual target supplier profile IDs for a promotion (target_group = 'manual').
  */
 export async function getPromotionManualTargets(promotionId: string): Promise<string[]> {

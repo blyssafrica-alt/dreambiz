@@ -38,6 +38,9 @@ type Subscription = {
   start_date: string | null;
   expires_at: string | null;
   trial_ends_at?: string | null;
+  discount_ends_at?: string | null;
+  base_price?: number | null;
+  final_price?: number | null;
   proof_of_payment_url: string | null;
   payment_reference: string | null;
   verified_at: string | null;
@@ -250,9 +253,19 @@ export default function SupplierSubscriptionScreen() {
               <Text style={[styles.cardTitle, { color: theme.text.primary }]}>Current plan</Text>
             </View>
             <Text style={[styles.planName, { color: theme.text.primary }]}>{activeSubscription.plan?.name ?? 'Plan'}</Text>
+            {activeSubscription.status === 'trial' && activeSubscription.trial_ends_at && (
+              <Text style={[styles.muted, { color: theme.text.tertiary }]}>
+                Free trial until {new Date(activeSubscription.trial_ends_at).toLocaleDateString()}
+              </Text>
+            )}
+            {activeSubscription.discount_ends_at && (
+              <Text style={[styles.muted, { color: theme.text.tertiary }]}>
+                Promotional discount until {new Date(activeSubscription.discount_ends_at).toLocaleDateString()}
+              </Text>
+            )}
             {activeSubscription.expires_at && (
               <Text style={[styles.muted, { color: theme.text.tertiary }]}>
-                Expires {new Date(activeSubscription.expires_at).toLocaleDateString()}
+                Plan expires {new Date(activeSubscription.expires_at).toLocaleDateString()}
               </Text>
             )}
           </View>
